@@ -4,7 +4,7 @@
     "slug": "pocketflow",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logo.png",
+    "icon": "./assets/app_icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/logo.png",
@@ -19,16 +19,17 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logo.png",
+        "foregroundImage": "./assets/app_icon.png",
         "backgroundColor": "#B3B09E"
       },
       "permissions": [
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT"
-      ]
+      ],
+      "package": "com.eiteone.pocketflow"
     },
     "web": {
-      "favicon": "./assets/logo.png"
+      "favicon": "./assets/app_icon.png"
     },
     "scheme": "pocketflow",
     "plugins": [
