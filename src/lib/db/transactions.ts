@@ -48,6 +48,14 @@ export async function getTransactions(page = 0, pageSize = 20) {
   );
 }
 
+export async function getById(id: number) {
+  const results = await exec<Transaction>(
+    `SELECT * FROM transactions WHERE id = ?;`,
+    [id]
+  );
+  return results[0] || null;
+}
+
 export async function filterTransactions(options: {
   startDate?: string;
   endDate?: string;
@@ -143,4 +151,38 @@ export async function totalAvailableAcrossWallets() {
     total += w.initial_balance + (inc[0]?.total ?? 0) - (exp[0]?.total ?? 0);
   }
   return total;
+}
+
+export async function monthSpend() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+  const result = await exec<{ total: number }>(
+    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+    [start, end]
+  );
+  return result[0]?.total ?? 0;
+}
+
+export async function todaySpend() {
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+  const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).toISOString();
+  const result = await exec<{ total: number }>(
+    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+    [start, end]
+  );
+  return result[0]?.total ?? 0;
+}
+
+export async function categoryBreakdown() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+  return exec<{ category: string; total: number }>(
+    `SELECT category, COALESCE(SUM(amount),0) as total 
+     FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ? AND category IS NOT NULL
+     GROUP BY category ORDER BY total DESC;`,
+    [start, end]
+  );
 }
