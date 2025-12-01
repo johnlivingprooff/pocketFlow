@@ -1,12 +1,19 @@
-import React, { useEffect, useState } from 'react';
-import { Platform, View, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { Platform, View, ActivityIndicator, useColorScheme } from 'react-native';
 import { Stack } from 'expo-router';
 import { useSettings } from '../src/store/useStore';
 import { ensureTables } from '../src/lib/db';
+import { theme } from '../src/theme/theme';
 
 export default function RootLayout() {
   const { themeMode } = useSettings();
+  const systemColorScheme = useColorScheme();
   const [dbReady, setDbReady] = useState(Platform.OS === 'web');
+  
+  const t = useMemo(() => {
+    const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
+    return theme(effectiveMode);
+  }, [themeMode, systemColorScheme]);
 
   useEffect(() => {
     if (Platform.OS !== 'web') {
@@ -27,6 +34,19 @@ export default function RootLayout() {
     );
   }
 
+  // Define common header style options based on theme
+  const headerOptions = {
+    headerStyle: {
+      backgroundColor: t.background,
+    },
+    headerTintColor: t.textPrimary,
+    headerTitleStyle: {
+      color: t.textPrimary,
+      fontWeight: '700',
+    },
+    headerShadowVisible: false,
+  };
+
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -35,20 +55,21 @@ export default function RootLayout() {
         options={{ 
           presentation: 'modal',
           headerShown: true,
-          title: 'Add Transaction'
+          title: 'Add Transaction',
+          ...headerOptions,
         }} 
       />
-      <Stack.Screen name="transactions/[id]" options={{ headerShown: true, title: 'Transaction Details' }} />
-      <Stack.Screen name="transactions/edit" options={{ headerShown: true, title: 'Edit Transaction' }} />
-      <Stack.Screen name="transactions/history" options={{ headerShown: true, title: 'History' }} />
-      <Stack.Screen name="wallets/create" options={{ headerShown: true, title: 'Create Wallet' }} />
-      <Stack.Screen name="wallets/[id]" options={{ headerShown: true, title: 'Wallet Details' }} />
-      <Stack.Screen name="categories/create" options={{ headerShown: true, title: 'Create Category' }} />
-      <Stack.Screen name="categories/index" options={{ headerShown: true, title: 'Categories' }} />
-      <Stack.Screen name="receipt/scan" options={{ headerShown: true, title: 'Scan Receipt' }} />
-      <Stack.Screen name="profile/index" options={{ headerShown: true, title: 'Profile' }} />
-      <Stack.Screen name="settings/currency" options={{ headerShown: true, title: 'Currency Settings' }} />
-      <Stack.Screen name="settings/security" options={{ headerShown: true, title: 'Security Settings' }} />
+      <Stack.Screen name="transactions/[id]" options={{ headerShown: true, title: 'Transaction Details', ...headerOptions }} />
+      <Stack.Screen name="transactions/edit" options={{ headerShown: true, title: 'Edit Transaction', ...headerOptions }} />
+      <Stack.Screen name="transactions/history" options={{ headerShown: true, title: 'History', ...headerOptions }} />
+      <Stack.Screen name="wallets/create" options={{ headerShown: true, title: 'Create Wallet', ...headerOptions }} />
+      <Stack.Screen name="wallets/[id]" options={{ headerShown: true, title: 'Wallet Details', ...headerOptions }} />
+      <Stack.Screen name="categories/create" options={{ headerShown: true, title: 'Create Category', ...headerOptions }} />
+      <Stack.Screen name="categories/index" options={{ headerShown: true, title: 'Categories', ...headerOptions }} />
+      <Stack.Screen name="receipt/scan" options={{ headerShown: true, title: 'Scan Receipt', ...headerOptions }} />
+      <Stack.Screen name="profile/index" options={{ headerShown: true, title: 'Profile', ...headerOptions }} />
+      <Stack.Screen name="settings/currency" options={{ headerShown: true, title: 'Currency Settings', ...headerOptions }} />
+      <Stack.Screen name="settings/security" options={{ headerShown: true, title: 'Security Settings', ...headerOptions }} />
       <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
     </Stack>
   );
