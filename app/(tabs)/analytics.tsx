@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, Dimensions, Platform, TouchableOpacity, useColorScheme } from 'react-native';
+import { View, Text, ScrollView, Dimensions, Platform, TouchableOpacity, useColorScheme, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
@@ -18,7 +18,10 @@ import {
   getSevenDaySpendingTrend,
   getDailySpendingForMonth,
   getMonthlyComparison,
-  getCategorySpendingForPieChart
+  getCategorySpendingForPieChart,
+  getSpendingTrendForPeriod,
+  getCategorySpendingForPeriod,
+  getTransactionsByCategory
 } from '../../src/lib/db/transactions';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { formatDate } from '../../src/utils/date';
@@ -30,6 +33,8 @@ import CategoryPieChart from '../../src/components/charts/CategoryPieChart';
 import AnimatedProgressBar from '../../src/components/charts/AnimatedProgressBar';
 import InsightsSection from '../../src/components/InsightsSection';
 import FinancialHealthCard from '../../src/components/FinancialHealthCard';
+import TimePeriodSelector, { TimePeriod } from '../../src/components/TimePeriodSelector';
+import CategoryDrillDown from '../../src/components/CategoryDrillDown';
 import {
   generateSpendingInsights,
   generateSavingsSuggestions,
@@ -38,6 +43,7 @@ import {
   SpendingInsight,
   FinancialHealthScore
 } from '../../src/lib/insights/analyticsInsights';
+import { exportAnalyticsReport, AnalyticsReportData } from '../../src/lib/export/exportReport';
 
 export default function AnalyticsPage() {
   const { themeMode, defaultCurrency } = useSettings();
@@ -69,6 +75,12 @@ export default function AnalyticsPage() {
   const [savingsSuggestions, setSavingsSuggestions] = useState<SpendingInsight[]>([]);
   const [patterns, setPatterns] = useState<SpendingInsight[]>([]);
   const [financialHealth, setFinancialHealth] = useState<FinancialHealthScore | null>(null);
+
+  // Phase 4: Interactivity & Customization State
+  const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('month');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [categoryTransactions, setCategoryTransactions] = useState<Array<{ id: number; amount: number; date: string; notes?: string }>>([]);
+  const [showCategoryDrillDown, setShowCategoryDrillDown] = useState(false);
 
   const loadData = useCallback(async () => {
     if (Platform.OS !== 'web') {
@@ -163,6 +175,59 @@ export default function AnalyticsPage() {
     }, [loadData])
   );
 
+  // Phase 4: Handle period change
+  const handlePeriodChange = useCallback(async (period: TimePeriod) => {
+    setSelectedPeriod(period);
+    if (Platform.OS !== 'web') {
+      // Reload data for the selected period
+      const trendData = await getSpendingTrendForPeriod(period);
+      setSevenDayTrend(trendData);
+      
+      const categoryData = await getCategorySpendingForPeriod(period);
+      setCategoryPieData(categoryData);
+    }
+  }, []);
+
+  // Phase 4: Handle category drill-down
+  const handleCategoryClick = useCallback(async (category: string) => {
+    if (Platform.OS !== 'web') {
+      setSelectedCategory(category);
+      const transactions = await getTransactionsByCategory(category, selectedPeriod);
+      // Map null notes to undefined to match the component's type
+      setCategoryTransactions(transactions.map(t => ({ ...t, notes: t.notes ?? undefined })));
+      setShowCategoryDrillDown(true);
+    }
+  }, [selectedPeriod]);
+
+  // Phase 4: Handle export
+  const handleExport = useCallback(async () => {
+    const reportData: AnalyticsReportData = {
+      generatedAt: new Date().toISOString(),
+      period: selectedPeriod,
+      summary: {
+        totalIncome: incomeExpense?.income ?? 0,
+        totalExpense: incomeExpense?.expense ?? 0,
+        netSavings: incomeExpense?.netSavings ?? 0,
+        savingsRate: incomeExpense?.savingsRate ?? 0,
+      },
+      categories: categoryPieData.map(cat => ({
+        category: cat.category,
+        total: cat.total,
+        percentage: (cat.total / categoryPieData.reduce((sum, c) => sum + c.total, 0)) * 100,
+      })),
+      insights: [...spendingInsights, ...savingsSuggestions, ...patterns],
+      financialHealth: financialHealth ? {
+        score: financialHealth.score,
+        rating: financialHealth.rating,
+      } : undefined,
+    };
+
+    const result = await exportAnalyticsReport(reportData, 'txt');
+    if (!result.success && result.error) {
+      Alert.alert('Export Failed', result.error);
+    }
+  }, [selectedPeriod, incomeExpense, categoryPieData, spendingInsights, savingsSuggestions, patterns, financialHealth]);
+
   const topCategory = categories.length > 0 ? categories[0] : null;
   const screenWidth = Dimensions.get('window').width;
   const chartWidth = screenWidth - 32;
@@ -180,17 +245,36 @@ export default function AnalyticsPage() {
     <SafeAreaView style={{ flex: 1, backgroundColor: t.background }}>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}>
         {/* Header Section */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 8 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingTop: 8 }}>
           <View>
             <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>Analytics</Text>
             <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Track your spending patterns</Text>
           </View>
-          <Link href="/profile" asChild>
-            <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center', ...shadows.sm }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700' }}>U</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {/* Phase 4: Export Button */}
+            <TouchableOpacity 
+              onPress={handleExport}
+              style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, justifyContent: 'center', alignItems: 'center', ...shadows.sm }}
+            >
+              <Text style={{ color: t.textPrimary, fontSize: 18 }}>📤</Text>
             </TouchableOpacity>
-          </Link>
+            <Link href="/profile" asChild>
+              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center', ...shadows.sm }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700' }}>U</Text>
+              </TouchableOpacity>
+            </Link>
+          </View>
         </View>
+
+        {/* Phase 4: Time Period Selector */}
+        <TimePeriodSelector
+          selectedPeriod={selectedPeriod}
+          onSelectPeriod={handlePeriodChange}
+          textColor={t.textPrimary}
+          backgroundColor={t.card}
+          primaryColor={t.primary}
+          borderColor={t.border}
+        />
 
         {/* Insights Cards */}
         <View style={{ marginBottom: 24 }}>
@@ -575,9 +659,16 @@ export default function AnalyticsPage() {
             padding: 16
           }}>
             {chartData.map((item, index) => (
-              <View key={item.category} style={{ marginBottom: 16 }}>
+              <TouchableOpacity 
+                key={item.category} 
+                style={{ marginBottom: 16 }}
+                onPress={() => handleCategoryClick(item.category)}
+              >
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600' }}>{item.category}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600' }}>{item.category}</Text>
+                    <Text style={{ color: t.textSecondary, fontSize: 11, marginLeft: 6 }}>▸</Text>
+                  </View>
                   <Text style={{ color: t.textSecondary, fontSize: 14 }}>
                     {formatCurrency(item.total, defaultCurrency)} ({item.percentage.toFixed(0)}%)
                   </Text>
@@ -590,7 +681,7 @@ export default function AnalyticsPage() {
                   backgroundColor={t.background}
                   textColor={t.textPrimary}
                 />
-              </View>
+              </TouchableOpacity>
             ))}
 
             {chartData.length === 0 && (
@@ -601,7 +692,21 @@ export default function AnalyticsPage() {
             )}
           </View>
         </View>
-    </ScrollView>
+      </ScrollView>
+
+      {/* Phase 4: Category Drill-Down Modal */}
+      <CategoryDrillDown
+        visible={showCategoryDrillDown}
+        category={selectedCategory}
+        transactions={categoryTransactions}
+        onClose={() => setShowCategoryDrillDown(false)}
+        textColor={t.textPrimary}
+        backgroundColor={t.background}
+        cardColor={t.card}
+        borderColor={t.border}
+        formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
+        formatDate={formatDate}
+      />
     </SafeAreaView>
   );
 }
