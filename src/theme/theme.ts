@@ -4,6 +4,8 @@ export const colors = {
   neutralBeige: '#B3B09E',     // Light Neutral
   deepGold: '#84670B',         // Highlight
   earthyBrown: '#332D23',      // Surface Neutral
+  positiveGreen: '#556B2F',    // Positive (Green) - Earthy olive
+  negativeRed: '#8B3A2A',      // Negative (Red) - Muted brick red
 };
 
 export type ThemeMode = 'light' | 'dark';
@@ -17,8 +19,8 @@ export const theme = (mode: ThemeMode) => ({
   accent: colors.deepGold,
   border: mode === 'light' ? '#E3E0D6' : colors.earthyBrown,
   // semantic usage - monochrome palette
-  income: '#556B2F',    // Positive (Green) - Earthy olive
-  expense: '#8B3A2A',   // Negative (Red) - Muted brick red
+  income: colors.positiveGreen,
+  expense: colors.negativeRed,
 });
 
 export const fonts = {
