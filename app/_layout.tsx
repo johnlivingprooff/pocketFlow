@@ -42,7 +42,7 @@ export default function RootLayout() {
     headerTintColor: t.textPrimary,
     headerTitleStyle: {
       color: t.textPrimary,
-      fontWeight: '700' as const,
+      fontWeight: '700',
     },
     headerShadowVisible: false,
   };
