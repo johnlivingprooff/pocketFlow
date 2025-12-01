@@ -76,7 +76,7 @@ export default function BudgetPage() {
                 style={{
                   height: '100%',
                   width: `${Math.min(spentPercentage, 100)}%`,
-                  backgroundColor: spentPercentage >= 100 ? '#DC2626' : spentPercentage >= 80 ? '#F59E0B' : t.accent
+                  backgroundColor: spentPercentage >= 100 ? t.expense : spentPercentage >= 80 ? '#A08040' : t.accent
                 }}
               />
             </View>
@@ -91,7 +91,7 @@ export default function BudgetPage() {
             </View>
             <View style={{ alignItems: 'flex-end' }}>
               <Text style={{ color: t.textSecondary, fontSize: 12 }}>Remaining</Text>
-              <Text style={{ color: remaining >= 0 ? t.accent : '#DC2626', fontSize: 18, fontWeight: '700' }}>
+              <Text style={{ color: remaining >= 0 ? t.accent : t.expense, fontSize: 18, fontWeight: '700' }}>
                 {formatCurrency(remaining, defaultCurrency)}
               </Text>
             </View>
@@ -100,10 +100,10 @@ export default function BudgetPage() {
 
         {/* Alerts Section */}
         {alertCategories.length > 0 && (
-          <View style={{ backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#F59E0B', borderRadius: 12, padding: 16, marginBottom: 24 }}>
-            <Text style={{ color: '#92400E', fontSize: 16, fontWeight: '700', marginBottom: 8 }}>⚠️ Budget Alerts</Text>
+          <View style={{ backgroundColor: '#E8DFC5', borderWidth: 1, borderColor: '#A08040', borderRadius: 12, padding: 16, marginBottom: 24 }}>
+            <Text style={{ color: '#332D23', fontSize: 16, fontWeight: '700', marginBottom: 8 }}>⚠️ Budget Alerts</Text>
             {alertCategories.map((cat: string) => (
-              <Text key={cat} style={{ color: '#92400E', fontSize: 14, marginBottom: 4 }}>
+              <Text key={cat} style={{ color: '#332D23', fontSize: 14, marginBottom: 4 }}>
                 • {cat} is at {getCategoryPercentage(cat).toFixed(0)}%
               </Text>
             ))}
@@ -152,7 +152,7 @@ export default function BudgetPage() {
                       style={{
                         height: '100%',
                         width: `${Math.min(percentage, 100)}%`,
-                        backgroundColor: percentage >= 100 ? '#DC2626' : percentage >= 80 ? '#F59E0B' : t.accent
+                        backgroundColor: percentage >= 100 ? t.expense : percentage >= 80 ? '#A08040' : t.accent
                       }}
                     />
                   </View>

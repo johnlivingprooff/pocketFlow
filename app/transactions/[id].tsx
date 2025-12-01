@@ -175,13 +175,13 @@ export default function TransactionDetail() {
             style={{
               backgroundColor: 'transparent',
               borderWidth: 2,
-              borderColor: '#DC2626',
+              borderColor: t.expense,
               padding: 16,
               borderRadius: 12,
               alignItems: 'center'
             }}
           >
-            <Text style={{ color: '#DC2626', fontSize: 16, fontWeight: '700' }}>Delete Transaction</Text>
+            <Text style={{ color: t.expense, fontSize: 16, fontWeight: '700' }}>Delete Transaction</Text>
           </TouchableOpacity>
         </View>
       </View>
