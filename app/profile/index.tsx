@@ -15,6 +15,7 @@ export default function ProfilePage() {
   const [email, setEmail] = useState(safeUser.email);
   const [phone, setPhone] = useState(safeUser.phone);
   const [isEditing, setIsEditing] = useState(false);
+  const profileImage = safeUser.profileImage;
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
