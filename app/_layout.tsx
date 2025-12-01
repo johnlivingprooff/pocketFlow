@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Platform, View, ActivityIndicator, useColorScheme } from 'react-native';
 import { Stack } from 'expo-router';
 import { useSettings } from '../src/store/useStore';
@@ -8,9 +8,12 @@ import { theme } from '../src/theme/theme';
 export default function RootLayout() {
   const { themeMode } = useSettings();
   const systemColorScheme = useColorScheme();
-  const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
-  const t = theme(effectiveMode);
   const [dbReady, setDbReady] = useState(Platform.OS === 'web');
+  
+  const t = useMemo(() => {
+    const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
+    return theme(effectiveMode);
+  }, [themeMode, systemColorScheme]);
 
   useEffect(() => {
     if (Platform.OS !== 'web') {
