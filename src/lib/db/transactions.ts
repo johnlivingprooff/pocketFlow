@@ -357,3 +357,116 @@ export async function getAveragePurchaseSize() {
   
   return { average: result[0]?.avg ?? 0, count: result[0]?.count ?? 0 };
 }
+
+// Phase 2: Chart Data Functions
+
+export async function getSevenDaySpendingTrend() {
+  const now = new Date();
+  const data: Array<{ date: string; amount: number }> = [];
+  
+  // Get spending for the last 7 days
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - i);
+    const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString();
+    const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59).toISOString();
+    
+    const result = await exec<{ total: number }>(
+      `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+      [startOfDay, endOfDay]
+    );
+    
+    data.push({
+      date: date.toISOString().split('T')[0],
+      amount: result[0]?.total ?? 0
+    });
+  }
+  
+  return data;
+}
+
+export async function getDailySpendingForMonth() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  
+  const data: Array<{ day: number; amount: number }> = [];
+  
+  for (let day = 1; day <= daysInMonth; day++) {
+    const startOfDay = new Date(year, month, day, 0, 0, 0).toISOString();
+    const endOfDay = new Date(year, month, day, 23, 59, 59).toISOString();
+    
+    const result = await exec<{ total: number }>(
+      `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+      [startOfDay, endOfDay]
+    );
+    
+    data.push({
+      day,
+      amount: result[0]?.total ?? 0
+    });
+  }
+  
+  return data;
+}
+
+export async function getMonthlyComparison() {
+  const now = new Date();
+  
+  // Current month
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+  
+  // Last month
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).toISOString();
+  
+  const thisMonthIncome = await exec<{ total: number }>(
+    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'income' AND date BETWEEN ? AND ?;`,
+    [thisMonthStart, thisMonthEnd]
+  );
+  const thisMonthExpense = await exec<{ total: number }>(
+    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+    [thisMonthStart, thisMonthEnd]
+  );
+  
+  const lastMonthIncome = await exec<{ total: number }>(
+    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'income' AND date BETWEEN ? AND ?;`,
+    [lastMonthStart, lastMonthEnd]
+  );
+  const lastMonthExpense = await exec<{ total: number }>(
+    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+    [lastMonthStart, lastMonthEnd]
+  );
+  
+  return {
+    thisMonth: {
+      income: thisMonthIncome[0]?.total ?? 0,
+      expense: thisMonthExpense[0]?.total ?? 0,
+      net: (thisMonthIncome[0]?.total ?? 0) - (thisMonthExpense[0]?.total ?? 0)
+    },
+    lastMonth: {
+      income: lastMonthIncome[0]?.total ?? 0,
+      expense: lastMonthExpense[0]?.total ?? 0,
+      net: (lastMonthIncome[0]?.total ?? 0) - (lastMonthExpense[0]?.total ?? 0)
+    }
+  };
+}
+
+export async function getCategorySpendingForPieChart() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+  
+  const result = await exec<{ category: string; total: number }>(
+    `SELECT category, COALESCE(SUM(amount),0) as total 
+     FROM transactions 
+     WHERE type = 'expense' AND date BETWEEN ? AND ? AND category IS NOT NULL
+     GROUP BY category 
+     ORDER BY total DESC;`,
+    [start, end]
+  );
+  
+  return result;
+}

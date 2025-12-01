@@ -14,11 +14,20 @@ import {
   getMonthProgress,
   getTopSpendingDay,
   getTransactionCounts,
-  getAveragePurchaseSize
+  getAveragePurchaseSize,
+  getSevenDaySpendingTrend,
+  getDailySpendingForMonth,
+  getMonthlyComparison,
+  getCategorySpendingForPieChart
 } from '../../src/lib/db/transactions';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { formatDate } from '../../src/utils/date';
 import { Link } from 'expo-router';
+import SevenDayTrendChart from '../../src/components/charts/SevenDayTrendChart';
+import MonthlyBarChart from '../../src/components/charts/MonthlyBarChart';
+import IncomeExpenseChart from '../../src/components/charts/IncomeExpenseChart';
+import CategoryPieChart from '../../src/components/charts/CategoryPieChart';
+import AnimatedProgressBar from '../../src/components/charts/AnimatedProgressBar';
 
 export default function AnalyticsPage() {
   const { themeMode, defaultCurrency } = useSettings();
@@ -38,6 +47,12 @@ export default function AnalyticsPage() {
   const [topSpendingDay, setTopSpendingDay] = useState<{ date: string; total: number } | null>(null);
   const [transactionCounts, setTransactionCounts] = useState<{ incomeCount: number; expenseCount: number; total: number } | null>(null);
   const [avgPurchase, setAvgPurchase] = useState<{ average: number; count: number } | null>(null);
+
+  // Phase 2: Chart Data State
+  const [sevenDayTrend, setSevenDayTrend] = useState<Array<{ date: string; amount: number }>>([]);
+  const [dailySpending, setDailySpending] = useState<Array<{ day: number; amount: number }>>([]);
+  const [monthlyComparison, setMonthlyComparison] = useState<any>(null);
+  const [categoryPieData, setCategoryPieData] = useState<Array<{ category: string; total: number }>>([]);
 
   const loadData = useCallback(async () => {
     if (Platform.OS !== 'web') {
@@ -78,6 +93,19 @@ export default function AnalyticsPage() {
 
       const avgPurch = await getAveragePurchaseSize();
       setAvgPurchase(avgPurch);
+
+      // Phase 2: Load chart data
+      const sevenDay = await getSevenDaySpendingTrend();
+      setSevenDayTrend(sevenDay);
+
+      const daily = await getDailySpendingForMonth();
+      setDailySpending(daily);
+
+      const comparison = await getMonthlyComparison();
+      setMonthlyComparison(comparison);
+
+      const pieData = await getCategorySpendingForPieChart();
+      setCategoryPieData(pieData);
     }
   }, []);
 
@@ -229,24 +257,15 @@ export default function AnalyticsPage() {
               padding: 16,
               marginBottom: 12
             }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Day {monthProgress.currentDay} of {monthProgress.daysInMonth}</Text>
-                <Text style={{ color: t.accent, fontSize: 16, fontWeight: '700' }}>{monthProgress.progressPercentage.toFixed(0)}%</Text>
-              </View>
-              <View style={{
-                height: 8,
-                backgroundColor: t.background,
-                borderRadius: 4,
-                overflow: 'hidden',
-                marginBottom: 8
-              }}>
-                <View style={{
-                  height: '100%',
-                  width: `${monthProgress.progressPercentage}%`,
-                  backgroundColor: t.primary
-                }} />
-              </View>
-              <Text style={{ color: t.textSecondary, fontSize: 13 }}>
+              <AnimatedProgressBar
+                progress={monthProgress.progressPercentage}
+                label={`Day ${monthProgress.currentDay} of ${monthProgress.daysInMonth}`}
+                value={`${monthProgress.progressPercentage.toFixed(0)}%`}
+                color={t.primary}
+                backgroundColor={t.background}
+                textColor={t.textPrimary}
+              />
+              <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 8 }}>
                 {monthProgress.daysRemaining} day{monthProgress.daysRemaining !== 1 ? 's' : ''} remaining this month
               </Text>
             </View>
@@ -360,7 +379,101 @@ export default function AnalyticsPage() {
           </View>
         </View>
 
-        {/* Category Breakdown */}
+        {/* Phase 2: 7-Day Spending Trend Chart */}
+        <View style={{ marginBottom: 24 }}>
+          <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>7-Day Spending Trend</Text>
+          
+          <View style={{
+            backgroundColor: t.card,
+            borderWidth: 1,
+            borderColor: t.border,
+            borderRadius: 12,
+            padding: 16
+          }}>
+            <SevenDayTrendChart
+              data={sevenDayTrend}
+              color={t.primary}
+              textColor={t.textPrimary}
+              backgroundColor={t.card}
+              gridColor={t.border}
+              formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
+            />
+          </View>
+        </View>
+
+        {/* Phase 2: Daily Spending Bar Chart */}
+        <View style={{ marginBottom: 24 }}>
+          <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Daily Spending This Month</Text>
+          
+          <View style={{
+            backgroundColor: t.card,
+            borderWidth: 1,
+            borderColor: t.border,
+            borderRadius: 12,
+            padding: 16
+          }}>
+            <MonthlyBarChart
+              data={dailySpending}
+              color={t.primary}
+              textColor={t.textPrimary}
+              gridColor={t.border}
+              formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
+            />
+          </View>
+        </View>
+
+        {/* Phase 2: Income vs Expense Comparison */}
+        {monthlyComparison && (
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Monthly Comparison</Text>
+            
+            <View style={{
+              backgroundColor: t.card,
+              borderWidth: 1,
+              borderColor: t.border,
+              borderRadius: 12,
+              padding: 16
+            }}>
+              <IncomeExpenseChart
+                data={[
+                  { income: monthlyComparison.thisMonth.income, expense: monthlyComparison.thisMonth.expense, label: 'This Month' },
+                  { income: monthlyComparison.lastMonth.income, expense: monthlyComparison.lastMonth.expense, label: 'Last Month' }
+                ]}
+                incomeColor={t.success}
+                expenseColor={t.danger}
+                textColor={t.textPrimary}
+                backgroundColor={t.card}
+                formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Phase 2: Category Pie Chart */}
+        <View style={{ marginBottom: 24 }}>
+          <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Category Distribution</Text>
+          
+          <View style={{
+            backgroundColor: t.card,
+            borderWidth: 1,
+            borderColor: t.border,
+            borderRadius: 12,
+            padding: 16
+          }}>
+            <CategoryPieChart
+              data={categoryPieData.map(cat => ({
+                category: cat.category,
+                total: cat.total,
+                percentage: 0 // Will be calculated in the component
+              }))}
+              colors={colors}
+              textColor={t.textPrimary}
+              formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
+            />
+          </View>
+        </View>
+
+        {/* Category Breakdown (keeping the old bar-style version) */}
         <View style={{ marginBottom: 24 }}>
           <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Category Breakdown</Text>
           
@@ -380,20 +493,14 @@ export default function AnalyticsPage() {
                     {formatCurrency(item.total, defaultCurrency)} ({item.percentage.toFixed(0)}%)
                   </Text>
                 </View>
-                <View style={{
-                  height: 8,
-                  backgroundColor: t.background,
-                  borderRadius: 4,
-                  overflow: 'hidden'
-                }}>
-                  <View
-                    style={{
-                      height: '100%',
-                      width: `${item.percentage}%`,
-                      backgroundColor: colors[index % colors.length]
-                    }}
-                  />
-                </View>
+                <AnimatedProgressBar
+                  progress={item.percentage}
+                  label=""
+                  value=""
+                  color={colors[index % colors.length]}
+                  backgroundColor={t.background}
+                  textColor={t.textPrimary}
+                />
               </View>
             ))}
 
@@ -403,30 +510,6 @@ export default function AnalyticsPage() {
                 <Text style={{ color: t.textSecondary, fontSize: 14 }}>No data available yet</Text>
               </View>
             )}
-          </View>
-        </View>
-
-        {/* Monthly Spending Chart Placeholder */}
-        <View style={{ marginBottom: 32 }}>
-          <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Monthly Spending</Text>
-          
-          <View style={{
-            backgroundColor: t.card,
-            borderWidth: 1,
-            borderColor: t.border,
-            borderRadius: 12,
-            padding: 16,
-            height: 200,
-            justifyContent: 'center',
-            alignItems: 'center'
-          }}>
-            <Text style={{ fontSize: 48, marginBottom: 8 }}>📈</Text>
-            <Text style={{ color: t.textSecondary, fontSize: 14, textAlign: 'center' }}>
-              Chart visualization coming soon
-            </Text>
-            <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4, textAlign: 'center' }}>
-              Daily spending trends will be displayed here
-            </Text>
           </View>
         </View>
     </ScrollView>
