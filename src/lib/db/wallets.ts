@@ -8,12 +8,13 @@ export async function createWallet(w: Wallet) {
     w.initial_balance ?? 0,
     w.type,
     w.color ?? null,
+    (w as any).description ?? null,
     new Date().toISOString(),
     w.is_primary ?? 0,
   ];
   await execRun(
-    `INSERT INTO wallets (name, currency, initial_balance, type, color, created_at, is_primary)
-     VALUES (?, ?, ?, ?, ?, ?, ?);`,
+    `INSERT INTO wallets (name, currency, initial_balance, type, color, description, created_at, is_primary)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
     params
   );
 }

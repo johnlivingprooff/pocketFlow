@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, Alert, Platform } from 'react-native';
 import { useSettings } from '../../src/store/useStore';
 import { theme } from '../../src/theme/theme';
 import { useLocalSearchParams, router } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { getById, deleteTransaction } from '../../src/lib/db/transactions';
 import { Transaction } from '../../src/types/transaction';
 import { formatDate } from '../../src/utils/date';
@@ -15,22 +16,24 @@ export default function TransactionDetail() {
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadTransaction = useCallback(async () => {
     if (Platform.OS !== 'web' && id) {
-      loadTransaction();
+      try {
+        const txn = await getById(Number(id));
+        setTransaction(txn);
+      } catch (error) {
+        Alert.alert('Error', 'Failed to load transaction');
+      } finally {
+        setLoading(false);
+      }
     }
   }, [id]);
 
-  const loadTransaction = async () => {
-    try {
-      const txn = await getById(Number(id));
-      setTransaction(txn);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to load transaction');
-    } finally {
-      setLoading(false);
-    }
-  };
+  useFocusEffect(
+    useCallback(() => {
+      loadTransaction();
+    }, [loadTransaction])
+  );
 
   const handleDelete = () => {
     Alert.alert(
