@@ -29,6 +29,7 @@ export default function CreateWallet() {
 
   const onSave = async () => {
     await createWallet({ name, currency, initial_balance: parseFloat(initial || '0'), type, description });
+    setHasUnsavedChanges(false);
     router.back();
   };
 

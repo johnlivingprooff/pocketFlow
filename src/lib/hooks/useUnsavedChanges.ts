@@ -20,19 +20,16 @@ export function useUnsavedChanges(
 
     // Handle Android hardware back button
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (hasUnsavedChanges) {
-        Alert.alert(
-          'Uncommitted changes detected',
-          message,
-          [
-            { text: 'Stay', style: 'cancel' },
-            { text: 'Proceed', style: 'destructive', onPress: () => router.back() }
-          ],
-          { cancelable: true }
-        );
-        return true; // Prevent default back behavior
-      }
-      return false;
+      Alert.alert(
+        'Unsaved changes detected',
+        message,
+        [
+          { text: 'Stay', style: 'cancel' },
+          { text: 'Proceed', style: 'destructive', onPress: () => router.back() }
+        ],
+        { cancelable: true }
+      );
+      return true; // Prevent default back behavior
     });
 
     return () => backHandler.remove();
@@ -42,7 +39,7 @@ export function useUnsavedChanges(
   const promptBeforeLeaving = useCallback(() => {
     if (hasUnsavedChanges) {
       Alert.alert(
-        'Uncommitted changes detected',
+        'Unsaved changes detected',
         message,
         [
           { text: 'Stay', style: 'cancel' },

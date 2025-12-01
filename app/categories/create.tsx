@@ -54,6 +54,7 @@ export default function CreateCategory() {
         color: selectedColor,
         is_preset: 0,
       });
+      setHasUnsavedChanges(false);
       Alert.alert('Success', 'Category created successfully', [
         { text: 'OK', onPress: () => router.back() }
       ]);

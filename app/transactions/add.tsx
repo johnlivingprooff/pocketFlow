@@ -105,6 +105,7 @@ export default function AddTransactionScreen() {
       receiptUri = await saveReceiptImage(filename, imageBase64);
     }
     await addTransaction({ wallet_id: walletId, type, amount: parseFloat(amount || '0'), category, date: date.toISOString(), notes, receipt_uri: receiptUri });
+    setHasUnsavedChanges(false);
     router.back();
   };
 
