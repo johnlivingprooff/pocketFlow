@@ -28,6 +28,16 @@ import MonthlyBarChart from '../../src/components/charts/MonthlyBarChart';
 import IncomeExpenseChart from '../../src/components/charts/IncomeExpenseChart';
 import CategoryPieChart from '../../src/components/charts/CategoryPieChart';
 import AnimatedProgressBar from '../../src/components/charts/AnimatedProgressBar';
+import InsightsSection from '../../src/components/InsightsSection';
+import FinancialHealthCard from '../../src/components/FinancialHealthCard';
+import {
+  generateSpendingInsights,
+  generateSavingsSuggestions,
+  detectSpendingPatterns,
+  calculateFinancialHealthScore,
+  SpendingInsight,
+  FinancialHealthScore
+} from '../../src/lib/insights/analyticsInsights';
 
 export default function AnalyticsPage() {
   const { themeMode, defaultCurrency } = useSettings();
@@ -53,6 +63,12 @@ export default function AnalyticsPage() {
   const [dailySpending, setDailySpending] = useState<Array<{ day: number; amount: number }>>([]);
   const [monthlyComparison, setMonthlyComparison] = useState<any>(null);
   const [categoryPieData, setCategoryPieData] = useState<Array<{ category: string; total: number }>>([]);
+
+  // Phase 3: Insights & Financial Health State
+  const [spendingInsights, setSpendingInsights] = useState<SpendingInsight[]>([]);
+  const [savingsSuggestions, setSavingsSuggestions] = useState<SpendingInsight[]>([]);
+  const [patterns, setPatterns] = useState<SpendingInsight[]>([]);
+  const [financialHealth, setFinancialHealth] = useState<FinancialHealthScore | null>(null);
 
   const loadData = useCallback(async () => {
     if (Platform.OS !== 'web') {
@@ -106,6 +122,38 @@ export default function AnalyticsPage() {
 
       const pieData = await getCategorySpendingForPieChart();
       setCategoryPieData(pieData);
+
+      // Phase 3: Generate insights and financial health score
+      const insights = generateSpendingInsights({
+        monthlyComparison: comparison,
+        weekComparison: weekComp,
+        incomeExpense: incExpAnalysis,
+        spendingStreak: streak,
+        categories: breakdown,
+        avgDailySpend: month / daysInMonth
+      });
+      setSpendingInsights(insights);
+
+      const suggestions = generateSavingsSuggestions({
+        categories: breakdown,
+        avgDailySpend: month / daysInMonth,
+        incomeExpense: incExpAnalysis
+      });
+      setSavingsSuggestions(suggestions);
+
+      const detectedPatterns = detectSpendingPatterns({
+        dailySpending: daily,
+        categories: breakdown
+      });
+      setPatterns(detectedPatterns);
+
+      const healthScore = calculateFinancialHealthScore({
+        incomeExpense: incExpAnalysis,
+        spendingStreak: streak,
+        weekComparison: weekComp,
+        dailySpending: daily
+      });
+      setFinancialHealth(healthScore);
     }
   }, []);
 
@@ -243,6 +291,47 @@ export default function AnalyticsPage() {
             </View>
           )}
         </View>
+
+        {/* Phase 3: Financial Health Score */}
+        {financialHealth && (
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Financial Health</Text>
+            <FinancialHealthCard
+              healthScore={financialHealth}
+              textColor={t.textPrimary}
+              backgroundColor={t.card}
+              borderColor={t.border}
+              primaryColor={t.primary}
+            />
+          </View>
+        )}
+
+        {/* Phase 3: AI-Powered Spending Insights */}
+        <InsightsSection
+          insights={spendingInsights}
+          title="Smart Insights"
+          textColor={t.textPrimary}
+          backgroundColor={t.card}
+          borderColor={t.border}
+        />
+
+        {/* Phase 3: Savings Suggestions */}
+        <InsightsSection
+          insights={savingsSuggestions}
+          title="Savings Suggestions"
+          textColor={t.textPrimary}
+          backgroundColor={t.card}
+          borderColor={t.border}
+        />
+
+        {/* Phase 3: Spending Patterns */}
+        <InsightsSection
+          insights={patterns}
+          title="Spending Patterns"
+          textColor={t.textPrimary}
+          backgroundColor={t.card}
+          borderColor={t.border}
+        />
 
         {/* Phase 1: Month Progress & Stats */}
         {monthProgress && (
