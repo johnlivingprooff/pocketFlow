@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, useColorScheme } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, useColorScheme, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useWallets } from '../../src/lib/hooks/useWallets';
 import { useSettings } from '../../src/store/useStore';
@@ -9,7 +9,7 @@ import { Link } from 'expo-router';
 
 export default function WalletsList() {
   const { wallets, balances } = useWallets();
-  const { themeMode } = useSettings();
+  const { themeMode, userInfo } = useSettings();
   const systemColorScheme = useColorScheme();
   const t = theme(themeMode, systemColorScheme || 'light');
 
@@ -23,8 +23,14 @@ export default function WalletsList() {
             <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Manage your payment methods</Text>
           </View>
           <Link href="/profile" asChild>
-            <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center', ...shadows.sm }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700' }}>U</Text>
+            <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', ...shadows.sm }}>
+              {userInfo?.profileImage ? (
+                <Image source={{ uri: userInfo.profileImage }} style={{ width: 48, height: 48, borderRadius: 24 }} />
+              ) : (
+                <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700' }}>
+                  {(userInfo?.name || 'U').charAt(0).toUpperCase()}
+                </Text>
+              )}
             </TouchableOpacity>
           </Link>
         </View>

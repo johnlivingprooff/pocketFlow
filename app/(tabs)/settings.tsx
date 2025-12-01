@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, Linking, useColorScheme, Modal, FlatList, Switch } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Linking, useColorScheme, Modal, FlatList, Switch, Image } from 'react-native';
 import { useSettings } from '../../src/store/useStore';
 import { theme, ThemeMode } from '../../src/theme/theme';
 import { Link } from 'expo-router';
@@ -117,10 +117,14 @@ export default function SettingsScreen() {
           <Link href="/profile" asChild>
             <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center' }}>
-                  <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '700' }}>
-                    {userInfo.name.charAt(0).toUpperCase()}
-                  </Text>
+                <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+                  {userInfo?.profileImage ? (
+                    <Image source={{ uri: userInfo.profileImage }} style={{ width: 48, height: 48, borderRadius: 24 }} />
+                  ) : (
+                    <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '700' }}>
+                      {(userInfo?.name || 'U').charAt(0).toUpperCase()}
+                    </Text>
+                  )}
                 </View>
                 <View>
                   <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Profile</Text>
