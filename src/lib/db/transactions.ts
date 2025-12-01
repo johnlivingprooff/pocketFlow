@@ -186,3 +186,168 @@ export async function categoryBreakdown() {
     [start, end]
   );
 }
+
+// Phase 1 Analytics: Enhanced calculations
+
+export async function weekOverWeekComparison() {
+  const now = new Date();
+  const thisWeekStart = new Date(now);
+  thisWeekStart.setDate(now.getDate() - now.getDay());
+  thisWeekStart.setHours(0, 0, 0, 0);
+  
+  const lastWeekStart = new Date(thisWeekStart);
+  lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+  
+  const lastWeekEnd = new Date(thisWeekStart);
+  lastWeekEnd.setMilliseconds(-1);
+  
+  const thisWeekResult = await exec<{ total: number }>(
+    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date >= ?;`,
+    [thisWeekStart.toISOString()]
+  );
+  
+  const lastWeekResult = await exec<{ total: number }>(
+    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+    [lastWeekStart.toISOString(), lastWeekEnd.toISOString()]
+  );
+  
+  const thisWeek = thisWeekResult[0]?.total ?? 0;
+  const lastWeek = lastWeekResult[0]?.total ?? 0;
+  const change = lastWeek > 0 ? ((thisWeek - lastWeek) / lastWeek) * 100 : 0;
+  
+  return { thisWeek, lastWeek, change };
+}
+
+export async function incomeVsExpenseAnalysis() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+  
+  const income = await exec<{ total: number }>(
+    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'income' AND date BETWEEN ? AND ?;`,
+    [start, end]
+  );
+  const expense = await exec<{ total: number }>(
+    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+    [start, end]
+  );
+  
+  const incomeTotal = income[0]?.total ?? 0;
+  const expenseTotal = expense[0]?.total ?? 0;
+  const netSavings = incomeTotal - expenseTotal;
+  const savingsRate = incomeTotal > 0 ? (netSavings / incomeTotal) * 100 : 0;
+  
+  return { income: incomeTotal, expense: expenseTotal, netSavings, savingsRate };
+}
+
+export async function getSpendingStreak() {
+  const transactions = await exec<{ date: string }>(
+    `SELECT DISTINCT date FROM transactions WHERE type = 'expense' ORDER BY date DESC;`
+  );
+  
+  if (transactions.length === 0) return { currentStreak: 0, longestStreak: 0, lastSpendDate: null };
+  
+  let currentStreak = 0;
+  let longestStreak = 0;
+  let tempStreak = 1;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Check if there was spending today or yesterday for current streak
+  const lastSpend = new Date(transactions[0].date);
+  lastSpend.setHours(0, 0, 0, 0);
+  const daysDiff = Math.floor((today.getTime() - lastSpend.getTime()) / (1000 * 60 * 60 * 24));
+  
+  if (daysDiff <= 1) {
+    currentStreak = 1;
+    for (let i = 0; i < transactions.length - 1; i++) {
+      const current = new Date(transactions[i].date);
+      const next = new Date(transactions[i + 1].date);
+      current.setHours(0, 0, 0, 0);
+      next.setHours(0, 0, 0, 0);
+      const diff = Math.floor((current.getTime() - next.getTime()) / (1000 * 60 * 60 * 24));
+      if (diff === 1) {
+        currentStreak++;
+      } else {
+        break;
+      }
+    }
+  }
+  
+  // Calculate longest streak
+  for (let i = 0; i < transactions.length - 1; i++) {
+    const current = new Date(transactions[i].date);
+    const next = new Date(transactions[i + 1].date);
+    current.setHours(0, 0, 0, 0);
+    next.setHours(0, 0, 0, 0);
+    const diff = Math.floor((current.getTime() - next.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff === 1) {
+      tempStreak++;
+      longestStreak = Math.max(longestStreak, tempStreak);
+    } else {
+      tempStreak = 1;
+    }
+  }
+  longestStreak = Math.max(longestStreak, tempStreak, currentStreak);
+  
+  return { currentStreak, longestStreak, lastSpendDate: transactions[0].date };
+}
+
+export async function getMonthProgress() {
+  const now = new Date();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const currentDay = now.getDate();
+  const progressPercentage = (currentDay / daysInMonth) * 100;
+  
+  return { currentDay, daysInMonth, progressPercentage, daysRemaining: daysInMonth - currentDay };
+}
+
+export async function getTopSpendingDay() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+  
+  const result = await exec<{ date: string; total: number }>(
+    `SELECT date, COALESCE(SUM(amount),0) as total 
+     FROM transactions 
+     WHERE type = 'expense' AND date BETWEEN ? AND ? 
+     GROUP BY date 
+     ORDER BY total DESC 
+     LIMIT 1;`,
+    [start, end]
+  );
+  
+  return result[0] ? { date: result[0].date, total: result[0].total } : null;
+}
+
+export async function getTransactionCounts() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+  
+  const income = await exec<{ count: number }>(
+    `SELECT COUNT(*) as count FROM transactions WHERE type = 'income' AND date BETWEEN ? AND ?;`,
+    [start, end]
+  );
+  const expense = await exec<{ count: number }>(
+    `SELECT COUNT(*) as count FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+    [start, end]
+  );
+  
+  return { incomeCount: income[0]?.count ?? 0, expenseCount: expense[0]?.count ?? 0, total: (income[0]?.count ?? 0) + (expense[0]?.count ?? 0) };
+}
+
+export async function getAveragePurchaseSize() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+  
+  const result = await exec<{ avg: number; count: number }>(
+    `SELECT COALESCE(AVG(amount),0) as avg, COUNT(*) as count 
+     FROM transactions 
+     WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+    [start, end]
+  );
+  
+  return { average: result[0]?.avg ?? 0, count: result[0]?.count ?? 0 };
+}
