@@ -11,6 +11,7 @@ import { yyyyMmDd } from '../../src/utils/date';
 import { saveReceiptImage } from '../../src/lib/services/fileService';
 import { getCategories, Category } from '../../src/lib/db/categories';
 import { useWallets } from '../../src/lib/hooks/useWallets';
+import { useUnsavedChanges } from '../../src/lib/hooks/useUnsavedChanges';
 
 export default function AddTransactionScreen() {
   const router = useRouter();
@@ -31,6 +32,10 @@ export default function AddTransactionScreen() {
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showWalletPicker, setShowWalletPicker] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Track unsaved changes
+  const { promptBeforeLeaving } = useUnsavedChanges(hasUnsavedChanges);
 
   useEffect(() => {
     loadCategories();
@@ -54,6 +59,7 @@ export default function AddTransactionScreen() {
       const manip = await ImageManipulator.manipulateAsync(asset.uri, [{ resize: { width: 1000 } }], { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true });
       setImageBase64(manip.base64);
       setLocalUri(asset.uri);
+      setHasUnsavedChanges(true);
     }
   };
 
@@ -64,6 +70,7 @@ export default function AddTransactionScreen() {
       const manip = await ImageManipulator.manipulateAsync(asset.uri, [{ resize: { width: 1000 } }], { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true });
       setImageBase64(manip.base64);
       setLocalUri(asset.uri);
+      setHasUnsavedChanges(true);
     }
   };
 
@@ -107,7 +114,7 @@ export default function AddTransactionScreen() {
       <Text style={{ color: t.textSecondary, marginBottom: 8 }}>Type</Text>
       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
         <TouchableOpacity
-          onPress={() => setType('expense')}
+          onPress={() => { setType('expense'); setHasUnsavedChanges(true); }}
           style={{
             flex: 1,
             backgroundColor: type === 'expense' ? t.primary : t.card,
@@ -121,7 +128,7 @@ export default function AddTransactionScreen() {
           <Text style={{ color: type === 'expense' ? '#fff' : t.textPrimary, fontWeight: '700' }}>Expense</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() => setType('income')}
+          onPress={() => { setType('income'); setHasUnsavedChanges(true); }}
           style={{
             flex: 1,
             backgroundColor: type === 'income' ? t.primary : t.card,
@@ -140,7 +147,7 @@ export default function AddTransactionScreen() {
       <Text style={{ color: t.textSecondary, marginBottom: 6 }}>Amount</Text>
       <TextInput
         value={amount}
-        onChangeText={setAmount}
+        onChangeText={(text) => { setAmount(text); setHasUnsavedChanges(true); }}
         keyboardType="numeric"
         placeholder="0.00"
         placeholderTextColor={t.textTertiary}
@@ -215,7 +222,7 @@ export default function AddTransactionScreen() {
       <Text style={{ color: t.textSecondary, marginBottom: 6 }}>Notes (optional)</Text>
       <TextInput
         value={notes}
-        onChangeText={setNotes}
+        onChangeText={(text) => { setNotes(text); setHasUnsavedChanges(true); }}
         placeholder="Add a note"
         placeholderTextColor={t.textTertiary}
         multiline
@@ -264,6 +271,7 @@ export default function AddTransactionScreen() {
                   onPress={() => {
                     setCategory(cat.name);
                     setShowCategoryPicker(false);
+                    setHasUnsavedChanges(true);
                   }}
                   style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}
                 >
@@ -292,6 +300,7 @@ export default function AddTransactionScreen() {
                   onPress={() => {
                     setWalletId(wallet.id!);
                     setShowWalletPicker(false);
+                    setHasUnsavedChanges(true);
                   }}
                   style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}
                 >
@@ -335,6 +344,7 @@ export default function AddTransactionScreen() {
                           onPress={() => {
                             setDate(day.date);
                             setShowDatePicker(false);
+                            setHasUnsavedChanges(true);
                           }}
                           style={{
                             width: 40,

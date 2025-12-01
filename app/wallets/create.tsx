@@ -6,6 +6,7 @@ import { createWallet } from '../../src/lib/db/wallets';
 import { WalletType } from '../../src/types/wallet';
 import { useRouter } from 'expo-router';
 import { CURRENCIES } from '../../src/constants/currencies';
+import { useUnsavedChanges } from '../../src/lib/hooks/useUnsavedChanges';
 
 const WALLET_TYPES: WalletType[] = ['Cash', 'Credit', 'Crypto'];
 
@@ -21,6 +22,10 @@ export default function CreateWallet() {
   const [description, setDescription] = useState('');
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Track unsaved changes
+  const { promptBeforeLeaving } = useUnsavedChanges(hasUnsavedChanges);
 
   const onSave = async () => {
     await createWallet({ name, currency, initial_balance: parseFloat(initial || '0'), type, description });
@@ -34,7 +39,7 @@ export default function CreateWallet() {
       <Text style={{ color: t.textSecondary, fontSize: 14, fontWeight: '600', marginBottom: 6 }}>Wallet Name</Text>
       <TextInput 
         value={name} 
-        onChangeText={setName} 
+        onChangeText={(text) => { setName(text); setHasUnsavedChanges(true); }}
         placeholder="e.g. Primary Wallet"
         placeholderTextColor={t.textTertiary}
         style={{ 
@@ -90,7 +95,7 @@ export default function CreateWallet() {
       <Text style={{ color: t.textSecondary, fontSize: 14, fontWeight: '600', marginBottom: 6 }}>Initial Balance</Text>
       <TextInput 
         value={initial} 
-        onChangeText={setInitial} 
+        onChangeText={(text) => { setInitial(text); setHasUnsavedChanges(true); }}
         keyboardType="decimal-pad"
         placeholder="0.00"
         placeholderTextColor={t.textTertiary}
@@ -109,7 +114,7 @@ export default function CreateWallet() {
       <Text style={{ color: t.textSecondary, fontSize: 14, fontWeight: '600', marginBottom: 6 }}>Description (Optional)</Text>
       <TextInput 
         value={description} 
-        onChangeText={setDescription}
+        onChangeText={(text) => { setDescription(text); setHasUnsavedChanges(true); }}
         placeholder="e.g. For daily expenses"
         placeholderTextColor={t.textTertiary}
         multiline
@@ -157,6 +162,7 @@ export default function CreateWallet() {
                   onPress={() => {
                     setCurrency(item);
                     setShowCurrencyPicker(false);
+                    setHasUnsavedChanges(true);
                   }}
                   style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}
                 >
@@ -186,6 +192,7 @@ export default function CreateWallet() {
                 onPress={() => {
                   setType(item);
                   setShowTypePicker(false);
+                  setHasUnsavedChanges(true);
                 }}
                 style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}
               >

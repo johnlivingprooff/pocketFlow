@@ -5,6 +5,7 @@ import { theme } from '../../src/theme/theme';
 import { router } from 'expo-router';
 import * as CategoryIcons from '../../src/assets/icons/CategoryIcons';
 import { createCategory } from '../../src/lib/db/categories';
+import { useUnsavedChanges } from '../../src/lib/hooks/useUnsavedChanges';
 
 const ICON_OPTIONS: Array<{ name: CategoryIcons.CategoryIconName; Icon: React.FC<any> }> = [
   { name: 'Food', Icon: CategoryIcons.FoodIcon },
@@ -34,6 +35,10 @@ export default function CreateCategory() {
   const [selectedColor, setSelectedColor] = useState('#C1A12F');
   const [categoryType, setCategoryType] = useState<'income' | 'expense'>('expense');
   const [monthlyBudget, setMonthlyBudget] = useState('');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Track unsaved changes
+  const { promptBeforeLeaving } = useUnsavedChanges(hasUnsavedChanges);
 
   const handleSave = async () => {
     if (!categoryName.trim()) {
@@ -75,7 +80,7 @@ export default function CreateCategory() {
           <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 8 }}>Type</Text>
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <TouchableOpacity
-              onPress={() => setCategoryType('expense')}
+              onPress={() => { setCategoryType('expense'); setHasUnsavedChanges(true); }}
               style={{
                 flex: 1,
                 padding: 12,
@@ -88,7 +93,7 @@ export default function CreateCategory() {
               <Text style={{ color: categoryType === 'expense' ? '#FFFFFF' : t.textPrimary, fontSize: 16, fontWeight: '600', textAlign: 'center' }}>Expense</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => setCategoryType('income')}
+              onPress={() => { setCategoryType('income'); setHasUnsavedChanges(true); }}
               style={{
                 flex: 1,
                 padding: 12,
@@ -119,7 +124,7 @@ export default function CreateCategory() {
             placeholder="e.g., Groceries, Entertainment"
             placeholderTextColor={t.textSecondary}
             value={categoryName}
-            onChangeText={setCategoryName}
+            onChangeText={(text) => { setCategoryName(text); setHasUnsavedChanges(true); }}
           />
         </View>
 
@@ -133,7 +138,7 @@ export default function CreateCategory() {
               return (
                 <TouchableOpacity
                   key={iconOption.name}
-                  onPress={() => setSelectedIcon(iconOption.name)}
+                  onPress={() => { setSelectedIcon(iconOption.name); setHasUnsavedChanges(true); }}
                   style={{
                     width: 56,
                     height: 56,
@@ -159,7 +164,7 @@ export default function CreateCategory() {
             {COLOR_OPTIONS.map((color) => (
               <TouchableOpacity
                 key={color}
-                onPress={() => setSelectedColor(color)}
+                onPress={() => { setSelectedColor(color); setHasUnsavedChanges(true); }}
                 style={{
                   width: 48,
                   height: 48,
@@ -190,7 +195,7 @@ export default function CreateCategory() {
             placeholderTextColor={t.textSecondary}
             keyboardType="decimal-pad"
             value={monthlyBudget}
-            onChangeText={setMonthlyBudget}
+            onChangeText={(text) => { setMonthlyBudget(text); setHasUnsavedChanges(true); }}
           />
           <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>Set a spending limit for this category</Text>
         </View>
