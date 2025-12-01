@@ -13,6 +13,18 @@ export function useUnsavedChanges(
 ) {
   const router = useRouter();
 
+  const showAlert = useCallback((onProceed: () => void) => {
+    Alert.alert(
+      'Unsaved changes detected',
+      message,
+      [
+        { text: 'Stay', style: 'cancel' },
+        { text: 'Proceed', style: 'destructive', onPress: onProceed }
+      ],
+      { cancelable: true }
+    );
+  }, [message]);
+
   useEffect(() => {
     if (!hasUnsavedChanges) {
       return;
@@ -20,37 +32,22 @@ export function useUnsavedChanges(
 
     // Handle Android hardware back button
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      Alert.alert(
-        'Unsaved changes detected',
-        message,
-        [
-          { text: 'Stay', style: 'cancel' },
-          { text: 'Proceed', style: 'destructive', onPress: () => router.back() }
-        ],
-        { cancelable: true }
-      );
+      showAlert(() => router.back());
       return true; // Prevent default back behavior
     });
 
     return () => backHandler.remove();
-  }, [hasUnsavedChanges, message, router]);
+  }, [hasUnsavedChanges, showAlert, router]);
 
   // Return a function that can be called to prompt before navigation
-  const promptBeforeLeaving = useCallback(() => {
+  const promptBeforeLeaving = useCallback((onProceed?: () => void) => {
     if (hasUnsavedChanges) {
-      Alert.alert(
-        'Unsaved changes detected',
-        message,
-        [
-          { text: 'Stay', style: 'cancel' },
-          { text: 'Proceed', style: 'destructive', onPress: () => router.back() }
-        ],
-        { cancelable: true }
-      );
+      showAlert(onProceed || (() => router.back()));
     } else {
-      router.back();
+      onProceed ? onProceed() : router.back();
     }
-  }, [hasUnsavedChanges, message, router]);
+  }, [hasUnsavedChanges, showAlert, router]);
 
   return { promptBeforeLeaving };
 }
+
