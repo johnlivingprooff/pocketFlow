@@ -151,24 +151,29 @@ export default function AnalyticsPage() {
           </View>
 
           {/* Phase 1: Week-over-Week Comparison */}
-          {weekComparison && (
-            <View style={{
-              backgroundColor: t.card,
-              borderWidth: 1,
-              borderColor: t.border,
-              borderRadius: 12,
-              padding: 16,
-              marginBottom: 12
-            }}>
-              <Text style={{ color: t.accent, fontSize: 14, fontWeight: '600', marginBottom: 4 }}>WEEK-OVER-WEEK</Text>
-              <Text style={{ color: t.textPrimary, fontSize: 16 }}>
-                {weekComparison.change > 0 ? 'Up' : weekComparison.change < 0 ? 'Down' : 'Same'} <Text style={{ fontWeight: '700', color: weekComparison.change > 0 ? t.danger : weekComparison.change < 0 ? t.success : t.textPrimary }}>{Math.abs(weekComparison.change).toFixed(1)}%</Text> from last week
-              </Text>
-              <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>
-                This week: {formatCurrency(weekComparison.thisWeek, defaultCurrency)} • Last week: {formatCurrency(weekComparison.lastWeek, defaultCurrency)}
-              </Text>
-            </View>
-          )}
+          {weekComparison && (() => {
+            const changeDirection = weekComparison.change > 0 ? 'Up' : weekComparison.change < 0 ? 'Down' : 'Same';
+            const changeColor = weekComparison.change > 0 ? t.danger : weekComparison.change < 0 ? t.success : t.textPrimary;
+            
+            return (
+              <View style={{
+                backgroundColor: t.card,
+                borderWidth: 1,
+                borderColor: t.border,
+                borderRadius: 12,
+                padding: 16,
+                marginBottom: 12
+              }}>
+                <Text style={{ color: t.accent, fontSize: 14, fontWeight: '600', marginBottom: 4 }}>WEEK-OVER-WEEK</Text>
+                <Text style={{ color: t.textPrimary, fontSize: 16 }}>
+                  {changeDirection} <Text style={{ fontWeight: '700', color: changeColor }}>{Math.abs(weekComparison.change).toFixed(1)}%</Text> from last week
+                </Text>
+                <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>
+                  This week: {formatCurrency(weekComparison.thisWeek, defaultCurrency)} • Last week: {formatCurrency(weekComparison.lastWeek, defaultCurrency)}
+                </Text>
+              </View>
+            );
+          })()}
 
           {/* Phase 1: Income vs Expense */}
           {incomeExpense && incomeExpense.income > 0 && (

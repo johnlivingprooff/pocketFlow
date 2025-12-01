@@ -189,17 +189,20 @@ export async function categoryBreakdown() {
 
 // Phase 1 Analytics: Enhanced calculations
 
+// Helper constant for date calculations
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
 export async function weekOverWeekComparison() {
   const now = new Date();
   const thisWeekStart = new Date(now);
-  thisWeekStart.setDate(now.getDate() - now.getDay());
+  thisWeekStart.setDate(now.getDate() - now.getDay()); // Start on Sunday
   thisWeekStart.setHours(0, 0, 0, 0);
   
   const lastWeekStart = new Date(thisWeekStart);
   lastWeekStart.setDate(lastWeekStart.getDate() - 7);
   
   const lastWeekEnd = new Date(thisWeekStart);
-  lastWeekEnd.setMilliseconds(-1);
+  lastWeekEnd.setHours(0, 0, 0, -1); // End of last week (just before this week starts)
   
   const thisWeekResult = await exec<{ total: number }>(
     `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date >= ?;`,
@@ -247,25 +250,30 @@ export async function getSpendingStreak() {
   
   if (transactions.length === 0) return { currentStreak: 0, longestStreak: 0, lastSpendDate: null };
   
+  // Helper to normalize date and calculate day difference
+  const getDaysDiff = (date1: Date, date2: Date): number => {
+    const d1 = new Date(date1);
+    const d2 = new Date(date2);
+    d1.setHours(0, 0, 0, 0);
+    d2.setHours(0, 0, 0, 0);
+    return Math.floor((d1.getTime() - d2.getTime()) / MS_PER_DAY);
+  };
+  
   let currentStreak = 0;
   let longestStreak = 0;
   let tempStreak = 1;
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
   
   // Check if there was spending today or yesterday for current streak
   const lastSpend = new Date(transactions[0].date);
-  lastSpend.setHours(0, 0, 0, 0);
-  const daysDiff = Math.floor((today.getTime() - lastSpend.getTime()) / (1000 * 60 * 60 * 24));
+  const daysSinceLastSpend = getDaysDiff(today, lastSpend);
   
-  if (daysDiff <= 1) {
+  if (daysSinceLastSpend <= 1) {
     currentStreak = 1;
     for (let i = 0; i < transactions.length - 1; i++) {
       const current = new Date(transactions[i].date);
       const next = new Date(transactions[i + 1].date);
-      current.setHours(0, 0, 0, 0);
-      next.setHours(0, 0, 0, 0);
-      const diff = Math.floor((current.getTime() - next.getTime()) / (1000 * 60 * 60 * 24));
+      const diff = getDaysDiff(current, next);
       if (diff === 1) {
         currentStreak++;
       } else {
@@ -278,9 +286,7 @@ export async function getSpendingStreak() {
   for (let i = 0; i < transactions.length - 1; i++) {
     const current = new Date(transactions[i].date);
     const next = new Date(transactions[i + 1].date);
-    current.setHours(0, 0, 0, 0);
-    next.setHours(0, 0, 0, 0);
-    const diff = Math.floor((current.getTime() - next.getTime()) / (1000 * 60 * 60 * 24));
+    const diff = getDaysDiff(current, next);
     if (diff === 1) {
       tempStreak++;
       longestStreak = Math.max(longestStreak, tempStreak);
