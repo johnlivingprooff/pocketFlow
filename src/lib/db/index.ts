@@ -82,20 +82,40 @@ export async function ensureTables() {
   // Seed preset categories if empty
   const existingCategories = await database.getAllAsync<{ count: number }>('SELECT COUNT(*) as count FROM categories;');
   if (existingCategories[0].count === 0) {
-    const presetExpense = ['Food', 'Transport', 'Rent', 'Groceries', 'Utilities', 'Shopping', 'Healthcare', 'Entertainment', 'Education', 'Bills', 'Other'];
-    const presetIncome = ['Salary', 'Freelance', 'Business', 'Investment', 'Gift', 'Offering', 'Other Income'];
+    const presetExpense = [
+      { name: 'Food', icon: '🍔' },
+      { name: 'Transport', icon: '🚗' },
+      { name: 'Rent', icon: '🏠' },
+      { name: 'Groceries', icon: '🛒' },
+      { name: 'Utilities', icon: '💡' },
+      { name: 'Shopping', icon: '🛍️' },
+      { name: 'Healthcare', icon: '⚕️' },
+      { name: 'Entertainment', icon: '🎬' },
+      { name: 'Education', icon: '📚' },
+      { name: 'Bills', icon: '📄' },
+      { name: 'Other', icon: '📊' }
+    ];
+    const presetIncome = [
+      { name: 'Salary', icon: '💰' },
+      { name: 'Freelance', icon: '💼' },
+      { name: 'Business', icon: '🏢' },
+      { name: 'Investment', icon: '📈' },
+      { name: 'Gift', icon: '🎁' },
+      { name: 'Offering', icon: '🙏' },
+      { name: 'Other Income', icon: '💵' }
+    ];
     
     for (const cat of presetExpense) {
       await database.runAsync(
-        'INSERT INTO categories (name, type, is_preset) VALUES (?, ?, 1);',
-        [cat, 'expense']
+        'INSERT INTO categories (name, type, icon, is_preset) VALUES (?, ?, ?, 1);',
+        [cat.name, 'expense', cat.icon]
       );
     }
     
     for (const cat of presetIncome) {
       await database.runAsync(
-        'INSERT INTO categories (name, type, is_preset) VALUES (?, ?, 1);',
-        [cat, 'income']
+        'INSERT INTO categories (name, type, icon, is_preset) VALUES (?, ?, ?, 1);',
+        [cat.name, 'income', cat.icon]
       );
     }
   }

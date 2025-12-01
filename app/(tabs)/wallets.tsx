@@ -31,9 +31,9 @@ export default function WalletsList() {
         {/* Wallet Cards */}
         {wallets.map((w) => (
           <Link key={w.id} href={`/wallets/${w.id}`} asChild>
-            <View style={{ marginBottom: 12 }}>
+            <TouchableOpacity style={{ marginBottom: 12 }}>
               <WalletCard name={w.name} balance={balances[w.id!]} currency={w.currency} color={w.color} mode={themeMode} />
-            </View>
+            </TouchableOpacity>
           </Link>
         ))}
         

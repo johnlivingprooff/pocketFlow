@@ -88,7 +88,7 @@ export default function CategoriesPage() {
                   justifyContent: 'center',
                   alignItems: 'center'
                 }}>
-                  <Text style={{ fontSize: 24 }}>📊</Text>
+                  <Text style={{ fontSize: 24 }}>{category.icon || '📊'}</Text>
                 </View>
                 <View>
                   <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>{category.name}</Text>
