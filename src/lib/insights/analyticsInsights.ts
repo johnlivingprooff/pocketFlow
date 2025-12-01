@@ -162,7 +162,7 @@ export function generateSavingsSuggestions(data: {
     suggestions.push({
       type: 'tip',
       title: 'Daily Spending Challenge',
-      message: `If you reduce daily spending by just 10%, you could save an extra amount per month.`,
+      message: `If you reduce daily spending by just 10%, you could save ${potentialSavings.toFixed(2)} extra per month.`,
       icon: '🎯'
     });
   }
@@ -175,10 +175,14 @@ export function generateSavingsSuggestions(data: {
       const additionalSavingsNeeded = targetSavings - data.incomeExpense.netSavings;
       
       if (additionalSavingsNeeded > 0) {
+        const savingsMessage = currentSavingsRate < 0 
+          ? '20% of your income' 
+          : `an additional ${additionalSavingsNeeded.toFixed(2)}`;
+        
         suggestions.push({
           type: 'tip',
           title: 'Reach 20% Savings Goal',
-          message: `Aim to save ${currentSavingsRate < 0 ? '20%' : 'an additional amount'} to reach the recommended 20% savings rate.`,
+          message: `Aim to save ${savingsMessage} to reach the recommended 20% savings rate.`,
           icon: '🎯'
         });
       }

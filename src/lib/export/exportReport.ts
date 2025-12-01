@@ -119,18 +119,33 @@ export async function exportAnalyticsReport(
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const fileName = `pocketflow_analytics_${timestamp}.${format}`;
     
-    // Use the new File API
-    const reportFile = new File(Paths.document, 'reports', fileName);
-    await reportFile.create();
-    await reportFile.write(content);
-    
-    Alert.alert(
-      'Report Exported',
-      `Your analytics report has been saved to:\n${fileName}`,
-      [{ text: 'OK' }]
-    );
-    
-    return { success: true, filePath: reportFile.uri };
+    // Use the new File API - directories are created automatically
+    try {
+      const reportFile = new File(Paths.document, 'reports', fileName);
+      await reportFile.create();
+      await reportFile.write(content);
+      
+      Alert.alert(
+        'Report Exported',
+        `Your analytics report has been saved to:\n${fileName}`,
+        [{ text: 'OK' }]
+      );
+      
+      return { success: true, filePath: reportFile.uri };
+    } catch (fileError) {
+      // Fallback: try without subdirectory
+      const fallbackFile = new File(Paths.document, fileName);
+      await fallbackFile.create();
+      await fallbackFile.write(content);
+      
+      Alert.alert(
+        'Report Exported',
+        `Your analytics report has been saved to:\n${fileName}`,
+        [{ text: 'OK' }]
+      );
+      
+      return { success: true, filePath: fallbackFile.uri };
+    }
   } catch (error) {
     console.error('Error exporting report:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };

@@ -46,7 +46,7 @@ export default function MonthlyBarChart({
 
   // Find max value
   const amounts = data.map(d => d.amount);
-  const maxAmount = Math.max(...amounts, 1);
+  const maxAmount = amounts.reduce((max, val) => Math.max(max, val), 1);
   const totalAmount = amounts.reduce((a, b) => a + b, 0);
   const avgAmount = totalAmount / data.length;
 

@@ -45,7 +45,7 @@ export default function SevenDayTrendChart({
 
   // Find min and max values
   const amounts = data.map(d => d.amount);
-  const maxAmount = Math.max(...amounts, 1);
+  const maxAmount = amounts.reduce((max, val) => Math.max(max, val), 1);
   const minAmount = 0;
 
   // Calculate points for the line
