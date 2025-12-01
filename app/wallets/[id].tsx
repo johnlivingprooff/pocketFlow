@@ -15,7 +15,8 @@ export default function WalletDetail() {
   const walletId = Number(id);
   const { themeMode, defaultCurrency } = useSettings();
   const systemColorScheme = useColorScheme();
-  const t = theme(themeMode, systemColorScheme || 'light');
+  const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
+  const t = theme(effectiveMode);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [balance, setBalance] = useState(0);

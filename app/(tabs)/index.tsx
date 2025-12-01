@@ -19,7 +19,8 @@ type TimePeriod = 'today' | 'week' | 'month' | 'custom';
 export default function Home() {
   const { themeMode, defaultCurrency } = useSettings();
   const systemColorScheme = useColorScheme();
-  const t = theme(themeMode, systemColorScheme || 'light');
+  const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
+  const t = theme(effectiveMode);
   const { wallets, balances } = useWallets();
   const { transactions } = useTransactions(0, 5);
   const [total, setTotal] = useState(0);

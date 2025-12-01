@@ -16,7 +16,8 @@ export default function AddTransactionScreen() {
   const router = useRouter();
   const { themeMode, defaultCurrency } = useSettings();
   const systemColorScheme = useColorScheme();
-  const t = theme(themeMode, systemColorScheme || 'light');
+  const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
+  const t = theme(effectiveMode);
   const { wallets } = useWallets();
 
   const [type, setType] = useState<'income' | 'expense'>('expense');
