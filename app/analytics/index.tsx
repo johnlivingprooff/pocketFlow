@@ -47,7 +47,7 @@ export default function AnalyticsPage() {
     percentage: total > 0 ? (cat.total / total) * 100 : 0
   }));
 
-  const colors = ['#C1A12F', '#84670B', '#B3B09E', '#6B6658', '#332D23', '#8B7355', '#A67C52', '#D4AF37'];
+  const colors = ['#84670B', '#6B6658', '#B3B09E', '#332D23', '#556B2F', '#8B3A2A', '#010000', '#A0988C'];
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: t.background }}>

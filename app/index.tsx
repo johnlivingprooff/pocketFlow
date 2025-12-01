@@ -56,7 +56,7 @@ export default function Home() {
         <View>
           <Text style={{ color: t.textSecondary, fontSize: 14 }}>Welcome back,</Text>
           <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '700', marginTop: 4 }}>{userName}</Text>
-          <Text style={{ color: '#B8B8B8', fontSize: 12, marginTop: 2 }}>{formatDate(new Date().toISOString())}</Text>
+          <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>{formatDate(new Date().toISOString())}</Text>
         </View>
         <Link href="/profile" asChild>
           <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.accent, justifyContent: 'center', alignItems: 'center' }}>

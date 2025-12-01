@@ -5,14 +5,14 @@ import { theme } from '../../src/theme/theme';
 import { router } from 'expo-router';
 
 const ICON_OPTIONS = ['📊', '🍔', '🚗', '🏠', '💡', '🎮', '👕', '✈️', '🏥', '📚', '🎬', '💪', '🎵', '☕', '🛒', '💳'];
-const COLOR_OPTIONS = ['#6B6658', '#84670B', '#B3B09E', '#C1A12F', '#332D23', '#8B7355', '#A67C52', '#D4AF37'];
+const COLOR_OPTIONS = ['#6B6658', '#84670B', '#B3B09E', '#332D23', '#556B2F', '#8B3A2A', '#010000', '#A0988C'];
 
 export default function CreateCategory() {
   const { themeMode } = useSettings();
   const t = theme(themeMode);
   const [categoryName, setCategoryName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState('📊');
-  const [selectedColor, setSelectedColor] = useState('#C1A12F');
+  const [selectedColor, setSelectedColor] = useState('#84670B');
   const [monthlyBudget, setMonthlyBudget] = useState('');
 
   const handleSave = () => {
