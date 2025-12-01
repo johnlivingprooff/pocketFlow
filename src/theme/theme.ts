@@ -11,24 +11,27 @@ export const colors = {
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
-export const theme = (mode: ThemeMode) => ({
-  mode,
-  background: mode === 'light' ? '#FFFFFF' : colors.nearBlack,
-  textPrimary: mode === 'light' ? colors.nearBlack : colors.neutralBeige,
-  textSecondary: mode === 'light' ? colors.mutedGrey : colors.mutedGrey,
-  textTertiary: mode === 'light' ? '#999' : '#666',
-  card: mode === 'light' ? '#F7F5F0' : colors.earthyBrown,
-  accent: colors.deepGold,
-  border: mode === 'light' ? '#E3E0D6' : colors.earthyBrown,
-  primary: colors.deepGold,
-  primaryLight: mode === 'light' ? '#A58A20' : '#A58A20',
-  primaryDark: mode === 'light' ? '#6B5408' : '#6B5408',
-  success: colors.positiveGreen,
-  danger: colors.negativeRed,
-  // semantic usage - monochrome palette
-  income: colors.positiveGreen,
-  expense: colors.negativeRed,
-});
+export const theme = (mode: ThemeMode, systemColorScheme?: string) => {
+  const effectiveMode = mode === 'system' ? (systemColorScheme || 'light') : mode;
+  return {
+    mode: effectiveMode,
+    background: effectiveMode === 'light' ? '#FFFFFF' : colors.nearBlack,
+    textPrimary: effectiveMode === 'light' ? colors.nearBlack : colors.neutralBeige,
+    textSecondary: effectiveMode === 'light' ? colors.mutedGrey : colors.mutedGrey,
+    textTertiary: effectiveMode === 'light' ? '#999' : '#666',
+    card: effectiveMode === 'light' ? '#F7F5F0' : colors.earthyBrown,
+    accent: colors.deepGold,
+    border: effectiveMode === 'light' ? '#E3E0D6' : colors.earthyBrown,
+    primary: colors.deepGold,
+    primaryLight: effectiveMode === 'light' ? '#A58A20' : '#A58A20',
+    primaryDark: effectiveMode === 'light' ? '#6B5408' : '#6B5408',
+    success: colors.positiveGreen,
+    danger: colors.negativeRed,
+    // semantic usage - monochrome palette
+    income: colors.positiveGreen,
+    expense: colors.negativeRed,
+  };
+};
 
 export const shadows = {
   sm: {
