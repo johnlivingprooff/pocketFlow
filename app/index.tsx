@@ -1,15 +1,4 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Platform, TouchableOpacity } from 'react-native';
-import { useSettings } from '../src/store/useStore';
-import { theme } from '../src/theme/theme';
-import { Link } from 'expo-router';
-import { useWallets } from '../src/lib/hooks/useWallets';
-import { useTransactions } from '../src/lib/hooks/useTransactions';
-import { WalletCard } from '../src/components/WalletCard';
-import { AddButton } from '../src/components/AddButton';
-import { totalAvailableAcrossWallets, monthSpend, todaySpend } from '../src/lib/db/transactions';
-import { formatDate } from '../src/utils/date';
-import { formatCurrency } from '../src/utils/formatCurrency';
+import { Redirect } from 'expo-router';
 
 export default function Home() {
   const { themeMode, defaultCurrency } = useSettings();

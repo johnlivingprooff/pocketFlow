@@ -3,28 +3,62 @@ import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from 'reac
 import { useSettings } from '../../src/store/useStore';
 import { theme } from '../../src/theme/theme';
 import { router } from 'expo-router';
+import * as CategoryIcons from '../../src/assets/icons/CategoryIcons';
+import { createCategory } from '../../src/lib/db/categories';
 
-const ICON_OPTIONS = ['📊', '🍔', '🚗', '🏠', '💡', '🎮', '👕', '✈️', '🏥', '📚', '🎬', '💪', '🎵', '☕', '🛒', '💳'];
-const COLOR_OPTIONS = ['#6B6658', '#84670B', '#B3B09E', '#332D23', '#556B2F', '#8B3A2A', '#010000', '#A0988C'];
+const ICON_OPTIONS: Array<{ name: CategoryIcons.CategoryIconName; Icon: React.FC<any> }> = [
+  { name: 'Food', Icon: CategoryIcons.FoodIcon },
+  { name: 'Transport', Icon: CategoryIcons.TransportIcon },
+  { name: 'Rent', Icon: CategoryIcons.HomeIcon },
+  { name: 'Groceries', Icon: CategoryIcons.GroceriesIcon },
+  { name: 'Utilities', Icon: CategoryIcons.UtilitiesIcon },
+  { name: 'Shopping', Icon: CategoryIcons.ShoppingIcon },
+  { name: 'Healthcare', Icon: CategoryIcons.HealthcareIcon },
+  { name: 'Entertainment', Icon: CategoryIcons.EntertainmentIcon },
+  { name: 'Education', Icon: CategoryIcons.EducationIcon },
+  { name: 'Bills', Icon: CategoryIcons.BillsIcon },
+  { name: 'Salary', Icon: CategoryIcons.SalaryIcon },
+  { name: 'Business', Icon: CategoryIcons.BusinessIcon },
+  { name: 'Investment', Icon: CategoryIcons.InvestmentIcon },
+  { name: 'Gift', Icon: CategoryIcons.GiftIcon },
+  { name: 'Clothing', Icon: CategoryIcons.ClothingIcon },
+  { name: 'Travel', Icon: CategoryIcons.TravelIcon },
+];
+const COLOR_OPTIONS = ['#6B6658', '#84670B', '#B3B09E', '#C1A12F', '#332D23', '#8B7355', '#A67C52', '#D4AF37'];
 
 export default function CreateCategory() {
   const { themeMode } = useSettings();
   const t = theme(themeMode);
   const [categoryName, setCategoryName] = useState('');
-  const [selectedIcon, setSelectedIcon] = useState('📊');
-  const [selectedColor, setSelectedColor] = useState('#84670B');
+  const [selectedIcon, setSelectedIcon] = useState<CategoryIcons.CategoryIconName>('Food');
+  const [selectedColor, setSelectedColor] = useState('#C1A12F');
+  const [categoryType, setCategoryType] = useState<'income' | 'expense'>('expense');
   const [monthlyBudget, setMonthlyBudget] = useState('');
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!categoryName.trim()) {
       Alert.alert('Error', 'Please enter a category name');
       return;
     }
 
-    // TODO: Save category to database
-    Alert.alert('Success', 'Category created successfully', [
-      { text: 'OK', onPress: () => router.back() }
-    ]);
+    try {
+      await createCategory({
+        name: categoryName.trim(),
+        type: categoryType,
+        icon: selectedIcon,
+        color: selectedColor,
+        is_preset: 0,
+      });
+      Alert.alert('Success', 'Category created successfully', [
+        { text: 'OK', onPress: () => router.back() }
+      ]);
+    } catch (error: any) {
+      if (error?.message?.includes('UNIQUE constraint')) {
+        Alert.alert('Error', 'A category with this name already exists');
+      } else {
+        Alert.alert('Error', 'Failed to create category');
+      }
+    }
   };
 
   return (
@@ -34,6 +68,39 @@ export default function CreateCategory() {
         <View style={{ marginBottom: 32 }}>
           <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 8 }}>Add New Category</Text>
           <Text style={{ color: t.textSecondary, fontSize: 14 }}>Create a custom spending category</Text>
+        </View>
+
+        {/* Category Type */}
+        <View style={{ marginBottom: 24 }}>
+          <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 8 }}>Type</Text>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TouchableOpacity
+              onPress={() => setCategoryType('expense')}
+              style={{
+                flex: 1,
+                padding: 12,
+                borderRadius: 8,
+                backgroundColor: categoryType === 'expense' ? t.primary : t.card,
+                borderWidth: 1,
+                borderColor: categoryType === 'expense' ? t.primary : t.border,
+              }}
+            >
+              <Text style={{ color: categoryType === 'expense' ? '#FFFFFF' : t.textPrimary, fontSize: 16, fontWeight: '600', textAlign: 'center' }}>Expense</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setCategoryType('income')}
+              style={{
+                flex: 1,
+                padding: 12,
+                borderRadius: 8,
+                backgroundColor: categoryType === 'income' ? t.primary : t.card,
+                borderWidth: 1,
+                borderColor: categoryType === 'income' ? t.primary : t.border,
+              }}
+            >
+              <Text style={{ color: categoryType === 'income' ? '#FFFFFF' : t.textPrimary, fontSize: 16, fontWeight: '600', textAlign: 'center' }}>Income</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Category Name */}
@@ -60,24 +127,28 @@ export default function CreateCategory() {
         <View style={{ marginBottom: 24 }}>
           <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 12 }}>Select Icon</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-            {ICON_OPTIONS.map((icon) => (
-              <TouchableOpacity
-                key={icon}
-                onPress={() => setSelectedIcon(icon)}
-                style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: 28,
-                  backgroundColor: selectedIcon === icon ? t.accent : t.card,
-                  borderWidth: 2,
-                  borderColor: selectedIcon === icon ? t.accent : t.border,
-                  justifyContent: 'center',
-                  alignItems: 'center'
-                }}
-              >
-                <Text style={{ fontSize: 28 }}>{icon}</Text>
-              </TouchableOpacity>
-            ))}
+            {ICON_OPTIONS.map((iconOption) => {
+              const IconComponent = iconOption.Icon;
+              const isSelected = selectedIcon === iconOption.name;
+              return (
+                <TouchableOpacity
+                  key={iconOption.name}
+                  onPress={() => setSelectedIcon(iconOption.name)}
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 28,
+                    backgroundColor: isSelected ? t.primary : t.card,
+                    borderWidth: 2,
+                    borderColor: isSelected ? t.primary : t.border,
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                  }}
+                >
+                  <IconComponent size={28} color={isSelected ? '#FFFFFF' : t.textPrimary} />
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 

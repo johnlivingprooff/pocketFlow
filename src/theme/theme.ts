@@ -1,3 +1,4 @@
+// PocketFlow Design System v1.0 - Color Guide
 export const colors = {
   mutedGrey: '#6B6658',        // Primary Neutral
   nearBlack: '#010000',        // Primary Dark
@@ -8,7 +9,7 @@ export const colors = {
   negativeRed: '#8B3A2A',      // Negative (Red) - Muted brick red
 };
 
-export type ThemeMode = 'light' | 'dark';
+export type ThemeMode = 'light' | 'dark' | 'system';
 
 export const theme = (mode: ThemeMode) => ({
   mode,

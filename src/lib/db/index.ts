@@ -40,6 +40,18 @@ export async function ensureTables() {
     );`
   );
 
+  // Migration: add missing columns if the DB was created before
+  // Check wallets columns and add description if absent
+  try {
+    const cols = await database.getAllAsync<{ name: string }>('PRAGMA table_info(wallets);');
+    const hasDescription = cols.some(c => c.name === 'description');
+    if (!hasDescription) {
+      await database.execAsync('ALTER TABLE wallets ADD COLUMN description TEXT;');
+    }
+  } catch (e) {
+    // noop: best-effort migration
+  }
+
   await database.execAsync(
     `CREATE TABLE IF NOT EXISTS transactions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,4 +66,37 @@ export async function ensureTables() {
       FOREIGN KEY(wallet_id) REFERENCES wallets(id)
     );`
   );
+
+  await database.execAsync(
+    `CREATE TABLE IF NOT EXISTS categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      type TEXT CHECK(type IN ('income','expense','both')),
+      icon TEXT,
+      color TEXT,
+      is_preset INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );`
+  );
+
+  // Seed preset categories if empty
+  const existingCategories = await database.getAllAsync<{ count: number }>('SELECT COUNT(*) as count FROM categories;');
+  if (existingCategories[0].count === 0) {
+    const presetExpense = ['Food', 'Transport', 'Rent', 'Groceries', 'Utilities', 'Shopping', 'Healthcare', 'Entertainment', 'Education', 'Bills', 'Other'];
+    const presetIncome = ['Salary', 'Freelance', 'Business', 'Investment', 'Gift', 'Offering', 'Other Income'];
+    
+    for (const cat of presetExpense) {
+      await database.runAsync(
+        'INSERT INTO categories (name, type, is_preset) VALUES (?, ?, 1);',
+        [cat, 'expense']
+      );
+    }
+    
+    for (const cat of presetIncome) {
+      await database.runAsync(
+        'INSERT INTO categories (name, type, is_preset) VALUES (?, ?, 1);',
+        [cat, 'income']
+      );
+    }
+  }
 }

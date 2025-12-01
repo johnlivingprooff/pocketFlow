@@ -1,35 +1,48 @@
-import { Redirect } from 'expo-router';
+import React, { useState, useCallback } from 'react';
+import { View, Text, ScrollView, Dimensions, Platform, TouchableOpacity, useColorScheme } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
+import { useSettings } from '../../src/store/useStore';
+import { theme, shadows } from '../../src/theme/theme';
+import { monthSpend, todaySpend, categoryBreakdown } from '../../src/lib/db/transactions';
+import { formatCurrency } from '../../src/utils/formatCurrency';
+import { Link } from 'expo-router';
 
 export default function AnalyticsPage() {
   const { themeMode, defaultCurrency } = useSettings();
-  const t = theme(themeMode);
+  const systemColorScheme = useColorScheme();
+  const t = theme(themeMode, systemColorScheme || 'light');
   const [monthTotal, setMonthTotal] = useState(0);
   const [todayTotal, setTodayTotal] = useState(0);
   const [categories, setCategories] = useState<Array<{ category: string; total: number }>>([]);
   const [largestPurchase, setLargestPurchase] = useState(0);
   const [avgDailySpend, setAvgDailySpend] = useState(0);
 
-  useEffect(() => {
+  const loadData = useCallback(async () => {
     if (Platform.OS !== 'web') {
-      (async () => {
-        const month = await monthSpend();
-        const today = await todaySpend();
-        const breakdown = await categoryBreakdown();
-        
-        setMonthTotal(month);
-        setTodayTotal(today);
-        setCategories(breakdown);
-        
-        // Calculate average daily spend (simplified)
-        const daysInMonth = new Date().getDate();
-        setAvgDailySpend(month / daysInMonth);
-        
-        // Find largest purchase (simplified - using category totals)
-        const largest = Math.max(...breakdown.map(c => c.total), 0);
-        setLargestPurchase(largest);
-      })();
+      const month = await monthSpend();
+      const today = await todaySpend();
+      const breakdown = await categoryBreakdown();
+      
+      setMonthTotal(month);
+      setTodayTotal(today);
+      setCategories(breakdown);
+      
+      // Calculate average daily spend (simplified)
+      const daysInMonth = new Date().getDate();
+      setAvgDailySpend(month / daysInMonth);
+      
+      // Find largest purchase (simplified - using category totals)
+      const largest = Math.max(...breakdown.map(c => c.total), 0);
+      setLargestPurchase(largest);
     }
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const topCategory = categories.length > 0 ? categories[0] : null;
   const screenWidth = Dimensions.get('window').width;
@@ -42,13 +55,23 @@ export default function AnalyticsPage() {
     percentage: total > 0 ? (cat.total / total) * 100 : 0
   }));
 
-  const colors = ['#84670B', '#6B6658', '#B3B09E', '#332D23', '#556B2F', '#8B3A2A', '#010000', '#A0988C'];
+  const colors = ['#C1A12F', '#84670B', '#B3B09E', '#6B6658', '#332D23', '#8B7355', '#A67C52', '#D4AF37'];
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: t.background }}>
-      <View style={{ padding: 16 }}>
-        {/* Header */}
-        <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 24 }}>Analytics</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+        {/* Header Section */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 8 }}>
+          <View>
+            <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>Analytics</Text>
+            <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Track your spending patterns</Text>
+          </View>
+          <Link href="/profile" asChild>
+            <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center', ...shadows.sm }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700' }}>U</Text>
+            </TouchableOpacity>
+          </Link>
+        </View>
 
         {/* Insights Cards */}
         <View style={{ marginBottom: 24 }}>
@@ -202,7 +225,7 @@ export default function AnalyticsPage() {
             </Text>
           </View>
         </View>
-      </View>
     </ScrollView>
+    </SafeAreaView>
   );
 }

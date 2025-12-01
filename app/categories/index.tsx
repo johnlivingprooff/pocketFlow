@@ -1,18 +1,35 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, useColorScheme } from 'react-native';
 import { useSettings } from '../../src/store/useStore';
 import { theme } from '../../src/theme/theme';
 import { Link, router } from 'expo-router';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../../src/constants/categories';
+import { getCategories, Category } from '../../src/lib/db/categories';
 
 export default function CategoriesPage() {
   const { themeMode } = useSettings();
-  const t = theme(themeMode);
+  const systemColorScheme = useColorScheme();
+  const t = theme(themeMode, systemColorScheme || 'light');
   const [searchQuery, setSearchQuery] = useState('');
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const allCategories = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES];
-  const filteredCategories = allCategories.filter(cat => 
-    cat.toLowerCase().includes(searchQuery.toLowerCase())
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  const loadCategories = async () => {
+    try {
+      const cats = await getCategories();
+      setCategories(cats);
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredCategories = categories.filter(cat => 
+    cat.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -47,10 +64,10 @@ export default function CategoriesPage() {
 
         {/* Categories Grid */}
         <View style={{ gap: 12 }}>
-          {filteredCategories.map((category, index) => (
+          {filteredCategories.map((category) => (
             <TouchableOpacity
-              key={index}
-              onPress={() => router.push(`/transactions/history?category=${category}`)}
+              key={category.id}
+              onPress={() => router.push(`/transactions/history?category=${category.name}`)}
               style={{
                 backgroundColor: t.card,
                 borderWidth: 1,
@@ -67,15 +84,17 @@ export default function CategoriesPage() {
                   width: 48,
                   height: 48,
                   borderRadius: 24,
-                  backgroundColor: t.background,
+                  backgroundColor: category.color || t.primary,
                   justifyContent: 'center',
                   alignItems: 'center'
                 }}>
                   <Text style={{ fontSize: 24 }}>📊</Text>
                 </View>
                 <View>
-                  <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>{category}</Text>
-                  <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>Tap to view transactions</Text>
+                  <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>{category.name}</Text>
+                  <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>
+                    {category.type === 'income' ? 'Income' : 'Expense'} {category.is_preset ? '• Preset' : '• Custom'}
+                  </Text>
                 </View>
               </View>
               <Text style={{ color: t.textSecondary, fontSize: 20 }}>›</Text>

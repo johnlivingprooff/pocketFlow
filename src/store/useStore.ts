@@ -11,8 +11,8 @@ interface SettingsState {
 }
 
 export const useSettings = create<SettingsState>((set) => ({
-  themeMode: 'light',
-  defaultCurrency: 'USD',
+  themeMode: 'system',
+  defaultCurrency: 'MWK',
   biometricEnabled: false,
   setThemeMode: (mode) => set({ themeMode: mode }),
   setDefaultCurrency: (currency) => set({ defaultCurrency: currency }),
