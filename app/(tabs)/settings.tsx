@@ -1,18 +1,98 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, Linking, useColorScheme, Modal, FlatList, Switch } from 'react-native';
 import { useSettings } from '../../src/store/useStore';
 import { theme, ThemeMode } from '../../src/theme/theme';
 import { Link } from 'expo-router';
 import { CURRENCIES } from '../../src/constants/currencies';
+import { checkBiometricAvailability, authenticateWithBiometrics } from '../../src/lib/services/biometricService';
 
 const APP_VERSION = '1.0.0';
 
 export default function SettingsScreen() {
-  const { themeMode, setThemeMode, biometricEnabled, setBiometricEnabled, defaultCurrency } = useSettings();
+  const { 
+    themeMode, 
+    setThemeMode, 
+    biometricEnabled, 
+    setBiometricEnabled,
+    biometricSetupComplete,
+    setBiometricSetupComplete,
+    defaultCurrency,
+    userInfo,
+  } = useSettings();
   const systemColorScheme = useColorScheme();
-  const t = theme(themeMode, systemColorScheme || 'light');
+  const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
+  const t = theme(effectiveMode);
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
+  const [biometricType, setBiometricType] = useState<string>('Biometric');
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+
+  useEffect(() => {
+    checkBiometrics();
+  }, []);
+
+  const checkBiometrics = async () => {
+    const result = await checkBiometricAvailability();
+    setBiometricAvailable(result.isAvailable);
+    if (result.isAvailable) {
+      setBiometricType(result.biometricType);
+    }
+  };
+
+  const handleBiometricToggle = async (value: boolean) => {
+    if (value) {
+      // Turning on - check availability first
+      const availability = await checkBiometricAvailability();
+      
+      if (!availability.isAvailable) {
+        Alert.alert(
+          'Biometric Not Available',
+          availability.error || 'Biometric authentication is not available on this device.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Authenticate to enable
+      const auth = await authenticateWithBiometrics('Authenticate to enable biometric lock');
+      
+      if (auth.success) {
+        setBiometricEnabled(true);
+        setBiometricSetupComplete(true);
+        Alert.alert(
+          'Biometric Lock Enabled',
+          `${biometricType} has been enabled. You'll be asked to authenticate when opening the app.`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          'Authentication Failed',
+          auth.error || 'Could not enable biometric lock.',
+          [{ text: 'OK' }]
+        );
+      }
+    } else {
+      // Turning off - confirm with authentication
+      Alert.alert(
+        'Disable Biometric Lock',
+        'Are you sure you want to disable biometric authentication?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Disable',
+            style: 'destructive',
+            onPress: async () => {
+              const auth = await authenticateWithBiometrics('Authenticate to disable biometric lock');
+              if (auth.success) {
+                setBiometricEnabled(false);
+                Alert.alert('Biometric Lock Disabled', 'Biometric authentication has been disabled.');
+              }
+            },
+          },
+        ]
+      );
+    }
+  };
 
   const themeOptions: { value: ThemeMode; label: string; description: string }[] = [
     { value: 'light', label: 'Light', description: 'Always use light theme' },
@@ -38,11 +118,13 @@ export default function SettingsScreen() {
             <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center' }}>
-                  <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '700' }}>U</Text>
+                  <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '700' }}>
+                    {userInfo.name.charAt(0).toUpperCase()}
+                  </Text>
                 </View>
                 <View>
                   <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Profile</Text>
-                  <Text style={{ color: t.textSecondary, fontSize: 12 }}>Manage your account</Text>
+                  <Text style={{ color: t.textSecondary, fontSize: 12 }}>{userInfo.name}</Text>
                 </View>
               </View>
               <Text style={{ color: t.textSecondary, fontSize: 20 }}>›</Text>
@@ -89,10 +171,20 @@ export default function SettingsScreen() {
             </Link>
             <View style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <View>
-                <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Use Biometrics</Text>
-                <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>Protect access to the app</Text>
+                <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>
+                  Use {biometricType}
+                </Text>
+                <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>
+                  {biometricAvailable 
+                    ? 'Secure app access with biometrics' 
+                    : 'Not available on this device'}
+                </Text>
               </View>
-              <Switch value={biometricEnabled} onValueChange={setBiometricEnabled} />
+              <Switch 
+                value={biometricEnabled} 
+                onValueChange={handleBiometricToggle}
+                disabled={!biometricAvailable}
+              />
             </View>
           </View>
         </View>

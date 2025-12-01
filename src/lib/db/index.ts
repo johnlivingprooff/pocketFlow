@@ -120,3 +120,57 @@ export async function ensureTables() {
     }
   }
 }
+
+/**
+ * Clear all data from the database
+ * WARNING: This is destructive and cannot be undone
+ */
+export async function clearDatabase() {
+  const database = await getDb();
+  
+  // Delete all data from tables
+  await database.execAsync('DELETE FROM transactions;');
+  await database.execAsync('DELETE FROM wallets;');
+  await database.execAsync('DELETE FROM categories;');
+  
+  // Reset autoincrement counters
+  await database.execAsync('DELETE FROM sqlite_sequence WHERE name IN ("transactions", "wallets", "categories");');
+  
+  // Re-seed preset categories
+  const presetExpense = [
+    { name: 'Food', icon: '🍔' },
+    { name: 'Transport', icon: '🚗' },
+    { name: 'Rent', icon: '🏠' },
+    { name: 'Groceries', icon: '🛒' },
+    { name: 'Utilities', icon: '💡' },
+    { name: 'Shopping', icon: '🛍️' },
+    { name: 'Healthcare', icon: '⚕️' },
+    { name: 'Entertainment', icon: '🎬' },
+    { name: 'Education', icon: '📚' },
+    { name: 'Bills', icon: '📄' },
+    { name: 'Other', icon: '📊' }
+  ];
+  const presetIncome = [
+    { name: 'Salary', icon: '💰' },
+    { name: 'Freelance', icon: '💼' },
+    { name: 'Business', icon: '🏢' },
+    { name: 'Investment', icon: '📈' },
+    { name: 'Gift', icon: '🎁' },
+    { name: 'Offering', icon: '🙏' },
+    { name: 'Other Income', icon: '💵' }
+  ];
+  
+  for (const cat of presetExpense) {
+    await database.runAsync(
+      'INSERT INTO categories (name, type, icon, is_preset) VALUES (?, ?, ?, 1);',
+      [cat.name, 'expense', cat.icon]
+    );
+  }
+  
+  for (const cat of presetIncome) {
+    await database.runAsync(
+      'INSERT INTO categories (name, type, icon, is_preset) VALUES (?, ?, ?, 1);',
+      [cat.name, 'income', cat.icon]
+    );
+  }
+}
