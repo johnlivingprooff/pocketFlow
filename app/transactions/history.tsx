@@ -249,7 +249,7 @@ export default function HistoryScreen() {
                       </View>
                       <View style={{ alignItems: 'flex-end', marginLeft: 12 }}>
                         <Text style={{
-                          color: tx.type === 'income' ? '#10B981' : t.accent,
+                          color: tx.type === 'income' ? t.income : t.expense,
                           fontSize: 16,
                           fontWeight: '700'
                         }}>
