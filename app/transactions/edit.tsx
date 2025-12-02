@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, Platform, Modal } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform, Modal, KeyboardAvoidingView, useColorScheme } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
@@ -7,10 +7,12 @@ import { getById, updateTransaction } from '../../src/lib/db/transactions';
 import { getCategories, Category } from '../../src/lib/db/categories';
 import { Transaction } from '../../src/types/transaction';
 import { formatDate } from '../../src/utils/date';
+import { ThemedAlert } from '../../src/components/ThemedAlert';
 
 export default function EditTransaction() {
   const { themeMode, defaultCurrency } = useSettings();
-  const t = theme(themeMode);
+  const systemColorScheme = useColorScheme();
+  const t = theme(themeMode, systemColorScheme || 'light');
   const { id } = useLocalSearchParams();
 
   const [loading, setLoading] = useState(true);
@@ -25,6 +27,12 @@ export default function EditTransaction() {
   const [tempSelectedDate, setTempSelectedDate] = useState<Date | null>(null);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [categoryOptions, setCategoryOptions] = useState<Category[]>([]);
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    buttons: Array<{ text: string; onPress?: () => void }>;
+  }>({ visible: false, title: '', message: '', buttons: [] });
 
   const load = useCallback(async () => {
     if (!id || Platform.OS === 'web') return;
@@ -39,7 +47,12 @@ export default function EditTransaction() {
         setNotes(data.notes ?? '');
       }
     } catch (e) {
-      Alert.alert('Error', 'Failed to load transaction');
+      setAlertConfig({
+        visible: true,
+        title: 'Error',
+        message: 'Failed to load transaction',
+        buttons: [{ text: 'OK' }]
+      });
     } finally {
       setLoading(false);
     }
@@ -65,7 +78,12 @@ export default function EditTransaction() {
   const handleSave = async () => {
     const value = Number(amount);
     if (isNaN(value)) {
-      Alert.alert('Invalid amount', 'Please enter a numeric amount');
+      setAlertConfig({
+        visible: true,
+        title: 'Invalid amount',
+        message: 'Please enter a numeric amount',
+        buttons: [{ text: 'OK' }]
+      });
       return;
     }
     try {
@@ -76,9 +94,19 @@ export default function EditTransaction() {
         date,
         notes: notes || null,
       });
-      Alert.alert('Saved', 'Transaction updated', [{ text: 'OK', onPress: () => router.back() }]);
+      setAlertConfig({
+        visible: true,
+        title: 'Saved',
+        message: 'Transaction updated',
+        buttons: [{ text: 'OK', onPress: () => router.back() }]
+      });
     } catch (e) {
-      Alert.alert('Error', 'Failed to update transaction');
+      setAlertConfig({
+        visible: true,
+        title: 'Error',
+        message: 'Failed to update transaction',
+        buttons: [{ text: 'OK' }]
+      });
     }
   };
 
@@ -99,9 +127,14 @@ export default function EditTransaction() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: t.background }} contentContainerStyle={{ padding: 16 }}>
-      {/* Header */}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+    <KeyboardAvoidingView 
+      style={{ flex: 1, backgroundColor: t.background }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
+        {/* Header */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800' }}>Edit Transaction</Text>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={{ color: t.textSecondary, fontSize: 16 }}>Cancel</Text>
@@ -365,7 +398,18 @@ export default function EditTransaction() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+      
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={() => setAlertConfig({ ...alertConfig, visible: false })}
+        themeMode={themeMode}
+        systemColorScheme={systemColorScheme || 'light'}
+      />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

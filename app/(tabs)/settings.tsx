@@ -103,7 +103,7 @@ export default function SettingsScreen() {
   const getThemeLabel = () => themeOptions.find(o => o.value === themeMode)?.label || 'System';
   const handleBackup = async () => Alert.alert('Backup', 'Backup feature will save your data');
   const handleExportCSV = async () => Alert.alert('Export CSV', 'CSV export feature coming soon');
-  const handleFeedback = () => Linking.openURL('mailto:support@pocketflow.app?subject=Feedback');
+  const handleFeedback = () => Linking.openURL('mailto:hello@eiteone.org?subject=Feedback');
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: t.background }}>

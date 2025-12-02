@@ -64,5 +64,6 @@ export async function getWalletBalance(id: number): Promise<number> {
   );
   const w = await getWallet(id);
   const initial = w[0]?.initial_balance ?? 0;
-  return initial + (income[0]?.total ?? 0) - (expense[0]?.total ?? 0);
+  // Expenses are stored as negative, so we add them (they're already negative)
+  return initial + (income[0]?.total ?? 0) + (expense[0]?.total ?? 0);
 }

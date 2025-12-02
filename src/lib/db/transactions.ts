@@ -117,7 +117,7 @@ export async function analyticsTotalsByMonth(year: number, month: number) {
     [start, end]
   );
   const expense = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+    `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
     [start, end]
   );
   return { income: income[0]?.total ?? 0, expense: expense[0]?.total ?? 0 };
@@ -127,7 +127,7 @@ export async function analyticsCategoryBreakdown(year: number, month: number) {
   const start = new Date(year, month - 1, 1).toISOString();
   const end = new Date(year, month, 0, 23, 59, 59).toISOString();
   return exec<{ category: string; total: number }>(
-    `SELECT category, COALESCE(SUM(amount),0) as total 
+    `SELECT category, COALESCE(SUM(ABS(amount)),0) as total 
      FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ? 
      GROUP BY category ORDER BY total DESC;`,
     [start, end]
@@ -136,7 +136,7 @@ export async function analyticsCategoryBreakdown(year: number, month: number) {
 
 export async function totalAvailableAcrossWallets() {
   const wallets = await exec<{ id: number; initial_balance: number }>(
-    'SELECT id, initial_balance FROM wallets;'
+    `SELECT id, initial_balance FROM wallets;`
   );
   let total = 0;
   for (const w of wallets) {
@@ -148,7 +148,8 @@ export async function totalAvailableAcrossWallets() {
       `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE wallet_id = ? AND type = 'expense';`,
       [w.id]
     );
-    total += w.initial_balance + (inc[0]?.total ?? 0) - (exp[0]?.total ?? 0);
+    // Expenses are stored as negative, so we add them (they're already negative)
+    total += w.initial_balance + (inc[0]?.total ?? 0) + (exp[0]?.total ?? 0);
   }
   return total;
 }
@@ -158,7 +159,7 @@ export async function monthSpend() {
   const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
   const result = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+    `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
     [start, end]
   );
   return result[0]?.total ?? 0;
@@ -169,7 +170,7 @@ export async function todaySpend() {
   const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
   const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).toISOString();
   const result = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+    `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
     [start, end]
   );
   return result[0]?.total ?? 0;
@@ -180,7 +181,7 @@ export async function categoryBreakdown() {
   const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
   return exec<{ category: string; total: number }>(
-    `SELECT category, COALESCE(SUM(amount),0) as total 
+    `SELECT category, COALESCE(SUM(ABS(amount)),0) as total 
      FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ? AND category IS NOT NULL
      GROUP BY category ORDER BY total DESC;`,
     [start, end]
@@ -202,15 +203,15 @@ export async function weekOverWeekComparison() {
   lastWeekStart.setDate(lastWeekStart.getDate() - 7);
   
   const lastWeekEnd = new Date(thisWeekStart);
-  lastWeekEnd.setHours(0, 0, 0, -1); // End of last week (just before this week starts)
+  lastWeekEnd.setMilliseconds(-1); // End of last week (just before this week starts)
   
   const thisWeekResult = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date >= ?;`,
+    `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date >= ?;`,
     [thisWeekStart.toISOString()]
   );
   
   const lastWeekResult = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+    `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
     [lastWeekStart.toISOString(), lastWeekEnd.toISOString()]
   );
   
@@ -231,7 +232,7 @@ export async function incomeVsExpenseAnalysis() {
     [start, end]
   );
   const expense = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+    `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
     [start, end]
   );
   
@@ -314,7 +315,7 @@ export async function getTopSpendingDay() {
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
   
   const result = await exec<{ date: string; total: number }>(
-    `SELECT date, COALESCE(SUM(amount),0) as total 
+    `SELECT date, COALESCE(SUM(ABS(amount)),0) as total 
      FROM transactions 
      WHERE type = 'expense' AND date BETWEEN ? AND ? 
      GROUP BY date 
@@ -349,7 +350,7 @@ export async function getAveragePurchaseSize() {
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
   
   const result = await exec<{ avg: number; count: number }>(
-    `SELECT COALESCE(AVG(amount),0) as avg, COUNT(*) as count 
+    `SELECT COALESCE(AVG(ABS(amount)),0) as avg, COUNT(*) as count 
      FROM transactions 
      WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
     [start, end]
@@ -372,7 +373,7 @@ export async function getSevenDaySpendingTrend() {
     const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59).toISOString();
     
     const result = await exec<{ total: number }>(
-      `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+      `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
       [startOfDay, endOfDay]
     );
     
@@ -398,7 +399,7 @@ export async function getDailySpendingForMonth() {
     const endOfDay = new Date(year, month, day, 23, 59, 59).toISOString();
     
     const result = await exec<{ total: number }>(
-      `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+      `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
       [startOfDay, endOfDay]
     );
     
@@ -427,7 +428,7 @@ export async function getMonthlyComparison() {
     [thisMonthStart, thisMonthEnd]
   );
   const thisMonthExpense = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+    `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
     [thisMonthStart, thisMonthEnd]
   );
   
@@ -436,7 +437,7 @@ export async function getMonthlyComparison() {
     [lastMonthStart, lastMonthEnd]
   );
   const lastMonthExpense = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+    `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
     [lastMonthStart, lastMonthEnd]
   );
   
@@ -460,7 +461,7 @@ export async function getCategorySpendingForPieChart() {
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
   
   const result = await exec<{ category: string; total: number }>(
-    `SELECT category, COALESCE(SUM(amount),0) as total 
+    `SELECT category, COALESCE(SUM(ABS(amount)),0) as total 
      FROM transactions 
      WHERE type = 'expense' AND date BETWEEN ? AND ? AND category IS NOT NULL
      GROUP BY category 
@@ -486,7 +487,7 @@ export async function getSpendingTrendForPeriod(period: 'week' | 'month' | 'quar
       const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59).toISOString();
       
       const result = await exec<{ total: number }>(
-        `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+        `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
         [startOfDay, endOfDay]
       );
       
@@ -504,7 +505,7 @@ export async function getSpendingTrendForPeriod(period: 'week' | 'month' | 'quar
       const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59).toISOString();
       
       const result = await exec<{ total: number }>(
-        `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+        `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
         [startOfDay, endOfDay]
       );
       
@@ -522,7 +523,7 @@ export async function getSpendingTrendForPeriod(period: 'week' | 'month' | 'quar
       startDate.setDate(startDate.getDate() - 6);
       
       const result = await exec<{ total: number }>(
-        `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+        `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
         [startDate.toISOString(), endDate.toISOString()]
       );
       
@@ -539,7 +540,7 @@ export async function getSpendingTrendForPeriod(period: 'week' | 'month' | 'quar
       const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59).toISOString();
       
       const result = await exec<{ total: number }>(
-        `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+        `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
         [startOfMonth, endOfMonth]
       );
       
@@ -573,7 +574,7 @@ export async function getCategorySpendingForPeriod(period: 'week' | 'month' | 'q
   const end = now.toISOString();
   
   const result = await exec<{ category: string; total: number }>(
-    `SELECT category, COALESCE(SUM(amount),0) as total 
+    `SELECT category, COALESCE(SUM(ABS(amount)),0) as total 
      FROM transactions 
      WHERE type = 'expense' AND date BETWEEN ? AND ? AND category IS NOT NULL
      GROUP BY category 

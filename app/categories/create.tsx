@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, useColorScheme } from 'react-native';
 import { useSettings } from '../../src/store/useStore';
 import { theme } from '../../src/theme/theme';
 import { router } from 'expo-router';
 import * as CategoryIcons from '../../src/assets/icons/CategoryIcons';
 import { createCategory } from '../../src/lib/db/categories';
+import { ThemedAlert } from '../../src/components/ThemedAlert';
 
 const ICON_OPTIONS: Array<{ name: CategoryIcons.CategoryIconName; Icon: React.FC<any> }> = [
   { name: 'Food', Icon: CategoryIcons.FoodIcon },
@@ -28,16 +29,28 @@ const COLOR_OPTIONS = ['#6B6658', '#84670B', '#B3B09E', '#C1A12F', '#332D23', '#
 
 export default function CreateCategory() {
   const { themeMode } = useSettings();
-  const t = theme(themeMode);
+  const systemColorScheme = useColorScheme();
+  const t = theme(themeMode, systemColorScheme || 'light');
   const [categoryName, setCategoryName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState<CategoryIcons.CategoryIconName>('Food');
   const [selectedColor, setSelectedColor] = useState('#C1A12F');
   const [categoryType, setCategoryType] = useState<'income' | 'expense'>('expense');
   const [monthlyBudget, setMonthlyBudget] = useState('');
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    buttons: Array<{ text: string; onPress?: () => void }>;
+  }>({ visible: false, title: '', message: '', buttons: [] });
 
   const handleSave = async () => {
     if (!categoryName.trim()) {
-      Alert.alert('Error', 'Please enter a category name');
+      setAlertConfig({
+        visible: true,
+        title: 'Error',
+        message: 'Please enter a category name',
+        buttons: [{ text: 'OK' }]
+      });
       return;
     }
 
@@ -49,21 +62,39 @@ export default function CreateCategory() {
         color: selectedColor,
         is_preset: 0,
       });
-      Alert.alert('Success', 'Category created successfully', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      setAlertConfig({
+        visible: true,
+        title: 'Success',
+        message: 'Category created successfully',
+        buttons: [{ text: 'OK', onPress: () => router.back() }]
+      });
     } catch (error: any) {
       if (error?.message?.includes('UNIQUE constraint')) {
-        Alert.alert('Error', 'A category with this name already exists');
+        setAlertConfig({
+          visible: true,
+          title: 'Error',
+          message: 'A category with this name already exists',
+          buttons: [{ text: 'OK' }]
+        });
       } else {
-        Alert.alert('Error', 'Failed to create category');
+        setAlertConfig({
+          visible: true,
+          title: 'Error',
+          message: 'Failed to create category',
+          buttons: [{ text: 'OK' }]
+        });
       }
     }
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: t.background }}>
-      <View style={{ padding: 16 }}>
+    <KeyboardAvoidingView 
+      style={{ flex: 1, backgroundColor: t.background }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
+      <ScrollView style={{ flex: 1 }}>
+        <View style={{ padding: 16 }}>
         {/* Header */}
         <View style={{ marginBottom: 32 }}>
           <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 8 }}>Add New Category</Text>
@@ -216,7 +247,10 @@ export default function CreateCategory() {
               justifyContent: 'center',
               alignItems: 'center'
             }}>
-              <Text style={{ fontSize: 24 }}>{selectedIcon}</Text>
+              {(() => {
+                const IconComp = ICON_OPTIONS.find(opt => opt.name === selectedIcon)?.Icon;
+                return IconComp ? <IconComp size={24} color="#FFFFFF" /> : null;
+              })()}
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>
@@ -245,6 +279,17 @@ export default function CreateCategory() {
           <Text style={{ color: t.background, fontSize: 16, fontWeight: '700' }}>Save Category</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+      </ScrollView>
+      
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={() => setAlertConfig({ ...alertConfig, visible: false })}
+        themeMode={themeMode}
+        systemColorScheme={systemColorScheme || 'light'}
+      />
+    </KeyboardAvoidingView>
   );
 }

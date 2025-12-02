@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Platform, Modal, useColorScheme } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Platform, Modal, useColorScheme, KeyboardAvoidingView } from 'react-native';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -98,14 +98,26 @@ export default function AddTransactionScreen() {
       const filename = `${yyyyMmDd(new Date())}/${amount || '0'}_receipt_${Date.now()}.jpg`;
       receiptUri = await saveReceiptImage(filename, imageBase64);
     }
-    await addTransaction({ wallet_id: walletId, type, amount: parseFloat(amount || '0'), category, date: date.toISOString(), notes, receipt_uri: receiptUri });
+    const numAmount = parseFloat(amount || '0');
+    const finalAmount = type === 'expense' ? -Math.abs(numAmount) : Math.abs(numAmount);
+    await addTransaction({ wallet_id: walletId, type, amount: finalAmount, category, date: date.toISOString(), notes, receipt_uri: receiptUri });
     router.back();
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: t.background }} contentContainerStyle={{ padding: 16 }}>
-      {/* Type - Pill Toggle */}
-      <Text style={{ color: t.textSecondary, marginBottom: 8 }}>Type</Text>
+    <KeyboardAvoidingView 
+      style={{ flex: 1, backgroundColor: t.background }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
+      <ScrollView 
+        style={{ flex: 1 }} 
+        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={true}
+      >
+        {/* Type - Pill Toggle */}
+        <Text style={{ color: t.textSecondary, marginBottom: 8 }}>Type</Text>
       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
         <TouchableOpacity
           onPress={() => setType('expense')}
@@ -365,6 +377,7 @@ export default function AddTransactionScreen() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }

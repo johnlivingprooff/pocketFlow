@@ -48,6 +48,8 @@ export default function Home() {
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [chartData, setChartData] = useState<Array<{ date: string; income: number; expense: number }>>([]);
   const [chartRange, setChartRange] = useState<'7d' | '1m' | '3m' | '1y'>('7d');
+  const [weekComparison, setWeekComparison] = useState<{ thisWeek: number; lastWeek: number; percentChange: number } | null>(null);
+  const [biggestCategory, setBiggestCategory] = useState<{ category: string; amount: number } | null>(null);
 
   const handleDateSelect = (date: Date) => {
     if (!customStartDate || (customStartDate && customEndDate)) {
@@ -261,7 +263,7 @@ export default function Home() {
         
         const expensesSum = periodTransactions
           .filter(t => t.type === 'expense')
-          .reduce((sum, t) => sum + t.amount, 0);
+          .reduce((sum, t) => sum + Math.abs(t.amount), 0);
         
         setIncome(incomeSum);
         setExpenses(expensesSum);
@@ -269,6 +271,58 @@ export default function Home() {
         // Build chart data for selected range
         const data = buildChartData(chartRange);
         setChartData(data);
+
+        // Calculate week-over-week comparison
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const startOfThisWeek = new Date(today);
+        startOfThisWeek.setDate(today.getDate() - today.getDay());
+        const startOfLastWeek = new Date(startOfThisWeek);
+        startOfLastWeek.setDate(startOfThisWeek.getDate() - 7);
+
+        const thisWeekTxns = transactions.filter(t => {
+          const d = new Date(t.date);
+          return d >= startOfThisWeek && d < today && t.type === 'expense';
+        });
+        const lastWeekTxns = transactions.filter(t => {
+          const d = new Date(t.date);
+          return d >= startOfLastWeek && d < startOfThisWeek && t.type === 'expense';
+        });
+
+        const thisWeekTotal = thisWeekTxns.reduce((s, t) => s + Math.abs(t.amount), 0);
+        const lastWeekTotal = lastWeekTxns.reduce((s, t) => s + Math.abs(t.amount), 0);
+        const percentChange = lastWeekTotal > 0 ? ((thisWeekTotal - lastWeekTotal) / lastWeekTotal) * 100 : 0;
+
+        setWeekComparison({
+          thisWeek: thisWeekTotal,
+          lastWeek: lastWeekTotal,
+          percentChange: Math.round(percentChange)
+        });
+
+        // Find biggest category today
+        const todayStart = new Date(today);
+        const todayEnd = new Date(today);
+        todayEnd.setDate(today.getDate() + 1);
+
+        const todayTxns = transactions.filter(t => {
+          const d = new Date(t.date);
+          return d >= todayStart && d < todayEnd && t.type === 'expense';
+        });
+
+        const categoryTotals: { [key: string]: number } = {};
+        todayTxns.forEach(t => {
+          const cat = t.category || 'Uncategorized';
+          categoryTotals[cat] = (categoryTotals[cat] || 0) + Math.abs(t.amount);
+        });
+
+        const biggest = Object.entries(categoryTotals)
+          .sort(([, a], [, b]) => b - a)[0];
+
+        if (biggest) {
+          setBiggestCategory({ category: biggest[0], amount: biggest[1] });
+        } else {
+          setBiggestCategory(null);
+        }
       })();
     }
   }, [wallets, transactions, selectedPeriod, customStartDate, customEndDate, chartRange]);
@@ -443,32 +497,33 @@ export default function Home() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
             {/* Show only categories with transactions */}
             {getCategoryBreakdown().map((cat, idx) => (
-              <TouchableOpacity
-                key={idx}
-                style={{
-                  backgroundColor: t.card,
-                  borderWidth: 1,
-                  borderColor: t.border,
-                  borderRadius: 16,
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                  minWidth: 140,
-                  ...shadows.sm
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                  <View style={{ 
-                    width: 8, 
-                    height: 8, 
-                    borderRadius: 4, 
-                    backgroundColor: cat.color,
-                    marginRight: 8
-                  }} />
-                  <Text style={{ color: t.textPrimary, fontSize: 13, fontWeight: '700' }}>{cat.category}</Text>
-                </View>
-                <Text style={{ color: t.danger, fontSize: 16, fontWeight: '800' }}>{formatCurrency(cat.amount, defaultCurrency)}</Text>
-                <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 2 }}>{cat.percentage}% of expenses</Text>
-              </TouchableOpacity>
+              <Link key={idx} href={`/transactions/history?category=${cat.category}`} asChild>
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: t.card,
+                    borderWidth: 1,
+                    borderColor: t.border,
+                    borderRadius: 16,
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    minWidth: 140,
+                    ...shadows.sm
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                    <View style={{ 
+                      width: 8, 
+                      height: 8, 
+                      borderRadius: 4, 
+                      backgroundColor: cat.color,
+                      marginRight: 8
+                    }} />
+                    <Text style={{ color: t.textPrimary, fontSize: 13, fontWeight: '700' }}>{cat.category}</Text>
+                  </View>
+                  <Text style={{ color: t.danger, fontSize: 16, fontWeight: '800' }}>{formatCurrency(cat.amount, defaultCurrency)}</Text>
+                  <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 2 }}>{cat.percentage}% of expenses</Text>
+                </TouchableOpacity>
+              </Link>
             ))}
             
             {/* Add Category Button */}
@@ -571,14 +626,38 @@ export default function Home() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
           <Link href="/analytics" asChild>
             <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 12, minWidth: 220, ...shadows.sm }}>
-              <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '700' }}>Spending is lower this week</Text>
-              <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>12% lower than last week</Text>
+              {weekComparison ? (
+                <>
+                  <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '700' }}>
+                    {weekComparison.percentChange < 0 ? 'Spending is lower this week' : 'Spending is higher this week'}
+                  </Text>
+                  <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>
+                    {Math.abs(weekComparison.percentChange)}% {weekComparison.percentChange < 0 ? 'lower' : 'higher'} than last week
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '700' }}>No spending data</Text>
+                  <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>Start tracking transactions</Text>
+                </>
+              )}
             </TouchableOpacity>
           </Link>
           <Link href="/analytics" asChild>
             <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 12, minWidth: 220, ...shadows.sm }}>
-              <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '700' }}>Biggest category today</Text>
-              <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>Food & Drinks</Text>
+              {biggestCategory ? (
+                <>
+                  <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '700' }}>Biggest category today</Text>
+                  <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>
+                    {biggestCategory.category} - {formatCurrency(biggestCategory.amount, defaultCurrency)}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '700' }}>No expenses today</Text>
+                  <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>Great job saving!</Text>
+                </>
+              )}
             </TouchableOpacity>
           </Link>
         </ScrollView>
