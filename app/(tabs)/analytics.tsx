@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, Dimensions, Platform, TouchableOpacity, useColorScheme, Alert } from 'react-native';
+import { View, Text, ScrollView, Dimensions, Platform, TouchableOpacity, useColorScheme, Image, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
@@ -46,7 +46,7 @@ import {
 import { exportAnalyticsReport, AnalyticsReportData } from '../../src/lib/export/exportReport';
 
 export default function AnalyticsPage() {
-  const { themeMode, defaultCurrency } = useSettings();
+  const { themeMode, defaultCurrency, userInfo } = useSettings();
   const systemColorScheme = useColorScheme();
   const t = theme(themeMode, systemColorScheme || 'light');
   const [monthTotal, setMonthTotal] = useState(0);
@@ -257,6 +257,15 @@ export default function AnalyticsPage() {
               style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, justifyContent: 'center', alignItems: 'center', ...shadows.sm }}
             >
               <Text style={{ color: t.textPrimary, fontSize: 18 }}>📤</Text>
+          <Link href="/profile" asChild>
+            <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', ...shadows.sm }}>
+              {userInfo?.profileImage ? (
+                <Image source={{ uri: userInfo.profileImage }} style={{ width: 48, height: 48, borderRadius: 24 }} />
+              ) : (
+                <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700' }}>
+                  {(userInfo?.name || 'U').charAt(0).toUpperCase()}
+                </Text>
+              )}
             </TouchableOpacity>
             <Link href="/profile" asChild>
               <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center', ...shadows.sm }}>

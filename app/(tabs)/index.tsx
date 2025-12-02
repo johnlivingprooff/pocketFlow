@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Platform, TouchableOpacity, Modal, useColorScheme } from 'react-native';
+import { View, Text, ScrollView, Platform, TouchableOpacity, Modal, useColorScheme, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '../../src/store/useStore';
@@ -17,7 +17,7 @@ import { formatCurrency } from '../../src/utils/formatCurrency';
 type TimePeriod = 'today' | 'week' | 'month' | 'custom';
 
 export default function Home() {
-  const { themeMode, defaultCurrency } = useSettings();
+  const { themeMode, defaultCurrency, userInfo } = useSettings();
   const systemColorScheme = useColorScheme();
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const t = theme(effectiveMode);
@@ -26,7 +26,9 @@ export default function Home() {
   const [total, setTotal] = useState(0);
   const [monthTotal, setMonthTotal] = useState(0);
   const [todayTotal, setTodayTotal] = useState(0);
-  const [userName, setUserName] = useState('john-livingprooff');
+  // Derive display name from persisted settings
+  const displayName = (userInfo?.name && userInfo.name.trim().length > 0) ? userInfo.name : 'User';
+  const greeting = getGreeting();
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('today');
   const [income, setIncome] = useState(0);
   const [expenses, setExpenses] = useState(0);
@@ -202,13 +204,19 @@ export default function Home() {
         {/* Header Section */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 8 }}>
         <View>
-          <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>Good afternoon, {userName} 👋</Text>
+          <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>{greeting}, {displayName} 👋</Text>
           <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Here's where your money is flowing today.</Text>
           <Text style={{ color: t.textTertiary, fontSize: 12, marginTop: 2 }}>{formatDate(new Date().toISOString())}</Text>
         </View>
         <Link href="/profile" asChild>
-          <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center', ...shadows.sm }}>
-            <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700' }}>{userName.charAt(0).toUpperCase()}</Text>
+          <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', ...shadows.sm }}>
+            {userInfo?.profileImage ? (
+              <Image source={{ uri: userInfo.profileImage }} style={{ width: 48, height: 48, borderRadius: 24 }} />
+            ) : (
+              <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700' }}>
+                {(userInfo?.name || 'U').charAt(0).toUpperCase()}
+              </Text>
+            )}
           </TouchableOpacity>
         </Link>
         </View>
@@ -227,6 +235,13 @@ export default function Home() {
               }}>
                 <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Create your first wallet</Text>
                 <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 6 }}>Tap to add a wallet and start tracking</Text>
+              function getGreeting() {
+                const hour = new Date().getHours();
+                if (hour >= 5 && hour < 12) return 'Good morning';
+                if (hour >= 12 && hour < 18) return 'Good afternoon';
+                if (hour >= 18 && hour < 22) return 'Good evening';
+                return 'Hello';
+              }
               </TouchableOpacity>
             </Link>
           ) : (
