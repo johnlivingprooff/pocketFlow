@@ -267,11 +267,7 @@ export default function AnalyticsPage() {
                 </Text>
               )}
             </TouchableOpacity>
-            <Link href="/profile" asChild>
-              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center', ...shadows.sm }}>
-                <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700' }}>U</Text>
-              </TouchableOpacity>
-            </Link>
+          </Link>
           </View>
         </View>
 
