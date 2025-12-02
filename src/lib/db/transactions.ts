@@ -357,3 +357,259 @@ export async function getAveragePurchaseSize() {
   
   return { average: result[0]?.avg ?? 0, count: result[0]?.count ?? 0 };
 }
+
+// Phase 2: Chart Data Functions
+
+export async function getSevenDaySpendingTrend() {
+  const now = new Date();
+  const data: Array<{ date: string; amount: number }> = [];
+  
+  // Get spending for the last 7 days
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - i);
+    const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString();
+    const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59).toISOString();
+    
+    const result = await exec<{ total: number }>(
+      `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+      [startOfDay, endOfDay]
+    );
+    
+    data.push({
+      date: date.toISOString().split('T')[0],
+      amount: result[0]?.total ?? 0
+    });
+  }
+  
+  return data;
+}
+
+export async function getDailySpendingForMonth() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  
+  const data: Array<{ day: number; amount: number }> = [];
+  
+  for (let day = 1; day <= daysInMonth; day++) {
+    const startOfDay = new Date(year, month, day, 0, 0, 0).toISOString();
+    const endOfDay = new Date(year, month, day, 23, 59, 59).toISOString();
+    
+    const result = await exec<{ total: number }>(
+      `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+      [startOfDay, endOfDay]
+    );
+    
+    data.push({
+      day,
+      amount: result[0]?.total ?? 0
+    });
+  }
+  
+  return data;
+}
+
+export async function getMonthlyComparison() {
+  const now = new Date();
+  
+  // Current month
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+  
+  // Last month
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).toISOString();
+  
+  const thisMonthIncome = await exec<{ total: number }>(
+    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'income' AND date BETWEEN ? AND ?;`,
+    [thisMonthStart, thisMonthEnd]
+  );
+  const thisMonthExpense = await exec<{ total: number }>(
+    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+    [thisMonthStart, thisMonthEnd]
+  );
+  
+  const lastMonthIncome = await exec<{ total: number }>(
+    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'income' AND date BETWEEN ? AND ?;`,
+    [lastMonthStart, lastMonthEnd]
+  );
+  const lastMonthExpense = await exec<{ total: number }>(
+    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+    [lastMonthStart, lastMonthEnd]
+  );
+  
+  return {
+    thisMonth: {
+      income: thisMonthIncome[0]?.total ?? 0,
+      expense: thisMonthExpense[0]?.total ?? 0,
+      net: (thisMonthIncome[0]?.total ?? 0) - (thisMonthExpense[0]?.total ?? 0)
+    },
+    lastMonth: {
+      income: lastMonthIncome[0]?.total ?? 0,
+      expense: lastMonthExpense[0]?.total ?? 0,
+      net: (lastMonthIncome[0]?.total ?? 0) - (lastMonthExpense[0]?.total ?? 0)
+    }
+  };
+}
+
+export async function getCategorySpendingForPieChart() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+  
+  const result = await exec<{ category: string; total: number }>(
+    `SELECT category, COALESCE(SUM(amount),0) as total 
+     FROM transactions 
+     WHERE type = 'expense' AND date BETWEEN ? AND ? AND category IS NOT NULL
+     GROUP BY category 
+     ORDER BY total DESC;`,
+    [start, end]
+  );
+  
+  return result;
+}
+
+// Phase 4: Time Period Filtering Functions
+
+export async function getSpendingTrendForPeriod(period: 'week' | 'month' | 'quarter' | 'year') {
+  const now = new Date();
+  let dataPoints: Array<{ date: string; amount: number }> = [];
+  
+  if (period === 'week') {
+    // Last 7 days
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString();
+      const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59).toISOString();
+      
+      const result = await exec<{ total: number }>(
+        `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+        [startOfDay, endOfDay]
+      );
+      
+      dataPoints.push({
+        date: date.toISOString().split('T')[0],
+        amount: result[0]?.total ?? 0
+      });
+    }
+  } else if (period === 'month') {
+    // Last 30 days
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString();
+      const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59).toISOString();
+      
+      const result = await exec<{ total: number }>(
+        `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+        [startOfDay, endOfDay]
+      );
+      
+      dataPoints.push({
+        date: date.toISOString().split('T')[0],
+        amount: result[0]?.total ?? 0
+      });
+    }
+  } else if (period === 'quarter') {
+    // Last 3 months (weekly aggregation)
+    for (let i = 11; i >= 0; i--) {
+      const endDate = new Date(now);
+      endDate.setDate(endDate.getDate() - (i * 7));
+      const startDate = new Date(endDate);
+      startDate.setDate(startDate.getDate() - 6);
+      
+      const result = await exec<{ total: number }>(
+        `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+        [startDate.toISOString(), endDate.toISOString()]
+      );
+      
+      dataPoints.push({
+        date: endDate.toISOString().split('T')[0],
+        amount: result[0]?.total ?? 0
+      });
+    }
+  } else if (period === 'year') {
+    // Last 12 months (monthly aggregation)
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const startOfMonth = date.toISOString();
+      const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59).toISOString();
+      
+      const result = await exec<{ total: number }>(
+        `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+        [startOfMonth, endOfMonth]
+      );
+      
+      dataPoints.push({
+        date: startOfMonth.split('T')[0],
+        amount: result[0]?.total ?? 0
+      });
+    }
+  }
+  
+  return dataPoints;
+}
+
+export async function getCategorySpendingForPeriod(period: 'week' | 'month' | 'quarter' | 'year') {
+  const now = new Date();
+  let startDate: Date;
+  
+  if (period === 'week') {
+    startDate = new Date(now);
+    startDate.setDate(now.getDate() - 7);
+  } else if (period === 'month') {
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else if (period === 'quarter') {
+    startDate = new Date(now);
+    startDate.setMonth(now.getMonth() - 3);
+  } else {
+    startDate = new Date(now.getFullYear(), 0, 1);
+  }
+  
+  const start = startDate.toISOString();
+  const end = now.toISOString();
+  
+  const result = await exec<{ category: string; total: number }>(
+    `SELECT category, COALESCE(SUM(amount),0) as total 
+     FROM transactions 
+     WHERE type = 'expense' AND date BETWEEN ? AND ? AND category IS NOT NULL
+     GROUP BY category 
+     ORDER BY total DESC;`,
+    [start, end]
+  );
+  
+  return result;
+}
+
+export async function getTransactionsByCategory(category: string, period: 'week' | 'month' | 'quarter' | 'year' = 'month') {
+  const now = new Date();
+  let startDate: Date;
+  
+  if (period === 'week') {
+    startDate = new Date(now);
+    startDate.setDate(now.getDate() - 7);
+  } else if (period === 'month') {
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else if (period === 'quarter') {
+    startDate = new Date(now);
+    startDate.setMonth(now.getMonth() - 3);
+  } else {
+    startDate = new Date(now.getFullYear(), 0, 1);
+  }
+  
+  const start = startDate.toISOString();
+  const end = now.toISOString();
+  
+  const result = await exec<{ id: number; amount: number; date: string; notes: string | null }>(
+    `SELECT id, amount, date, notes 
+     FROM transactions 
+     WHERE type = 'expense' AND category = ? AND date BETWEEN ? AND ?
+     ORDER BY date DESC;`,
+    [category, start, end]
+  );
+  
+  return result;
+}
