@@ -16,6 +16,15 @@ import { formatCurrency } from '../../src/utils/formatCurrency';
 
 type TimePeriod = 'today' | 'week' | 'month' | 'custom';
 
+// Friendly time-of-day greeting helper
+function getGreeting(now: Date = new Date()): string {
+  const hour = now.getHours();
+  if (hour >= 5 && hour < 12) return 'Good morning';
+  if (hour >= 12 && hour < 18) return 'Good afternoon';
+  if (hour >= 18 && hour < 22) return 'Good evening';
+  return 'Hello';
+}
+
 export default function Home() {
   const { themeMode, defaultCurrency, userInfo } = useSettings();
   const systemColorScheme = useColorScheme();
