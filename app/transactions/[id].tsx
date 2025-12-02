@@ -106,23 +106,20 @@ export default function TransactionDetail() {
           </Text>
         </View>
 
-        {/* Details Card */}
+        {/* Details (no card background) */}
         <View style={{
-          backgroundColor: t.card,
-          borderWidth: 1,
-          borderColor: t.border,
+          backgroundColor: 'transparent',
           borderRadius: 12,
-          padding: 16,
           marginBottom: 24
         }}>
-          <View style={{ marginBottom: 16 }}>
+          <View style={{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: t.border }}>
             <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 4 }}>Date & Time</Text>
             <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>
               {formatDate(new Date(transaction.date).toISOString())}
             </Text>
           </View>
 
-          <View style={{ marginBottom: 16 }}>
+          <View style={{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: t.border }}>
             <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 4 }}>Type</Text>
             <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600', textTransform: 'capitalize' }}>
               {transaction.type}
@@ -130,7 +127,7 @@ export default function TransactionDetail() {
           </View>
 
           {transaction.notes && (
-            <View>
+            <View style={{ paddingVertical: 8 }}>
               <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 4 }}>Notes</Text>
               <Text style={{ color: t.textPrimary, fontSize: 16 }}>
                 {transaction.notes}

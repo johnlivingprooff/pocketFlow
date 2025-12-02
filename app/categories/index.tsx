@@ -4,12 +4,14 @@ import { useSettings } from '../../src/store/useStore';
 import { theme } from '../../src/theme/theme';
 import { Link, router } from 'expo-router';
 import { getCategories, Category } from '../../src/lib/db/categories';
+import { CATEGORY_ICONS, CategoryIconName } from '../../src/assets/icons/CategoryIcons';
 
 export default function CategoriesPage() {
   const { themeMode } = useSettings();
   const systemColorScheme = useColorScheme();
   const t = theme(themeMode, systemColorScheme || 'light');
   const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -28,9 +30,9 @@ export default function CategoriesPage() {
     }
   };
 
-  const filteredCategories = categories.filter(cat => 
-    cat.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredCategories = categories
+    .filter(cat => (typeFilter === 'all' ? true : cat.type === typeFilter))
+    .filter(cat => cat.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: t.background }}>
@@ -43,6 +45,33 @@ export default function CategoriesPage() {
               <Text style={{ color: t.background, fontWeight: '700' }}>+ New</Text>
             </TouchableOpacity>
           </Link>
+        </View>
+
+        {/* Type Filter Pills */}
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+          {([
+            { key: 'all', label: 'All' },
+            { key: 'income', label: 'Income' },
+            { key: 'expense', label: 'Expense' }
+          ] as const).map(({ key, label }) => {
+            const selected = typeFilter === key;
+            return (
+              <TouchableOpacity
+                key={key}
+                onPress={() => setTypeFilter(key)}
+                style={{
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  borderRadius: 999,
+                  backgroundColor: selected ? t.accent : t.card,
+                  borderWidth: 1,
+                  borderColor: selected ? t.accent : t.border
+                }}
+              >
+                <Text style={{ color: selected ? t.background : t.textSecondary, fontWeight: '700' }}>{label}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* Search Bar */}
@@ -88,7 +117,16 @@ export default function CategoriesPage() {
                   justifyContent: 'center',
                   alignItems: 'center'
                 }}>
-                  <Text style={{ fontSize: 24 }}>{category.icon || '📊'}</Text>
+                  {(() => {
+                    // Resolve icon component by explicit icon key, else by category name, else fallback
+                    const iconKeyFromCategory = (category.icon || '') as CategoryIconName;
+                    const iconKeyFromName = (category.name || '') as CategoryIconName;
+                    const IconComp =
+                      (iconKeyFromCategory && CATEGORY_ICONS[iconKeyFromCategory]) ? CATEGORY_ICONS[iconKeyFromCategory]
+                      : (CATEGORY_ICONS[iconKeyFromName] || CATEGORY_ICONS['Other']);
+                    const IconEl = IconComp ? <IconComp size={22} color="#FFFFFF" /> : <></>;
+                    return IconEl;
+                  })()}
                 </View>
                 <View>
                   <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>{category.name}</Text>

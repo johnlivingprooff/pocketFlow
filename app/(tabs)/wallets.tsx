@@ -17,7 +17,7 @@ export default function WalletsList() {
     <SafeAreaView style={{ flex: 1, backgroundColor: t.background }}>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}>
         {/* Header Section */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 8 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 20 }}>
           <View>
             <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>Wallets</Text>
             <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Manage your payment methods</Text>

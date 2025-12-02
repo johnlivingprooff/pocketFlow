@@ -245,7 +245,7 @@ export default function AnalyticsPage() {
     <SafeAreaView style={{ flex: 1, backgroundColor: t.background }}>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}>
         {/* Header Section */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingTop: 8 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingTop: 20 }}>
           <View>
             <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>Analytics</Text>
             <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Track your spending patterns</Text>
@@ -257,6 +257,7 @@ export default function AnalyticsPage() {
               style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, justifyContent: 'center', alignItems: 'center', ...shadows.sm }}
             >
               <Text style={{ color: t.textPrimary, fontSize: 18 }}>📤</Text>
+            </TouchableOpacity>
           <Link href="/profile" asChild>
             <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', ...shadows.sm }}>
               {userInfo?.profileImage ? (

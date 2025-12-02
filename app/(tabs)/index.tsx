@@ -9,6 +9,7 @@ import { useWallets } from '../../src/lib/hooks/useWallets';
 import { useTransactions } from '../../src/lib/hooks/useTransactions';
 import { WalletCard } from '../../src/components/WalletCard';
 import { AddButton } from '../../src/components/AddButton';
+import { IncomeExpenseLineChart } from '../../src/components/IncomeExpenseLineChart';
 import { totalAvailableAcrossWallets, monthSpend, todaySpend } from '../../src/lib/db/transactions';
 import { getCategories, Category } from '../../src/lib/db/categories';
 import { formatDate } from '../../src/utils/date';
@@ -45,6 +46,8 @@ export default function Home() {
   const [customStartDate, setCustomStartDate] = useState<Date | null>(null);
   const [customEndDate, setCustomEndDate] = useState<Date | null>(null);
   const [allCategories, setAllCategories] = useState<Category[]>([]);
+  const [chartData, setChartData] = useState<Array<{ date: string; income: number; expense: number }>>([]);
+  const [chartRange, setChartRange] = useState<'7d' | '1m' | '3m' | '1y'>('7d');
 
   const handleDateSelect = (date: Date) => {
     if (!customStartDate || (customStartDate && customEndDate)) {
@@ -129,6 +132,83 @@ export default function Home() {
     const hash = category.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return colors[hash % colors.length];
   };
+
+  // Build time-series for the chart based on selected range
+  function buildChartData(range: '7d' | '1m' | '3m' | '1y') {
+    const result: Array<{ date: string; income: number; expense: number }> = [];
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    if (range === '7d') {
+      // Last 7 days (daily)
+      for (let i = 6; i >= 0; i--) {
+        const dayStart = new Date(now);
+        dayStart.setDate(now.getDate() - i);
+        const dayEnd = new Date(dayStart);
+        dayEnd.setDate(dayStart.getDate() + 1);
+
+        const dayTx = transactions.filter(t => {
+          const d = new Date(t.date);
+          return d >= dayStart && d < dayEnd;
+        });
+        const incomeSum = dayTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+        const expenseSum = dayTx.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0);
+        result.push({ date: dayStart.toISOString(), income: incomeSum, expense: expenseSum });
+      }
+    } else if (range === '1m') {
+      // Last 30 days (daily)
+      for (let i = 29; i >= 0; i--) {
+        const dayStart = new Date(now);
+        dayStart.setDate(now.getDate() - i);
+        const dayEnd = new Date(dayStart);
+        dayEnd.setDate(dayStart.getDate() + 1);
+
+        const dayTx = transactions.filter(t => {
+          const d = new Date(t.date);
+          return d >= dayStart && d < dayEnd;
+        });
+        const incomeSum = dayTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+        const expenseSum = dayTx.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0);
+        result.push({ date: dayStart.toISOString(), income: incomeSum, expense: expenseSum });
+      }
+    } else if (range === '3m') {
+      // Last 12 weeks (weekly aggregates)
+      // Determine start of current week (Sunday start)
+      const currentWeekStart = new Date(now);
+      currentWeekStart.setDate(now.getDate() - now.getDay());
+      for (let i = 11; i >= 0; i--) {
+        const weekStart = new Date(currentWeekStart);
+        weekStart.setDate(currentWeekStart.getDate() - i * 7);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 7);
+
+        const weekTx = transactions.filter(t => {
+          const d = new Date(t.date);
+          return d >= weekStart && d < weekEnd;
+        });
+        const incomeSum = weekTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+        const expenseSum = weekTx.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0);
+        result.push({ date: weekStart.toISOString(), income: incomeSum, expense: expenseSum });
+      }
+    } else if (range === '1y') {
+      // Last 12 months (monthly aggregates)
+      const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      for (let i = 11; i >= 0; i--) {
+        const monthStart = new Date(firstOfThisMonth.getFullYear(), firstOfThisMonth.getMonth() - i, 1);
+        const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
+
+        const monthTx = transactions.filter(t => {
+          const d = new Date(t.date);
+          return d >= monthStart && d < monthEnd;
+        });
+        const incomeSum = monthTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+        const expenseSum = monthTx.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0);
+        result.push({ date: monthStart.toISOString(), income: incomeSum, expense: expenseSum });
+      }
+    }
+
+    return result;
+  }
   useEffect(() => {
     if (Platform.OS !== 'web') {
       (async () => {
@@ -185,9 +265,13 @@ export default function Home() {
         
         setIncome(incomeSum);
         setExpenses(expensesSum);
+
+        // Build chart data for selected range
+        const data = buildChartData(chartRange);
+        setChartData(data);
       })();
     }
-  }, [wallets, transactions, selectedPeriod, customStartDate, customEndDate]);
+  }, [wallets, transactions, selectedPeriod, customStartDate, customEndDate, chartRange]);
 
   if (Platform.OS === 'web') {
     return (
@@ -211,7 +295,7 @@ export default function Home() {
     <SafeAreaView style={{ flex: 1, backgroundColor: t.background }}>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}>
         {/* Header Section */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 8 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 20 }}>
         <View>
           <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>{greeting}, {displayName} 👋</Text>
           <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Here's where your money is flowing today.</Text>
@@ -434,6 +518,55 @@ export default function Home() {
             </Link>
           ))}
         </View>
+
+        {/* Income vs Expense Trend */}
+        <View style={{ marginBottom: 24 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700' }}>Trend</Text>
+          </View>
+          {/* Chart Range Filters */}
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+            {([
+              { key: '7d', label: '7D' },
+              { key: '1m', label: '1M' },
+              { key: '3m', label: '3M' },
+              { key: '1y', label: '1Y' },
+            ] as Array<{ key: '7d' | '1m' | '3m' | '1y'; label: string }>).map(({ key, label }) => (
+              <TouchableOpacity
+                key={key}
+                onPress={() => setChartRange(key)}
+                style={{
+                  flex: 1,
+                  backgroundColor: chartRange === key ? t.primary : t.card,
+                  borderWidth: 1,
+                  borderColor: chartRange === key ? t.primary : t.border,
+                  borderRadius: 12,
+                  paddingVertical: 8,
+                  paddingHorizontal: 12,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{
+                  color: chartRange === key ? '#FFFFFF' : t.textSecondary,
+                  fontSize: 12,
+                  fontWeight: '700',
+                }}>
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <IncomeExpenseLineChart
+            data={chartData}
+            height={220}
+            textColor={t.textSecondary}
+            backgroundColor={t.card}
+            incomeColor={t.success}
+            expenseColor={t.danger}
+            gridColor={t.border}
+          />
+        </View>
+
         {/* Insights Preview Strip */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
           <Link href="/analytics" asChild>
