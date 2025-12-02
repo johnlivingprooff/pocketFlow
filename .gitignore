@@ -37,3 +37,4 @@ yarn-error.*
 .expo/
 android/
 .eas/
+.github/
