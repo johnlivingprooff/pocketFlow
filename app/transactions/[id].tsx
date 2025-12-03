@@ -87,7 +87,7 @@ export default function TransactionDetail() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: t.background }}>
-      <View style={{ padding: 16 }}>
+      <View style={{ padding: 16, paddingTop: 20 }}>
         {/* Category Icon */}
         <View style={{ alignItems: 'center', marginBottom: 32 }}>
           <View style={{

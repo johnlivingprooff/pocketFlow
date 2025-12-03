@@ -130,7 +130,7 @@ export default function AddTransactionScreen() {
     >
       <ScrollView 
         style={{ flex: 1 }} 
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: 16, paddingTop: 20, paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={true}
       >

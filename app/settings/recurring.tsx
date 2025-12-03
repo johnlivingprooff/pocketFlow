@@ -245,7 +245,9 @@ export default function RecurringTransactionsScreen() {
       {/* Header */}
       <View
         style={{
-          padding: 16,
+          paddingHorizontal: 16,
+          paddingTop: 20,
+          paddingBottom: 16,
           borderBottomWidth: 1,
           borderBottomColor: t.border,
           flexDirection: 'row',

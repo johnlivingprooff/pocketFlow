@@ -77,7 +77,7 @@ export default function EditWallet() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: t.background }} contentContainerStyle={{ padding: 16, alignItems: 'center' }}>
+    <ScrollView style={{ flex: 1, backgroundColor: t.background }} contentContainerStyle={{ padding: 16, paddingTop: 20, alignItems: 'center' }}>
       <View style={{ backgroundColor: t.card, borderRadius: 20, padding: 16, width: '100%', maxWidth: 560, ...shadows.sm }}>
         <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800', marginBottom: 16, textAlign: 'center' }}>Edit Wallet</Text>
 

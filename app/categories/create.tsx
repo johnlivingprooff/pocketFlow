@@ -94,7 +94,7 @@ export default function CreateCategory() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <ScrollView style={{ flex: 1 }}>
-        <View style={{ padding: 16 }}>
+        <View style={{ padding: 16, paddingTop: 20 }}>
         {/* Header */}
         <View style={{ marginBottom: 32 }}>
           <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 8 }}>Add New Category</Text>

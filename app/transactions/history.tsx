@@ -121,7 +121,7 @@ export default function HistoryScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: t.background }}>
-      <View style={{ padding: 16 }}>
+      <View style={{ padding: 16, paddingTop: 20 }}>
         {/* Header */}
         <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 16 }}>Transaction History</Text>
 

@@ -62,7 +62,7 @@ export default function ProfilePage() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: t.background }}>
-      <View style={{ padding: 16 }}>
+      <View style={{ padding: 16, paddingTop: 20 }}>
         {/* Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
           <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>Profile</Text>
