@@ -16,7 +16,7 @@ import { getCategories, Category } from '../../src/lib/db/categories';
 import { formatDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 
-type TimePeriod = 'today' | 'week' | 'month' | 'custom';
+type TimePeriod = 'all' | 'today' | 'week' | 'month' | 'custom';
 
 // Friendly time-of-day greeting helper
 function getGreeting(now: Date = new Date()): string {
@@ -79,6 +79,9 @@ export default function Home() {
     let endDate: Date = now;
     
     switch (selectedPeriod) {
+      case 'all':
+        startDate = new Date(0); // Unix epoch start
+        break;
       case 'today':
         startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         break;
@@ -237,6 +240,9 @@ export default function Home() {
         let endDate: Date = now;
         
         switch (selectedPeriod) {
+          case 'all':
+            startDate = new Date(0); // Unix epoch start
+            break;
           case 'today':
             startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             break;
@@ -389,6 +395,26 @@ export default function Home() {
           </TouchableOpacity>
         </Link>
         </View>
+
+        {/* Total Balance Across Wallets */}
+        {wallets.length > 0 && (
+          <View style={{ marginBottom: 12 }}>
+            <Text style={{ color: t.textSecondary, fontSize: 13, fontWeight: '600' }}>
+              Available Balance Across Wallets:{' '}
+              <Text style={{ color: t.textPrimary, fontWeight: '800' }}>
+                {formatCurrency(
+                  wallets.reduce((sum, w) => {
+                    const balance = balances[w.id!] ?? 0;
+                    const rate = w.exchange_rate ?? 1.0;
+                    return sum + (balance * rate);
+                  }, 0),
+                  defaultCurrency
+                )}
+              </Text>
+            </Text>
+          </View>
+        )}
+
         {/* Wallets Carousel (Scrollable Items) */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }} contentContainerStyle={{ gap: 12 }}>
           {wallets.length === 0 ? (
@@ -469,7 +495,7 @@ export default function Home() {
 
         {/* Time Period Filter Tabs */}
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
-          {(['today', 'week', 'month', 'custom'] as TimePeriod[]).map((period) => (
+          {(['all', 'today', 'week', 'month', 'custom'] as TimePeriod[]).map((period) => (
             <TouchableOpacity
               key={period}
               onPress={() => {
@@ -498,7 +524,7 @@ export default function Home() {
                 fontWeight: '700',
                 textTransform: 'capitalize'
               }}>
-                {period === 'week' ? 'This Week' : period === 'month' ? 'This Month' : period.charAt(0).toUpperCase() + period.slice(1)}
+                {period === 'all' ? 'All Time' : period === 'week' ? 'This Week' : period === 'month' ? 'This Month' : period.charAt(0).toUpperCase() + period.slice(1)}
               </Text>
             </TouchableOpacity>
           ))}

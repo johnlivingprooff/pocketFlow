@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, useColorSch
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
 import { useTransactions } from '../../src/lib/hooks/useTransactions';
+import { useWallets } from '../../src/lib/hooks/useWallets';
 import { TransactionItem } from '../../src/components/TransactionItem';
 import { Link, useFocusEffect } from 'expo-router';
 import { formatDate, yyyyMmDd } from '../../src/utils/date';
@@ -14,12 +15,18 @@ export default function HistoryScreen() {
   const systemColorScheme = useColorScheme();
   const t = theme(themeMode, systemColorScheme || 'light');
   const { transactions } = useTransactions(0, 1000);
+  const { wallets } = useWallets();
   const [filterCategory, setFilterCategory] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
+
+  // Build wallet exchange rate map
+  const walletExchangeRate: Record<number, number> = Object.fromEntries(
+    wallets.map(w => [w.id!, w.exchange_rate ?? 1.0])
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -103,12 +110,13 @@ export default function HistoryScreen() {
     groupedTransactions[date].push(tx);
   });
 
-  // Calculate daily totals
+  // Calculate daily totals in default currency
   const dailyTotals: Record<string, number> = {};
   Object.keys(groupedTransactions).forEach(date => {
-    dailyTotals[date] = groupedTransactions[date].reduce((sum, tx) => 
-      sum + (tx.type === 'expense' ? tx.amount : 0), 0
-    );
+    dailyTotals[date] = groupedTransactions[date].reduce((sum, tx) => {
+      const rate = walletExchangeRate[tx.wallet_id] ?? 1.0;
+      return sum + (tx.type === 'expense' ? Math.abs(tx.amount * rate) : 0);
+    }, 0);
   });
 
   return (
@@ -253,7 +261,11 @@ export default function HistoryScreen() {
                           fontSize: 16,
                           fontWeight: '700'
                         }}>
-                          {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount, defaultCurrency)}
+                          {tx.type === 'income' ? '+' : '-'}
+                          {formatCurrency(
+                            Math.abs(tx.amount * (walletExchangeRate[tx.wallet_id] ?? 1.0)),
+                            defaultCurrency
+                          )}
                         </Text>
                         {tx.receipt_uri && (
                           <Text style={{ color: t.textSecondary, fontSize: 10, marginTop: 2 }}>📎 Receipt</Text>
