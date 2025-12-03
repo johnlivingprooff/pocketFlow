@@ -8,6 +8,7 @@ import { Link } from 'expo-router';
 import { useWallets } from '../../src/lib/hooks/useWallets';
 import { useTransactions } from '../../src/lib/hooks/useTransactions';
 import { WalletCard } from '../../src/components/WalletCard';
+import { DraggableWalletList } from '../../src/components/DraggableWalletList';
 import { AddButton } from '../../src/components/AddButton';
 import { IncomeExpenseLineChart } from '../../src/components/IncomeExpenseLineChart';
 import { totalAvailableAcrossWallets, monthSpend, todaySpend } from '../../src/lib/db/transactions';
@@ -31,7 +32,7 @@ export default function Home() {
   const systemColorScheme = useColorScheme();
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const t = theme(effectiveMode);
-  const { wallets, balances } = useWallets();
+    const { wallets, balances, refresh } = useWallets();
   const { transactions } = useTransactions(0, 5);
   const [total, setTotal] = useState(0);
   const [monthTotal, setMonthTotal] = useState(0);
@@ -424,6 +425,23 @@ export default function Home() {
             ))}
           </View>
         )}
+
+          {/* My Wallets Section - Draggable */}
+          {wallets.length > 0 && (
+            <View style={{ marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700' }}>My Wallets</Text>
+                <Text style={{ color: t.textSecondary, fontSize: 12 }}>Hold & drag to reorder</Text>
+              </View>
+              <DraggableWalletList
+                wallets={wallets}
+                balances={balances}
+                themeMode={effectiveMode}
+                onOrderChange={refresh}
+                showLinks={true}
+              />
+            </View>
+          )}
 
         {/* Time Period Filter Tabs */}
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>

@@ -64,6 +64,27 @@ export function TransferModal({ visible, onClose, wallets, balances, onTransfer,
 
   const fromWallet = wallets.find(w => w.id === fromWalletId);
   const toWallet = wallets.find(w => w.id === toWalletId);
+  
+  // Check if currencies match
+  const currenciesDiffer = fromWallet && toWallet && fromWallet.currency !== toWallet.currency;
+  
+  // Calculate converted amount if currencies differ
+  const getConvertedAmount = () => {
+    if (!fromWallet || !toWallet || !amount) return null;
+    const numAmount = parseFloat(amount);
+    if (isNaN(numAmount)) return null;
+    
+    if (fromWallet.currency === toWallet.currency) {
+      return numAmount;
+    }
+    
+    // Convert: fromAmount * fromRate / toRate
+    const fromRate = fromWallet.exchange_rate ?? 1.0;
+    const toRate = toWallet.exchange_rate ?? 1.0;
+    return numAmount * fromRate / toRate;
+  };
+  
+  const convertedAmount = getConvertedAmount();
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -220,6 +241,11 @@ export function TransferModal({ visible, onClose, wallets, balances, onTransfer,
                   <Text style={{ fontWeight: '600' }}>{fromWallet.name}</Text> to{' '}
                   <Text style={{ fontWeight: '600' }}>{toWallet.name}</Text>
                 </Text>
+                {currenciesDiffer && convertedAmount !== null && (
+                  <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 6 }}>
+                    Recipient receives: {toWallet.currency} {convertedAmount.toFixed(2)}
+                  </Text>
+                )}
               </View>
             )}
 

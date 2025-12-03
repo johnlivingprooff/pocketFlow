@@ -1,5 +1,6 @@
 import { exec, execRun } from './index';
 import { Transaction } from '../../types/transaction';
+import { getWallet } from './wallets';
 
 export async function addTransaction(t: Transaction) {
   const params = [
@@ -20,9 +21,10 @@ export async function addTransaction(t: Transaction) {
 
 /**
  * Transfer money between two wallets by creating paired transactions
+ * Handles currency conversion using wallet exchange rates
  * @param fromWalletId - Source wallet ID
  * @param toWalletId - Destination wallet ID
- * @param amount - Amount to transfer (positive number)
+ * @param amount - Amount to transfer in source wallet's currency (positive number)
  * @param notes - Optional notes for the transfer
  */
 export async function transferBetweenWallets(
@@ -34,24 +36,43 @@ export async function transferBetweenWallets(
   const now = new Date().toISOString();
   const transferNote = notes ? `Transfer: ${notes}` : 'Transfer between wallets';
   
-  // Create expense transaction in source wallet (negative amount)
+  // Get wallet details to check currencies and exchange rates
+  const fromWalletResult = await getWallet(fromWalletId);
+  const toWalletResult = await getWallet(toWalletId);
+  
+  if (!fromWalletResult[0] || !toWalletResult[0]) {
+    throw new Error('Wallet not found');
+  }
+  
+  const fromWallet = fromWalletResult[0];
+  const toWallet = toWalletResult[0];
+  
+  // Calculate converted amount if currencies differ
+  let receivedAmount = amount;
+  if (fromWallet.currency !== toWallet.currency) {
+    const fromRate = fromWallet.exchange_rate ?? 1.0;
+    const toRate = toWallet.exchange_rate ?? 1.0;
+    receivedAmount = amount * fromRate / toRate;
+  }
+  
+  // Create expense transaction in source wallet (negative amount in source currency)
   await addTransaction({
     wallet_id: fromWalletId,
     type: 'expense',
     amount: -Math.abs(amount),
     category: 'Transfer',
     date: now,
-    notes: `${transferNote} (sent)`,
+    notes: `${transferNote} (sent ${fromWallet.currency} ${amount.toFixed(2)})`,
   });
   
-  // Create income transaction in destination wallet (positive amount)
+  // Create income transaction in destination wallet (positive amount in destination currency)
   await addTransaction({
     wallet_id: toWalletId,
     type: 'income',
-    amount: Math.abs(amount),
+    amount: Math.abs(receivedAmount),
     category: 'Transfer',
     date: now,
-    notes: `${transferNote} (received)`,
+    notes: `${transferNote} (received ${toWallet.currency} ${receivedAmount.toFixed(2)})`,
   });
 }
 
@@ -172,8 +193,8 @@ export async function analyticsCategoryBreakdown(year: number, month: number) {
 }
 
 export async function totalAvailableAcrossWallets() {
-  const wallets = await exec<{ id: number; initial_balance: number }>(
-    `SELECT id, initial_balance FROM wallets;`
+  const wallets = await exec<{ id: number; initial_balance: number; exchange_rate: number }>(
+    `SELECT id, initial_balance, COALESCE(exchange_rate, 1.0) as exchange_rate FROM wallets;`
   );
   let total = 0;
   for (const w of wallets) {
@@ -186,7 +207,9 @@ export async function totalAvailableAcrossWallets() {
       [w.id]
     );
     // Expenses are stored as negative, so we add them (they're already negative)
-    total += w.initial_balance + (inc[0]?.total ?? 0) + (exp[0]?.total ?? 0);
+    const walletBalance = w.initial_balance + (inc[0]?.total ?? 0) + (exp[0]?.total ?? 0);
+    // Convert to default currency using exchange rate
+    total += walletBalance * w.exchange_rate;
   }
   return total;
 }

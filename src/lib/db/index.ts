@@ -41,13 +41,20 @@ export async function ensureTables() {
   );
 
   // Migration: add missing columns if the DB was created before
-  // Check wallets columns and add description if absent
   try {
     const cols = await database.getAllAsync<{ name: string }>('PRAGMA table_info(wallets);');
     const hasDescription = cols.some(c => c.name === 'description');
     if (!hasDescription) {
       await database.execAsync('ALTER TABLE wallets ADD COLUMN description TEXT;');
     }
+    const hasExchangeRate = cols.some(c => c.name === 'exchange_rate');
+    if (!hasExchangeRate) {
+      await database.execAsync('ALTER TABLE wallets ADD COLUMN exchange_rate REAL DEFAULT 1.0;');
+    }
+      const hasDisplayOrder = cols.some(c => c.name === 'display_order');
+      if (!hasDisplayOrder) {
+        await database.execAsync('ALTER TABLE wallets ADD COLUMN display_order INTEGER DEFAULT 0;');
+      }
   } catch (e) {
     // noop: best-effort migration
   }

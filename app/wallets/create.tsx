@@ -19,11 +19,19 @@ export default function CreateWallet() {
   const [initial, setInitial] = useState('0');
   const [type, setType] = useState<WalletType>('Cash');
   const [description, setDescription] = useState('');
+  const [exchangeRate, setExchangeRate] = useState('1.0');
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
 
   const onSave = async () => {
-    await createWallet({ name, currency, initial_balance: parseFloat(initial || '0'), type, description });
+    await createWallet({ 
+      name, 
+      currency, 
+      initial_balance: parseFloat(initial || '0'), 
+      type, 
+      description,
+      exchange_rate: parseFloat(exchangeRate || '1.0')
+    });
     router.back();
   };
 
@@ -110,6 +118,35 @@ export default function CreateWallet() {
           fontSize: 16
         }} 
       />
+
+      {/* Exchange Rate (only show if currency differs from default) */}
+      {currency !== defaultCurrency && (
+        <>
+          <Text style={{ color: t.textSecondary, fontSize: 14, fontWeight: '600', marginBottom: 6 }}>
+            Exchange Rate to {defaultCurrency}
+          </Text>
+          <Text style={{ color: t.textTertiary, fontSize: 12, marginBottom: 6 }}>
+            1 {currency} = ? {defaultCurrency}
+          </Text>
+          <TextInput 
+            value={exchangeRate} 
+            onChangeText={setExchangeRate} 
+            keyboardType="decimal-pad"
+            placeholder="1.0"
+            placeholderTextColor={t.textTertiary}
+            style={{ 
+              backgroundColor: t.card,
+              borderWidth: 1, 
+              borderColor: t.border, 
+              color: t.textPrimary, 
+              padding: 12, 
+              borderRadius: 12, 
+              marginBottom: 16,
+              fontSize: 16
+            }} 
+          />
+        </>
+      )}
 
       <Text style={{ color: t.textSecondary, fontSize: 14, fontWeight: '600', marginBottom: 6 }}>Description (Optional)</Text>
       <TextInput 

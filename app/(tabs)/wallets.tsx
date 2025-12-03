@@ -5,15 +5,17 @@ import { useWallets } from '../../src/lib/hooks/useWallets';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
 import { WalletCard } from '../../src/components/WalletCard';
+import { DraggableWalletList } from '../../src/components/DraggableWalletList';
 import { TransferModal } from '../../src/components/TransferModal';
 import { transferBetweenWallets } from '../../src/lib/db/transactions';
 import { Link } from 'expo-router';
 
 export default function WalletsList() {
-  const { wallets, balances, loading } = useWallets();
+  const { wallets, balances, loading, refresh } = useWallets();
   const { themeMode, userInfo } = useSettings();
   const systemColorScheme = useColorScheme();
   const t = theme(themeMode, systemColorScheme || 'light');
+  const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const [transferModalVisible, setTransferModalVisible] = useState(false);
 
   const handleTransfer = async (fromWalletId: number, toWalletId: number, amount: number, notes?: string) => {
@@ -28,7 +30,9 @@ export default function WalletsList() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 20 }}>
           <View>
             <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>Wallets</Text>
-            <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Manage your payment methods</Text>
+              <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>
+                {wallets.length > 0 ? 'Hold & drag to reorder' : 'Manage your payment methods'}
+              </Text>
           </View>
           <Link href="/profile" asChild>
             <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', ...shadows.sm }}>
@@ -43,13 +47,15 @@ export default function WalletsList() {
           </Link>
         </View>
         {/* Wallet Cards */}
-        {wallets.map((w) => (
-          <Link key={w.id} href={`/wallets/${w.id}`} asChild>
-            <TouchableOpacity style={{ marginBottom: 12 }}>
-              <WalletCard name={w.name} balance={balances[w.id!] ?? 0} currency={w.currency} color={w.color} mode={themeMode} />
-            </TouchableOpacity>
-          </Link>
-        ))}
+          {wallets.length > 0 && (
+            <DraggableWalletList
+              wallets={wallets}
+              balances={balances}
+              themeMode={effectiveMode}
+              onOrderChange={refresh}
+              showLinks={true}
+            />
+          )}
         
         {/* Transfer Button */}
         {wallets.length >= 2 && (

@@ -34,5 +34,5 @@ export function useWallets() {
     }, [loadWallets])
   );
 
-  return { wallets, balances, loading };
+    return { wallets, balances, loading, refresh: loadWallets };
 }

@@ -11,10 +11,11 @@ export async function createWallet(w: Wallet) {
     (w as any).description ?? null,
     new Date().toISOString(),
     w.is_primary ?? 0,
+    w.exchange_rate ?? 1.0,
   ];
   await execRun(
-    `INSERT INTO wallets (name, currency, initial_balance, type, color, description, created_at, is_primary)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+    `INSERT INTO wallets (name, currency, initial_balance, type, color, description, created_at, is_primary, exchange_rate)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
     params
   );
 }
@@ -32,6 +33,8 @@ export async function updateWallet(id: number, w: Partial<Wallet>) {
   if (w.type !== undefined) set('type', w.type);
   if (w.color !== undefined) set('color', w.color);
   if (w.is_primary !== undefined) set('is_primary', w.is_primary);
+  if (w.exchange_rate !== undefined) set('exchange_rate', w.exchange_rate);
+    if (w.display_order !== undefined) set('display_order', w.display_order);
   params.push(id);
   await execRun(`UPDATE wallets SET ${fields.join(', ')} WHERE id = ?;`, params);
 }
@@ -41,7 +44,17 @@ export async function deleteWallet(id: number) {
 }
 
 export async function getWallets(): Promise<Wallet[]> {
-  return exec<Wallet>('SELECT * FROM wallets ORDER BY created_at DESC;');
+  return exec<Wallet>('SELECT * FROM wallets ORDER BY display_order ASC, created_at DESC;');
+}
+
+/**
+ * Update the display order of multiple wallets at once
+ * @param orderUpdates - Array of {id, display_order} objects
+ */
+export async function updateWalletsOrder(orderUpdates: Array<{ id: number; display_order: number }>): Promise<void> {
+  for (const update of orderUpdates) {
+    await execRun('UPDATE wallets SET display_order = ? WHERE id = ?;', [update.display_order, update.id]);
+  }
 }
 
 export async function getWallet(id: number): Promise<Wallet[]> {
@@ -66,4 +79,23 @@ export async function getWalletBalance(id: number): Promise<number> {
   const initial = w[0]?.initial_balance ?? 0;
   // Expenses are stored as negative, so we add them (they're already negative)
   return initial + (income[0]?.total ?? 0) + (expense[0]?.total ?? 0);
+}
+
+/**
+ * Get wallet balance converted to default currency using exchange rate
+ * @param id - Wallet ID
+ * @param defaultCurrency - Default currency (optional, for validation)
+ */
+export async function getWalletBalanceInDefaultCurrency(id: number, defaultCurrency?: string): Promise<number> {
+  const balance = await getWalletBalance(id);
+  const w = await getWallet(id);
+  const wallet = w[0];
+  
+  if (!wallet) return 0;
+  
+  // If wallet currency matches default or no exchange rate set, return as-is
+  const exchangeRate = wallet.exchange_rate ?? 1.0;
+  
+  // Convert: balance * exchange_rate
+  return balance * exchangeRate;
 }
