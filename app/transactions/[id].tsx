@@ -1,20 +1,30 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, Alert, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, Alert, Platform, useColorScheme } from 'react-native';
 import { useSettings } from '../../src/store/useStore';
 import { theme } from '../../src/theme/theme';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { getById, deleteTransaction } from '../../src/lib/db/transactions';
+import { useWallets } from '../../src/lib/hooks/useWallets';
 import { Transaction } from '../../src/types/transaction';
 import { formatDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 
 export default function TransactionDetail() {
   const { themeMode, defaultCurrency } = useSettings();
-  const t = theme(themeMode);
+  const systemColorScheme = useColorScheme();
+  const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
+  const t = theme(effectiveMode);
   const { id } = useLocalSearchParams();
+  const { wallets } = useWallets();
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Get wallet exchange rate
+  const wallet = wallets.find(w => w.id === transaction?.wallet_id);
+  const exchangeRate = wallet?.exchange_rate ?? 1.0;
+  const walletCurrency = wallet?.currency || defaultCurrency;
+  const convertedAmount = transaction ? Math.abs(transaction.amount * exchangeRate) : 0;
 
   const loadTransaction = useCallback(async () => {
     if (Platform.OS !== 'web' && id) {
@@ -97,9 +107,14 @@ export default function TransactionDetail() {
           </View>
           
           {/* Amount */}
-          <Text style={{ color: t.accent, fontSize: 36, fontWeight: '800', marginBottom: 8 }}>
-            {formatCurrency(transaction.amount, defaultCurrency)}
+          <Text style={{ color: t.accent, fontSize: 36, fontWeight: '800', marginBottom: 4 }}>
+            {formatCurrency(Math.abs(transaction.amount), walletCurrency)}
           </Text>
+          {walletCurrency !== defaultCurrency && (
+            <Text style={{ color: t.textSecondary, fontSize: 16, fontWeight: '600', marginBottom: 8 }}>
+              ≈ {formatCurrency(convertedAmount, defaultCurrency)}
+            </Text>
+          )}
           
           <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '600' }}>
             {transaction.category || 'Uncategorized'}

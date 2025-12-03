@@ -494,7 +494,8 @@ export default function Home() {
           {/* Removed extra draggable wallet list to keep original carousel */}
 
         {/* Time Period Filter Tabs */}
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
           {(['all', 'today', 'week', 'month', 'custom'] as TimePeriod[]).map((period) => (
             <TouchableOpacity
               key={period}
@@ -508,14 +509,14 @@ export default function Home() {
                 }
               }}
               style={{
-                flex: 1,
                 backgroundColor: selectedPeriod === period ? t.primary : t.card,
                 borderWidth: 1,
                 borderColor: selectedPeriod === period ? t.primary : t.border,
                 borderRadius: 12,
                 paddingVertical: 10,
-                paddingHorizontal: 12,
-                alignItems: 'center'
+                paddingHorizontal: 16,
+                alignItems: 'center',
+                minWidth: 90
               }}
             >
               <Text style={{
@@ -528,28 +529,31 @@ export default function Home() {
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
+          </View>
+        </ScrollView>
 
         {/* Analytics Cards - Income, Expenses, Net */}
-        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
           {/* Income Card */}
-          <View style={{ flex: 1, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 14, ...shadows.sm }}>
+          <View style={{ minWidth: 160, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 14, ...shadows.sm }}>
             <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Income ({defaultCurrency})</Text>
-            <Text style={{ color: t.success, fontSize: 18, fontWeight: '800' }}>{income.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</Text>
+            <Text style={{ color: t.success, fontSize: 18, fontWeight: '800' }} numberOfLines={1}>{income.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</Text>
           </View>
 
           {/* Expenses Card */}
-          <View style={{ flex: 1, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 14, ...shadows.sm }}>
+          <View style={{ minWidth: 160, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 14, ...shadows.sm }}>
             <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Expenses ({defaultCurrency})</Text>
-            <Text style={{ color: t.danger, fontSize: 18, fontWeight: '800' }}>{expenses.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</Text>
+            <Text style={{ color: t.danger, fontSize: 18, fontWeight: '800' }} numberOfLines={1}>{expenses.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</Text>
           </View>
 
           {/* Net Card */}
-          <View style={{ flex: 1, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 14, ...shadows.sm }}>
+          <View style={{ minWidth: 160, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 14, ...shadows.sm }}>
             <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Net ({defaultCurrency})</Text>
-            <Text style={{ color: income - expenses >= 0 ? t.success : t.danger, fontSize: 18, fontWeight: '800' }}>{(income - expenses).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</Text>
+            <Text style={{ color: income - expenses >= 0 ? t.success : t.danger, fontSize: 18, fontWeight: '800' }} numberOfLines={1}>{(income - expenses).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</Text>
           </View>
-        </View>
+          </View>
+        </ScrollView>
 
         {/* Top Categories Section */}
         <View style={{ marginBottom: 16 }}>
