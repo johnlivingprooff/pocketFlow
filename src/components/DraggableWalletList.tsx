@@ -14,7 +14,7 @@ import { WalletCard } from './WalletCard';
 import { updateWalletsOrder } from '../lib/db/wallets';
 import { theme } from '../theme/theme';
 
-const CARD_HEIGHT = 120; // Approximate height of WalletCard + margin
+const CARD_HEIGHT = 170; // Tuned height of WalletCard + margin to avoid clustering
 const SPRING_CONFIG = {
   damping: 20,
   stiffness: 200,
@@ -198,7 +198,7 @@ export function DraggableWalletList({
   }
 
   return (
-      <View style={{ height: orderedWallets.length * CARD_HEIGHT }}>
+    <View style={{ height: orderedWallets.length * CARD_HEIGHT, paddingTop: 4 }}>
         {orderedWallets.map((wallet, index) => (
           <DraggableWalletItem
             key={wallet.id}

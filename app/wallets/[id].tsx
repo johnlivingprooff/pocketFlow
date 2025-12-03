@@ -60,6 +60,15 @@ export default function WalletDetail() {
         {description ? (
           <Text style={{ color: t.textSecondary, fontSize: 14, marginBottom: 16 }}>{description}</Text>
         ) : null}
+
+        {/* Edit Button */}
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4 }}>
+          <Link href={{ pathname: '/wallets/edit', params: { id: String(walletId) } }} asChild>
+            <TouchableOpacity style={{ backgroundColor: t.primary, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10, ...shadows.sm }}>
+              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Edit Wallet</Text>
+            </TouchableOpacity>
+          </Link>
+        </View>
         
         <View style={{ borderTopWidth: 1, borderTopColor: t.border, paddingTop: 16, marginTop: 8 }}>
           <Text style={{ color: t.textSecondary, fontSize: 14, marginBottom: 4 }}>Current Balance</Text>

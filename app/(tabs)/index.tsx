@@ -426,22 +426,7 @@ export default function Home() {
           </View>
         )}
 
-          {/* My Wallets Section - Draggable */}
-          {wallets.length > 0 && (
-            <View style={{ marginBottom: 16 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700' }}>My Wallets</Text>
-                <Text style={{ color: t.textSecondary, fontSize: 12 }}>Hold & drag to reorder</Text>
-              </View>
-              <DraggableWalletList
-                wallets={wallets}
-                balances={balances}
-                themeMode={effectiveMode}
-                onOrderChange={refresh}
-                showLinks={true}
-              />
-            </View>
-          )}
+          {/* Removed extra draggable wallet list to keep original carousel */}
 
         {/* Time Period Filter Tabs */}
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
