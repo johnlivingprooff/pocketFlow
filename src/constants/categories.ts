@@ -9,6 +9,7 @@ export const EXPENSE_CATEGORIES = [
   'Entertainment',
   'Education',
   'Bills',
+  'Transfer',
   'Other',
 ];
 
@@ -19,6 +20,7 @@ export const INCOME_CATEGORIES = [
   'Investment',
   'Gift',
   'Offering',
+  'Transfer',
   'Other Income',
 ];
 

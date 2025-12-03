@@ -18,6 +18,43 @@ export async function addTransaction(t: Transaction) {
   );
 }
 
+/**
+ * Transfer money between two wallets by creating paired transactions
+ * @param fromWalletId - Source wallet ID
+ * @param toWalletId - Destination wallet ID
+ * @param amount - Amount to transfer (positive number)
+ * @param notes - Optional notes for the transfer
+ */
+export async function transferBetweenWallets(
+  fromWalletId: number,
+  toWalletId: number,
+  amount: number,
+  notes?: string
+) {
+  const now = new Date().toISOString();
+  const transferNote = notes ? `Transfer: ${notes}` : 'Transfer between wallets';
+  
+  // Create expense transaction in source wallet (negative amount)
+  await addTransaction({
+    wallet_id: fromWalletId,
+    type: 'expense',
+    amount: -Math.abs(amount),
+    category: 'Transfer',
+    date: now,
+    notes: `${transferNote} (sent)`,
+  });
+  
+  // Create income transaction in destination wallet (positive amount)
+  await addTransaction({
+    wallet_id: toWalletId,
+    type: 'income',
+    amount: Math.abs(amount),
+    category: 'Transfer',
+    date: now,
+    notes: `${transferNote} (received)`,
+  });
+}
+
 export async function updateTransaction(id: number, t: Partial<Transaction>) {
   const fields: string[] = [];
   const params: any[] = [];
