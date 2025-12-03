@@ -109,11 +109,12 @@ export default function Home() {
       return t.type === 'expense' && txDate >= startDate && txDate <= endDate;
     });
 
-    // Group by category
+    // Group by category and convert to default currency
     const categoryTotals: { [key: string]: number } = {};
     expenseTransactions.forEach(t => {
       const cat = t.category || 'Uncategorized';
-      categoryTotals[cat] = (categoryTotals[cat] || 0) + Math.abs(t.amount);
+      const rate = walletExchangeRate[t.wallet_id] ?? 1.0;
+      categoryTotals[cat] = (categoryTotals[cat] || 0) + Math.abs(t.amount * rate);
     });
 
     // Calculate total expenses
