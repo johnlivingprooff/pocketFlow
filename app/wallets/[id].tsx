@@ -53,6 +53,14 @@ export default function WalletDetail() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: t.background }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+      {/* Top Actions */}
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <Link href={{ pathname: '/wallets/edit', params: { id: String(walletId) } }} asChild>
+          <TouchableOpacity style={{ backgroundColor: t.primary, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10, ...shadows.sm }}>
+            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Edit Wallet</Text>
+          </TouchableOpacity>
+        </Link>
+      </View>
       {/* Wallet Header */}
       <View style={{ backgroundColor: t.card, padding: 20, borderRadius: 16, marginBottom: 20, ...shadows.md }}>
         <Text style={{ color: t.textSecondary, fontSize: 14, marginBottom: 4 }}>Wallet</Text>
@@ -61,14 +69,7 @@ export default function WalletDetail() {
           <Text style={{ color: t.textSecondary, fontSize: 14, marginBottom: 16 }}>{description}</Text>
         ) : null}
 
-        {/* Edit Button */}
-        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4 }}>
-          <Link href={{ pathname: '/wallets/edit', params: { id: String(walletId) } }} asChild>
-            <TouchableOpacity style={{ backgroundColor: t.primary, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10, ...shadows.sm }}>
-              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Edit Wallet</Text>
-            </TouchableOpacity>
-          </Link>
-        </View>
+        {/* Edit Button moved to top actions */}
         
         <View style={{ borderTopWidth: 1, borderTopColor: t.border, paddingTop: 16, marginTop: 8 }}>
           <Text style={{ color: t.textSecondary, fontSize: 14, marginBottom: 4 }}>Current Balance</Text>

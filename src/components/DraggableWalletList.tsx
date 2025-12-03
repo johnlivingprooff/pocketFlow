@@ -1,24 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
+  withTiming,
   runOnJS,
-    SharedValue,
+  SharedValue,
 } from 'react-native-reanimated';
 import { Link } from 'expo-router';
 import { Wallet } from '../types/wallet';
 import { WalletCard } from './WalletCard';
 import { updateWalletsOrder } from '../lib/db/wallets';
-import { theme } from '../theme/theme';
 
-const CARD_HEIGHT = 170; // Tuned height of WalletCard + margin to avoid clustering
-const SPRING_CONFIG = {
-  damping: 20,
-  stiffness: 200,
-};
+const CARD_HEIGHT = 100; // Compact card height
+const ITEM_SPACING = 15; // Minimal spacing between cards
+const ITEM_HEIGHT = CARD_HEIGHT - ITEM_SPACING; // Total vertical step per item
 
 interface DraggableWalletListProps {
   wallets: Wallet[];
@@ -33,7 +30,7 @@ interface DraggableWalletItemProps {
   balance: number;
   themeMode: 'light' | 'dark' | 'system';
   index: number;
-    positions: SharedValue<number[]>;
+  positions: SharedValue<number[]>;
   onDragEnd: (fromIndex: number, toIndex: number) => void;
   showLink?: boolean;
 }
@@ -49,20 +46,24 @@ function DraggableWalletItem({
 }: DraggableWalletItemProps) {
   const translateY = useSharedValue(0);
   const isDragging = useSharedValue(false);
-    const startY = useSharedValue(0);
-    const startIndex = useSharedValue(index);
+  const startY = useSharedValue(0);
+  const startIndex = useSharedValue(index);
 
-    const panGesture = Gesture.Pan()
-      .onStart(() => {
-        startY.value = translateY.value;
-        startIndex.value = index;
+  const longPressGesture = Gesture.LongPress()
+    .minDuration(250)
+    .onStart(() => {
+      startY.value = translateY.value;
+      startIndex.value = index;
       isDragging.value = true;
-      })
-      .onUpdate((event) => {
-        translateY.value = startY.value + event.translationY;
+    });
 
-      // Calculate new position based on drag
-        const newIndex = Math.round((startIndex.value * CARD_HEIGHT + translateY.value) / CARD_HEIGHT);
+  const panGesture = Gesture.Pan()
+    .onUpdate((event) => {
+      if (!isDragging.value) return;
+      translateY.value = startY.value + event.translationY;
+
+      // Calculate new position based on drag using ITEM_HEIGHT
+      const newIndex = Math.round((startIndex.value * ITEM_HEIGHT + translateY.value) / ITEM_HEIGHT);
       const clampedIndex = Math.max(0, Math.min(positions.value.length - 1, newIndex));
 
       // Update positions array
@@ -70,7 +71,7 @@ function DraggableWalletItem({
         const newPositions = [...positions.value];
         const oldIndex = newPositions.indexOf(index);
         const targetIndex = newPositions.indexOf(clampedIndex);
-        
+
         if (oldIndex !== -1 && targetIndex !== -1) {
           // Swap positions
           newPositions[oldIndex] = clampedIndex;
@@ -78,76 +79,85 @@ function DraggableWalletItem({
           positions.value = newPositions;
         }
       }
-      })
-      .onEnd(() => {
-      isDragging.value = false;
+    })
+    .onEnd(() => {
+      if (!isDragging.value) return;
       
       // Calculate final position
-        const newIndex = Math.round((startIndex.value * CARD_HEIGHT + translateY.value) / CARD_HEIGHT);
+      const newIndex = Math.round((startIndex.value * ITEM_HEIGHT + translateY.value) / ITEM_HEIGHT);
       const clampedIndex = Math.max(0, Math.min(positions.value.length - 1, newIndex));
-      
-      // Snap to position
-      translateY.value = withSpring(0, SPRING_CONFIG);
-      
+
+      // Keep the card at the drop position, then turn off dragging
+      isDragging.value = false;
+      translateY.value = 0;
+
       // Notify parent of order change
-        if (clampedIndex !== startIndex.value) {
-          runOnJS(onDragEnd)(startIndex.value, clampedIndex);
+      if (clampedIndex !== startIndex.value) {
+        runOnJS(onDragEnd)(startIndex.value, clampedIndex);
       }
-      });
+    });
 
   const animatedStyle = useAnimatedStyle(() => {
     // Find where this item should be positioned
     const targetIndex = positions.value.indexOf(index);
-    const targetY = targetIndex * CARD_HEIGHT;
-    
+    const targetY = targetIndex * ITEM_HEIGHT;
+
     return {
-      transform: [
-        {
-          translateY: isDragging.value
-            ? translateY.value
-            : withSpring(targetY - index * CARD_HEIGHT, SPRING_CONFIG),
-        },
-      ],
+      top: isDragging.value
+        ? targetY + translateY.value
+        : withTiming(targetY, { duration: 200 }),
       zIndex: isDragging.value ? 100 : 1,
-      opacity: isDragging.value ? 0.8 : 1,
+      opacity: isDragging.value ? 0.98 : 1,
     };
   });
 
-    // Resolve themeMode to 'light' or 'dark'
-    const resolvedMode: 'light' | 'dark' = themeMode === 'system' ? 'light' : themeMode;
+  // Resolve themeMode to 'light' or 'dark'
+  const resolvedMode: 'light' | 'dark' = themeMode === 'system' ? 'light' : themeMode;
 
   const cardContent = (
-    <View style={{ marginBottom: 12 }}>
+    <View style={{ height: CARD_HEIGHT }}>
       <WalletCard
         name={wallet.name}
         balance={balance}
         currency={wallet.currency}
         color={wallet.color}
-          mode={resolvedMode}
+        mode={resolvedMode}
       />
+      {/* Drag Handle */}
+      <View
+        style={{
+          position: 'absolute',
+          right: 10,
+          top: 10,
+          backgroundColor: 'rgba(0,0,0,0.06)',
+          borderRadius: 10,
+          paddingHorizontal: 6,
+          paddingVertical: 3,
+        }}
+      >
+        <Text style={{ color: '#666', fontSize: 13, fontWeight: '800' }}>⋮⋮</Text>
+      </View>
     </View>
   );
 
+  const dragGesture = Gesture.Simultaneous(longPressGesture, panGesture);
+
   if (showLink) {
     return (
-        <GestureDetector gesture={panGesture}>
-          <Animated.View style={[styles.draggableItem, animatedStyle]}>
+      <GestureDetector gesture={dragGesture}>
+        <Animated.View style={[styles.draggableItem, animatedStyle]}>
           <Link href={`/wallets/${wallet.id}`} asChild>
-            <TouchableOpacity activeOpacity={0.8}>
-              {cardContent}
-            </TouchableOpacity>
+            <TouchableOpacity activeOpacity={0.8}>{cardContent}</TouchableOpacity>
           </Link>
         </Animated.View>
-        </GestureDetector>
+      </GestureDetector>
     );
   }
 
   return (
-      <GestureDetector gesture={panGesture}>
-      <Animated.View style={[styles.draggableItem, animatedStyle]}>
-        {cardContent}
-      </Animated.View>
-      </GestureDetector>
+    <GestureDetector gesture={dragGesture}>
+      <Animated.View style={[styles.draggableItem, animatedStyle]}>{cardContent}</Animated.View>
+    </GestureDetector>
   );
 }
 
@@ -173,7 +183,7 @@ export function DraggableWalletList({
     const newOrder = [...orderedWallets];
     const [movedItem] = newOrder.splice(fromIndex, 1);
     newOrder.splice(toIndex, 0, movedItem);
-    
+
     setOrderedWallets(newOrder);
 
     // Update database with new order
@@ -197,21 +207,24 @@ export function DraggableWalletList({
     return null;
   }
 
+  // Calculate container height based on item count and spacing
+  const containerMinHeight = orderedWallets.length * ITEM_HEIGHT - ITEM_SPACING + 12; // slight bottom pad
+
   return (
-    <View style={{ height: orderedWallets.length * CARD_HEIGHT, paddingTop: 4 }}>
-        {orderedWallets.map((wallet, index) => (
-          <DraggableWalletItem
-            key={wallet.id}
-            wallet={wallet}
-            balance={balances[wallet.id!] ?? 0}
-            themeMode={themeMode}
-            index={index}
-            positions={positions}
-            onDragEnd={handleDragEnd}
-            showLink={showLinks}
-          />
-        ))}
-      </View>
+    <View style={{ minHeight: containerMinHeight, paddingTop: 6, paddingBottom: 12 }}>
+      {orderedWallets.map((wallet, index) => (
+        <DraggableWalletItem
+          key={wallet.id}
+          wallet={wallet}
+          balance={balances[wallet.id!] ?? 0}
+          themeMode={themeMode}
+          index={index}
+          positions={positions}
+          onDragEnd={handleDragEnd}
+          showLink={showLinks}
+        />
+      ))}
+    </View>
   );
 }
 

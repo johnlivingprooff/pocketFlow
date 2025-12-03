@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, useColorScheme, Alert } from 'react-native';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, useColorScheme, Alert, Modal, FlatList } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
 import { getWallet, updateWallet } from '../../src/lib/db/wallets';
 import { Wallet } from '../../src/types/wallet';
+import { CURRENCIES } from '../../src/constants/currencies';
 
 export default function EditWallet() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -21,6 +22,8 @@ export default function EditWallet() {
   const [exchangeRate, setExchangeRate] = useState<string>('1.0');
   const [color, setColor] = useState<string | undefined>(undefined);
   const [isPrimary, setIsPrimary] = useState(0);
+  const [currencyPickerVisible, setCurrencyPickerVisible] = useState(false);
+  const [currencySearch, setCurrencySearch] = useState('');
 
   const loadWallet = useCallback(async () => {
     const w = (await getWallet(walletId))[0];
@@ -74,9 +77,9 @@ export default function EditWallet() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: t.background }} contentContainerStyle={{ padding: 16 }}>
-      <View style={{ backgroundColor: t.card, borderRadius: 16, padding: 16, ...shadows.sm }}>
-        <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Edit Wallet</Text>
+    <ScrollView style={{ flex: 1, backgroundColor: t.background }} contentContainerStyle={{ padding: 16, alignItems: 'center' }}>
+      <View style={{ backgroundColor: t.card, borderRadius: 20, padding: 16, width: '100%', maxWidth: 560, ...shadows.sm }}>
+        <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800', marginBottom: 16, textAlign: 'center' }}>Edit Wallet</Text>
 
         {/* Name */}
         <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 6 }}>Name</Text>
@@ -99,42 +102,101 @@ export default function EditWallet() {
 
         {/* Currency */}
         <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 6 }}>Currency</Text>
-        <TextInput
-          value={currency}
-          onChangeText={setCurrency}
-          placeholder="Currency (e.g., USD)"
-          placeholderTextColor={t.textTertiary}
+        <TouchableOpacity
+          onPress={() => setCurrencyPickerVisible(true)}
           style={{
             backgroundColor: t.background,
-            color: t.textPrimary,
             borderWidth: 1,
             borderColor: t.border,
             borderRadius: 12,
             paddingHorizontal: 12,
-            paddingVertical: 10,
+            paddingVertical: 12,
             marginBottom: 12,
           }}
-        />
+        >
+          <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '700' }}>{currency}</Text>
+          <Text style={{ color: t.textTertiary, fontSize: 11 }}>Tap to change</Text>
+        </TouchableOpacity>
 
+        {/* Currency Picker Modal */}
+        <Modal visible={currencyPickerVisible} transparent animationType="slide" onRequestClose={() => setCurrencyPickerVisible(false)}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+            <View style={{ backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '70%' }}>
+              <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: t.textPrimary }}>Select Currency</Text>
+                <TouchableOpacity onPress={() => setCurrencyPickerVisible(false)}>
+                  <Text style={{ fontSize: 28, color: t.textSecondary, lineHeight: 28 }}>×</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={{ padding: 12 }}>
+                <TextInput
+                  value={currencySearch}
+                  onChangeText={setCurrencySearch}
+                  placeholder="Search currency code"
+                  placeholderTextColor={t.textTertiary}
+                  style={{
+                    backgroundColor: '#F7F7F7',
+                    color: t.textPrimary,
+                    borderWidth: 1,
+                    borderColor: t.border,
+                    borderRadius: 12,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                  }}
+                />
+              </View>
+              <FlatList
+                data={CURRENCIES.filter(code => code.toLowerCase().includes(currencySearch.toLowerCase()))}
+                keyExtractor={(item) => item}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setCurrency(item);
+                      setCurrencyPickerVisible(false);
+                      setCurrencySearch('');
+                    }}
+                    style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}
+                  >
+                    <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>{item}</Text>
+                    <Text style={{ color: t.textSecondary, fontSize: 12 }}>Currency code</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          </View>
+        </Modal>
         {/* Exchange Rate */}
-        <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 6 }}>Exchange Rate</Text>
-        <TextInput
-          value={exchangeRate}
-          onChangeText={setExchangeRate}
-          placeholder={`1 ${currency} = ? ${defaultCurrency}`}
-          keyboardType="decimal-pad"
-          placeholderTextColor={t.textTertiary}
-          style={{
-            backgroundColor: t.background,
-            color: t.textPrimary,
-            borderWidth: 1,
-            borderColor: t.border,
-            borderRadius: 12,
-            paddingHorizontal: 12,
-            paddingVertical: 10,
-            marginBottom: 12,
-          }}
-        />
+        {currency !== defaultCurrency && (
+          <View style={{ marginBottom: 12 }}>
+            <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 6 }}>Exchange Rate</Text>
+            <TextInput
+              value={exchangeRate}
+              onChangeText={setExchangeRate}
+              placeholder={`1 ${currency} = ? ${defaultCurrency}`}
+              keyboardType="decimal-pad"
+              placeholderTextColor={t.textTertiary}
+              style={{
+                backgroundColor: t.background,
+                color: t.textPrimary,
+                borderWidth: 1,
+                borderColor: t.border,
+                borderRadius: 12,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+              }}
+            />
+            <Text style={{ color: t.textTertiary, fontSize: 11, marginTop: 6 }}>
+              This rate converts your wallet balance and analytics into {defaultCurrency}. For transfers, the formula used is amount × fromRate ÷ toRate.
+            </Text>
+          </View>
+        )}
+        {currency === defaultCurrency && (
+          <View style={{ backgroundColor: t.background, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 12, marginBottom: 12 }}>
+            <Text style={{ color: t.textSecondary, fontSize: 12 }}>
+              Exchange rate not required since currency matches the default ({defaultCurrency}).
+            </Text>
+          </View>
+        )}
 
         {/* Color (optional) */}
         <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 6 }}>Color (optional)</Text>

@@ -114,6 +114,19 @@ export async function getById(id: number) {
   return results[0] || null;
 }
 
+/**
+ * Get wallet IDs ordered by most recent transaction date (desc)
+ */
+export async function getWalletsOrderedByRecentActivity(): Promise<number[]> {
+  const rows = await exec<{ wallet_id: number; last_date: string }>(
+    `SELECT wallet_id, MAX(date) as last_date
+     FROM transactions
+     GROUP BY wallet_id
+     ORDER BY last_date DESC;`
+  );
+  return rows.map(r => r.wallet_id);
+}
+
 export async function filterTransactions(options: {
   startDate?: string;
   endDate?: string;

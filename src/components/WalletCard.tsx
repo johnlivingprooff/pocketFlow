@@ -18,13 +18,13 @@ export function WalletCard({ name, balance, currency, color, mode = 'light' }: P
       style={{
         backgroundColor: t.card,
         borderRadius: 12,
-        padding: 16,
+        padding: 12,
         borderWidth: 1,
         borderColor: t.border,
       }}
       accessibilityLabel={`Wallet ${name} with balance ${balance}`}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
         <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: color || t.accent, marginRight: 8 }} />
         <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>{name}</Text>
       </View>

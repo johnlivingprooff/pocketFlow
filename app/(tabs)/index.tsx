@@ -11,7 +11,7 @@ import { WalletCard } from '../../src/components/WalletCard';
 import { DraggableWalletList } from '../../src/components/DraggableWalletList';
 import { AddButton } from '../../src/components/AddButton';
 import { IncomeExpenseLineChart } from '../../src/components/IncomeExpenseLineChart';
-import { totalAvailableAcrossWallets, monthSpend, todaySpend } from '../../src/lib/db/transactions';
+import { totalAvailableAcrossWallets, monthSpend, todaySpend, getWalletsOrderedByRecentActivity } from '../../src/lib/db/transactions';
 import { getCategories, Category } from '../../src/lib/db/categories';
 import { formatDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
@@ -33,6 +33,8 @@ export default function Home() {
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const t = theme(effectiveMode);
     const { wallets, balances, refresh } = useWallets();
+    // Build quick maps for wallet exchange rates
+    const walletExchangeRate: Record<number, number> = Object.fromEntries(wallets.map(w => [w.id!, w.exchange_rate ?? 1.0]));
   const { transactions } = useTransactions(0, 5);
   const [total, setTotal] = useState(0);
   const [monthTotal, setMonthTotal] = useState(0);
@@ -51,6 +53,7 @@ export default function Home() {
   const [chartRange, setChartRange] = useState<'7d' | '1m' | '3m' | '1y'>('7d');
   const [weekComparison, setWeekComparison] = useState<{ thisWeek: number; lastWeek: number; percentChange: number } | null>(null);
   const [biggestCategory, setBiggestCategory] = useState<{ category: string; amount: number } | null>(null);
+  const [recentOrder, setRecentOrder] = useState<number[] | null>(null);
 
   const handleDateSelect = (date: Date) => {
     if (!customStartDate || (customStartDate && customEndDate)) {
@@ -215,6 +218,11 @@ export default function Home() {
   useEffect(() => {
     if (Platform.OS !== 'web') {
       (async () => {
+        // Fetch recent wallet activity order for dashboard carousel
+        try {
+          const order = await getWalletsOrderedByRecentActivity();
+          setRecentOrder(order);
+        } catch {}
         setTotal(await totalAvailableAcrossWallets());
         setMonthTotal(await monthSpend());
         setTodayTotal(await todaySpend());
@@ -252,7 +260,7 @@ export default function Home() {
             break;
         }
         
-        // Filter transactions by period and calculate income/expenses
+        // Filter transactions by period and calculate income/expenses in default currency using exchange rates
         const periodTransactions = transactions.filter(t => {
           const txDate = new Date(t.date);
           return txDate >= startDate && txDate <= endDate;
@@ -260,11 +268,17 @@ export default function Home() {
         
         const incomeSum = periodTransactions
           .filter(t => t.type === 'income')
-          .reduce((sum, t) => sum + t.amount, 0);
+          .reduce((sum, t) => {
+            const rate = walletExchangeRate[t.wallet_id] ?? 1.0;
+            return sum + t.amount * rate;
+          }, 0);
         
         const expensesSum = periodTransactions
           .filter(t => t.type === 'expense')
-          .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+          .reduce((sum, t) => {
+            const rate = walletExchangeRate[t.wallet_id] ?? 1.0;
+            return sum + Math.abs(t.amount * rate);
+          }, 0);
         
         setIncome(incomeSum);
         setExpenses(expensesSum);
@@ -289,9 +303,15 @@ export default function Home() {
           const d = new Date(t.date);
           return d >= startOfLastWeek && d < startOfThisWeek && t.type === 'expense';
         });
-
-        const thisWeekTotal = thisWeekTxns.reduce((s, t) => s + Math.abs(t.amount), 0);
-        const lastWeekTotal = lastWeekTxns.reduce((s, t) => s + Math.abs(t.amount), 0);
+        
+        const thisWeekTotal = thisWeekTxns.reduce((s, t) => {
+          const rate = walletExchangeRate[t.wallet_id] ?? 1.0;
+          return s + Math.abs(t.amount * rate);
+        }, 0);
+        const lastWeekTotal = lastWeekTxns.reduce((s, t) => {
+          const rate = walletExchangeRate[t.wallet_id] ?? 1.0;
+          return s + Math.abs(t.amount * rate);
+        }, 0);
         const percentChange = lastWeekTotal > 0 ? ((thisWeekTotal - lastWeekTotal) / lastWeekTotal) * 100 : 0;
 
         setWeekComparison({
@@ -309,11 +329,12 @@ export default function Home() {
           const d = new Date(t.date);
           return d >= todayStart && d < todayEnd && t.type === 'expense';
         });
-
+        
         const categoryTotals: { [key: string]: number } = {};
         todayTxns.forEach(t => {
           const cat = t.category || 'Uncategorized';
-          categoryTotals[cat] = (categoryTotals[cat] || 0) + Math.abs(t.amount);
+          const rate = walletExchangeRate[t.wallet_id] ?? 1.0;
+          categoryTotals[cat] = (categoryTotals[cat] || 0) + Math.abs(t.amount * rate);
         });
 
         const biggest = Object.entries(categoryTotals)
@@ -386,7 +407,24 @@ export default function Home() {
               </TouchableOpacity>
             </Link>
           ) : (
-            wallets.map((w: any) => (
+            // Order wallets by recent activity
+            (() => {
+              const orderIndex: Record<number, number> = {};
+              (recentOrder || []).forEach((id, idx) => { orderIndex[id] = idx; });
+              const byRecent = wallets.slice().sort((a, b) => {
+                const ai = orderIndex[a.id!] ?? Number.MAX_SAFE_INTEGER;
+                const bi = orderIndex[b.id!] ?? Number.MAX_SAFE_INTEGER;
+                if (ai !== bi) return ai - bi; // recent activity priority
+                // Tiebreaker: manual display_order ASC
+                const ad = (a.display_order ?? Number.MAX_SAFE_INTEGER);
+                const bd = (b.display_order ?? Number.MAX_SAFE_INTEGER);
+                if (ad !== bd) return ad - bd;
+                // Final fallback: created_at DESC
+                const aDate = new Date(a.created_at || 0).getTime();
+                const bDate = new Date(b.created_at || 0).getTime();
+                return bDate - aDate;
+              });
+              return byRecent.map((w: any) => (
               <Link key={w.id} href={`/wallets/${w.id}`} asChild>
                 <TouchableOpacity>
                   <LinearGradient
@@ -414,7 +452,8 @@ export default function Home() {
                   </LinearGradient>
                 </TouchableOpacity>
               </Link>
-            ))
+              ))
+            })()
           )}
         </ScrollView>
         {/* Dots indicator */}
