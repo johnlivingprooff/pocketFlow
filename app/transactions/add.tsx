@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Platform, Modal, useColorScheme, KeyboardAvoidingView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Platform, Modal, useColorScheme, KeyboardAvoidingView, Switch } from 'react-native';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -11,6 +11,7 @@ import { yyyyMmDd } from '../../src/utils/date';
 import { saveReceiptImage } from '../../src/lib/services/fileService';
 import { getCategories, Category } from '../../src/lib/db/categories';
 import { useWallets } from '../../src/lib/hooks/useWallets';
+import { RecurrenceFrequency } from '../../src/types/transaction';
 
 export default function AddTransactionScreen() {
   const router = useRouter();
@@ -32,6 +33,12 @@ export default function AddTransactionScreen() {
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showWalletPicker, setShowWalletPicker] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  
+  // Recurring transaction fields
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>('monthly');
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState<Date | null>(null);
+  const [showRecurrenceEndDatePicker, setShowRecurrenceEndDatePicker] = useState(false);
 
   useEffect(() => {
     loadCategories();
@@ -100,7 +107,18 @@ export default function AddTransactionScreen() {
     }
     const numAmount = parseFloat(amount || '0');
     const finalAmount = type === 'expense' ? -Math.abs(numAmount) : Math.abs(numAmount);
-    await addTransaction({ wallet_id: walletId, type, amount: finalAmount, category, date: date.toISOString(), notes, receipt_uri: receiptUri });
+    await addTransaction({ 
+      wallet_id: walletId, 
+      type, 
+      amount: finalAmount, 
+      category, 
+      date: date.toISOString(), 
+      notes, 
+      receipt_uri: receiptUri,
+      is_recurring: isRecurring,
+      recurrence_frequency: isRecurring ? recurrenceFrequency : undefined,
+      recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate.toISOString() : undefined
+    });
     router.back();
   };
 
@@ -246,6 +264,88 @@ export default function AddTransactionScreen() {
         }}
       />
 
+      {/* Recurring Transaction Section */}
+      <View style={{ 
+        backgroundColor: t.card, 
+        borderWidth: 1, 
+        borderColor: t.border, 
+        borderRadius: 12, 
+        padding: 14, 
+        marginBottom: 12 
+      }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Recurring Transaction</Text>
+          <Switch
+            value={isRecurring}
+            onValueChange={setIsRecurring}
+            trackColor={{ false: t.border, true: t.primary }}
+            thumbColor="#fff"
+          />
+        </View>
+        
+        {isRecurring && (
+          <>
+            <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 12 }}>
+              This transaction will repeat automatically
+            </Text>
+
+            {/* Frequency Selector */}
+            <Text style={{ color: t.textSecondary, marginBottom: 6, fontSize: 13 }}>Frequency</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+              {(['daily', 'weekly', 'monthly', 'yearly'] as RecurrenceFrequency[]).map((freq) => (
+                <TouchableOpacity
+                  key={freq}
+                  onPress={() => setRecurrenceFrequency(freq)}
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderRadius: 20,
+                    backgroundColor: recurrenceFrequency === freq ? t.primary : t.background,
+                    borderWidth: 1,
+                    borderColor: recurrenceFrequency === freq ? t.primary : t.border,
+                  }}
+                >
+                  <Text style={{ 
+                    color: recurrenceFrequency === freq ? '#fff' : t.textPrimary, 
+                    fontWeight: '600',
+                    textTransform: 'capitalize',
+                    fontSize: 13
+                  }}>
+                    {freq}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* End Date */}
+            <Text style={{ color: t.textSecondary, marginBottom: 6, fontSize: 13 }}>End Date (optional)</Text>
+            <TouchableOpacity
+              onPress={() => setShowRecurrenceEndDatePicker(true)}
+              style={{
+                borderWidth: 1,
+                borderColor: t.border,
+                backgroundColor: t.background,
+                padding: 12,
+                borderRadius: 8,
+                marginBottom: 4,
+              }}
+            >
+              <Text style={{ color: t.textPrimary }}>
+                {recurrenceEndDate ? yyyyMmDd(recurrenceEndDate) : 'No end date (recurring forever)'}
+              </Text>
+            </TouchableOpacity>
+            {recurrenceEndDate && (
+              <TouchableOpacity
+                onPress={() => setRecurrenceEndDate(null)}
+                style={{ alignSelf: 'flex-start', marginTop: 4 }}
+              >
+                <Text style={{ color: t.danger, fontSize: 12, fontWeight: '600' }}>Clear end date</Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
+      </View>
+
       {/* Receipt */}
       <Text style={{ color: t.textSecondary, marginBottom: 6 }}>Receipt (optional)</Text>
       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
@@ -362,6 +462,64 @@ export default function AddTransactionScreen() {
                         >
                           <Text style={{
                             color: isSelected ? '#FFFFFF' : isPast ? t.textTertiary : t.textPrimary,
+                            fontSize: 14,
+                            fontWeight: isSelected ? '800' : '600'
+                          }}>
+                            {day.day}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Recurrence End Date Picker Modal */}
+      <Modal visible={showRecurrenceEndDatePicker} transparent animationType="fade" onRequestClose={() => setShowRecurrenceEndDatePicker(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 16 }}>
+          <View style={{ backgroundColor: t.card, borderRadius: 12, borderWidth: 1, borderColor: t.border, maxHeight: '80%' }}>
+            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Recurrence End Date</Text>
+              <TouchableOpacity onPress={() => setShowRecurrenceEndDatePicker(false)}>
+                <Text style={{ fontSize: 28, color: t.textSecondary, lineHeight: 28 }}>×</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={{ padding: 16 }}>
+              {generateCalendarMonths().map((month, monthIdx) => (
+                <View key={monthIdx} style={{ marginBottom: 24 }}>
+                  <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '800', marginBottom: 12 }}>
+                    {month.name}
+                  </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {month.days.map((day, dayIdx) => {
+                      const isSelected = recurrenceEndDate && day.date.toDateString() === recurrenceEndDate.toDateString();
+                      const isBeforeStart = day.date < date;
+
+                      return (
+                        <TouchableOpacity
+                          key={dayIdx}
+                          disabled={isBeforeStart}
+                          onPress={() => {
+                            setRecurrenceEndDate(day.date);
+                            setShowRecurrenceEndDatePicker(false);
+                          }}
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 20,
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            backgroundColor: isSelected ? t.primary : isBeforeStart ? t.background : t.card,
+                            borderWidth: 1,
+                            borderColor: isSelected ? t.primary : t.border
+                          }}
+                        >
+                          <Text style={{
+                            color: isSelected ? '#FFFFFF' : isBeforeStart ? t.textTertiary : t.textPrimary,
                             fontSize: 14,
                             fontWeight: isSelected ? '800' : '600'
                           }}>

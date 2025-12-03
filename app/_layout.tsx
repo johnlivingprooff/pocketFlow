@@ -4,6 +4,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { useSettings } from '../src/store/useStore';
 import { ensureTables } from '../src/lib/db';
+import { processRecurringTransactions } from '../src/lib/services/recurringTransactionService';
 import { theme, shadows } from '../src/theme/theme';
 import { authenticateWithBiometrics, shouldRequireAuth } from '../src/lib/services/biometricService';
 
@@ -28,7 +29,11 @@ export default function RootLayout() {
   useEffect(() => {
     if (Platform.OS !== 'web') {
       ensureTables()
-        .then(() => setDbReady(true))
+        .then(async () => {
+          // Process recurring transactions after DB is ready
+          await processRecurringTransactions();
+          setDbReady(true);
+        })
         .catch(err => {
           console.error('Failed to initialize database:', err);
           setDbReady(true); // Still show app even if DB fails
@@ -55,12 +60,19 @@ export default function RootLayout() {
     return () => subscription.remove();
   }, [biometricEnabled, biometricSetupComplete, lastAuthTime]);
 
-  const handleAppStateChange = (nextAppState: AppStateStatus) => {
-    if (nextAppState === 'active' && biometricEnabled && biometricSetupComplete) {
-      // App came to foreground, check if auth is needed
-      if (shouldRequireAuth(lastAuthTime)) {
-        setIsAuthenticated(false);
-        performBiometricAuth();
+  const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+    if (nextAppState === 'active') {
+      // App came to foreground, process recurring transactions
+      if (Platform.OS !== 'web') {
+        await processRecurringTransactions();
+      }
+      
+      if (biometricEnabled && biometricSetupComplete) {
+        // Check if auth is needed
+        if (shouldRequireAuth(lastAuthTime)) {
+          setIsAuthenticated(false);
+          performBiometricAuth();
+        }
       }
     }
   };

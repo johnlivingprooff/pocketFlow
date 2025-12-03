@@ -74,6 +74,29 @@ export async function ensureTables() {
     );`
   );
 
+  // Migration: add recurring transaction columns if not present
+  try {
+    const txnCols = await database.getAllAsync<{ name: string }>('PRAGMA table_info(transactions);');
+    const hasIsRecurring = txnCols.some(c => c.name === 'is_recurring');
+    if (!hasIsRecurring) {
+      await database.execAsync('ALTER TABLE transactions ADD COLUMN is_recurring INTEGER DEFAULT 0;');
+    }
+    const hasRecurrenceFrequency = txnCols.some(c => c.name === 'recurrence_frequency');
+    if (!hasRecurrenceFrequency) {
+      await database.execAsync('ALTER TABLE transactions ADD COLUMN recurrence_frequency TEXT;');
+    }
+    const hasRecurrenceEndDate = txnCols.some(c => c.name === 'recurrence_end_date');
+    if (!hasRecurrenceEndDate) {
+      await database.execAsync('ALTER TABLE transactions ADD COLUMN recurrence_end_date TEXT;');
+    }
+    const hasParentTransactionId = txnCols.some(c => c.name === 'parent_transaction_id');
+    if (!hasParentTransactionId) {
+      await database.execAsync('ALTER TABLE transactions ADD COLUMN parent_transaction_id INTEGER;');
+    }
+  } catch (e) {
+    // noop: best-effort migration
+  }
+
   await database.execAsync(
     `CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

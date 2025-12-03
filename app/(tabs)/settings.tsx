@@ -193,6 +193,20 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Transactions */}
+        <View style={{ marginBottom: 24 }}>
+          <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 12 }}>TRANSACTIONS</Text>
+          <Link href="/settings/recurring" asChild>
+            <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View>
+                <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Recurring Transactions</Text>
+                <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>Manage automated transactions</Text>
+              </View>
+              <Text style={{ color: t.textSecondary, fontSize: 20 }}>›</Text>
+            </TouchableOpacity>
+          </Link>
+        </View>
+
         {/* Data */}
         <View style={{ marginBottom: 24 }}>
           <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 12 }}>DATA</Text>

@@ -11,10 +11,15 @@ export async function addTransaction(t: Transaction) {
     t.date,
     t.notes ?? null,
     t.receipt_uri ?? null,
+    t.is_recurring ? 1 : 0,
+    t.recurrence_frequency ?? null,
+    t.recurrence_end_date ?? null,
+    t.parent_transaction_id ?? null,
   ];
   await execRun(
-    `INSERT INTO transactions (wallet_id, type, amount, category, date, notes, receipt_uri)
-     VALUES (?, ?, ?, ?, ?, ?, ?);`,
+    `INSERT INTO transactions 
+     (wallet_id, type, amount, category, date, notes, receipt_uri, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
     params
   );
 }
