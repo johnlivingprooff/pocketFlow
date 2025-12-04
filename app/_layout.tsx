@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Platform, View, ActivityIndicator, useColorScheme, AppState, AppStateStatus, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Platform, View, ActivityIndicator, useColorScheme, AppState, AppStateStatus, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { useSettings } from '../src/store/useStore';
@@ -7,6 +7,7 @@ import { ensureTables } from '../src/lib/db';
 import { processRecurringTransactions } from '../src/lib/services/recurringTransactionService';
 import { theme, shadows } from '../src/theme/theme';
 import { authenticateWithBiometrics, shouldRequireAuth } from '../src/lib/services/biometricService';
+import { FingerprintIcon } from '../src/assets/icons/FingerprintIcon';
 
 export default function RootLayout() {
   const { 
@@ -103,25 +104,19 @@ export default function RootLayout() {
   if (!isAuthenticated && biometricEnabled && biometricSetupComplete) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.background, padding: 32 }}>
-        <View style={{ 
-          width: 80, 
-          height: 80, 
-          borderRadius: 40, 
-          backgroundColor: t.primary, 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          marginBottom: 24,
-          ...shadows.lg 
-        }}>
-          <Text style={{ fontSize: 40 }}>🔒</Text>
-        </View>
+        {/* App Logo */}
+        <Image 
+          source={require('../assets/logo.png')} 
+          style={{ width: 120, height: 120, marginBottom: 24 }}
+          resizeMode="contain"
+        />
         
-        <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 8, textAlign: 'center' }}>
-          PocketFlow
+        <Text style={{ color: t.textPrimary, fontSize: 28, fontWeight: '800', marginBottom: 8, textAlign: 'center' }}>
+          pocketFlow
         </Text>
         
-        <Text style={{ color: t.textSecondary, fontSize: 16, marginBottom: 32, textAlign: 'center' }}>
-          Authenticate to continue
+        <Text style={{ color: t.textSecondary, fontSize: 16, marginBottom: 48, textAlign: 'center' }}>
+          Your personal finance tracker
         </Text>
         
         {authError && (
@@ -130,12 +125,17 @@ export default function RootLayout() {
           </Text>
         )}
         
+        {/* Fingerprint Icon */}
+        <View style={{ marginBottom: 24 }}>
+          <FingerprintIcon size={72} color={t.primary} />
+        </View>
+        
         <TouchableOpacity 
           onPress={performBiometricAuth}
           style={{ 
             backgroundColor: t.primary, 
-            paddingHorizontal: 32, 
-            paddingVertical: 14, 
+            paddingHorizontal: 40, 
+            paddingVertical: 16, 
             borderRadius: 12,
             ...shadows.md 
           }}
