@@ -1,6 +1,7 @@
 import { exec, execRun, getDb } from './index';
 import { Transaction } from '../../types/transaction';
 import { getWallet } from './wallets';
+import { analyticsCache, generateCacheKey, invalidateTransactionCaches } from '../cache/queryCache';
 
 export async function addTransaction(t: Transaction) {
   const params = [
@@ -22,6 +23,9 @@ export async function addTransaction(t: Transaction) {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
     params
   );
+  
+  // Invalidate caches after adding transaction
+  invalidateTransactionCaches();
 }
 
 /**
@@ -61,6 +65,9 @@ export async function addTransactionsBatch(transactions: Transaction[]): Promise
       await statement.finalizeAsync();
     }
   });
+  
+  // Invalidate caches after batch insert
+  invalidateTransactionCaches();
 }
 
 /**
@@ -136,10 +143,16 @@ export async function updateTransaction(id: number, t: Partial<Transaction>) {
   if (t.receipt_uri !== undefined) set('receipt_uri', t.receipt_uri);
   params.push(id);
   await execRun(`UPDATE transactions SET ${fields.join(', ')} WHERE id = ?;`, params);
+  
+  // Invalidate caches after update
+  invalidateTransactionCaches();
 }
 
 export async function deleteTransaction(id: number) {
   await execRun('DELETE FROM transactions WHERE id = ?;', [id]);
+  
+  // Invalidate caches after delete
+  invalidateTransactionCaches();
 }
 
 export async function getTransactions(page = 0, pageSize = 20) {
@@ -250,55 +263,71 @@ export async function analyticsCategoryBreakdown(year: number, month: number) {
 }
 
 export async function totalAvailableAcrossWallets() {
-  // Optimized single-query approach using JOINs and aggregation
-  // This replaces the N+1 query pattern with a single efficient query
-  const result = await exec<{ total: number }>(
-    `SELECT 
-       COALESCE(
-         SUM(
-           (w.initial_balance + 
-            COALESCE((SELECT SUM(amount) FROM transactions WHERE wallet_id = w.id AND type = 'income'), 0) + 
-            COALESCE((SELECT SUM(amount) FROM transactions WHERE wallet_id = w.id AND type = 'expense'), 0)
-           ) * COALESCE(w.exchange_rate, 1.0)
-         ), 0
-       ) as total
-     FROM wallets w;`
-  );
-  return result[0]?.total ?? 0;
+  const cacheKey = generateCacheKey('totalAvailableAcrossWallets');
+  
+  return await analyticsCache.cached(cacheKey, async () => {
+    // Optimized single-query approach using JOINs and aggregation
+    // This replaces the N+1 query pattern with a single efficient query
+    const result = await exec<{ total: number }>(
+      `SELECT 
+         COALESCE(
+           SUM(
+             (w.initial_balance + 
+              COALESCE((SELECT SUM(amount) FROM transactions WHERE wallet_id = w.id AND type = 'income'), 0) + 
+              COALESCE((SELECT SUM(amount) FROM transactions WHERE wallet_id = w.id AND type = 'expense'), 0)
+             ) * COALESCE(w.exchange_rate, 1.0)
+           ), 0
+         ) as total
+       FROM wallets w;`
+    );
+    return result[0]?.total ?? 0;
+  });
 }
 
 export async function monthSpend() {
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
-  const result = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
-    [start, end]
-  );
-  return result[0]?.total ?? 0;
+  const cacheKey = generateCacheKey('monthSpend', now.getFullYear(), now.getMonth());
+  
+  return await analyticsCache.cached(cacheKey, async () => {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+    const result = await exec<{ total: number }>(
+      `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+      [start, end]
+    );
+    return result[0]?.total ?? 0;
+  });
 }
 
 export async function todaySpend() {
   const today = new Date();
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-  const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).toISOString();
-  const result = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
-    [start, end]
-  );
-  return result[0]?.total ?? 0;
+  const cacheKey = generateCacheKey('todaySpend', today.toISOString().split('T')[0]);
+  
+  return await analyticsCache.cached(cacheKey, async () => {
+    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).toISOString();
+    const result = await exec<{ total: number }>(
+      `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+      [start, end]
+    );
+    return result[0]?.total ?? 0;
+  });
 }
 
 export async function categoryBreakdown() {
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
-  return exec<{ category: string; total: number }>(
-    `SELECT category, COALESCE(SUM(ABS(amount)),0) as total 
-     FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ? AND category IS NOT NULL
-     GROUP BY category ORDER BY total DESC;`,
-    [start, end]
-  );
+  const cacheKey = generateCacheKey('categoryBreakdown', now.getFullYear(), now.getMonth());
+  
+  return await analyticsCache.cached(cacheKey, async () => {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+    return exec<{ category: string; total: number }>(
+      `SELECT category, COALESCE(SUM(ABS(amount)),0) as total 
+       FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ? AND category IS NOT NULL
+       GROUP BY category ORDER BY total DESC;`,
+      [start, end]
+    );
+  });
 }
 
 // Phase 1 Analytics: Enhanced calculations

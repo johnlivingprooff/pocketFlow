@@ -1,5 +1,6 @@
 import { exec, execRun, getDb } from './index';
 import { Wallet } from '../../types/wallet';
+import { invalidateWalletCaches } from '../cache/queryCache';
 
 export async function createWallet(w: Wallet) {
   const params = [
@@ -18,6 +19,9 @@ export async function createWallet(w: Wallet) {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
     params
   );
+  
+  // Invalidate wallet caches after creation
+  invalidateWalletCaches();
 }
 
 export async function updateWallet(id: number, w: Partial<Wallet>) {
@@ -37,10 +41,16 @@ export async function updateWallet(id: number, w: Partial<Wallet>) {
     if (w.display_order !== undefined) set('display_order', w.display_order);
   params.push(id);
   await execRun(`UPDATE wallets SET ${fields.join(', ')} WHERE id = ?;`, params);
+  
+  // Invalidate wallet caches after update
+  invalidateWalletCaches();
 }
 
 export async function deleteWallet(id: number) {
   await execRun('DELETE FROM wallets WHERE id = ?;', [id]);
+  
+  // Invalidate wallet caches after deletion
+  invalidateWalletCaches();
 }
 
 export async function getWallets(): Promise<Wallet[]> {
