@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Platform, TouchableOpacity, Modal, useColorScheme, Image } from 'react-native';
+import { View, Text, ScrollView, Platform, TouchableOpacity, Modal, useColorScheme, Image, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '../../src/store/useStore';
@@ -54,6 +54,7 @@ export default function Home() {
   const [weekComparison, setWeekComparison] = useState<{ thisWeek: number; lastWeek: number; percentChange: number } | null>(null);
   const [biggestCategory, setBiggestCategory] = useState<{ category: string; amount: number } | null>(null);
   const [recentOrder, setRecentOrder] = useState<number[] | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const handleDateSelect = (date: Date) => {
     if (!customStartDate || (customStartDate && customEndDate)) {
@@ -356,6 +357,25 @@ export default function Home() {
     }
   }, [wallets, transactions, selectedPeriod, customStartDate, customEndDate, chartRange]);
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refresh();
+      // Re-trigger data loading
+      if (Platform.OS !== 'web') {
+        const order = await getWalletsOrderedByRecentActivity();
+        setRecentOrder(order);
+        setTotal(await totalAvailableAcrossWallets());
+        setMonthTotal(await monthSpend());
+        setTodayTotal(await todaySpend());
+      }
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   if (Platform.OS === 'web') {
     return (
       <ScrollView style={{ flex: 1, backgroundColor: t.background }} contentContainerStyle={{ padding: 16, alignItems: 'center', justifyContent: 'center' }}>
@@ -376,7 +396,17 @@ export default function Home() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.background }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+      <ScrollView 
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={t.primary}
+            colors={[t.primary]}
+          />
+        }
+      >
         {/* Header Section */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 20 }}>
         <View>

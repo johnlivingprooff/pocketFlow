@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Platform, Modal, useColorScheme, KeyboardAvoidingView, Switch } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Platform, Modal, useColorScheme, KeyboardAvoidingView, Switch, Alert } from 'react-native';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -56,22 +56,40 @@ export default function AddTransactionScreen() {
   };
 
   const pickImage = async () => {
-    const res = await ImagePicker.launchImageLibraryAsync({ base64: true, quality: 0.7 });
-    if (!res.canceled && res.assets?.[0]) {
-      const asset = res.assets[0];
-      const manip = await ImageManipulator.manipulateAsync(asset.uri, [{ resize: { width: 1000 } }], { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true });
-      setImageBase64(manip.base64);
-      setLocalUri(asset.uri);
+    try {
+      const res = await ImagePicker.launchImageLibraryAsync({ base64: true, quality: 0.7 });
+      if (!res.canceled && res.assets?.[0]) {
+        const asset = res.assets[0];
+        const manip = await ImageManipulator.manipulateAsync(asset.uri, [{ resize: { width: 1000 } }], { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true });
+        if (!manip.base64) {
+          Alert.alert('Error', 'Failed to process image');
+          return;
+        }
+        setImageBase64(manip.base64);
+        setLocalUri(asset.uri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
     }
   };
 
   const takePhoto = async () => {
-    const res = await ImagePicker.launchCameraAsync({ base64: true, quality: 0.7 });
-    if (!res.canceled && res.assets?.[0]) {
-      const asset = res.assets[0];
-      const manip = await ImageManipulator.manipulateAsync(asset.uri, [{ resize: { width: 1000 } }], { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true });
-      setImageBase64(manip.base64);
-      setLocalUri(asset.uri);
+    try {
+      const res = await ImagePicker.launchCameraAsync({ base64: true, quality: 0.7 });
+      if (!res.canceled && res.assets?.[0]) {
+        const asset = res.assets[0];
+        const manip = await ImageManipulator.manipulateAsync(asset.uri, [{ resize: { width: 1000 } }], { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true });
+        if (!manip.base64) {
+          Alert.alert('Error', 'Failed to process photo');
+          return;
+        }
+        setImageBase64(manip.base64);
+        setLocalUri(asset.uri);
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Error', 'Failed to take photo. Please try again.');
     }
   };
 
@@ -101,9 +119,16 @@ export default function AddTransactionScreen() {
 
   const onSave = async () => {
     let receiptUri: string | undefined = undefined;
-    if (imageBase64) {
-      const filename = `${yyyyMmDd(new Date())}/${amount || '0'}_receipt_${Date.now()}.jpg`;
-      receiptUri = await saveReceiptImage(filename, imageBase64);
+    try {
+      if (imageBase64) {
+        // Simple filename without date - saveReceiptImage adds the date folder
+        const filename = `${amount || '0'}_receipt_${Date.now()}.jpg`;
+        receiptUri = await saveReceiptImage(filename, imageBase64);
+      }
+    } catch (error) {
+      console.error('Error saving receipt:', error);
+      Alert.alert('Error', 'Failed to save receipt image');
+      return;
     }
     const numAmount = parseFloat(amount || '0');
     const finalAmount = type === 'expense' ? -Math.abs(numAmount) : Math.abs(numAmount);

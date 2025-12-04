@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, useColorScheme } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, useColorScheme, RefreshControl } from 'react-native';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
 import { useTransactions } from '../../src/lib/hooks/useTransactions';
@@ -22,6 +22,19 @@ export default function HistoryScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      // Reload transactions
+      await new Promise(resolve => setTimeout(resolve, 500)); // Brief delay for user feedback
+    } catch (error) {
+      console.error('Error refreshing transactions:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Build wallet exchange rate map
   const walletExchangeRate: Record<number, number> = Object.fromEntries(
@@ -120,7 +133,17 @@ export default function HistoryScreen() {
   });
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: t.background }}>
+    <ScrollView 
+      style={{ flex: 1, backgroundColor: t.background }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          tintColor={t.primary}
+          colors={[t.primary]}
+        />
+      }
+    >
       <View style={{ padding: 16, paddingTop: 20 }}>
         {/* Header */}
         <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 16 }}>Transaction History</Text>

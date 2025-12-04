@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, useColorScheme, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, useColorScheme, Image, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useWallets } from '../../src/lib/hooks/useWallets';
 import { useSettings } from '../../src/store/useStore';
@@ -17,6 +17,18 @@ export default function WalletsList() {
   const t = theme(themeMode, systemColorScheme || 'light');
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const [transferModalVisible, setTransferModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refresh();
+    } catch (error) {
+      console.error('Error refreshing wallets:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleTransfer = async (fromWalletId: number, toWalletId: number, amount: number, notes?: string) => {
     await transferBetweenWallets(fromWalletId, toWalletId, amount, notes);
@@ -25,7 +37,17 @@ export default function WalletsList() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.background }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+      <ScrollView 
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={t.primary}
+            colors={[t.primary]}
+          />
+        }
+      >
         {/* Header Section */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 20 }}>
           <View>

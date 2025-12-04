@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, Dimensions, Platform, TouchableOpacity, useColorScheme, Image, Alert } from 'react-native';
+import { View, Text, ScrollView, Dimensions, Platform, TouchableOpacity, useColorScheme, Image, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
@@ -81,6 +81,18 @@ export default function AnalyticsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [categoryTransactions, setCategoryTransactions] = useState<Array<{ id: number; amount: number; date: string; notes?: string }>>([]);
   const [showCategoryDrillDown, setShowCategoryDrillDown] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadData();
+    } catch (error) {
+      console.error('Error refreshing analytics:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadData]);
 
   const loadData = useCallback(async () => {
     if (Platform.OS !== 'web') {
@@ -243,7 +255,10 @@ export default function AnalyticsPage() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.background }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+      <ScrollView 
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={t.primary} colors={[t.primary]} />}
+      >
         {/* Header Section */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 20 }}>
           <View>
