@@ -97,6 +97,19 @@ export async function ensureTables() {
     // noop: best-effort migration
   }
 
+  // Create indexes for performance optimization
+  // These indexes dramatically improve query performance on filtered columns
+  try {
+    await database.execAsync('CREATE INDEX IF NOT EXISTS idx_transactions_wallet_id ON transactions(wallet_id);');
+    await database.execAsync('CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);');
+    await database.execAsync('CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);');
+    await database.execAsync('CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category);');
+    await database.execAsync('CREATE INDEX IF NOT EXISTS idx_transactions_wallet_type ON transactions(wallet_id, type);');
+    await database.execAsync('CREATE INDEX IF NOT EXISTS idx_transactions_date_type ON transactions(date, type);');
+  } catch (e) {
+    // noop: indexes may already exist
+  }
+
   await database.execAsync(
     `CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -135,19 +148,24 @@ export async function ensureTables() {
       { name: 'Other Income', icon: '💵' }
     ];
     
-    for (const cat of presetExpense) {
-      await database.runAsync(
-        'INSERT INTO categories (name, type, icon, is_preset) VALUES (?, ?, ?, 1);',
-        [cat.name, 'expense', cat.icon]
+    // Batch insert all categories in a single transaction for better performance
+    await database.withTransactionAsync(async () => {
+      const statement = await database.prepareAsync(
+        'INSERT INTO categories (name, type, icon, is_preset) VALUES (?, ?, ?, 1);'
       );
-    }
-    
-    for (const cat of presetIncome) {
-      await database.runAsync(
-        'INSERT INTO categories (name, type, icon, is_preset) VALUES (?, ?, ?, 1);',
-        [cat.name, 'income', cat.icon]
-      );
-    }
+      
+      try {
+        for (const cat of presetExpense) {
+          await statement.executeAsync([cat.name, 'expense', cat.icon]);
+        }
+        
+        for (const cat of presetIncome) {
+          await statement.executeAsync([cat.name, 'income', cat.icon]);
+        }
+      } finally {
+        await statement.finalizeAsync();
+      }
+    });
   }
 }
 
@@ -158,13 +176,15 @@ export async function ensureTables() {
 export async function clearDatabase() {
   const database = await getDb();
   
-  // Delete all data from tables
-  await database.execAsync('DELETE FROM transactions;');
-  await database.execAsync('DELETE FROM wallets;');
-  await database.execAsync('DELETE FROM categories;');
-  
-  // Reset autoincrement counters
-  await database.execAsync('DELETE FROM sqlite_sequence WHERE name IN ("transactions", "wallets", "categories");');
+  // Delete all data from tables in a single transaction
+  await database.withTransactionAsync(async () => {
+    await database.execAsync('DELETE FROM transactions;');
+    await database.execAsync('DELETE FROM wallets;');
+    await database.execAsync('DELETE FROM categories;');
+    
+    // Reset autoincrement counters
+    await database.execAsync('DELETE FROM sqlite_sequence WHERE name IN ("transactions", "wallets", "categories");');
+  });
   
   // Re-seed preset categories
   const presetExpense = [
@@ -190,17 +210,22 @@ export async function clearDatabase() {
     { name: 'Other Income', icon: '💵' }
   ];
   
-  for (const cat of presetExpense) {
-    await database.runAsync(
-      'INSERT INTO categories (name, type, icon, is_preset) VALUES (?, ?, ?, 1);',
-      [cat.name, 'expense', cat.icon]
+  // Batch insert all categories in a single transaction for better performance
+  await database.withTransactionAsync(async () => {
+    const statement = await database.prepareAsync(
+      'INSERT INTO categories (name, type, icon, is_preset) VALUES (?, ?, ?, 1);'
     );
-  }
-  
-  for (const cat of presetIncome) {
-    await database.runAsync(
-      'INSERT INTO categories (name, type, icon, is_preset) VALUES (?, ?, ?, 1);',
-      [cat.name, 'income', cat.icon]
-    );
-  }
+    
+    try {
+      for (const cat of presetExpense) {
+        await statement.executeAsync([cat.name, 'expense', cat.icon]);
+      }
+      
+      for (const cat of presetIncome) {
+        await statement.executeAsync([cat.name, 'income', cat.icon]);
+      }
+    } finally {
+      await statement.finalizeAsync();
+    }
+  });
 }

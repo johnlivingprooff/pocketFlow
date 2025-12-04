@@ -1,6 +1,7 @@
-import { exec, execRun } from './index';
+import { exec, execRun, getDb } from './index';
 import { Transaction } from '../../types/transaction';
 import { getWallet } from './wallets';
+import { analyticsCache, generateCacheKey, invalidateTransactionCaches } from '../cache/queryCache';
 
 export async function addTransaction(t: Transaction) {
   const params = [
@@ -22,6 +23,51 @@ export async function addTransaction(t: Transaction) {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
     params
   );
+  
+  // Invalidate caches after adding transaction
+  invalidateTransactionCaches();
+}
+
+/**
+ * Add multiple transactions in a single database transaction for better performance
+ * Use this when importing data or creating multiple transactions at once
+ * @param transactions - Array of transactions to add
+ */
+export async function addTransactionsBatch(transactions: Transaction[]): Promise<void> {
+  if (transactions.length === 0) return;
+  
+  const database = await getDb();
+  
+  await database.withTransactionAsync(async () => {
+    const statement = await database.prepareAsync(
+      `INSERT INTO transactions 
+       (wallet_id, type, amount, category, date, notes, receipt_uri, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+    );
+    
+    try {
+      for (const t of transactions) {
+        await statement.executeAsync([
+          t.wallet_id,
+          t.type,
+          t.amount,
+          t.category ?? null,
+          t.date,
+          t.notes ?? null,
+          t.receipt_uri ?? null,
+          t.is_recurring ? 1 : 0,
+          t.recurrence_frequency ?? null,
+          t.recurrence_end_date ?? null,
+          t.parent_transaction_id ?? null,
+        ]);
+      }
+    } finally {
+      await statement.finalizeAsync();
+    }
+  });
+  
+  // Invalidate caches after batch insert
+  invalidateTransactionCaches();
 }
 
 /**
@@ -60,25 +106,25 @@ export async function transferBetweenWallets(
     receivedAmount = amount * fromRate / toRate;
   }
   
-  // Create expense transaction in source wallet (negative amount in source currency)
-  await addTransaction({
-    wallet_id: fromWalletId,
-    type: 'expense',
-    amount: -Math.abs(amount),
-    category: 'Transfer',
-    date: now,
-    notes: `${transferNote} (sent ${fromWallet.currency} ${amount.toFixed(2)})`,
-  });
-  
-  // Create income transaction in destination wallet (positive amount in destination currency)
-  await addTransaction({
-    wallet_id: toWalletId,
-    type: 'income',
-    amount: Math.abs(receivedAmount),
-    category: 'Transfer',
-    date: now,
-    notes: `${transferNote} (received ${toWallet.currency} ${receivedAmount.toFixed(2)})`,
-  });
+  // Use batch insert to create both transactions atomically
+  await addTransactionsBatch([
+    {
+      wallet_id: fromWalletId,
+      type: 'expense',
+      amount: -Math.abs(amount),
+      category: 'Transfer',
+      date: now,
+      notes: `${transferNote} (sent ${fromWallet.currency} ${amount.toFixed(2)})`,
+    },
+    {
+      wallet_id: toWalletId,
+      type: 'income',
+      amount: Math.abs(receivedAmount),
+      category: 'Transfer',
+      date: now,
+      notes: `${transferNote} (received ${toWallet.currency} ${receivedAmount.toFixed(2)})`,
+    }
+  ]);
 }
 
 export async function updateTransaction(id: number, t: Partial<Transaction>) {
@@ -97,10 +143,16 @@ export async function updateTransaction(id: number, t: Partial<Transaction>) {
   if (t.receipt_uri !== undefined) set('receipt_uri', t.receipt_uri);
   params.push(id);
   await execRun(`UPDATE transactions SET ${fields.join(', ')} WHERE id = ?;`, params);
+  
+  // Invalidate caches after update
+  invalidateTransactionCaches();
 }
 
 export async function deleteTransaction(id: number) {
   await execRun('DELETE FROM transactions WHERE id = ?;', [id]);
+  
+  // Invalidate caches after delete
+  invalidateTransactionCaches();
 }
 
 export async function getTransactions(page = 0, pageSize = 20) {
@@ -211,59 +263,71 @@ export async function analyticsCategoryBreakdown(year: number, month: number) {
 }
 
 export async function totalAvailableAcrossWallets() {
-  const wallets = await exec<{ id: number; initial_balance: number; exchange_rate: number }>(
-    `SELECT id, initial_balance, COALESCE(exchange_rate, 1.0) as exchange_rate FROM wallets;`
-  );
-  let total = 0;
-  for (const w of wallets) {
-    const inc = await exec<{ total: number }>(
-      `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE wallet_id = ? AND type = 'income';`,
-      [w.id]
+  const cacheKey = generateCacheKey('totalAvailableAcrossWallets');
+  
+  return await analyticsCache.cached(cacheKey, async () => {
+    // Optimized single-query approach using JOINs and aggregation
+    // This replaces the N+1 query pattern with a single efficient query
+    const result = await exec<{ total: number }>(
+      `SELECT 
+         COALESCE(
+           SUM(
+             (w.initial_balance + 
+              COALESCE((SELECT SUM(amount) FROM transactions WHERE wallet_id = w.id AND type = 'income'), 0) + 
+              COALESCE((SELECT SUM(amount) FROM transactions WHERE wallet_id = w.id AND type = 'expense'), 0)
+             ) * COALESCE(w.exchange_rate, 1.0)
+           ), 0
+         ) as total
+       FROM wallets w;`
     );
-    const exp = await exec<{ total: number }>(
-      `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE wallet_id = ? AND type = 'expense';`,
-      [w.id]
-    );
-    // Expenses are stored as negative, so we add them (they're already negative)
-    const walletBalance = w.initial_balance + (inc[0]?.total ?? 0) + (exp[0]?.total ?? 0);
-    // Convert to default currency using exchange rate
-    total += walletBalance * w.exchange_rate;
-  }
-  return total;
+    return result[0]?.total ?? 0;
+  });
 }
 
 export async function monthSpend() {
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
-  const result = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
-    [start, end]
-  );
-  return result[0]?.total ?? 0;
+  const cacheKey = generateCacheKey('monthSpend', now.getFullYear(), now.getMonth());
+  
+  return await analyticsCache.cached(cacheKey, async () => {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+    const result = await exec<{ total: number }>(
+      `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+      [start, end]
+    );
+    return result[0]?.total ?? 0;
+  });
 }
 
 export async function todaySpend() {
   const today = new Date();
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-  const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).toISOString();
-  const result = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
-    [start, end]
-  );
-  return result[0]?.total ?? 0;
+  const cacheKey = generateCacheKey('todaySpend', today.toISOString().split('T')[0]);
+  
+  return await analyticsCache.cached(cacheKey, async () => {
+    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).toISOString();
+    const result = await exec<{ total: number }>(
+      `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+      [start, end]
+    );
+    return result[0]?.total ?? 0;
+  });
 }
 
 export async function categoryBreakdown() {
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
-  return exec<{ category: string; total: number }>(
-    `SELECT category, COALESCE(SUM(ABS(amount)),0) as total 
-     FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ? AND category IS NOT NULL
-     GROUP BY category ORDER BY total DESC;`,
-    [start, end]
-  );
+  const cacheKey = generateCacheKey('categoryBreakdown', now.getFullYear(), now.getMonth());
+  
+  return await analyticsCache.cached(cacheKey, async () => {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+    return exec<{ category: string; total: number }>(
+      `SELECT category, COALESCE(SUM(ABS(amount)),0) as total 
+       FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ? AND category IS NOT NULL
+       GROUP BY category ORDER BY total DESC;`,
+      [start, end]
+    );
+  });
 }
 
 // Phase 1 Analytics: Enhanced calculations
@@ -441,23 +505,39 @@ export async function getAveragePurchaseSize() {
 
 export async function getSevenDaySpendingTrend() {
   const now = new Date();
-  const data: Array<{ date: string; amount: number }> = [];
   
-  // Get spending for the last 7 days
+  // Calculate the start date (7 days ago)
+  const sevenDaysAgo = new Date(now);
+  sevenDaysAgo.setDate(now.getDate() - 6);
+  sevenDaysAgo.setHours(0, 0, 0, 0);
+  
+  // Use a single SQL query with GROUP BY to get all daily totals at once
+  // This is much more efficient than making 7 separate queries
+  const result = await exec<{ date: string; total: number }>(
+    `SELECT 
+       DATE(date) as date,
+       COALESCE(SUM(ABS(amount)), 0) as total
+     FROM transactions 
+     WHERE type = 'expense' AND date >= ?
+     GROUP BY DATE(date)
+     ORDER BY DATE(date) ASC;`,
+    [sevenDaysAgo.toISOString()]
+  );
+  
+  // Create a map of results for easy lookup
+  const resultMap = new Map(result.map(r => [r.date, r.total]));
+  
+  // Build the data array with all 7 days (fill in zeros for days with no transactions)
+  const data: Array<{ date: string; amount: number }> = [];
   for (let i = 6; i >= 0; i--) {
     const date = new Date(now);
     date.setDate(date.getDate() - i);
-    const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString();
-    const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59).toISOString();
-    
-    const result = await exec<{ total: number }>(
-      `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
-      [startOfDay, endOfDay]
-    );
+    date.setHours(0, 0, 0, 0);
+    const dateStr = date.toISOString().split('T')[0];
     
     data.push({
-      date: date.toISOString().split('T')[0],
-      amount: result[0]?.total ?? 0
+      date: dateStr,
+      amount: resultMap.get(dateStr) ?? 0
     });
   }
   
@@ -470,20 +550,33 @@ export async function getDailySpendingForMonth() {
   const month = now.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   
-  const data: Array<{ day: number; amount: number }> = [];
+  // Use a single SQL query with GROUP BY to get all daily totals at once
+  const monthStart = new Date(year, month, 1, 0, 0, 0).toISOString();
+  const monthEnd = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
   
+  const result = await exec<{ date: string; total: number }>(
+    `SELECT 
+       DATE(date) as date,
+       COALESCE(SUM(ABS(amount)), 0) as total
+     FROM transactions 
+     WHERE type = 'expense' AND date BETWEEN ? AND ?
+     GROUP BY DATE(date)
+     ORDER BY DATE(date) ASC;`,
+    [monthStart, monthEnd]
+  );
+  
+  // Create a map of results for easy lookup
+  const resultMap = new Map(result.map(r => [r.date, r.total]));
+  
+  // Build the data array with all days in the month (fill in zeros for days with no transactions)
+  const data: Array<{ day: number; amount: number }> = [];
   for (let day = 1; day <= daysInMonth; day++) {
-    const startOfDay = new Date(year, month, day, 0, 0, 0).toISOString();
-    const endOfDay = new Date(year, month, day, 23, 59, 59).toISOString();
-    
-    const result = await exec<{ total: number }>(
-      `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
-      [startOfDay, endOfDay]
-    );
+    const date = new Date(year, month, day);
+    const dateStr = date.toISOString().split('T')[0];
     
     data.push({
       day,
-      amount: result[0]?.total ?? 0
+      amount: resultMap.get(dateStr) ?? 0
     });
   }
   
@@ -501,34 +594,47 @@ export async function getMonthlyComparison() {
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
   const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).toISOString();
   
-  const thisMonthIncome = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'income' AND date BETWEEN ? AND ?;`,
-    [thisMonthStart, thisMonthEnd]
-  );
-  const thisMonthExpense = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
-    [thisMonthStart, thisMonthEnd]
+  // Optimize: Use a single query with CASE statements to get all 4 values at once
+  // Organize parameters clearly to avoid confusion
+  const params = [
+    thisMonthStart, thisMonthEnd,  // For this month income
+    thisMonthStart, thisMonthEnd,  // For this month expense
+    lastMonthStart, lastMonthEnd,  // For last month income
+    lastMonthStart, lastMonthEnd   // For last month expense
+  ];
+  
+  const result = await exec<{ 
+    this_month_income: number; 
+    this_month_expense: number;
+    last_month_income: number;
+    last_month_expense: number;
+  }>(
+    `SELECT 
+       COALESCE(SUM(CASE WHEN type = 'income' AND date BETWEEN ? AND ? THEN amount ELSE 0 END), 0) as this_month_income,
+       COALESCE(SUM(CASE WHEN type = 'expense' AND date BETWEEN ? AND ? THEN ABS(amount) ELSE 0 END), 0) as this_month_expense,
+       COALESCE(SUM(CASE WHEN type = 'income' AND date BETWEEN ? AND ? THEN amount ELSE 0 END), 0) as last_month_income,
+       COALESCE(SUM(CASE WHEN type = 'expense' AND date BETWEEN ? AND ? THEN ABS(amount) ELSE 0 END), 0) as last_month_expense
+     FROM transactions;`,
+    params
   );
   
-  const lastMonthIncome = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE type = 'income' AND date BETWEEN ? AND ?;`,
-    [lastMonthStart, lastMonthEnd]
-  );
-  const lastMonthExpense = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
-    [lastMonthStart, lastMonthEnd]
-  );
+  const data = result[0] || {
+    this_month_income: 0,
+    this_month_expense: 0,
+    last_month_income: 0,
+    last_month_expense: 0
+  };
   
   return {
     thisMonth: {
-      income: thisMonthIncome[0]?.total ?? 0,
-      expense: thisMonthExpense[0]?.total ?? 0,
-      net: (thisMonthIncome[0]?.total ?? 0) - (thisMonthExpense[0]?.total ?? 0)
+      income: data.this_month_income,
+      expense: data.this_month_expense,
+      net: data.this_month_income - data.this_month_expense
     },
     lastMonth: {
-      income: lastMonthIncome[0]?.total ?? 0,
-      expense: lastMonthExpense[0]?.total ?? 0,
-      net: (lastMonthIncome[0]?.total ?? 0) - (lastMonthExpense[0]?.total ?? 0)
+      income: data.last_month_income,
+      expense: data.last_month_expense,
+      net: data.last_month_income - data.last_month_expense
     }
   };
 }
@@ -554,82 +660,113 @@ export async function getCategorySpendingForPieChart() {
 
 export async function getSpendingTrendForPeriod(period: 'week' | 'month' | 'quarter' | 'year') {
   const now = new Date();
-  let dataPoints: Array<{ date: string; amount: number }> = [];
+  now.setHours(0, 0, 0, 0);
   
   if (period === 'week') {
-    // Last 7 days
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
-      const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString();
-      const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59).toISOString();
-      
-      const result = await exec<{ total: number }>(
-        `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
-        [startOfDay, endOfDay]
-      );
-      
-      dataPoints.push({
-        date: date.toISOString().split('T')[0],
-        amount: result[0]?.total ?? 0
-      });
-    }
+    // Reuse the optimized getSevenDaySpendingTrend function
+    return await getSevenDaySpendingTrend();
   } else if (period === 'month') {
-    // Last 30 days
+    // Last 30 days using a single GROUP BY query
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(now.getDate() - 29);
+    
+    const result = await exec<{ date: string; total: number }>(
+      `SELECT 
+         DATE(date) as date,
+         COALESCE(SUM(ABS(amount)), 0) as total
+       FROM transactions 
+       WHERE type = 'expense' AND date >= ?
+       GROUP BY DATE(date)
+       ORDER BY DATE(date) ASC;`,
+      [thirtyDaysAgo.toISOString()]
+    );
+    
+    // Create a map of results for easy lookup
+    const resultMap = new Map(result.map(r => [r.date, r.total]));
+    
+    // Build the data array with all 30 days
+    const dataPoints: Array<{ date: string; amount: number }> = [];
     for (let i = 29; i >= 0; i--) {
       const date = new Date(now);
       date.setDate(date.getDate() - i);
-      const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString();
-      const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59).toISOString();
-      
-      const result = await exec<{ total: number }>(
-        `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
-        [startOfDay, endOfDay]
-      );
+      const dateStr = date.toISOString().split('T')[0];
       
       dataPoints.push({
-        date: date.toISOString().split('T')[0],
-        amount: result[0]?.total ?? 0
+        date: dateStr,
+        amount: resultMap.get(dateStr) ?? 0
       });
     }
+    
+    return dataPoints;
   } else if (period === 'quarter') {
-    // Last 3 months (weekly aggregation)
+    // Last 12 weeks (weekly aggregation) using a single query
+    const twelveWeeksAgo = new Date(now);
+    twelveWeeksAgo.setDate(now.getDate() - (11 * 7));
+    
+    const result = await exec<{ week_start: string; total: number }>(
+      `SELECT 
+         DATE(date, 'weekday 0', '-6 days') as week_start,
+         COALESCE(SUM(ABS(amount)), 0) as total
+       FROM transactions 
+       WHERE type = 'expense' AND date >= ?
+       GROUP BY week_start
+       ORDER BY week_start ASC;`,
+      [twelveWeeksAgo.toISOString()]
+    );
+    
+    // Create a map of results for easy lookup
+    const resultMap = new Map(result.map(r => [r.week_start, r.total]));
+    
+    // Build the data array with all 12 weeks
+    const dataPoints: Array<{ date: string; amount: number }> = [];
     for (let i = 11; i >= 0; i--) {
       const endDate = new Date(now);
       endDate.setDate(endDate.getDate() - (i * 7));
       const startDate = new Date(endDate);
       startDate.setDate(startDate.getDate() - 6);
-      
-      const result = await exec<{ total: number }>(
-        `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
-        [startDate.toISOString(), endDate.toISOString()]
-      );
+      const dateStr = startDate.toISOString().split('T')[0];
       
       dataPoints.push({
         date: endDate.toISOString().split('T')[0],
-        amount: result[0]?.total ?? 0
+        amount: resultMap.get(dateStr) ?? 0
       });
     }
+    
+    return dataPoints;
   } else if (period === 'year') {
-    // Last 12 months (monthly aggregation)
+    // Last 12 months (monthly aggregation) using a single query
+    const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+    
+    const result = await exec<{ month: string; total: number }>(
+      `SELECT 
+         strftime('%Y-%m', date) as month,
+         COALESCE(SUM(ABS(amount)), 0) as total
+       FROM transactions 
+       WHERE type = 'expense' AND date >= ?
+       GROUP BY month
+       ORDER BY month ASC;`,
+      [twelveMonthsAgo.toISOString()]
+    );
+    
+    // Create a map of results for easy lookup
+    const resultMap = new Map(result.map(r => [r.month, r.total]));
+    
+    // Build the data array with all 12 months
+    const dataPoints: Array<{ date: string; amount: number }> = [];
     for (let i = 11; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const startOfMonth = date.toISOString();
-      const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59).toISOString();
-      
-      const result = await exec<{ total: number }>(
-        `SELECT COALESCE(SUM(ABS(amount)),0) as total FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
-        [startOfMonth, endOfMonth]
-      );
+      const monthKey = date.toISOString().slice(0, 7); // YYYY-MM format
       
       dataPoints.push({
-        date: startOfMonth.split('T')[0],
-        amount: result[0]?.total ?? 0
+        date: date.toISOString().split('T')[0],
+        amount: resultMap.get(monthKey) ?? 0
       });
     }
+    
+    return dataPoints;
   }
   
-  return dataPoints;
+  return [];
 }
 
 export async function getCategorySpendingForPeriod(period: 'week' | 'month' | 'quarter' | 'year') {
