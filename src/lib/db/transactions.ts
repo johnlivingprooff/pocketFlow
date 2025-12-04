@@ -1,4 +1,4 @@
-import { exec, execRun } from './index';
+import { exec, execRun, getDb } from './index';
 import { Transaction } from '../../types/transaction';
 import { getWallet } from './wallets';
 
@@ -22,6 +22,45 @@ export async function addTransaction(t: Transaction) {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
     params
   );
+}
+
+/**
+ * Add multiple transactions in a single database transaction for better performance
+ * Use this when importing data or creating multiple transactions at once
+ * @param transactions - Array of transactions to add
+ */
+export async function addTransactionsBatch(transactions: Transaction[]): Promise<void> {
+  if (transactions.length === 0) return;
+  
+  const database = await getDb();
+  
+  await database.withTransactionAsync(async () => {
+    const statement = await database.prepareAsync(
+      `INSERT INTO transactions 
+       (wallet_id, type, amount, category, date, notes, receipt_uri, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+    );
+    
+    try {
+      for (const t of transactions) {
+        await statement.executeAsync([
+          t.wallet_id,
+          t.type,
+          t.amount,
+          t.category ?? null,
+          t.date,
+          t.notes ?? null,
+          t.receipt_uri ?? null,
+          t.is_recurring ? 1 : 0,
+          t.recurrence_frequency ?? null,
+          t.recurrence_end_date ?? null,
+          t.parent_transaction_id ?? null,
+        ]);
+      }
+    } finally {
+      await statement.finalizeAsync();
+    }
+  });
 }
 
 /**
@@ -60,25 +99,25 @@ export async function transferBetweenWallets(
     receivedAmount = amount * fromRate / toRate;
   }
   
-  // Create expense transaction in source wallet (negative amount in source currency)
-  await addTransaction({
-    wallet_id: fromWalletId,
-    type: 'expense',
-    amount: -Math.abs(amount),
-    category: 'Transfer',
-    date: now,
-    notes: `${transferNote} (sent ${fromWallet.currency} ${amount.toFixed(2)})`,
-  });
-  
-  // Create income transaction in destination wallet (positive amount in destination currency)
-  await addTransaction({
-    wallet_id: toWalletId,
-    type: 'income',
-    amount: Math.abs(receivedAmount),
-    category: 'Transfer',
-    date: now,
-    notes: `${transferNote} (received ${toWallet.currency} ${receivedAmount.toFixed(2)})`,
-  });
+  // Use batch insert to create both transactions atomically
+  await addTransactionsBatch([
+    {
+      wallet_id: fromWalletId,
+      type: 'expense',
+      amount: -Math.abs(amount),
+      category: 'Transfer',
+      date: now,
+      notes: `${transferNote} (sent ${fromWallet.currency} ${amount.toFixed(2)})`,
+    },
+    {
+      wallet_id: toWalletId,
+      type: 'income',
+      amount: Math.abs(receivedAmount),
+      category: 'Transfer',
+      date: now,
+      notes: `${transferNote} (received ${toWallet.currency} ${receivedAmount.toFixed(2)})`,
+    }
+  ]);
 }
 
 export async function updateTransaction(id: number, t: Partial<Transaction>) {
@@ -211,25 +250,21 @@ export async function analyticsCategoryBreakdown(year: number, month: number) {
 }
 
 export async function totalAvailableAcrossWallets() {
-  const wallets = await exec<{ id: number; initial_balance: number; exchange_rate: number }>(
-    `SELECT id, initial_balance, COALESCE(exchange_rate, 1.0) as exchange_rate FROM wallets;`
+  // Optimized single-query approach using JOINs and aggregation
+  // This replaces the N+1 query pattern with a single efficient query
+  const result = await exec<{ total: number }>(
+    `SELECT 
+       COALESCE(
+         SUM(
+           (w.initial_balance + 
+            COALESCE((SELECT SUM(amount) FROM transactions WHERE wallet_id = w.id AND type = 'income'), 0) + 
+            COALESCE((SELECT SUM(amount) FROM transactions WHERE wallet_id = w.id AND type = 'expense'), 0)
+           ) * COALESCE(w.exchange_rate, 1.0)
+         ), 0
+       ) as total
+     FROM wallets w;`
   );
-  let total = 0;
-  for (const w of wallets) {
-    const inc = await exec<{ total: number }>(
-      `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE wallet_id = ? AND type = 'income';`,
-      [w.id]
-    );
-    const exp = await exec<{ total: number }>(
-      `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE wallet_id = ? AND type = 'expense';`,
-      [w.id]
-    );
-    // Expenses are stored as negative, so we add them (they're already negative)
-    const walletBalance = w.initial_balance + (inc[0]?.total ?? 0) + (exp[0]?.total ?? 0);
-    // Convert to default currency using exchange rate
-    total += walletBalance * w.exchange_rate;
-  }
-  return total;
+  return result[0]?.total ?? 0;
 }
 
 export async function monthSpend() {

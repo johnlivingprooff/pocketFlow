@@ -1,4 +1,4 @@
-import { exec, execRun } from './index';
+import { exec, execRun, getDb } from './index';
 import { Wallet } from '../../types/wallet';
 
 export async function createWallet(w: Wallet) {
@@ -52,9 +52,20 @@ export async function getWallets(): Promise<Wallet[]> {
  * @param orderUpdates - Array of {id, display_order} objects
  */
 export async function updateWalletsOrder(orderUpdates: Array<{ id: number; display_order: number }>): Promise<void> {
-  for (const update of orderUpdates) {
-    await execRun('UPDATE wallets SET display_order = ? WHERE id = ?;', [update.display_order, update.id]);
-  }
+  const database = await getDb();
+  
+  // Use a transaction to batch all updates for better performance
+  await database.withTransactionAsync(async () => {
+    const statement = await database.prepareAsync('UPDATE wallets SET display_order = ? WHERE id = ?;');
+    
+    try {
+      for (const update of orderUpdates) {
+        await statement.executeAsync([update.display_order, update.id]);
+      }
+    } finally {
+      await statement.finalizeAsync();
+    }
+  });
 }
 
 export async function getWallet(id: number): Promise<Wallet[]> {
@@ -79,6 +90,51 @@ export async function getWalletBalance(id: number): Promise<number> {
   const initial = w[0]?.initial_balance ?? 0;
   // Expenses are stored as negative, so we add them (they're already negative)
   return initial + (income[0]?.total ?? 0) + (expense[0]?.total ?? 0);
+}
+
+/**
+ * Get balances for multiple wallets efficiently in a single query
+ * This avoids N+1 query problems when fetching all wallet balances
+ * @param walletIds - Array of wallet IDs to fetch balances for
+ * @returns Record mapping wallet ID to balance
+ */
+export async function getWalletBalances(walletIds: number[]): Promise<Record<number, number>> {
+  if (walletIds.length === 0) {
+    return {};
+  }
+
+  const database = await getDb();
+  
+  // Get all wallet initial balances
+  const placeholders = walletIds.map(() => '?').join(',');
+  const wallets = await database.getAllAsync<{ id: number; initial_balance: number }>(
+    `SELECT id, initial_balance FROM wallets WHERE id IN (${placeholders});`,
+    walletIds
+  );
+  
+  // Get all transaction sums grouped by wallet_id and type in a single query
+  const transactionSums = await database.getAllAsync<{ wallet_id: number; type: string; total: number }>(
+    `SELECT wallet_id, type, COALESCE(SUM(amount), 0) as total 
+     FROM transactions 
+     WHERE wallet_id IN (${placeholders})
+     GROUP BY wallet_id, type;`,
+    walletIds
+  );
+  
+  // Build the result map
+  const balances: Record<number, number> = {};
+  
+  // Initialize with initial balances
+  for (const wallet of wallets) {
+    balances[wallet.id] = wallet.initial_balance ?? 0;
+  }
+  
+  // Add transaction sums (expenses are already negative)
+  for (const sum of transactionSums) {
+    balances[sum.wallet_id] = (balances[sum.wallet_id] ?? 0) + sum.total;
+  }
+  
+  return balances;
 }
 
 /**
