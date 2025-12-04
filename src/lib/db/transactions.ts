@@ -595,6 +595,14 @@ export async function getMonthlyComparison() {
   const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).toISOString();
   
   // Optimize: Use a single query with CASE statements to get all 4 values at once
+  // Organize parameters clearly to avoid confusion
+  const params = [
+    thisMonthStart, thisMonthEnd,  // For this month income
+    thisMonthStart, thisMonthEnd,  // For this month expense
+    lastMonthStart, lastMonthEnd,  // For last month income
+    lastMonthStart, lastMonthEnd   // For last month expense
+  ];
+  
   const result = await exec<{ 
     this_month_income: number; 
     this_month_expense: number;
@@ -607,7 +615,7 @@ export async function getMonthlyComparison() {
        COALESCE(SUM(CASE WHEN type = 'income' AND date BETWEEN ? AND ? THEN amount ELSE 0 END), 0) as last_month_income,
        COALESCE(SUM(CASE WHEN type = 'expense' AND date BETWEEN ? AND ? THEN ABS(amount) ELSE 0 END), 0) as last_month_expense
      FROM transactions;`,
-    [thisMonthStart, thisMonthEnd, thisMonthStart, thisMonthEnd, lastMonthStart, lastMonthEnd, lastMonthStart, lastMonthEnd]
+    params
   );
   
   const data = result[0] || {

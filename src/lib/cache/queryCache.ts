@@ -122,6 +122,7 @@ class QueryCache {
 
   /**
    * Evict the least recently used entry based on hit count and age
+   * Uses a scoring algorithm that balances recency and frequency
    */
   private evictLRU(): void {
     let oldestKey: string | null = null;
@@ -131,9 +132,11 @@ class QueryCache {
 
     for (const [key, entry] of this.cache.entries()) {
       // Calculate score: lower score = higher priority for eviction
-      // Favors entries with fewer hits and older timestamps
+      // Score = hits - (age_ratio), where age_ratio is 0-1 based on TTL
+      // This favors keeping frequently accessed and recent entries
       const age = now - entry.timestamp;
-      const score = entry.hits - (age / this.ttl);
+      const ageRatio = Math.min(1, age / this.ttl);
+      const score = entry.hits - ageRatio;
 
       if (score < oldestScore) {
         oldestScore = score;
@@ -200,13 +203,19 @@ export function invalidateWalletCaches(): void {
 /**
  * Generate a cache key from function name and parameters
  * @param functionName Name of the function
- * @param params Parameters passed to the function
+ * @param params Parameters passed to the function (should be primitives)
  * @returns Cache key string
  */
 export function generateCacheKey(functionName: string, ...params: any[]): string {
   const paramStr = params.map(p => {
     if (typeof p === 'object' && p !== null) {
-      return JSON.stringify(p);
+      // For objects, use sorted keys to ensure consistent serialization
+      // WARNING: Only use with small objects; avoid using with large or deeply nested objects
+      const sorted = Object.keys(p).sort().reduce((acc: any, key) => {
+        acc[key] = p[key];
+        return acc;
+      }, {});
+      return JSON.stringify(sorted);
     }
     return String(p);
   }).join('|');

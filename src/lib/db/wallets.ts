@@ -116,6 +116,8 @@ export async function getWalletBalances(walletIds: number[]): Promise<Record<num
   const database = await getDb();
   
   // Get all wallet initial balances
+  // Note: We're using string interpolation for placeholders, but the actual values
+  // come from the walletIds parameter array, making this safe from SQL injection
   const placeholders = walletIds.map(() => '?').join(',');
   const wallets = await database.getAllAsync<{ id: number; initial_balance: number }>(
     `SELECT id, initial_balance FROM wallets WHERE id IN (${placeholders});`,
