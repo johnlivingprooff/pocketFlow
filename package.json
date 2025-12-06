@@ -6,7 +6,8 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "release:copy": "powershell -ExecutionPolicy Bypass -File ./scripts/copy-release.ps1"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",

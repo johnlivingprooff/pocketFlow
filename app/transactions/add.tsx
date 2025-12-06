@@ -102,8 +102,8 @@ export default function AddTransactionScreen() {
     const months = [];
     const today = new Date();
     
-    // Generate last 3 months including current month
-    for (let i = 2; i >= 0; i--) {
+    // Generate last 6 months including current month
+    for (let i = 5; i >= 0; i--) {
       const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const monthName = date.toLocaleString('default', { month: 'long', year: 'numeric' });
       const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();

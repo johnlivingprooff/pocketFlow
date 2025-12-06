@@ -58,6 +58,7 @@ export default function AnalyticsPage() {
   // Phase 1: Enhanced Analytics State
   const [weekComparison, setWeekComparison] = useState<{ thisWeek: number; lastWeek: number; change: number } | null>(null);
   const [incomeExpense, setIncomeExpense] = useState<{ income: number; expense: number; netSavings: number; savingsRate: number } | null>(null);
+  const [incomeExpensePeriod, setIncomeExpensePeriod] = useState<'current' | 'last'>('current');
   const [spendingStreak, setSpendingStreak] = useState<{ currentStreak: number; longestStreak: number; lastSpendDate: string | null } | null>(null);
   const [monthProgress, setMonthProgress] = useState<{ currentDay: number; daysInMonth: number; progressPercentage: number; daysRemaining: number } | null>(null);
   const [topSpendingDay, setTopSpendingDay] = useState<{ date: string; total: number } | null>(null);
@@ -116,7 +117,7 @@ export default function AnalyticsPage() {
       const weekComp = await weekOverWeekComparison();
       setWeekComparison(weekComp);
 
-      const incExpAnalysis = await incomeVsExpenseAnalysis();
+      const incExpAnalysis = await incomeVsExpenseAnalysis(incomeExpensePeriod);
       setIncomeExpense(incExpAnalysis);
 
       const streak = await getSpendingStreak();
@@ -179,13 +180,22 @@ export default function AnalyticsPage() {
       });
       setFinancialHealth(healthScore);
     }
-  }, []);
+  }, [incomeExpensePeriod]);
 
   useFocusEffect(
     useCallback(() => {
       loadData();
     }, [loadData])
   );
+
+  // Handle income vs expense period toggle
+  const handleIncomeExpensePeriodChange = useCallback(async (period: 'current' | 'last') => {
+    setIncomeExpensePeriod(period);
+    if (Platform.OS !== 'web') {
+      const incExpAnalysis = await incomeVsExpenseAnalysis(period);
+      setIncomeExpense(incExpAnalysis);
+    }
+  }, []);
 
   // Phase 4: Handle period change
   const handlePeriodChange = useCallback(async (period: TimePeriod) => {
@@ -366,7 +376,31 @@ export default function AnalyticsPage() {
               padding: 16,
               marginBottom: 12
             }}>
-              <Text style={{ color: t.accent, fontSize: 14, fontWeight: '600', marginBottom: 4 }}>SAVINGS RATE</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <Text style={{ color: t.accent, fontSize: 14, fontWeight: '600' }}>SAVINGS RATE</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {(['current', 'last'] as const).map((period) => {
+                    const label = period === 'current' ? 'This Month' : 'Last Month';
+                    const isSelected = incomeExpensePeriod === period;
+                    return (
+                      <TouchableOpacity
+                        key={period}
+                        onPress={() => handleIncomeExpensePeriodChange(period)}
+                        style={{
+                          paddingHorizontal: 10,
+                          paddingVertical: 6,
+                          borderRadius: 12,
+                          borderWidth: 1,
+                          borderColor: isSelected ? t.primary : t.border,
+                          backgroundColor: isSelected ? t.primary : t.background
+                        }}
+                      >
+                        <Text style={{ color: isSelected ? '#FFFFFF' : t.textPrimary, fontSize: 12, fontWeight: isSelected ? '700' : '600' }}>{label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
               <Text style={{ color: t.textPrimary, fontSize: 16 }}>
                 You're saving <Text style={{ fontWeight: '700', color: incomeExpense.savingsRate > 0 ? t.success : t.danger }}>{incomeExpense.savingsRate.toFixed(1)}%</Text> of your income
               </Text>

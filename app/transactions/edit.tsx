@@ -413,11 +413,11 @@ export default function EditTransaction() {
   );
 }
 
-// Generate calendar months (last 3 months incl. current)
+// Generate calendar months (last 6 months incl. current)
 function generateCalendarMonths() {
   const months = [] as Array<{ name: string; days: { day: number; date: Date }[] }>;
   const today = new Date();
-  for (let i = 2; i >= 0; i--) {
+  for (let i = 5; i >= 0; i--) {
     const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
     const monthName = date.toLocaleString('default', { month: 'long', year: 'numeric' });
     const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();

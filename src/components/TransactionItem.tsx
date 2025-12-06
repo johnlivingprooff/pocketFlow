@@ -13,13 +13,32 @@ interface Props {
 export function TransactionItem({ item, currency, mode = 'light' }: Props) {
   const t = theme(mode);
   const color = item.type === 'income' ? t.income : t.expense;
+
+  const getTransferLabel = () => {
+    if (item.category !== 'Transfer') return item.category || 'Uncategorized';
+
+    const notes = item.notes || '';
+    if (item.type === 'expense') {
+      const match = notes.match(/to ([^(]+)/i);
+      if (match?.[1]) return `Transfer to ${match[1].trim()}`;
+      return 'Transfer to wallet';
+    }
+    if (item.type === 'income') {
+      const match = notes.match(/from ([^(]+)/i);
+      if (match?.[1]) return `Transfer from ${match[1].trim()}`;
+      return 'Transfer from wallet';
+    }
+    return 'Transfer';
+  };
+
+  const displayCategory = getTransferLabel();
   return (
     <View style={{ flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: t.border }}>
       <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: t.card, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
         <Text style={{ color }}>{item.type === 'income' ? '+' : '-'}</Text>
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={{ color: t.textPrimary, fontWeight: '500' }}>{item.category || 'Uncategorized'}</Text>
+        <Text style={{ color: t.textPrimary, fontWeight: '500' }}>{displayCategory}</Text>
         <Text style={{ color: t.textSecondary, fontSize: 12 }}>{new Date(item.date).toLocaleString()}</Text>
         {item.notes ? <Text style={{ color: t.textSecondary, fontSize: 12 }}>{item.notes}</Text> : null}
       </View>

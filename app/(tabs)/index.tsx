@@ -27,6 +27,15 @@ function getGreeting(now: Date = new Date()): string {
   return 'Hello';
 }
 
+// Format full date with day of week
+function formatFullDate(date: Date): string {
+  const dayOfWeek = date.toLocaleString('default', { weekday: 'long' });
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = date.toLocaleString('default', { month: 'long' });
+  const year = date.getFullYear();
+  return `${dayOfWeek} ${day}, ${month} ${year}`;
+}
+
 export default function Home() {
   const { themeMode, defaultCurrency, userInfo } = useSettings();
   const systemColorScheme = useColorScheme();
@@ -105,9 +114,15 @@ export default function Home() {
         break;
     }
 
+    // Normalize bounds to include entire days
+    const startOfPeriod = new Date(startDate);
+    startOfPeriod.setHours(0, 0, 0, 0);
+    const endOfPeriod = new Date(endDate);
+    endOfPeriod.setHours(23, 59, 59, 999);
+
     const expenseTransactions = transactions.filter(t => {
       const txDate = new Date(t.date);
-      return t.type === 'expense' && txDate >= startDate && txDate <= endDate;
+      return t.type === 'expense' && txDate >= startOfPeriod && txDate <= endOfPeriod;
     });
 
     // Group by category and convert to default currency
@@ -412,7 +427,7 @@ export default function Home() {
         <View>
           <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>{greeting}, {displayName} 👋</Text>
           <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Here's where your money is flowing today.</Text>
-          <Text style={{ color: t.textTertiary, fontSize: 12, marginTop: 2 }}>{formatDate(new Date().toISOString())}</Text>
+          <Text style={{ color: t.textTertiary, fontSize: 12, marginTop: 2 }}>{formatFullDate(new Date())}</Text>
         </View>
         <Link href="/profile" asChild>
           <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', ...shadows.sm }}>
