@@ -660,19 +660,41 @@ export default function AnalyticsPage() {
               borderWidth: 1,
               borderColor: t.border,
               borderRadius: 12,
-              padding: 16
+              padding: 16,
+              gap: 16
             }}>
-              <IncomeExpenseChart
-                data={[
-                  { income: monthlyComparison.thisMonth.income, expense: monthlyComparison.thisMonth.expense, label: 'This Month' },
-                  { income: monthlyComparison.lastMonth.income, expense: monthlyComparison.lastMonth.expense, label: 'Last Month' }
-                ]}
-                incomeColor={t.success}
-                expenseColor={t.danger}
-                textColor={t.textPrimary}
-                backgroundColor={t.card}
-                formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
-              />
+              {([
+                { label: 'This Month', data: monthlyComparison.thisMonth },
+                { label: 'Last Month', data: monthlyComparison.lastMonth }
+              ] as const).map(({ label, data }) => (
+                <View key={label} style={{ gap: 12 }}>
+                  <IncomeExpenseChart
+                    data={[{ income: data.income, expense: data.expense, label }]}
+                    incomeColor={t.success}
+                    expenseColor={t.danger}
+                    textColor={t.textPrimary}
+                    backgroundColor={t.card}
+                    formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
+                  />
+                  <View style={{ padding: 12, borderWidth: 1, borderColor: t.border, borderRadius: 10, backgroundColor: t.background }}>
+                    <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '700', marginBottom: 8 }}>{label}</Text>
+                    <View style={{ gap: 6 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ color: t.textSecondary, fontWeight: '600' }}>Income</Text>
+                        <Text style={{ color: t.success, fontWeight: '800' }}>{formatCurrency(data.income, defaultCurrency)}</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ color: t.textSecondary, fontWeight: '600' }}>Expense</Text>
+                        <Text style={{ color: t.danger, fontWeight: '800' }}>{formatCurrency(data.expense, defaultCurrency)}</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ color: t.textSecondary, fontWeight: '600' }}>Net</Text>
+                        <Text style={{ color: data.net >= 0 ? t.success : t.danger, fontWeight: '800' }}>{formatCurrency(data.net, defaultCurrency)}</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              ))}
             </View>
           </View>
         )}

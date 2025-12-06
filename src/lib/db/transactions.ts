@@ -165,6 +165,21 @@ export async function getTransactions(page = 0, pageSize = 20) {
   );
 }
 
+/**
+ * Get all transactions for a specific date range (for analytics/charting)
+ * @param startDate - Start date (inclusive)
+ * @param endDate - End date (inclusive)
+ * @returns All transactions within the date range, ordered by date DESC
+ */
+export async function getTransactionsForPeriod(startDate: Date, endDate: Date) {
+  const start = startDate.toISOString();
+  const end = endDate.toISOString();
+  return exec<Transaction>(
+    `SELECT * FROM transactions WHERE date BETWEEN ? AND ? ORDER BY date DESC, id DESC;`,
+    [start, end]
+  );
+}
+
 export async function getById(id: number) {
   const results = await exec<Transaction>(
     `SELECT * FROM transactions WHERE id = ?;`,
@@ -246,14 +261,14 @@ export async function analyticsTotalsByMonth(year: number, month: number) {
     `SELECT COALESCE(SUM(t.amount * COALESCE(w.exchange_rate, 1.0)),0) as total 
      FROM transactions t 
      LEFT JOIN wallets w ON t.wallet_id = w.id
-     WHERE t.type = 'income' AND t.date BETWEEN ? AND ?;`,
+     WHERE t.type = 'income' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
     [start, end]
   );
   const expense = await exec<{ total: number }>(
     `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
      FROM transactions t 
      LEFT JOIN wallets w ON t.wallet_id = w.id
-     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ?;`,
+     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
     [start, end]
   );
   return { income: income[0]?.total ?? 0, expense: expense[0]?.total ?? 0 };
@@ -266,7 +281,7 @@ export async function analyticsCategoryBreakdown(year: number, month: number) {
     `SELECT t.category, COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
      FROM transactions t
      LEFT JOIN wallets w ON t.wallet_id = w.id
-     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? 
+     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer')
      GROUP BY t.category ORDER BY total DESC;`,
     [start, end]
   );
@@ -305,7 +320,7 @@ export async function monthSpend() {
       `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
        FROM transactions t 
        LEFT JOIN wallets w ON t.wallet_id = w.id
-       WHERE t.type = 'expense' AND t.date BETWEEN ? AND ?;`,
+       WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
       [start, end]
     );
     return result[0]?.total ?? 0;
@@ -323,11 +338,46 @@ export async function todaySpend() {
       `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
        FROM transactions t 
        LEFT JOIN wallets w ON t.wallet_id = w.id
-       WHERE t.type = 'expense' AND t.date BETWEEN ? AND ?;`,
+       WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
       [start, end]
     );
     return result[0]?.total ?? 0;
   });
+}
+
+/**
+ * Get income and expense totals for a custom date range
+ * @param startDate - Start date (inclusive)
+ * @param endDate - End date (inclusive)
+ * @returns Object with income, expense, and net totals in default currency
+ */
+export async function getIncomeExpenseForPeriod(startDate: Date, endDate: Date) {
+  const start = startDate.toISOString();
+  const end = endDate.toISOString();
+  
+  const income = await exec<{ total: number }>(
+    `SELECT COALESCE(SUM(t.amount * COALESCE(w.exchange_rate, 1.0)),0) as total 
+     FROM transactions t 
+     LEFT JOIN wallets w ON t.wallet_id = w.id
+     WHERE t.type = 'income' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
+    [start, end]
+  );
+  const expense = await exec<{ total: number }>(
+    `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
+     FROM transactions t 
+     LEFT JOIN wallets w ON t.wallet_id = w.id
+     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
+    [start, end]
+  );
+  
+  const incomeTotal = income[0]?.total ?? 0;
+  const expenseTotal = expense[0]?.total ?? 0;
+  
+  return { 
+    income: incomeTotal, 
+    expense: expenseTotal, 
+    net: incomeTotal - expenseTotal 
+  };
 }
 
 export async function categoryBreakdown() {
@@ -341,7 +391,7 @@ export async function categoryBreakdown() {
       `SELECT t.category, COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
        FROM transactions t
        LEFT JOIN wallets w ON t.wallet_id = w.id
-       WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND t.category IS NOT NULL
+       WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND t.category IS NOT NULL AND t.category <> 'Transfer'
        GROUP BY t.category ORDER BY total DESC;`,
       [start, end]
     );
@@ -369,7 +419,7 @@ export async function weekOverWeekComparison() {
     `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
      FROM transactions t 
      LEFT JOIN wallets w ON t.wallet_id = w.id
-     WHERE t.type = 'expense' AND t.date >= ?;`,
+     WHERE t.type = 'expense' AND t.date >= ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
     [thisWeekStart.toISOString()]
   );
   
@@ -377,7 +427,7 @@ export async function weekOverWeekComparison() {
     `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
      FROM transactions t 
      LEFT JOIN wallets w ON t.wallet_id = w.id
-     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ?;`,
+     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
     [lastWeekStart.toISOString(), lastWeekEnd.toISOString()]
   );
   
@@ -403,14 +453,14 @@ export async function incomeVsExpenseAnalysis(period: 'current' | 'last' = 'curr
     `SELECT COALESCE(SUM(t.amount * COALESCE(w.exchange_rate, 1.0)),0) as total 
      FROM transactions t 
      LEFT JOIN wallets w ON t.wallet_id = w.id
-     WHERE t.type = 'income' AND t.date BETWEEN ? AND ?;`,
+     WHERE t.type = 'income' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
     [start, end]
   );
   const expense = await exec<{ total: number }>(
     `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
      FROM transactions t 
      LEFT JOIN wallets w ON t.wallet_id = w.id
-     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ?;`,
+     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
     [start, end]
   );
   
@@ -424,7 +474,7 @@ export async function incomeVsExpenseAnalysis(period: 'current' | 'last' = 'curr
 
 export async function getSpendingStreak() {
   const transactions = await exec<{ date: string }>(
-    `SELECT DISTINCT date FROM transactions WHERE type = 'expense' ORDER BY date DESC;`
+    `SELECT DISTINCT date FROM transactions WHERE type = 'expense' AND (category IS NULL OR category <> 'Transfer') ORDER BY date DESC;`
   );
   
   if (transactions.length === 0) return { currentStreak: 0, longestStreak: 0, lastSpendDate: null };
@@ -496,7 +546,7 @@ export async function getTopSpendingDay() {
     `SELECT t.date, COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
      FROM transactions t
      LEFT JOIN wallets w ON t.wallet_id = w.id 
-     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? 
+     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer')
      GROUP BY t.date 
      ORDER BY total DESC 
      LIMIT 1;`,
@@ -512,11 +562,11 @@ export async function getTransactionCounts() {
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
   
   const income = await exec<{ count: number }>(
-    `SELECT COUNT(*) as count FROM transactions WHERE type = 'income' AND date BETWEEN ? AND ?;`,
+    `SELECT COUNT(*) as count FROM transactions WHERE type = 'income' AND date BETWEEN ? AND ? AND (category IS NULL OR category <> 'Transfer');`,
     [start, end]
   );
   const expense = await exec<{ count: number }>(
-    `SELECT COUNT(*) as count FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ?;`,
+    `SELECT COUNT(*) as count FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ? AND (category IS NULL OR category <> 'Transfer');`,
     [start, end]
   );
   
@@ -532,7 +582,7 @@ export async function getAveragePurchaseSize() {
     `SELECT COALESCE(AVG(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as avg, COUNT(*) as count 
      FROM transactions t
      LEFT JOIN wallets w ON t.wallet_id = w.id 
-     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ?;`,
+     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
     [start, end]
   );
   
@@ -557,7 +607,7 @@ export async function getSevenDaySpendingTrend() {
        COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))), 0) as total
      FROM transactions t 
      LEFT JOIN wallets w ON t.wallet_id = w.id
-     WHERE t.type = 'expense' AND t.date >= ?
+     WHERE t.type = 'expense' AND t.date >= ? AND (t.category IS NULL OR t.category <> 'Transfer')
      GROUP BY DATE(t.date)
      ORDER BY DATE(t.date) ASC;`,
     [sevenDaysAgo.toISOString()]
@@ -599,7 +649,7 @@ export async function getDailySpendingForMonth() {
        COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))), 0) as total
      FROM transactions t 
      LEFT JOIN wallets w ON t.wallet_id = w.id
-     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ?
+     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer')
      GROUP BY DATE(t.date)
      ORDER BY DATE(t.date) ASC;`,
     [monthStart, monthEnd]
@@ -655,7 +705,8 @@ export async function getMonthlyComparison() {
        COALESCE(SUM(CASE WHEN t.type = 'income' AND t.date BETWEEN ? AND ? THEN t.amount * COALESCE(w.exchange_rate, 1.0) ELSE 0 END), 0) as last_month_income,
        COALESCE(SUM(CASE WHEN t.type = 'expense' AND t.date BETWEEN ? AND ? THEN ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) ELSE 0 END), 0) as last_month_expense
      FROM transactions t
-     LEFT JOIN wallets w ON t.wallet_id = w.id;`,
+     LEFT JOIN wallets w ON t.wallet_id = w.id
+     WHERE (t.category IS NULL OR t.category <> 'Transfer');`,
     params
   );
   
@@ -689,7 +740,7 @@ export async function getCategorySpendingForPieChart() {
     `SELECT t.category, COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
      FROM transactions t
      LEFT JOIN wallets w ON t.wallet_id = w.id 
-     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND t.category IS NOT NULL
+     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND t.category IS NOT NULL AND t.category <> 'Transfer'
      GROUP BY t.category 
      ORDER BY total DESC;`,
     [start, end]
@@ -718,7 +769,7 @@ export async function getSpendingTrendForPeriod(period: 'week' | 'month' | 'quar
          COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))), 0) as total
        FROM transactions t 
        LEFT JOIN wallets w ON t.wallet_id = w.id
-       WHERE t.type = 'expense' AND t.date >= ?
+       WHERE t.type = 'expense' AND t.date >= ? AND (t.category IS NULL OR t.category <> 'Transfer')
        GROUP BY DATE(t.date)
        ORDER BY DATE(t.date) ASC;`,
       [thirtyDaysAgo.toISOString()]
@@ -752,7 +803,7 @@ export async function getSpendingTrendForPeriod(period: 'week' | 'month' | 'quar
          COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))), 0) as total
        FROM transactions t 
        LEFT JOIN wallets w ON t.wallet_id = w.id
-       WHERE t.type = 'expense' AND t.date >= ?
+       WHERE t.type = 'expense' AND t.date >= ? AND (t.category IS NULL OR t.category <> 'Transfer')
        GROUP BY week_start
        ORDER BY week_start ASC;`,
       [twelveWeeksAgo.toISOString()]
@@ -787,7 +838,7 @@ export async function getSpendingTrendForPeriod(period: 'week' | 'month' | 'quar
          COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))), 0) as total
        FROM transactions t 
        LEFT JOIN wallets w ON t.wallet_id = w.id
-       WHERE t.type = 'expense' AND t.date >= ?
+       WHERE t.type = 'expense' AND t.date >= ? AND (t.category IS NULL OR t.category <> 'Transfer')
        GROUP BY month
        ORDER BY month ASC;`,
       [twelveMonthsAgo.toISOString()]
@@ -837,7 +888,7 @@ export async function getCategorySpendingForPeriod(period: 'week' | 'month' | 'q
     `SELECT t.category, COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
      FROM transactions t 
      LEFT JOIN wallets w ON t.wallet_id = w.id
-     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND t.category IS NOT NULL
+     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND t.category IS NOT NULL AND t.category <> 'Transfer'
      GROUP BY t.category 
      ORDER BY total DESC;`,
     [start, end]
@@ -869,7 +920,7 @@ export async function getTransactionsByCategory(category: string, period: 'week'
     `SELECT t.id, t.amount * COALESCE(w.exchange_rate, 1.0) as amount, t.date, t.notes 
      FROM transactions t 
      LEFT JOIN wallets w ON t.wallet_id = w.id
-     WHERE t.type = 'expense' AND t.category = ? AND t.date BETWEEN ? AND ?
+     WHERE t.type = 'expense' AND t.category = ? AND t.date BETWEEN ? AND ? AND t.category <> 'Transfer'
      ORDER BY t.date DESC;`,
     [category, start, end]
   );

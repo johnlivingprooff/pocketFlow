@@ -122,51 +122,45 @@ export async function ensureTables() {
     );`
   );
 
-  // Seed preset categories if empty
-  const existingCategories = await database.getAllAsync<{ count: number }>('SELECT COUNT(*) as count FROM categories;');
-  if (existingCategories[0].count === 0) {
-    const presetExpense = [
-      { name: 'Food', icon: '🍔' },
-      { name: 'Transport', icon: '🚗' },
-      { name: 'Rent', icon: '🏠' },
-      { name: 'Groceries', icon: '🛒' },
-      { name: 'Utilities', icon: '💡' },
-      { name: 'Shopping', icon: '🛍️' },
-      { name: 'Healthcare', icon: '⚕️' },
-      { name: 'Entertainment', icon: '🎬' },
-      { name: 'Education', icon: '📚' },
-      { name: 'Bills', icon: '📄' },
-      { name: 'Other', icon: '📊' }
-    ];
-    const presetIncome = [
-      { name: 'Salary', icon: '💰' },
-      { name: 'Freelance', icon: '💼' },
-      { name: 'Business', icon: '🏢' },
-      { name: 'Investment', icon: '📈' },
-      { name: 'Gift', icon: '🎁' },
-      { name: 'Offering', icon: '🙏' },
-      { name: 'Other Income', icon: '💵' }
-    ];
-    
-    // Batch insert all categories in a single transaction for better performance
-    await database.withTransactionAsync(async () => {
-      const statement = await database.prepareAsync(
-        'INSERT INTO categories (name, type, icon, is_preset) VALUES (?, ?, ?, 1);'
-      );
-      
-      try {
-        for (const cat of presetExpense) {
-          await statement.executeAsync([cat.name, 'expense', cat.icon]);
-        }
-        
-        for (const cat of presetIncome) {
-          await statement.executeAsync([cat.name, 'income', cat.icon]);
-        }
-      } finally {
-        await statement.finalizeAsync();
+  // Seed or repair preset categories (idempotent via INSERT OR IGNORE)
+  const presetExpense = [
+    { name: 'Food', icon: '🍔' },
+    { name: 'Transport', icon: '🚗' },
+    { name: 'Rent', icon: '🏠' },
+    { name: 'Groceries', icon: '🛒' },
+    { name: 'Utilities', icon: '💡' },
+    { name: 'Shopping', icon: '🛍️' },
+    { name: 'Healthcare', icon: '⚕️' },
+    { name: 'Entertainment', icon: '🎬' },
+    { name: 'Education', icon: '📚' },
+    { name: 'Bills', icon: '📄' },
+    { name: 'Other', icon: '📊' }
+  ];
+  const presetIncome = [
+    { name: 'Salary', icon: '💰' },
+    { name: 'Freelance', icon: '💼' },
+    { name: 'Business', icon: '🏢' },
+    { name: 'Investment', icon: '📈' },
+    { name: 'Gift', icon: '🎁' },
+    { name: 'Offering', icon: '🙏' },
+    { name: 'Other Income', icon: '💵' }
+  ];
+  
+  await database.withTransactionAsync(async () => {
+    const statement = await database.prepareAsync(
+      'INSERT OR IGNORE INTO categories (name, type, icon, is_preset) VALUES (?, ?, ?, 1);'
+    );
+    try {
+      for (const cat of presetExpense) {
+        await statement.executeAsync([cat.name, 'expense', cat.icon]);
       }
-    });
-  }
+      for (const cat of presetIncome) {
+        await statement.executeAsync([cat.name, 'income', cat.icon]);
+      }
+    } finally {
+      await statement.finalizeAsync();
+    }
+  });
 }
 
 /**

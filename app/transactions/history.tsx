@@ -123,12 +123,29 @@ export default function HistoryScreen() {
     groupedTransactions[date].push(tx);
   });
 
+  const getTransferLabel = (tx: typeof transactions[number]) => {
+    if (tx.category !== 'Transfer') return tx.category || 'Uncategorized';
+
+    const notes = tx.notes || '';
+    if (tx.type === 'expense') {
+      const match = notes.match(/to ([^(]+)/i);
+      if (match?.[1]) return `Transfer to ${match[1].trim()}`;
+      return 'Transfer to wallet';
+    }
+    if (tx.type === 'income') {
+      const match = notes.match(/from ([^(]+)/i);
+      if (match?.[1]) return `Transfer from ${match[1].trim()}`;
+      return 'Transfer from wallet';
+    }
+    return 'Transfer';
+  };
+
   // Calculate daily totals in default currency
   const dailyTotals: Record<string, number> = {};
   Object.keys(groupedTransactions).forEach(date => {
     dailyTotals[date] = groupedTransactions[date].reduce((sum, tx) => {
       const rate = walletExchangeRate[tx.wallet_id] ?? 1.0;
-      return sum + (tx.type === 'expense' ? Math.abs(tx.amount * rate) : 0);
+      return sum + (tx.type === 'expense' && tx.category !== 'Transfer' ? Math.abs(tx.amount * rate) : 0);
     }, 0);
   });
 
@@ -219,12 +236,31 @@ export default function HistoryScreen() {
                   paddingHorizontal: 16,
                   paddingVertical: 8,
                   borderRadius: 20,
-                  backgroundColor: filterCategory === cat.name ? t.primary : t.card,
+                  backgroundColor:
+                    filterCategory === cat.name
+                      ? t.primary
+                      : cat.type === 'income'
+                        ? `${t.success}20`
+                        : `${t.danger}20`,
                   borderWidth: 1,
-                  borderColor: filterCategory === cat.name ? t.primary : t.border
+                  borderColor:
+                    filterCategory === cat.name
+                      ? t.primary
+                      : cat.type === 'income'
+                        ? `${t.success}40`
+                        : `${t.danger}40`
                 }}
               >
-                <Text style={{ color: filterCategory === cat.name ? '#FFFFFF' : t.textPrimary, fontWeight: '600' }}>{cat.name}</Text>
+                <Text style={{
+                  color: filterCategory === cat.name
+                    ? '#FFFFFF'
+                    : cat.type === 'income'
+                      ? t.success
+                      : t.danger,
+                  fontWeight: '600'
+                }}>
+                  {cat.name}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -258,29 +294,32 @@ export default function HistoryScreen() {
 
             {/* Transactions for this date */}
             <View style={{ gap: 8 }}>
-              {groupedTransactions[date].map(tx => (
+              {groupedTransactions[date].map(tx => {
+                const isTransfer = tx.category === 'Transfer';
+                return (
                 <Link key={tx.id} href={`/transactions/${tx.id}`} asChild>
                   <TouchableOpacity style={{
                     backgroundColor: t.card,
                     borderWidth: 1,
-                    borderColor: t.border,
+                    borderColor: isTransfer ? t.border : t.border,
                     borderRadius: 12,
-                    padding: 12
+                    padding: 12,
+                    opacity: isTransfer ? 0.6 : 1
                   }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>
-                          {tx.category || 'Uncategorized'}
+                          {getTransferLabel(tx)}
                         </Text>
                         {tx.notes && (
-                          <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
+                          <Text style={{ color: isTransfer ? t.textTertiary : t.textSecondary, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
                             {tx.notes}
                           </Text>
                         )}
                       </View>
                       <View style={{ alignItems: 'flex-end', marginLeft: 12 }}>
                         <Text style={{
-                          color: tx.type === 'income' ? t.income : t.expense,
+                          color: isTransfer ? t.textSecondary : tx.type === 'income' ? t.income : t.expense,
                           fontSize: 16,
                           fontWeight: '700'
                         }}>
@@ -297,7 +336,8 @@ export default function HistoryScreen() {
                     </View>
                   </TouchableOpacity>
                 </Link>
-              ))}
+                );
+              })}
             </View>
           </View>
         ))}

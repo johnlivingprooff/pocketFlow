@@ -3,7 +3,6 @@ import { View, Text, ScrollView, TouchableOpacity, TextInput, Image, Alert, useC
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
 import * as ImagePicker from 'expo-image-picker';
-import { exportData, importData } from '../../src/lib/services/fileService';
 
 export default function ProfilePage() {
   const { themeMode, userInfo, setUserInfo } = useSettings();
@@ -42,22 +41,6 @@ export default function ProfilePage() {
     setEmail(userInfo.email);
     setPhone(userInfo.phone);
     setIsEditing(false);
-  };
-
-  const handleExport = async () => {
-    try {
-      Alert.alert('Export', 'Export feature will create a backup file');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to export data');
-    }
-  };
-
-  const handleImport = async () => {
-    try {
-      Alert.alert('Import', 'Import feature will restore from backup file');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to import data');
-    }
   };
 
   return (
@@ -199,41 +182,6 @@ export default function ProfilePage() {
                 }}
               />
             </View>
-          </View>
-        </View>
-
-        {/* Data Management */}
-        <View style={{ marginBottom: 24 }}>
-          <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 12 }}>
-            DATA MANAGEMENT
-          </Text>
-          
-          <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, overflow: 'hidden' }}>
-            <TouchableOpacity 
-              onPress={handleExport}
-              style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: t.border }}
-            >
-              <View>
-                <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Export Data</Text>
-                <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>
-                  Download all your data
-                </Text>
-              </View>
-              <Text style={{ fontSize: 20 }}>📤</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              onPress={handleImport}
-              style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-            >
-              <View>
-                <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Import Data</Text>
-                <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>
-                  Restore from backup
-                </Text>
-              </View>
-              <Text style={{ fontSize: 20 }}>📥</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </View>

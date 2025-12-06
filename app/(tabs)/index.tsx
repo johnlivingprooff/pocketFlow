@@ -11,12 +11,29 @@ import { WalletCard } from '../../src/components/WalletCard';
 import { DraggableWalletList } from '../../src/components/DraggableWalletList';
 import { AddButton } from '../../src/components/AddButton';
 import { IncomeExpenseLineChart } from '../../src/components/IncomeExpenseLineChart';
-import { totalAvailableAcrossWallets, monthSpend, todaySpend, getWalletsOrderedByRecentActivity } from '../../src/lib/db/transactions';
+import { totalAvailableAcrossWallets, monthSpend, todaySpend, getWalletsOrderedByRecentActivity, getIncomeExpenseForPeriod, getTransactionsForPeriod } from '../../src/lib/db/transactions';
 import { getCategories, Category } from '../../src/lib/db/categories';
 import { formatDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
+import { Transaction } from '../../src/types/transaction';
 
-type TimePeriod = 'all' | 'today' | 'week' | 'month' | 'custom';
+type TimePeriod = 'all' | 'today' | 'week' | 'month' | 'lastMonth' | 'custom';
+
+function getTransferLabel(tx: any) {
+  if (tx.category !== 'Transfer') return tx.category || 'Uncategorized';
+  const notes = tx.notes || '';
+  if (tx.type === 'expense') {
+    const match = notes.match(/to ([^(]+)/i);
+    if (match?.[1]) return `Transfer to ${match[1].trim()}`;
+    return 'Transfer to wallet';
+  }
+  if (tx.type === 'income') {
+    const match = notes.match(/from ([^(]+)/i);
+    if (match?.[1]) return `Transfer from ${match[1].trim()}`;
+    return 'Transfer from wallet';
+  }
+  return 'Transfer';
+}
 
 // Friendly time-of-day greeting helper
 function getGreeting(now: Date = new Date()): string {
@@ -44,7 +61,8 @@ export default function Home() {
     const { wallets, balances, refresh } = useWallets();
     // Build quick maps for wallet exchange rates
     const walletExchangeRate: Record<number, number> = Object.fromEntries(wallets.map(w => [w.id!, w.exchange_rate ?? 1.0]));
-  const { transactions } = useTransactions(0, 5);
+  const { transactions: recentTransactions } = useTransactions(0, 5); // Only for displaying recent transactions
+  const [analyticsTransactions, setAnalyticsTransactions] = useState<Transaction[]>([]); // For analytics calculations
   const [total, setTotal] = useState(0);
   const [monthTotal, setMonthTotal] = useState(0);
   const [todayTotal, setTodayTotal] = useState(0);
@@ -59,7 +77,7 @@ export default function Home() {
   const [customEndDate, setCustomEndDate] = useState<Date | null>(null);
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [chartData, setChartData] = useState<Array<{ date: string; income: number; expense: number }>>([]);
-  const [chartRange, setChartRange] = useState<'7d' | '1m' | '3m' | '1y'>('7d');
+  const [chartRange, setChartRange] = useState<'7d' | '3m' | '6m' | '1y'>('7d');
   const [weekComparison, setWeekComparison] = useState<{ thisWeek: number; lastWeek: number; percentChange: number } | null>(null);
   const [biggestCategory, setBiggestCategory] = useState<{ category: string; amount: number } | null>(null);
   const [recentOrder, setRecentOrder] = useState<number[] | null>(null);
@@ -83,7 +101,7 @@ export default function Home() {
   };
 
   const getCategoryBreakdown = () => {
-    // Filter expense transactions for the selected period
+    // Filter expense transactions for the selected period using analyticsTransactions
     const now = new Date();
     let startDate: Date;
     let endDate: Date = now;
@@ -104,6 +122,12 @@ export default function Home() {
       case 'month':
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
         break;
+      case 'lastMonth': {
+        const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        startDate = lastMonthDate;
+        endDate = new Date(lastMonthDate.getFullYear(), lastMonthDate.getMonth() + 1, 0, 23, 59, 59, 999);
+        break;
+      }
       case 'custom':
         if (customStartDate && customEndDate) {
           startDate = customStartDate;
@@ -120,9 +144,9 @@ export default function Home() {
     const endOfPeriod = new Date(endDate);
     endOfPeriod.setHours(23, 59, 59, 999);
 
-    const expenseTransactions = transactions.filter(t => {
+    const expenseTransactions = analyticsTransactions.filter(t => {
       const txDate = new Date(t.date);
-      return t.type === 'expense' && txDate >= startOfPeriod && txDate <= endOfPeriod;
+      return t.type === 'expense' && t.category !== 'Transfer' && txDate >= startOfPeriod && txDate <= endOfPeriod;
     });
 
     // Group by category and convert to default currency
@@ -160,10 +184,19 @@ export default function Home() {
   };
 
   // Build time-series for the chart based on selected range
-  function buildChartData(range: '7d' | '1m' | '3m' | '1y') {
+  function buildChartData(range: '7d' | '3m' | '6m' | '1y', txns: Transaction[]) {
     const result: Array<{ date: string; income: number; expense: number }> = [];
     const now = new Date();
     now.setHours(0, 0, 0, 0);
+
+    const sumIncome = (transactions: Transaction[]) =>
+      transactions
+        .filter(t => t.type === 'income' && t.category !== 'Transfer')
+        .reduce((s, t) => s + t.amount * (walletExchangeRate[t.wallet_id] ?? 1.0), 0);
+    const sumExpense = (transactions: Transaction[]) =>
+      transactions
+        .filter(t => t.type === 'expense' && t.category !== 'Transfer')
+        .reduce((s, t) => s + Math.abs(t.amount * (walletExchangeRate[t.wallet_id] ?? 1.0)), 0);
 
     if (range === '7d') {
       // Last 7 days (daily)
@@ -173,28 +206,12 @@ export default function Home() {
         const dayEnd = new Date(dayStart);
         dayEnd.setDate(dayStart.getDate() + 1);
 
-        const dayTx = transactions.filter(t => {
+        const dayTx = txns.filter(t => {
           const d = new Date(t.date);
           return d >= dayStart && d < dayEnd;
         });
-        const incomeSum = dayTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-        const expenseSum = dayTx.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0);
-        result.push({ date: dayStart.toISOString(), income: incomeSum, expense: expenseSum });
-      }
-    } else if (range === '1m') {
-      // Last 30 days (daily)
-      for (let i = 29; i >= 0; i--) {
-        const dayStart = new Date(now);
-        dayStart.setDate(now.getDate() - i);
-        const dayEnd = new Date(dayStart);
-        dayEnd.setDate(dayStart.getDate() + 1);
-
-        const dayTx = transactions.filter(t => {
-          const d = new Date(t.date);
-          return d >= dayStart && d < dayEnd;
-        });
-        const incomeSum = dayTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-        const expenseSum = dayTx.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0);
+        const incomeSum = sumIncome(dayTx);
+        const expenseSum = sumExpense(dayTx);
         result.push({ date: dayStart.toISOString(), income: incomeSum, expense: expenseSum });
       }
     } else if (range === '3m') {
@@ -208,13 +225,28 @@ export default function Home() {
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekStart.getDate() + 7);
 
-        const weekTx = transactions.filter(t => {
+        const weekTx = txns.filter(t => {
           const d = new Date(t.date);
           return d >= weekStart && d < weekEnd;
         });
-        const incomeSum = weekTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-        const expenseSum = weekTx.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0);
+        const incomeSum = sumIncome(weekTx);
+        const expenseSum = sumExpense(weekTx);
         result.push({ date: weekStart.toISOString(), income: incomeSum, expense: expenseSum });
+      }
+    } else if (range === '6m') {
+      // Last 6 months (monthly aggregates)
+      const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      for (let i = 5; i >= 0; i--) {
+        const monthStart = new Date(firstOfThisMonth.getFullYear(), firstOfThisMonth.getMonth() - i, 1);
+        const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
+
+        const monthTx = txns.filter(t => {
+          const d = new Date(t.date);
+          return d >= monthStart && d < monthEnd;
+        });
+        const incomeSum = sumIncome(monthTx);
+        const expenseSum = sumExpense(monthTx);
+        result.push({ date: monthStart.toISOString(), income: incomeSum, expense: expenseSum });
       }
     } else if (range === '1y') {
       // Last 12 months (monthly aggregates)
@@ -223,12 +255,12 @@ export default function Home() {
         const monthStart = new Date(firstOfThisMonth.getFullYear(), firstOfThisMonth.getMonth() - i, 1);
         const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
 
-        const monthTx = transactions.filter(t => {
+        const monthTx = txns.filter(t => {
           const d = new Date(t.date);
           return d >= monthStart && d < monthEnd;
         });
-        const incomeSum = monthTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-        const expenseSum = monthTx.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0);
+        const incomeSum = sumIncome(monthTx);
+        const expenseSum = sumExpense(monthTx);
         result.push({ date: monthStart.toISOString(), income: incomeSum, expense: expenseSum });
       }
     }
@@ -251,66 +283,94 @@ export default function Home() {
         const cats = await getCategories('expense');
         setAllCategories(cats);
         
-        // Calculate income and expenses based on selected period
+        // Determine the date range needed for fetching transactions
+        // We need enough data for both the selected period and the chart range
         const now = new Date();
-        let startDate: Date;
-        let endDate: Date = now;
+        
+        // Calculate the earliest date we need based on chart range
+        let chartStartDate: Date;
+        switch (chartRange) {
+          case '7d':
+            chartStartDate = new Date(now);
+            chartStartDate.setDate(now.getDate() - 7);
+            break;
+          case '3m':
+            chartStartDate = new Date(now);
+            chartStartDate.setDate(now.getDate() - (12 * 7)); // 12 weeks
+            break;
+          case '6m':
+            chartStartDate = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+            break;
+          case '1y':
+            chartStartDate = new Date(now.getFullYear(), now.getMonth() - 12, 1);
+            break;
+        }
+        
+        // Calculate the start date for the selected period
+        let periodStartDate: Date;
+        let periodEndDate: Date = now;
         
         switch (selectedPeriod) {
           case 'all':
-            startDate = new Date(0); // Unix epoch start
+            periodStartDate = new Date(0); // Unix epoch start
             break;
           case 'today':
-            startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            periodStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             break;
           case 'week':
             const dayOfWeek = now.getDay();
-            startDate = new Date(now);
-            startDate.setDate(now.getDate() - dayOfWeek);
-            startDate.setHours(0, 0, 0, 0);
+            periodStartDate = new Date(now);
+            periodStartDate.setDate(now.getDate() - dayOfWeek);
+            periodStartDate.setHours(0, 0, 0, 0);
             break;
           case 'month':
-            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            periodStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
             break;
+          case 'lastMonth': {
+            const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            periodStartDate = lastMonthDate;
+            periodEndDate = new Date(lastMonthDate.getFullYear(), lastMonthDate.getMonth() + 1, 0, 23, 59, 59, 999);
+            break;
+          }
           case 'custom':
             if (customStartDate && customEndDate) {
-              startDate = customStartDate;
-              endDate = customEndDate;
+              periodStartDate = customStartDate;
+              periodEndDate = customEndDate;
             } else {
-              // Default to today if custom dates not set
-              startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+              periodStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             }
             break;
         }
         
-        // Filter transactions by period and calculate income/expenses in default currency using exchange rates
-        const periodTransactions = transactions.filter(t => {
-          const txDate = new Date(t.date);
-          return txDate >= startDate && txDate <= endDate;
-        });
+        // Use the earlier of the two start dates to fetch all needed transactions
+        const fetchStartDate = selectedPeriod === 'all' 
+          ? new Date(0) 
+          : new Date(Math.min(chartStartDate.getTime(), periodStartDate.getTime()));
+        fetchStartDate.setHours(0, 0, 0, 0);
         
-        const incomeSum = periodTransactions
-          .filter(t => t.type === 'income')
-          .reduce((sum, t) => {
-            const rate = walletExchangeRate[t.wallet_id] ?? 1.0;
-            return sum + t.amount * rate;
-          }, 0);
+        const fetchEndDate = new Date(Math.max(periodEndDate.getTime(), now.getTime()));
+        fetchEndDate.setHours(23, 59, 59, 999);
         
-        const expensesSum = periodTransactions
-          .filter(t => t.type === 'expense')
-          .reduce((sum, t) => {
-            const rate = walletExchangeRate[t.wallet_id] ?? 1.0;
-            return sum + Math.abs(t.amount * rate);
-          }, 0);
+        // Fetch all transactions needed for analytics and charts
+        const allTxns = await getTransactionsForPeriod(fetchStartDate, fetchEndDate);
+        setAnalyticsTransactions(allTxns);
         
-        setIncome(incomeSum);
-        setExpenses(expensesSum);
+        // Normalize period bounds to include entire days
+        const startOfPeriod = new Date(periodStartDate);
+        startOfPeriod.setHours(0, 0, 0, 0);
+        const endOfPeriod = new Date(periodEndDate);
+        endOfPeriod.setHours(23, 59, 59, 999);
+        
+        // Fetch income/expense totals from database for the selected period
+        const periodTotals = await getIncomeExpenseForPeriod(startOfPeriod, endOfPeriod);
+        setIncome(periodTotals.income);
+        setExpenses(periodTotals.expense);
 
-        // Build chart data for selected range
-        const data = buildChartData(chartRange);
+        // Build chart data for selected range using fetched transactions
+        const data = buildChartData(chartRange, allTxns);
         setChartData(data);
 
-        // Calculate week-over-week comparison
+        // Calculate week-over-week comparison using fetched transactions
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const startOfThisWeek = new Date(today);
@@ -318,13 +378,13 @@ export default function Home() {
         const startOfLastWeek = new Date(startOfThisWeek);
         startOfLastWeek.setDate(startOfThisWeek.getDate() - 7);
 
-        const thisWeekTxns = transactions.filter(t => {
+        const thisWeekTxns = allTxns.filter(t => {
           const d = new Date(t.date);
-          return d >= startOfThisWeek && d < today && t.type === 'expense';
+          return d >= startOfThisWeek && d < today && t.type === 'expense' && t.category !== 'Transfer';
         });
-        const lastWeekTxns = transactions.filter(t => {
+        const lastWeekTxns = allTxns.filter(t => {
           const d = new Date(t.date);
-          return d >= startOfLastWeek && d < startOfThisWeek && t.type === 'expense';
+          return d >= startOfLastWeek && d < startOfThisWeek && t.type === 'expense' && t.category !== 'Transfer';
         });
         
         const thisWeekTotal = thisWeekTxns.reduce((s, t) => {
@@ -343,14 +403,14 @@ export default function Home() {
           percentChange: Math.round(percentChange)
         });
 
-        // Find biggest category today
+        // Find biggest category today using fetched transactions
         const todayStart = new Date(today);
         const todayEnd = new Date(today);
         todayEnd.setDate(today.getDate() + 1);
 
-        const todayTxns = transactions.filter(t => {
+        const todayTxns = allTxns.filter(t => {
           const d = new Date(t.date);
-          return d >= todayStart && d < todayEnd && t.type === 'expense';
+          return d >= todayStart && d < todayEnd && t.type === 'expense' && t.category !== 'Transfer';
         });
         
         const categoryTotals: { [key: string]: number } = {};
@@ -370,7 +430,7 @@ export default function Home() {
         }
       })();
     }
-  }, [wallets, transactions, selectedPeriod, customStartDate, customEndDate, chartRange]);
+  }, [wallets, selectedPeriod, customStartDate, customEndDate, chartRange]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -542,7 +602,7 @@ export default function Home() {
         {/* Time Period Filter Tabs */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-          {(['all', 'today', 'week', 'month', 'custom'] as TimePeriod[]).map((period) => (
+          {(['all', 'today', 'week', 'month', 'lastMonth', 'custom'] as TimePeriod[]).map((period) => (
             <TouchableOpacity
               key={period}
               onPress={() => {
@@ -571,7 +631,7 @@ export default function Home() {
                 fontWeight: '700',
                 textTransform: 'capitalize'
               }}>
-                {period === 'all' ? 'All Time' : period === 'week' ? 'This Week' : period === 'month' ? 'This Month' : period.charAt(0).toUpperCase() + period.slice(1)}
+                {period === 'all' ? 'All Time' : period === 'week' ? 'This Week' : period === 'month' ? 'This Month' : period === 'lastMonth' ? 'Last Month' : period.charAt(0).toUpperCase() + period.slice(1)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -677,7 +737,7 @@ export default function Home() {
               </TouchableOpacity>
             </Link>
           </View>
-          {transactions.slice(0, 5).map((transaction: any) => {
+          {recentTransactions.slice(0, 5).map((transaction: any) => {
             const transactionWallet = wallets.find(w => w.id === transaction.wallet_id);
             const transactionCurrency = transactionWallet?.currency || defaultCurrency;
             return (
@@ -685,7 +745,7 @@ export default function Home() {
                 <TouchableOpacity style={{ backgroundColor: t.card, padding: 12, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: t.border }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>{transaction.category || 'Uncategorized'}</Text>
+                        <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>{getTransferLabel(transaction)}</Text>
                       <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>{formatDate(new Date(transaction.date).toISOString())}</Text>
                     </View>
                     <Text style={{ color: t.accent, fontSize: 16, fontWeight: '700' }}>{formatCurrency(transaction.amount, transactionCurrency)}</Text>
@@ -705,10 +765,10 @@ export default function Home() {
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
             {([
               { key: '7d', label: '7D' },
-              { key: '1m', label: '1M' },
               { key: '3m', label: '3M' },
+              { key: '6m', label: '6M' },
               { key: '1y', label: '1Y' },
-            ] as Array<{ key: '7d' | '1m' | '3m' | '1y'; label: string }>).map(({ key, label }) => (
+            ] as Array<{ key: '7d' | '3m' | '6m' | '1y'; label: string }>).map(({ key, label }) => (
               <TouchableOpacity
                 key={key}
                 onPress={() => setChartRange(key)}

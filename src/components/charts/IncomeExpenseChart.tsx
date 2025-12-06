@@ -49,31 +49,23 @@ export default function IncomeExpenseChart({
     1
   );
 
+  const adjustedChartHeight = data.length * (barHeight + barSpacing) + 20;
+  const adjustedPaddingLeft = 20;
+  const adjustedGraphWidth = chartWidth - adjustedPaddingLeft - paddingRight;
+
   return (
     <View>
-      <Svg width={chartWidth} height={chartHeight}>
+      <Svg width={chartWidth} height={adjustedChartHeight}>
         {data.map((item, index) => {
-          const y = index * (barHeight + barSpacing) + 20;
-          const incomeWidth = (item.income / maxValue) * graphWidth;
-          const expenseWidth = (item.expense / maxValue) * graphWidth;
+          const y = index * (barHeight + barSpacing) + 10;
+          const incomeWidth = (item.income / maxValue) * adjustedGraphWidth;
+          const expenseWidth = (item.expense / maxValue) * adjustedGraphWidth;
 
           return (
             <React.Fragment key={`group-${index}`}>
-              {/* Label */}
-              <SvgText
-                x={paddingLeft - 10}
-                y={y + barHeight / 2 + 15}
-                fill={textColor}
-                fontSize="12"
-                textAnchor="end"
-                fontWeight="600"
-              >
-                {item.label}
-              </SvgText>
-
               {/* Income bar */}
               <Rect
-                x={paddingLeft}
+                x={adjustedPaddingLeft}
                 y={y}
                 width={incomeWidth}
                 height={barHeight / 2 - 2}
@@ -83,7 +75,7 @@ export default function IncomeExpenseChart({
 
               {/* Expense bar */}
               <Rect
-                x={paddingLeft}
+                x={adjustedPaddingLeft}
                 y={y + barHeight / 2 + 2}
                 width={expenseWidth}
                 height={barHeight / 2 - 2}
@@ -94,38 +86,6 @@ export default function IncomeExpenseChart({
           );
         })}
       </Svg>
-
-      {/* Legend */}
-      <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 16, gap: 24 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <View style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: incomeColor }} />
-          <Text style={{ color: textColor, fontSize: 12 }}>Income</Text>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <View style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: expenseColor }} />
-          <Text style={{ color: textColor, fontSize: 12 }}>Expense</Text>
-        </View>
-      </View>
-
-      {/* Totals */}
-      <View style={{ marginTop: 12 }}>
-        {data.map((item, index) => (
-          <View key={`total-${index}`} style={{ marginBottom: 8 }}>
-            <Text style={{ color: textColor, fontSize: 11, opacity: 0.7 }}>{item.label}</Text>
-            <View style={{ flexDirection: 'row', gap: 16, marginTop: 2 }}>
-              <Text style={{ color: incomeColor, fontSize: 12, fontWeight: '600' }}>
-                +{formatCurrency(item.income)}
-              </Text>
-              <Text style={{ color: expenseColor, fontSize: 12, fontWeight: '600' }}>
-                -{formatCurrency(item.expense)}
-              </Text>
-              <Text style={{ color: textColor, fontSize: 12, fontWeight: '700', marginLeft: 'auto' }}>
-                Net: {formatCurrency(item.income - item.expense)}
-              </Text>
-            </View>
-          </View>
-        ))}
-      </View>
     </View>
   );
 }
