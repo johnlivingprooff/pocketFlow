@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { yyyyMmDd } from '../../utils/date';
 
 export async function ensureDir(path: string) {
@@ -17,9 +17,13 @@ export async function saveReceiptImage(filename: string, base64Data: string) {
   if (!filename || !base64Data) {
     throw new Error('Filename and base64 data are required');
   }
-  
+
   try {
-    const dir = FileSystem.documentDirectory + `receipts/${yyyyMmDd()}`;
+    const documentDir = FileSystem.documentDirectory;
+    if (!documentDir) {
+      throw new Error('Document directory not available');
+    }
+    const dir = `${documentDir}receipts/${yyyyMmDd()}`;
     await ensureDir(dir);
     const fileUri = `${dir}/${filename}`;
     await FileSystem.writeAsStringAsync(fileUri, base64Data, { encoding: FileSystem.EncodingType.Base64 });
@@ -32,7 +36,11 @@ export async function saveReceiptImage(filename: string, base64Data: string) {
 
 export async function exportData(json: any) {
   try {
-    const dir = FileSystem.documentDirectory + `backups`;
+    const documentDir = FileSystem.documentDirectory;
+    if (!documentDir) {
+      throw new Error('Document directory not available');
+    }
+    const dir = `${documentDir}backups`;
     await ensureDir(dir);
     const ts = Date.now();
     const fileUri = `${dir}/pocketFlow_backup_${ts}.json`;

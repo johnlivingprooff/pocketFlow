@@ -96,7 +96,7 @@ interface ItemProps {
   balance: number;
   themeMode: 'light' | 'dark';
   index: number;
-  positions: any; // SharedValue<number[]> from react-native-reanimated
+  positions: Animated.SharedValue<number[]>;
   showLink: boolean;
   onDragEnd: (from: number, to: number) => void;
 }
@@ -133,7 +133,7 @@ function DraggableItem({
       // --- Auto-scroll when near top/bottom ---
       const isNearTop = e.absoluteY < AUTO_SCROLL_THRESHOLD;
       const isNearBottom =
-        e.absoluteY > ((e as any).viewportHeight ?? 800 - AUTO_SCROLL_THRESHOLD);
+        e.absoluteY > (e.viewportHeight - AUTO_SCROLL_THRESHOLD);
 
       if (isNearTop) translateY.value -= AUTO_SCROLL_SPEED;
       if (isNearBottom) translateY.value += AUTO_SCROLL_SPEED;

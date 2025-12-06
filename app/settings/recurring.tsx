@@ -34,10 +34,11 @@ export default function RecurringTransactionsScreen() {
   const loadRecurringTransactions = async () => {
     try {
       setLoading(true);
-      const transactions = await exec<Transaction>(
-        `SELECT * FROM transactions 
-         WHERE is_recurring = 1 
-         ORDER BY date DESC`
+      const transactions = await exec<Transaction & { walletCurrency: string }>(
+        `SELECT t.*, w.currency as walletCurrency FROM transactions t
+         LEFT JOIN wallets w ON t.wallet_id = w.id
+         WHERE t.is_recurring = 1 
+         ORDER BY t.date DESC`
       );
       setRecurringTransactions(transactions);
     } catch (error) {
@@ -182,7 +183,7 @@ export default function RecurringTransactionsScreen() {
             }}
           >
             {transaction.type === 'income' ? '+' : '-'}
-            {formatCurrency(transaction.amount, defaultCurrency)}
+            {formatCurrency(transaction.amount, (transaction as any).walletCurrency || defaultCurrency)}
           </Text>
         </View>
 
@@ -246,7 +247,7 @@ export default function RecurringTransactionsScreen() {
       <View
         style={{
           paddingHorizontal: 16,
-          paddingTop: 20,
+          paddingTop: 48,
           paddingBottom: 16,
           borderBottomWidth: 1,
           borderBottomColor: t.border,
@@ -262,7 +263,7 @@ export default function RecurringTransactionsScreen() {
       </View>
 
       {/* Content */}
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 24, paddingBottom: 40 }}>
         {loading ? (
           <Text style={{ color: t.textSecondary, textAlign: 'center', marginTop: 32 }}>Loading...</Text>
         ) : recurringTransactions.length === 0 ? (

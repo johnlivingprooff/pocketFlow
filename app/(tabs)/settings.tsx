@@ -1,10 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, Linking, useColorScheme, Modal, FlatList, Switch, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Sharing from 'expo-sharing';
 import { useSettings } from '../../src/store/useStore';
 import { theme, ThemeMode } from '../../src/theme/theme';
 import { Link } from 'expo-router';
 import { CURRENCIES } from '../../src/constants/currencies';
 import { checkBiometricAvailability, authenticateWithBiometrics } from '../../src/lib/services/biometricService';
+import { createBackup, listBackups, restoreFromBackup } from '../../src/lib/export/backupRestore';
+import { exportTransactionsToCSV } from '../../src/lib/export/csvExport';
+import { BackupIcon } from '../../src/assets/icons/BackupIcon';
+import { CsvIcon } from '../../src/assets/icons/CsvIcon';
+import { ReceiptIcon } from '../../src/assets/icons/ReceiptIcon';
 
 const APP_VERSION = '1.0.0';
 
@@ -26,10 +33,19 @@ export default function SettingsScreen() {
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [biometricType, setBiometricType] = useState<string>('Biometric');
   const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [backups, setBackups] = useState<Array<{ filename: string; uri: string; date: Date }>>([]);
+  const [showBackupModal, setShowBackupModal] = useState(false);
+  const [isLoadingBackup, setIsLoadingBackup] = useState(false);
 
   useEffect(() => {
     checkBiometrics();
+    loadBackups();
   }, []);
+
+  const loadBackups = async () => {
+    const backupList = await listBackups();
+    setBackups(backupList);
+  };
 
   const checkBiometrics = async () => {
     const result = await checkBiometricAvailability();
@@ -101,15 +117,83 @@ export default function SettingsScreen() {
   ];
 
   const getThemeLabel = () => themeOptions.find(o => o.value === themeMode)?.label || 'System';
+  
+  const handleCreateBackup = async () => {
+    setIsLoadingBackup(true);
+    try {
+      const result = await createBackup();
+      if (result.success) {
+        Alert.alert('Success', 'Backup created successfully', [
+          {
+            text: 'OK',
+            onPress: () => {
+              loadBackups();
+            },
+          },
+        ]);
+      } else {
+        Alert.alert('Error', result.error || 'Failed to create backup');
+      }
+    } finally {
+      setIsLoadingBackup(false);
+    }
+  };
+
+  const handleRestoreBackup = (uri: string) => {
+    Alert.alert('Restore Backup', 'This will replace all current data. Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Restore',
+        style: 'destructive',
+        onPress: async () => {
+          setIsLoadingBackup(true);
+          try {
+            const result = await restoreFromBackup(uri);
+            if (result.success) {
+              Alert.alert('Success', 'Data restored successfully');
+            } else {
+              Alert.alert('Error', result.error || 'Failed to restore backup');
+            }
+          } finally {
+            setIsLoadingBackup(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleExportCSV = async () => {
+    try {
+      const result = await exportTransactionsToCSV();
+      if (result.success && result.uri) {
+        // Check if sharing is available
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(result.uri, {
+            mimeType: 'text/csv',
+            dialogTitle: 'Export Transactions',
+          });
+        } else {
+          Alert.alert('Success', `CSV exported successfully to\n${result.uri}`);
+        }
+      } else {
+        Alert.alert('Error', result.error || 'Failed to export CSV');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'An error occurred while exporting');
+    }
+  };
+
   const handleBackup = async () => Alert.alert('Backup', 'Backup feature will save your data');
-  const handleExportCSV = async () => Alert.alert('Export CSV', 'CSV export feature coming soon');
+  const handleExportCSVOld = async () => Alert.alert('Export CSV', 'CSV export feature coming soon');
   const handleFeedback = () => Linking.openURL('mailto:hello@eiteone.org?subject=Feedback');
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: t.background }}>
-      <View style={{ padding: 16 }}>
-        {/* Header */}
-        <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 24 }}>Settings</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+        <View style={{ marginBottom: 24, paddingTop: 20 }}>
+          {/* Header */}
+          <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 24 }}>Settings</Text>
+        </View>
 
         {/* Profile */}
         <View style={{ marginBottom: 24 }}>
@@ -211,19 +295,37 @@ export default function SettingsScreen() {
         <View style={{ marginBottom: 24 }}>
           <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 12 }}>DATA</Text>
           <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, overflow: 'hidden' }}>
-            <TouchableOpacity onPress={handleBackup} style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: t.border }}>
+            <Link href="/settings/receipts" asChild>
+              <TouchableOpacity style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: t.border }}>
+                <View>
+                  <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Receipts Gallery</Text>
+                  <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>View all receipts</Text>
+                </View>
+                <ReceiptIcon size={24} color={t.textPrimary} />
+              </TouchableOpacity>
+            </Link>
+            <TouchableOpacity onPress={handleCreateBackup} disabled={isLoadingBackup} style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: t.border }}>
               <View>
-                <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Backup & Restore</Text>
-                <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>Save your data</Text>
+                <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Create Backup</Text>
+                <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>Save all data locally</Text>
               </View>
-              <Text style={{ fontSize: 20 }}>💾</Text>
+              <BackupIcon size={24} color={t.textPrimary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowBackupModal(true)} style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: t.border }}>
+              <View>
+                <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Restore Backup</Text>
+                <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>
+                  {backups.length > 0 ? `${backups.length} backup(s) available` : 'No backups found'}
+                </Text>
+              </View>
+              <Text style={{ fontSize: 20 }}>↻</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={handleExportCSV} style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <View>
                 <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Export to CSV</Text>
-                <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>Download spreadsheet</Text>
+                <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>Download all transactions</Text>
               </View>
-              <Text style={{ fontSize: 20 }}>📊</Text>
+              <CsvIcon size={24} color={t.textPrimary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -245,7 +347,7 @@ export default function SettingsScreen() {
             </View>
           </View>
         </View>
-      </View>
+      </ScrollView>
 
       {/* Theme Picker Modal */}
       <Modal visible={showThemePicker} transparent animationType="fade" onRequestClose={() => setShowThemePicker(false)}>
@@ -289,6 +391,41 @@ export default function SettingsScreen() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+
+      {/* Backup Restore Modal */}
+      <Modal visible={showBackupModal} transparent animationType="fade" onRequestClose={() => setShowBackupModal(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 16 }}>
+          <View style={{ backgroundColor: t.card, borderRadius: 12, borderWidth: 1, borderColor: t.border, maxHeight: '80%' }}>
+            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Available Backups</Text>
+              <TouchableOpacity onPress={() => setShowBackupModal(false)}>
+                <Text style={{ fontSize: 28, color: t.textSecondary, lineHeight: 28 }}>×</Text>
+              </TouchableOpacity>
+            </View>
+            {backups.length === 0 ? (
+              <View style={{ padding: 24, alignItems: 'center' }}>
+                <Text style={{ color: t.textSecondary, fontSize: 14, textAlign: 'center' }}>No backups found. Create one first!</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={backups}
+                keyExtractor={(item) => item.uri}
+                renderItem={({ item }) => (
+                  <TouchableOpacity onPress={() => handleRestoreBackup(item.uri)} style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
+                    <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600' }}>
+                      {item.date.toLocaleDateString()} at {item.date.toLocaleTimeString()}
+                    </Text>
+                    <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>{item.filename}</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+            <TouchableOpacity onPress={() => setShowBackupModal(false)} style={{ padding: 16, alignItems: 'center' }}>
+              <Text style={{ color: t.primary, fontWeight: '700' }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 }

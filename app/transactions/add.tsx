@@ -93,6 +93,11 @@ export default function AddTransactionScreen() {
     }
   };
 
+  const removeImage = () => {
+    setImageBase64(undefined);
+    setLocalUri(undefined);
+  };
+
   const generateCalendarMonths = () => {
     const months = [];
     const today = new Date();
@@ -381,7 +386,27 @@ export default function AddTransactionScreen() {
           <Text style={{ color: t.textPrimary, textAlign: 'center', fontWeight: '600' }}>Take Photo</Text>
         </TouchableOpacity>
       </View>
-      {localUri && <Image source={{ uri: localUri }} style={{ width: '100%', height: 200, borderRadius: 8, marginBottom: 12 }} />}
+      {localUri && (
+        <View style={{ position: 'relative', marginBottom: 12 }}>
+          <Image source={{ uri: localUri }} style={{ width: '100%', height: 200, borderRadius: 8 }} />
+          <TouchableOpacity
+            onPress={removeImage}
+            style={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              borderRadius: 16,
+              width: 32,
+              height: 32,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>×</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Save Button */}
       <TouchableOpacity onPress={onSave} style={{ backgroundColor: t.primary, padding: 14, borderRadius: 12, ...shadows.sm }}>

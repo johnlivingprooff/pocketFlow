@@ -662,19 +662,23 @@ export default function Home() {
               </TouchableOpacity>
             </Link>
           </View>
-          {transactions.slice(0, 5).map((transaction: any) => (
-            <Link key={transaction.id} href={`/transactions/${transaction.id}`} asChild>
-              <TouchableOpacity style={{ backgroundColor: t.card, padding: 12, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: t.border }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>{transaction.category || 'Uncategorized'}</Text>
-                    <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>{formatDate(new Date(transaction.date).toISOString())}</Text>
+          {transactions.slice(0, 5).map((transaction: any) => {
+            const transactionWallet = wallets.find(w => w.id === transaction.wallet_id);
+            const transactionCurrency = transactionWallet?.currency || defaultCurrency;
+            return (
+              <Link key={transaction.id} href={`/transactions/${transaction.id}`} asChild>
+                <TouchableOpacity style={{ backgroundColor: t.card, padding: 12, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: t.border }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>{transaction.category || 'Uncategorized'}</Text>
+                      <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>{formatDate(new Date(transaction.date).toISOString())}</Text>
+                    </View>
+                    <Text style={{ color: t.accent, fontSize: 16, fontWeight: '700' }}>{formatCurrency(transaction.amount, transactionCurrency)}</Text>
                   </View>
-                  <Text style={{ color: t.accent, fontSize: 16, fontWeight: '700' }}>{formatCurrency(transaction.amount, defaultCurrency)}</Text>
-                </View>
-              </TouchableOpacity>
-            </Link>
-          ))}
+                </TouchableOpacity>
+              </Link>
+            );
+          })}
         </View>
 
         {/* Income vs Expense Trend */}
@@ -878,8 +882,8 @@ function generateCalendarMonths() {
   const months = [];
   const today = new Date();
   
-  // Generate last 3 months including current month
-  for (let i = 2; i >= 0; i--) {
+  // Generate last 6 months including current month
+  for (let i = 5; i >= 0; i--) {
     const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
     const monthName = date.toLocaleString('default', { month: 'long', year: 'numeric' });
     const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
