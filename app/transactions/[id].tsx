@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, Alert, Platform, useColorScheme } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '../../src/store/useStore';
 import { theme } from '../../src/theme/theme';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -86,7 +87,8 @@ export default function TransactionDetail() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: t.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['top', 'bottom', 'left', 'right']}>
+      <ScrollView style={{ flex: 1, backgroundColor: t.background }}>
       <View style={{ padding: 16, paddingTop: 20 }}>
         {/* Category Icon */}
         <View style={{ alignItems: 'center', marginBottom: 32 }}>
@@ -197,6 +199,7 @@ export default function TransactionDetail() {
           </TouchableOpacity>
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

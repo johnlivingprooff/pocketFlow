@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Modal, FlatList, useColorScheme, KeyboardAvoidingView, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
 import { createWallet } from '../../src/lib/db/wallets';
@@ -87,11 +88,12 @@ export default function CreateWallet() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={{ flex: 1, backgroundColor: t.background }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['top', 'bottom', 'left', 'right']}>
+      <KeyboardAvoidingView 
+        style={{ flex: 1, backgroundColor: t.background }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 20 }}>
         <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 24 }}>Create Wallet</Text>
 
@@ -306,5 +308,6 @@ export default function CreateWallet() {
         systemColorScheme={systemColorScheme || 'light'}
       />
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

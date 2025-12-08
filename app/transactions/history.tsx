@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, useColorScheme, RefreshControl } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
 import { useTransactions } from '../../src/lib/hooks/useTransactions';
@@ -150,16 +151,17 @@ export default function HistoryScreen() {
   });
 
   return (
-    <ScrollView 
-      style={{ flex: 1, backgroundColor: t.background }}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-          tintColor={t.primary}
-          colors={[t.primary]}
-        />
-      }
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['top', 'bottom', 'left', 'right']}>
+      <ScrollView 
+        style={{ flex: 1, backgroundColor: t.background }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={t.primary}
+            colors={[t.primary]}
+          />
+        }
     >
       <View style={{ padding: 16, paddingTop: 20 }}>
         {/* Header */}
@@ -419,6 +421,7 @@ export default function HistoryScreen() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Image, Alert, useColorScheme } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
 import * as ImagePicker from 'expo-image-picker';
@@ -44,7 +45,8 @@ export default function ProfilePage() {
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: t.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['top', 'bottom', 'left', 'right']}>
+      <ScrollView style={{ flex: 1, backgroundColor: t.background }}>
       <View style={{ padding: 16, paddingTop: 20 }}>
         {/* Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
@@ -186,5 +188,6 @@ export default function ProfilePage() {
         </View>
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 }

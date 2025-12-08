@@ -30,6 +30,8 @@ export default function TabsLayout() {
           borderTopColor: t.border,
           borderTopWidth: 1,
         },
+        // SafeAreaInsets for Android: prevent tab bar from hiding behind nav bar
+        safeAreaInsets: { bottom: 0 },
       }}
     >
       <Tabs.Screen

@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, useColorScheme, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Link, router } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { useFocusEffect } from 'expo-router';
@@ -104,8 +105,9 @@ export default function WalletDetail() {
   }, [transactions]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: t.background }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['top', 'bottom', 'left', 'right']}>
+      <View style={{ flex: 1, backgroundColor: t.background }}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
       {/* Top Actions */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12, gap: 8 }}>
           {/* Add Transactions button on the left — show only when wallet has activity */}
@@ -228,6 +230,7 @@ export default function WalletDetail() {
         )}
       </View>
       </ScrollView>
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }

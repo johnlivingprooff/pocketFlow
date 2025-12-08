@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, TextInput, TouchableOpacity, useColorScheme, Alert, Modal, FlatList } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
@@ -77,7 +78,8 @@ export default function EditWallet() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: t.background }} contentContainerStyle={{ padding: 16, paddingTop: 152, paddingBottom: 40, alignItems: 'center' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['top', 'bottom', 'left', 'right']}>
+      <ScrollView style={{ flex: 1, backgroundColor: t.background }} contentContainerStyle={{ padding: 16, paddingTop: 152, paddingBottom: 40, alignItems: 'center' }}>
       <TouchableOpacity onPress={() => router.back()} style={{ position: 'absolute', top: 60, left: 16, zIndex: 10 }}>
         <Text style={{ color: t.primary, fontSize: 18, fontWeight: '600' }}>← Back</Text>
       </TouchableOpacity>
@@ -228,6 +230,7 @@ export default function EditWallet() {
           <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800' }}>Save Changes</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
