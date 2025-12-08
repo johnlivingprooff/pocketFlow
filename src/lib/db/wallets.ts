@@ -6,6 +6,10 @@ import { error as logError, log } from '../../utils/logger';
 export async function createWallet(w: Wallet) {
   const startTime = Date.now();
   try {
+    // Get the count of existing wallets to set display_order
+    const existingWallets = await exec<{ count: number }>('SELECT COUNT(*) as count FROM wallets;');
+    const nextDisplayOrder = existingWallets[0]?.count ?? 0;
+    
     const params = [
       w.name,
       w.currency,
@@ -16,11 +20,12 @@ export async function createWallet(w: Wallet) {
       new Date().toISOString(),
       w.is_primary ?? 0,
       w.exchange_rate ?? 1.0,
+      nextDisplayOrder, // Ensure new wallet gets sequential display_order
     ];
     
     await execRun(
-      `INSERT INTO wallets (name, currency, initial_balance, type, color, description, created_at, is_primary, exchange_rate)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      `INSERT INTO wallets (name, currency, initial_balance, type, color, description, created_at, is_primary, exchange_rate, display_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       params
     );
     
@@ -66,23 +71,30 @@ export async function deleteWallet(id: number) {
 }
 
 export async function getWallets(): Promise<Wallet[]> {
-  return exec<Wallet>('SELECT * FROM wallets ORDER BY display_order ASC, created_at DESC;');
+  // Order ONLY by display_order to ensure consistent position-based sorting
+  // This prevents display_order=0 wallets from being re-sorted by created_at
+  return exec<Wallet>('SELECT * FROM wallets ORDER BY display_order ASC;');
 }
 
 /**
  * Update the display order of multiple wallets at once
- * @param orderUpdates - Array of {id, display_order} objects
+ * Ensures display_order values are always sequential (0, 1, 2, ...)
+ * @param orderUpdates - Array of {id, display_order} objects (display_order values are ignored and forced sequential)
  */
 export async function updateWalletsOrder(orderUpdates: Array<{ id: number; display_order: number }>): Promise<void> {
   const database = await getDb();
   
   // Use a transaction to batch all updates for better performance
+  // This ensures atomic updates and prevents partial state
   await database.withTransactionAsync(async () => {
     const statement = await database.prepareAsync('UPDATE wallets SET display_order = ? WHERE id = ?;');
     
     try {
-      for (const update of orderUpdates) {
-        await statement.executeAsync([update.display_order, update.id]);
+      // Ensure sequential ordering: index 0 gets display_order=0, index 1 gets display_order=1, etc.
+      // This guarantees that getWallets() will always return wallets in the intended order
+      for (let i = 0; i < orderUpdates.length; i++) {
+        const walletId = orderUpdates[i].id;
+        await statement.executeAsync([i, walletId]);
       }
     } finally {
       await statement.finalizeAsync();

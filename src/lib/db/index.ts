@@ -77,6 +77,30 @@ export async function ensureTables() {
     // noop: best-effort migration
   }
 
+  // Migration: fix display_order for existing wallets that all have display_order=0
+  // This ensures wallets are sorted consistently by position, not by created_at
+  try {
+    const walletsNeedingFix = await database.getAllAsync<{ id: number; created_at: string }>(
+      'SELECT id, created_at FROM wallets WHERE display_order = 0 ORDER BY created_at ASC;'
+    );
+    
+    if (walletsNeedingFix.length > 0) {
+      // Update each wallet with a sequential display_order based on creation order
+      const statement = await database.prepareAsync('UPDATE wallets SET display_order = ? WHERE id = ?;');
+      try {
+        for (let i = 0; i < walletsNeedingFix.length; i++) {
+          await statement.executeAsync([i, walletsNeedingFix[i].id]);
+        }
+      } finally {
+        await statement.finalizeAsync();
+      }
+      
+      log(`[DB] Migration: Fixed display_order for ${walletsNeedingFix.length} existing wallets`);
+    }
+  } catch (e) {
+    // noop: migration may have already run or wallet table doesn't exist yet
+  }
+
   await database.execAsync(
     `CREATE TABLE IF NOT EXISTS transactions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
