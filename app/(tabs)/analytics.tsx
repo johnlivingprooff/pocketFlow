@@ -24,7 +24,7 @@ import {
   getTransactionsByCategory
 } from '../../src/lib/db/transactions';
 import { formatCurrency } from '../../src/utils/formatCurrency';
-import { formatDate } from '../../src/utils/date';
+import { formatShortDate } from '../../src/utils/date';
 import { Link } from 'expo-router';
 import SevenDayTrendChart from '../../src/components/charts/SevenDayTrendChart';
 import MonthlyBarChart from '../../src/components/charts/MonthlyBarChart';
@@ -552,7 +552,7 @@ export default function AnalyticsPage() {
                   {formatCurrency(topSpendingDay.total, defaultCurrency)}
                 </Text>
                 <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>
-                  {formatDate(topSpendingDay.date)}
+                  {formatShortDate(topSpendingDay.date)}
                 </Text>
               </View>
             )}
@@ -782,7 +782,7 @@ export default function AnalyticsPage() {
         cardColor={t.card}
         borderColor={t.border}
         formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
-        formatDate={formatDate}
+        formatDate={formatShortDate}
       />
     </SafeAreaView>
   );

@@ -7,7 +7,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
 import { addTransaction } from '../../src/lib/db/transactions';
-import { yyyyMmDd } from '../../src/utils/date';
+import { yyyyMmDd, formatShortDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { saveReceiptImage } from '../../src/lib/services/fileService';
 import { getCategories, Category } from '../../src/lib/db/categories';
@@ -26,8 +26,8 @@ export default function AddTransactionScreen() {
   const [type, setType] = useState<'income' | 'expense' | 'transfer'>('expense');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState<Date>(new Date());
-  const [category, setCategory] = useState('Food');
-  const [walletId, setWalletId] = useState<number>(1);
+  const [category, setCategory] = useState('');
+  const [walletId, setWalletId] = useState<number>(0);
   const [notes, setNotes] = useState('');
   const [imageBase64, setImageBase64] = useState<string | undefined>(undefined);
   const [localUri, setLocalUri] = useState<string | undefined>(undefined);
@@ -55,8 +55,11 @@ export default function AddTransactionScreen() {
     if (type === 'transfer') return; // No categories for transfers
     const cats = await getCategories(type as 'income' | 'expense');
     setCategories(cats);
-    if (cats.length > 0 && !category) {
-      setCategory(cats[0].name);
+    if (cats.length > 0) {
+      // If no category selected, or current category isn't valid for this type,
+      // pick the first available category for the selected type
+      const hasCurrent = category && cats.some(c => c.name === category);
+      if (!hasCurrent) setCategory(cats[0].name);
     }
   };
 
@@ -346,7 +349,7 @@ export default function AddTransactionScreen() {
           marginBottom: 12,
         }}
       >
-        <Text style={{ color: t.textPrimary }}>{yyyyMmDd(date)}</Text>
+        <Text style={{ color: t.textPrimary }}>{formatShortDate(date)}</Text>
       </TouchableOpacity>
 
       {/* Category - Modal Picker (only for income/expense) */}
@@ -502,7 +505,7 @@ export default function AddTransactionScreen() {
               }}
             >
               <Text style={{ color: t.textPrimary }}>
-                {recurrenceEndDate ? yyyyMmDd(recurrenceEndDate) : 'No end date (recurring forever)'}
+                {recurrenceEndDate ? formatShortDate(recurrenceEndDate) : 'No end date (recurring forever)'}
               </Text>
             </TouchableOpacity>
             {recurrenceEndDate && (

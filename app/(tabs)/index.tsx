@@ -13,7 +13,7 @@ import { AddButton } from '../../src/components/AddButton';
 import { IncomeExpenseLineChart } from '../../src/components/IncomeExpenseLineChart';
 import { totalAvailableAcrossWallets, monthSpend, todaySpend, getWalletsOrderedByRecentActivity, getIncomeExpenseForPeriod, getTransactionsForPeriod } from '../../src/lib/db/transactions';
 import { getCategories, Category } from '../../src/lib/db/categories';
-import { formatDate } from '../../src/utils/date';
+import { formatShortDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { Transaction } from '../../src/types/transaction';
 import { log } from '../../src/utils/logger';
@@ -764,7 +764,7 @@ export default function Home() {
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                     <View style={{ flex: 1 }}>
                         <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>{getTransferLabel(transaction)}</Text>
-                      <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>{formatDate(new Date(transaction.date).toISOString())}</Text>
+                      <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>{formatShortDate(transaction.date)}</Text>
                     </View>
                     <Text style={{ color: t.accent, fontSize: 16, fontWeight: '700' }}>{formatCurrency(transaction.amount, transactionCurrency)}</Text>
                   </View>

@@ -9,7 +9,7 @@ import { getWallet, getWalletBalance, deleteWallet } from '../../src/lib/db/wall
 import { filterTransactions } from '../../src/lib/db/transactions';
 import { Transaction } from '../../src/types/transaction';
 import { TransactionItem } from '../../src/components/TransactionItem';
-import { formatDate } from '../../src/utils/date';
+// date formatting not needed in this view
 
 const TrashIcon = ({ size = 18, color = '#fff' }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -108,24 +108,26 @@ export default function WalletDetail() {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
       {/* Top Actions */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12, gap: 8 }}>
-        {/* Add Transactions button on the left */}
-        <Link href={{ pathname: '/transactions/add', params: { walletId: String(walletId) } }} asChild>
-          <TouchableOpacity
-            style={{
-              backgroundColor: t.primary,
-              paddingVertical: 7,
-              paddingHorizontal: 12,
-              borderRadius: 10,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              ...shadows.sm,
-            }}
-          >
-            <Text style={{ color: '#fff', fontSize: 17, fontWeight: '900' }}>＋</Text>
-            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Transact</Text>
-          </TouchableOpacity>
-        </Link>
+          {/* Add Transactions button on the left — show only when wallet has activity */}
+          {transactions.length > 0 && (
+            <Link href={{ pathname: '/transactions/add', params: { walletId: String(walletId) } }} asChild>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: t.primary,
+                  paddingVertical: 7,
+                  paddingHorizontal: 12,
+                  borderRadius: 10,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  ...shadows.sm,
+                }}
+              >
+                <Text style={{ color: '#fff', fontSize: 17, fontWeight: '900' }}>＋</Text>
+                <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Transact</Text>
+              </TouchableOpacity>
+            </Link>
+          )}
         {/* Right side actions */}
         <View style={{ flexDirection: 'row', gap: 8 }}>
         <TouchableOpacity

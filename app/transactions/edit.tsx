@@ -6,7 +6,7 @@ import { theme, shadows } from '../../src/theme/theme';
 import { getById, updateTransaction } from '../../src/lib/db/transactions';
 import { getCategories, Category } from '../../src/lib/db/categories';
 import { Transaction } from '../../src/types/transaction';
-import { formatDate } from '../../src/utils/date';
+import { formatShortDate } from '../../src/utils/date';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
 
 export default function EditTransaction() {
@@ -226,7 +226,7 @@ export default function EditTransaction() {
           }}
         >
           <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>
-            {date ? formatDate(new Date(date).toISOString()) : 'Select date'}
+            {date ? formatShortDate(date) : 'Select date'}
           </Text>
         </TouchableOpacity>
       </View>

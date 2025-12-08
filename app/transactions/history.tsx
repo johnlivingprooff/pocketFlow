@@ -6,7 +6,7 @@ import { useTransactions } from '../../src/lib/hooks/useTransactions';
 import { useWallets } from '../../src/lib/hooks/useWallets';
 import { TransactionItem } from '../../src/components/TransactionItem';
 import { Link, useFocusEffect } from 'expo-router';
-import { formatDate, yyyyMmDd } from '../../src/utils/date';
+import { formatDate, yyyyMmDd, formatShortDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { getCategories, Category } from '../../src/lib/db/categories';
 
@@ -116,7 +116,7 @@ export default function HistoryScreen() {
   });
 
   filteredTransactions.forEach(tx => {
-    const date = formatDate(new Date(tx.date).toISOString());
+    const date = formatShortDate(tx.date);
     if (!groupedTransactions[date]) {
       groupedTransactions[date] = [];
     }
@@ -199,9 +199,9 @@ export default function HistoryScreen() {
           >
             <Text style={{ color: startDate || endDate ? t.textPrimary : t.textSecondary, fontSize: 14 }}>
               {startDate && endDate 
-                ? `${yyyyMmDd(startDate)} - ${yyyyMmDd(endDate)}`
+                ? `${formatShortDate(startDate)} - ${formatShortDate(endDate)}`
                 : startDate
-                ? `From ${yyyyMmDd(startDate)}`
+                ? `From ${formatShortDate(startDate)}`
                 : 'Select date range'}
             </Text>
             {(startDate || endDate) && (

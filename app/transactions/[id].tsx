@@ -7,7 +7,7 @@ import { useFocusEffect } from 'expo-router';
 import { getById, deleteTransaction } from '../../src/lib/db/transactions';
 import { useWallets } from '../../src/lib/hooks/useWallets';
 import { Transaction } from '../../src/types/transaction';
-import { formatDate } from '../../src/utils/date';
+import { formatShortDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 
 export default function TransactionDetail() {
@@ -130,7 +130,7 @@ export default function TransactionDetail() {
           <View style={{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: t.border }}>
             <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 4 }}>Date & Time</Text>
             <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>
-              {formatDate(new Date(transaction.date).toISOString())}
+              {formatShortDate(transaction.date)}
             </Text>
           </View>
 
