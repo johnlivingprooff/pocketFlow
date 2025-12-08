@@ -133,6 +133,23 @@ You should see logs indicating:
 3. App state changes triggering data reloads
 4. Cache being cleared when app returns to foreground
 
+**Note**: By default, diagnostic logs only appear in development builds. To enable logging in production for debugging purposes, add this to your `app.json`:
+
+```json
+{
+  "expo": {
+    "extra": {
+      "enableLogging": true
+    }
+  }
+}
+```
+
+Then rebuild the app with:
+```bash
+eas build --platform android --profile production
+```
+
 ## Additional Notes
 
 ### Performance Considerations
@@ -171,6 +188,9 @@ Debug builds may have:
 - [x] Home screen reloads data when app becomes active
 - [x] Database writes complete before cache invalidation
 - [x] Diagnostic logging added for troubleshooting
+- [x] Conditional logging to avoid production performance impact
+- [x] Code review completed - all feedback addressed
+- [x] CodeQL security scan passed - no vulnerabilities found
 - [ ] Tested on physical Android device with release build
 - [ ] Verified logs show expected behavior
 - [ ] Confirmed data displays immediately after saving
