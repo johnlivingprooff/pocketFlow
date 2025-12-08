@@ -1,5 +1,7 @@
 # SQLite Data Display Issue Fix - Release Build
 
+> **Note**: This document describes the cache invalidation fix. For the error handling fix that addresses silent failures and freezing issues, see [ERROR_HANDLING_FIX.md](./ERROR_HANDLING_FIX.md).
+
 ## Problem Summary
 
 In the Android release build, newly saved SQLite data would not display in the UI until the app was fully restarted. This issue did not occur in debug builds.
