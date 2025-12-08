@@ -12,7 +12,7 @@ export async function createWallet(w: Wallet) {
       w.initial_balance ?? 0,
       w.type,
       w.color ?? null,
-      (w as any).description ?? null,
+      w.description ?? null,
       new Date().toISOString(),
       w.is_primary ?? 0,
       w.exchange_rate ?? 1.0,

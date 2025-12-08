@@ -176,11 +176,11 @@ export default function AddTransactionScreen() {
     // Validation
     const numAmount = parseFloat(amount || '0');
     
-    if (!numAmount || numAmount <= 0) {
+    if (isNaN(numAmount) || numAmount <= 0) {
       setAlertConfig({
         visible: true,
         title: 'Validation Error',
-        message: 'Please enter a valid amount',
+        message: 'Please enter a valid amount greater than zero',
         buttons: [{ text: 'OK' }]
       });
       return;
@@ -213,7 +213,9 @@ export default function AddTransactionScreen() {
           return;
         }
         const fromBalance = balances[walletId] ?? 0;
-        if (numAmount > fromBalance) {
+        // Use small epsilon for floating-point comparison to avoid precision issues
+        const EPSILON = 0.01; // Allow for 1 cent precision error
+        if (numAmount > fromBalance + EPSILON) {
           setAlertConfig({
             visible: true,
             title: 'Insufficient Balance',
@@ -244,8 +246,8 @@ export default function AddTransactionScreen() {
       let receiptUri: string | undefined = undefined;
       try {
         if (imageBase64) {
-          // Simple filename without date - saveReceiptImage adds the date folder
-          const filename = `${amount || '0'}_receipt_${Date.now()}.jpg`;
+          // Use simple timestamped filename to avoid special character issues
+          const filename = `receipt_${Date.now()}.jpg`;
           receiptUri = await saveReceiptImage(filename, imageBase64);
         }
       } catch (err: any) {
