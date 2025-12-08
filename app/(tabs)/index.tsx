@@ -16,6 +16,7 @@ import { getCategories, Category } from '../../src/lib/db/categories';
 import { formatDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { Transaction } from '../../src/types/transaction';
+import { log } from '../../src/utils/logger';
 
 type TimePeriod = 'all' | 'today' | 'week' | 'month' | 'lastMonth' | 'custom';
 
@@ -460,7 +461,7 @@ export default function Home() {
       if (nextAppState === 'active' && Platform.OS !== 'web') {
         // App came to foreground - reload data to ensure fresh data is displayed
         // This is critical for release builds where cached data may be stale
-        console.log('[Home] App became active, reloading data...');
+        log('[Home] App became active, reloading data...');
         setDataVersion(prev => prev + 1);
       }
     });

@@ -2,6 +2,7 @@ import { exec, execRun, getDb } from './index';
 import { Transaction } from '../../types/transaction';
 import { getWallet } from './wallets';
 import { analyticsCache, generateCacheKey, invalidateTransactionCaches } from '../cache/queryCache';
+import { log } from '../../utils/logger';
 
 export async function addTransaction(t: Transaction) {
   const params = [
@@ -32,7 +33,7 @@ export async function addTransaction(t: Transaction) {
   invalidateTransactionCaches();
   
   // Log for debugging (especially useful in release builds)
-  console.log(`[DB] Transaction added in ${writeTime}ms, type: ${t.type}, amount: ${t.amount}, wallet: ${t.wallet_id}, timestamp: ${new Date().toISOString()}`);
+  log(`[DB] Transaction added in ${writeTime}ms, type: ${t.type}, amount: ${t.amount}, wallet: ${t.wallet_id}, timestamp: ${new Date().toISOString()}`);
 }
 
 /**
@@ -160,7 +161,7 @@ export async function updateTransaction(id: number, t: Partial<Transaction>) {
   invalidateTransactionCaches();
   
   // Log for debugging
-  console.log(`[DB] Transaction ${id} updated in ${writeTime}ms, fields: ${fields.length}, timestamp: ${new Date().toISOString()}`);
+  log(`[DB] Transaction ${id} updated in ${writeTime}ms, fields: ${fields.length}, timestamp: ${new Date().toISOString()}`);
 }
 
 export async function deleteTransaction(id: number) {
@@ -173,7 +174,7 @@ export async function deleteTransaction(id: number) {
   invalidateTransactionCaches();
   
   // Log for debugging
-  console.log(`[DB] Transaction ${id} deleted in ${writeTime}ms, timestamp: ${new Date().toISOString()}`);
+  log(`[DB] Transaction ${id} deleted in ${writeTime}ms, timestamp: ${new Date().toISOString()}`);
 }
 
 export async function getTransactions(page = 0, pageSize = 20) {
