@@ -6,6 +6,8 @@ import { createWallet } from '../../src/lib/db/wallets';
 import { WalletType } from '../../src/types/wallet';
 import { useRouter } from 'expo-router';
 import { CURRENCIES } from '../../src/constants/currencies';
+import { ThemedAlert } from '../../src/components/ThemedAlert';
+import { error as logError } from '../../src/utils/logger';
 
 const WALLET_TYPES: WalletType[] = ['Cash', 'Credit', 'Crypto'];
 
@@ -22,17 +24,66 @@ export default function CreateWallet() {
   const [exchangeRate, setExchangeRate] = useState('1.0');
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    buttons: Array<{ text: string; onPress?: () => void }>;
+  }>({ visible: false, title: '', message: '', buttons: [] });
+  const [isSaving, setIsSaving] = useState(false);
 
   const onSave = async () => {
-    await createWallet({ 
-      name, 
-      currency, 
-      initial_balance: parseFloat(initial || '0'), 
-      type, 
-      description,
-      exchange_rate: parseFloat(exchangeRate || '1.0')
-    });
-    router.back();
+    // Validation
+    if (!name.trim()) {
+      setAlertConfig({
+        visible: true,
+        title: 'Validation Error',
+        message: 'Please enter a wallet name',
+        buttons: [{ text: 'OK' }]
+      });
+      return;
+    }
+
+    if (isSaving) return; // Prevent double submission
+    setIsSaving(true);
+
+    try {
+      await createWallet({ 
+        name: name.trim(), 
+        currency, 
+        initial_balance: parseFloat(initial || '0'), 
+        type, 
+        description: description.trim(),
+        exchange_rate: parseFloat(exchangeRate || '1.0')
+      });
+      
+      // Success - navigate back
+      router.back();
+    } catch (err: any) {
+      // Log error for debugging (will appear in development and when logging is enabled)
+      logError('[Wallet Creation] Failed to create wallet:', err);
+      
+      // Show user-friendly error message
+      let errorMessage = 'Failed to create wallet. Please try again.';
+      
+      // Check for specific error types
+      if (err?.message?.includes('UNIQUE constraint')) {
+        errorMessage = 'A wallet with this name already exists. Please use a different name.';
+      } else if (err?.message?.includes('database')) {
+        errorMessage = 'Database error occurred. Please restart the app and try again.';
+      } else if (err?.message?.includes('timeout')) {
+        errorMessage = 'Operation timed out. Please check your connection and try again.';
+      }
+      
+      setAlertConfig({
+        visible: true,
+        title: 'Error',
+        message: errorMessage,
+        buttons: [{ text: 'OK' }]
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -170,15 +221,19 @@ export default function CreateWallet() {
       />
 
       <TouchableOpacity 
-        onPress={onSave} 
+        onPress={onSave}
+        disabled={isSaving}
         style={{ 
-          backgroundColor: t.primary, 
+          backgroundColor: isSaving ? t.border : t.primary, 
           padding: 16, 
           borderRadius: 12,
-          ...shadows.md
+          ...shadows.md,
+          opacity: isSaving ? 0.6 : 1
         }}
       >
-        <Text style={{ color: '#FFFFFF', textAlign: 'center', fontWeight: '800', fontSize: 16 }}>Create Wallet</Text>
+        <Text style={{ color: '#FFFFFF', textAlign: 'center', fontWeight: '800', fontSize: 16 }}>
+          {isSaving ? 'Creating...' : 'Create Wallet'}
+        </Text>
       </TouchableOpacity>
 
       {/* Currency Picker Modal */}
@@ -240,6 +295,16 @@ export default function CreateWallet() {
         </View>
       </Modal>
       </ScrollView>
+      
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={() => setAlertConfig({ ...alertConfig, visible: false })}
+        themeMode={themeMode}
+        systemColorScheme={systemColorScheme || 'light'}
+      />
     </KeyboardAvoidingView>
   );
 }

@@ -1,5 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 import { Platform } from 'react-native';
+import { error as logError, log } from '../../utils/logger';
 
 let db: SQLite.SQLiteDatabase | null = null;
 
@@ -8,20 +9,37 @@ export async function getDb() {
     throw new Error('SQLite is not supported on web. Please use iOS or Android.');
   }
   if (!db) {
-    db = await SQLite.openDatabaseAsync('pocketflow.db');
+    try {
+      db = await SQLite.openDatabaseAsync('pocketflow.db');
+      log('[DB] Database connection opened successfully');
+    } catch (err: any) {
+      logError('[DB] Failed to open database:', err);
+      throw new Error('Failed to open database. Please restart the app.');
+    }
   }
   return db;
 }
 
 export async function exec<T = any>(sql: string, params: any[] = []): Promise<T[]> {
-  const database = await getDb();
-  const result = await database.getAllAsync<T>(sql, params);
-  return result;
+  try {
+    const database = await getDb();
+    const result = await database.getAllAsync<T>(sql, params);
+    return result;
+  } catch (err: any) {
+    logError('[DB] Query execution failed:', { sql, params, error: err });
+    throw err;
+  }
 }
 
 export async function execRun(sql: string, params: any[] = []): Promise<SQLite.SQLiteRunResult> {
-  const database = await getDb();
-  return await database.runAsync(sql, params);
+  try {
+    const database = await getDb();
+    const result = await database.runAsync(sql, params);
+    return result;
+  } catch (err: any) {
+    logError('[DB] Run execution failed:', { sql, params, error: err });
+    throw err;
+  }
 }
 
 export async function ensureTables() {

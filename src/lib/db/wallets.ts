@@ -1,27 +1,39 @@
 import { exec, execRun, getDb } from './index';
 import { Wallet } from '../../types/wallet';
 import { invalidateWalletCaches } from '../cache/queryCache';
+import { error as logError, log } from '../../utils/logger';
 
 export async function createWallet(w: Wallet) {
-  const params = [
-    w.name,
-    w.currency,
-    w.initial_balance ?? 0,
-    w.type,
-    w.color ?? null,
-    (w as any).description ?? null,
-    new Date().toISOString(),
-    w.is_primary ?? 0,
-    w.exchange_rate ?? 1.0,
-  ];
-  await execRun(
-    `INSERT INTO wallets (name, currency, initial_balance, type, color, description, created_at, is_primary, exchange_rate)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-    params
-  );
-  
-  // Invalidate wallet caches after creation
-  invalidateWalletCaches();
+  const startTime = Date.now();
+  try {
+    const params = [
+      w.name,
+      w.currency,
+      w.initial_balance ?? 0,
+      w.type,
+      w.color ?? null,
+      w.description ?? null,
+      new Date().toISOString(),
+      w.is_primary ?? 0,
+      w.exchange_rate ?? 1.0,
+    ];
+    
+    await execRun(
+      `INSERT INTO wallets (name, currency, initial_balance, type, color, description, created_at, is_primary, exchange_rate)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      params
+    );
+    
+    const writeTime = Date.now() - startTime;
+    log(`[DB] Wallet created in ${writeTime}ms, name: ${w.name}, currency: ${w.currency}, timestamp: ${new Date().toISOString()}`);
+    
+    // Invalidate wallet caches after creation
+    invalidateWalletCaches();
+  } catch (err: any) {
+    const writeTime = Date.now() - startTime;
+    logError(`[DB] Failed to create wallet after ${writeTime}ms:`, err);
+    throw err; // Re-throw to allow UI to handle it
+  }
 }
 
 export async function updateWallet(id: number, w: Partial<Wallet>) {
