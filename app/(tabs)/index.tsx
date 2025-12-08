@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Platform, TouchableOpacity, Modal, useColorScheme, Image, RefreshControl } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, ScrollView, Platform, TouchableOpacity, Modal, useColorScheme, Image, RefreshControl, AppState, AppStateStatus } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '../../src/store/useStore';
@@ -16,6 +16,7 @@ import { getCategories, Category } from '../../src/lib/db/categories';
 import { formatDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { Transaction } from '../../src/types/transaction';
+import { log } from '../../src/utils/logger';
 
 type TimePeriod = 'all' | 'today' | 'week' | 'month' | 'lastMonth' | 'custom';
 
@@ -82,6 +83,7 @@ export default function Home() {
   const [biggestCategory, setBiggestCategory] = useState<{ category: string; amount: number } | null>(null);
   const [recentOrder, setRecentOrder] = useState<number[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [dataVersion, setDataVersion] = useState(0); // Force re-render when data changes
 
   const handleDateSelect = (date: Date) => {
     if (!customStartDate || (customStartDate && customEndDate)) {
@@ -430,7 +432,7 @@ export default function Home() {
         }
       })();
     }
-  }, [wallets, selectedPeriod, customStartDate, customEndDate, chartRange]);
+  }, [wallets, selectedPeriod, customStartDate, customEndDate, chartRange, dataVersion]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -444,12 +446,28 @@ export default function Home() {
         setMonthTotal(await monthSpend());
         setTodayTotal(await todaySpend());
       }
+      // Increment dataVersion to force useEffect to re-run
+      setDataVersion(prev => prev + 1);
     } catch (error) {
       console.error('Error refreshing data:', error);
     } finally {
       setRefreshing(false);
     }
   };
+
+  // Listen to app state changes to reload data when app comes to foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active' && Platform.OS !== 'web') {
+        // App came to foreground - reload data to ensure fresh data is displayed
+        // This is critical for release builds where cached data may be stale
+        log('[Home] App became active, reloading data...');
+        setDataVersion(prev => prev + 1);
+      }
+    });
+    
+    return () => subscription.remove();
+  }, []);
 
   if (Platform.OS === 'web') {
     return (

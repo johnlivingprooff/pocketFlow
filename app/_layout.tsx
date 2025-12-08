@@ -65,6 +65,11 @@ export default function RootLayout() {
     if (nextAppState === 'active') {
       // App came to foreground, process recurring transactions
       if (Platform.OS !== 'web') {
+        // Clear all caches to ensure fresh data is loaded
+        // This prevents stale cached data from being displayed after app resume
+        const { invalidateTransactionCaches } = await import('../src/lib/cache/queryCache');
+        invalidateTransactionCaches();
+        
         await processRecurringTransactions();
       }
       
