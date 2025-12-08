@@ -8,6 +8,7 @@ export type Category = {
   color?: string;
   is_preset?: number;
   created_at?: string;
+  budget?: number | null;
 };
 
 export async function createCategory(category: Category): Promise<number> {
@@ -33,6 +34,7 @@ export async function updateCategory(id: number, category: Partial<Category>): P
   if (category.type !== undefined) { fields.push('type = ?'); params.push(category.type); }
   if (category.icon !== undefined) { fields.push('icon = ?'); params.push(category.icon); }
   if (category.color !== undefined) { fields.push('color = ?'); params.push(category.color); }
+  if (category.budget !== undefined) { fields.push('budget = ?'); params.push(category.budget); }
   
   params.push(id);
   await execRun(`UPDATE categories SET ${fields.join(', ')} WHERE id = ?;`, params);

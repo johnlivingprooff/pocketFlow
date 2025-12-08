@@ -122,7 +122,18 @@ export async function ensureTables() {
     );`
   );
 
-  // Seed or repair preset categories (idempotent via INSERT OR IGNORE)
+    // Migration: add budget column if not present
+    try {
+      const catCols = await database.getAllAsync<{ name: string }>('PRAGMA table_info(categories);');
+      const hasBudget = catCols.some(c => c.name === 'budget');
+      if (!hasBudget) {
+        await database.execAsync('ALTER TABLE categories ADD COLUMN budget REAL DEFAULT NULL;');
+      }
+    } catch (e) {
+      // noop: best-effort migration
+    }
+
+    // Seed or repair preset categories (idempotent via INSERT OR IGNORE)
   const presetExpense = [
     { name: 'Food', icon: '🍔' },
     { name: 'Transport', icon: '🚗' },

@@ -8,10 +8,12 @@ import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
 import { addTransaction } from '../../src/lib/db/transactions';
 import { yyyyMmDd } from '../../src/utils/date';
+import { formatCurrency } from '../../src/utils/formatCurrency';
 import { saveReceiptImage } from '../../src/lib/services/fileService';
 import { getCategories, Category } from '../../src/lib/db/categories';
 import { useWallets } from '../../src/lib/hooks/useWallets';
 import { RecurrenceFrequency } from '../../src/types/transaction';
+import { transferBetweenWallets } from '../../src/lib/db/transactions';
 
 export default function AddTransactionScreen() {
   const router = useRouter();
@@ -19,9 +21,9 @@ export default function AddTransactionScreen() {
   const systemColorScheme = useColorScheme();
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const t = theme(effectiveMode);
-  const { wallets } = useWallets();
+  const { wallets, balances } = useWallets();
 
-  const [type, setType] = useState<'income' | 'expense'>('expense');
+  const [type, setType] = useState<'income' | 'expense' | 'transfer'>('expense');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState<Date>(new Date());
   const [category, setCategory] = useState('Food');
@@ -31,8 +33,10 @@ export default function AddTransactionScreen() {
   const [localUri, setLocalUri] = useState<string | undefined>(undefined);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
-  const [showWalletPicker, setShowWalletPicker] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  
+  // Transfer-specific fields
+  const [toWalletId, setToWalletId] = useState<number | null>(null);
   
   // Recurring transaction fields
   const [isRecurring, setIsRecurring] = useState(false);
@@ -48,7 +52,8 @@ export default function AddTransactionScreen() {
   }, [type, wallets]);
 
   const loadCategories = async () => {
-    const cats = await getCategories(type);
+    if (type === 'transfer') return; // No categories for transfers
+    const cats = await getCategories(type as 'income' | 'expense');
     setCategories(cats);
     if (cats.length > 0 && !category) {
       setCategory(cats[0].name);
@@ -122,7 +127,72 @@ export default function AddTransactionScreen() {
     return months;
   };
 
+  const getProjectedBalance = (wallet: typeof wallets[0]) => {
+    const numAmount = parseFloat(amount || '0');
+    const currentBalance = balances[wallet.id!] ?? 0;
+    
+    // Get the source wallet to determine the transaction currency
+    const sourceWallet = wallets.find(w => w.id === walletId);
+    if (!sourceWallet) return currentBalance;
+    
+    // Only apply changes to the source wallet (walletId) or destination wallet for transfers
+    if (type === 'transfer') {
+      if (wallet.id === walletId) {
+        // Source wallet: subtract the amount being transferred (in source currency)
+        return currentBalance - numAmount;
+      } else if (wallet.id === toWalletId) {
+        // Destination wallet: add the amount being transferred
+        // Convert amount from source wallet currency to destination wallet currency
+        // Formula: amount * fromRate / toRate (same as transferBetweenWallets)
+        const fromRate = sourceWallet.exchange_rate ?? 1.0;
+        const toRate = wallet.exchange_rate ?? 1.0;
+        const convertedAmount = numAmount * fromRate / toRate;
+        return currentBalance + convertedAmount;
+      }
+    } else if (type === 'expense' && wallet.id === walletId) {
+      // Expense: subtract from selected wallet
+      return currentBalance - numAmount;
+    } else if (type === 'income' && wallet.id === walletId) {
+      // Income: add to selected wallet
+      return currentBalance + numAmount;
+    }
+    
+    return currentBalance;
+  };
+
   const onSave = async () => {
+    const numAmount = parseFloat(amount || '0');
+    
+    // Handle transfer separately
+    if (type === 'transfer') {
+      if (!toWalletId) {
+        Alert.alert('Error', 'Please select a destination wallet');
+        return;
+      }
+      if (walletId === toWalletId) {
+        Alert.alert('Error', 'Cannot transfer to the same wallet');
+        return;
+      }
+      if (!numAmount || numAmount <= 0) {
+        Alert.alert('Error', 'Please enter a valid amount');
+        return;
+      }
+      const fromBalance = balances[walletId] ?? 0;
+      if (numAmount > fromBalance) {
+        Alert.alert('Error', 'Insufficient balance in source wallet');
+        return;
+      }
+      
+      try {
+        await transferBetweenWallets(walletId, toWalletId, numAmount, notes.trim() || undefined);
+        router.back();
+      } catch (error) {
+        Alert.alert('Error', 'Failed to complete transfer');
+      }
+      return;
+    }
+
+    // Handle regular income/expense
     let receiptUri: string | undefined = undefined;
     try {
       if (imageBase64) {
@@ -135,11 +205,11 @@ export default function AddTransactionScreen() {
       Alert.alert('Error', 'Failed to save receipt image');
       return;
     }
-    const numAmount = parseFloat(amount || '0');
+    
     const finalAmount = type === 'expense' ? -Math.abs(numAmount) : Math.abs(numAmount);
     await addTransaction({ 
       wallet_id: walletId, 
-      type, 
+      type: type as 'income' | 'expense', 
       amount: finalAmount, 
       category, 
       date: date.toISOString(), 
@@ -164,41 +234,88 @@ export default function AddTransactionScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={true}
       >
+        {/* Source Wallet - Horizontal Scroll */}
+        <Text style={{ color: t.textSecondary, marginBottom: 8 }}>Select Wallet</Text>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          contentContainerStyle={{ paddingRight: 16, gap: 12, marginBottom: 20 }}
+          scrollEventThrottle={16}
+        >
+          {wallets.map((wallet) => (
+            <TouchableOpacity
+              key={wallet.id}
+              onPress={() => setWalletId(wallet.id!)}
+              style={{
+                backgroundColor: walletId === wallet.id ? t.primary : t.card,
+                borderWidth: 2,
+                borderColor: walletId === wallet.id ? t.primary : t.border,
+                borderRadius: 12,
+                padding: 16,
+                minWidth: 140,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ color: walletId === wallet.id ? '#fff' : t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>
+                {wallet.name}
+              </Text>
+              <Text style={{ color: walletId === wallet.id ? '#fff' : t.textPrimary, fontSize: 16, fontWeight: '800' }}>
+                {formatCurrency(getProjectedBalance(wallet), wallet.currency)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
         {/* Type - Pill Toggle */}
         <Text style={{ color: t.textSecondary, marginBottom: 8 }}>Type</Text>
-      <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
-        <TouchableOpacity
-          onPress={() => setType('expense')}
-          style={{
-            flex: 1,
-            backgroundColor: type === 'expense' ? t.primary : t.card,
-            borderWidth: 1,
-            borderColor: type === 'expense' ? t.primary : t.border,
-            paddingVertical: 10,
-            borderRadius: 999,
-            alignItems: 'center',
-          }}
-        >
-          <Text style={{ color: type === 'expense' ? '#fff' : t.textPrimary, fontWeight: '700' }}>Expense</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setType('income')}
-          style={{
-            flex: 1,
-            backgroundColor: type === 'income' ? t.primary : t.card,
-            borderWidth: 1,
-            borderColor: type === 'income' ? t.primary : t.border,
-            paddingVertical: 10,
-            borderRadius: 999,
-            alignItems: 'center',
-          }}
-        >
-          <Text style={{ color: type === 'income' ? '#fff' : t.textPrimary, fontWeight: '700' }}>Income</Text>
-        </TouchableOpacity>
-      </View>
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+          <TouchableOpacity
+            onPress={() => setType('expense')}
+            style={{
+              flex: 1,
+              backgroundColor: type === 'expense' ? t.primary : t.card,
+              borderWidth: 1,
+              borderColor: type === 'expense' ? t.primary : t.border,
+              paddingVertical: 10,
+              borderRadius: 999,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: type === 'expense' ? '#fff' : t.textPrimary, fontWeight: '700', fontSize: 13 }}>Expense</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setType('income')}
+            style={{
+              flex: 1,
+              backgroundColor: type === 'income' ? t.primary : t.card,
+              borderWidth: 1,
+              borderColor: type === 'income' ? t.primary : t.border,
+              paddingVertical: 10,
+              borderRadius: 999,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: type === 'income' ? '#fff' : t.textPrimary, fontWeight: '700', fontSize: 13 }}>Income</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setType('transfer')}
+            style={{
+              flex: 1,
+              backgroundColor: type === 'transfer' ? t.primary : t.card,
+              borderWidth: 1,
+              borderColor: type === 'transfer' ? t.primary : t.border,
+              paddingVertical: 10,
+              borderRadius: 999,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: type === 'transfer' ? '#fff' : t.textPrimary, fontWeight: '700', fontSize: 13 }}>Transfer</Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* Amount */}
-      <Text style={{ color: t.textSecondary, marginBottom: 6 }}>Amount</Text>
+        {/* Amount */}
+        <Text style={{ color: t.textSecondary, marginBottom: 6 }}>Amount</Text>
       <TextInput
         value={amount}
         onChangeText={setAmount}
@@ -232,45 +349,68 @@ export default function AddTransactionScreen() {
         <Text style={{ color: t.textPrimary }}>{yyyyMmDd(date)}</Text>
       </TouchableOpacity>
 
-      {/* Category - Modal Picker */}
-      <Text style={{ color: t.textSecondary, marginBottom: 6 }}>Category</Text>
-      <TouchableOpacity
-        onPress={() => setShowCategoryPicker(true)}
-        style={{
-          borderWidth: 1,
-          borderColor: t.border,
-          backgroundColor: t.card,
-          padding: 12,
-          borderRadius: 8,
-          marginBottom: 12,
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <Text style={{ color: t.textPrimary }}>{category}</Text>
-        <Text style={{ color: t.textSecondary }}>›</Text>
-      </TouchableOpacity>
+      {/* Category - Modal Picker (only for income/expense) */}
+      {type !== 'transfer' && (
+        <>
+          <Text style={{ color: t.textSecondary, marginBottom: 6 }}>Category</Text>
+          <TouchableOpacity
+            onPress={() => setShowCategoryPicker(true)}
+            style={{
+              borderWidth: 1,
+              borderColor: t.border,
+              backgroundColor: t.card,
+              padding: 12,
+              borderRadius: 8,
+              marginBottom: 12,
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: t.textPrimary }}>{category}</Text>
+            <Text style={{ color: t.textSecondary }}>›</Text>
+          </TouchableOpacity>
+        </>
+      )}
 
-      {/* Wallet - Modal Picker */}
-      <Text style={{ color: t.textSecondary, marginBottom: 6 }}>Wallet</Text>
-      <TouchableOpacity
-        onPress={() => setShowWalletPicker(true)}
-        style={{
-          borderWidth: 1,
-          borderColor: t.border,
-          backgroundColor: t.card,
-          padding: 12,
-          borderRadius: 8,
-          marginBottom: 12,
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <Text style={{ color: t.textPrimary }}>{wallets.find(w => w.id === walletId)?.name || 'Select Wallet'}</Text>
-        <Text style={{ color: t.textSecondary }}>›</Text>
-      </TouchableOpacity>
+      {/* Destination Wallet (only for transfer) - Horizontal Scroll */}
+      {type === 'transfer' && (
+        <>
+          <Text style={{ color: t.textSecondary, marginBottom: 8 }}>Transfer To</Text>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false} 
+            contentContainerStyle={{ paddingRight: 16, gap: 12, marginBottom: 20 }}
+            scrollEventThrottle={16}
+          >
+            {wallets
+              .filter((wallet) => wallet.id !== walletId) // Exclude source wallet
+              .map((wallet) => (
+                <TouchableOpacity
+                  key={wallet.id}
+                  onPress={() => setToWalletId(wallet.id!)}
+                  style={{
+                    backgroundColor: toWalletId === wallet.id ? t.primary : t.card,
+                    borderWidth: 2,
+                    borderColor: toWalletId === wallet.id ? t.primary : t.border,
+                    borderRadius: 12,
+                    padding: 16,
+                    minWidth: 140,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ color: toWalletId === wallet.id ? '#fff' : t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>
+                    {wallet.name}
+                  </Text>
+                  <Text style={{ color: toWalletId === wallet.id ? '#fff' : t.textPrimary, fontSize: 16, fontWeight: '800' }}>
+                    {formatCurrency(getProjectedBalance(wallet), wallet.currency)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+          </ScrollView>
+        </>
+      )}
 
       {/* Notes */}
       <Text style={{ color: t.textSecondary, marginBottom: 6 }}>Notes (optional)</Text>
@@ -294,24 +434,25 @@ export default function AddTransactionScreen() {
         }}
       />
 
-      {/* Recurring Transaction Section */}
-      <View style={{ 
-        backgroundColor: t.card, 
-        borderWidth: 1, 
-        borderColor: t.border, 
-        borderRadius: 12, 
-        padding: 14, 
-        marginBottom: 12 
-      }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Recurring Transaction</Text>
-          <Switch
-            value={isRecurring}
-            onValueChange={setIsRecurring}
-            trackColor={{ false: t.border, true: t.primary }}
-            thumbColor="#fff"
-          />
-        </View>
+      {/* Recurring Transaction Section (only for income/expense) */}
+      {type !== 'transfer' && (
+        <View style={{ 
+          backgroundColor: t.card, 
+          borderWidth: 1, 
+          borderColor: t.border, 
+          borderRadius: 12, 
+          padding: 14, 
+          marginBottom: 12 
+        }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Recurring Transaction</Text>
+            <Switch
+              value={isRecurring}
+              onValueChange={setIsRecurring}
+              trackColor={{ false: t.border, true: t.primary }}
+              thumbColor="#fff"
+            />
+          </View>
         
         {isRecurring && (
           <>
@@ -375,38 +516,77 @@ export default function AddTransactionScreen() {
           </>
         )}
       </View>
-
-      {/* Receipt */}
-      <Text style={{ color: t.textSecondary, marginBottom: 6 }}>Receipt (optional)</Text>
-      <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
-        <TouchableOpacity onPress={pickImage} style={{ flex: 1, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, padding: 12, borderRadius: 8 }}>
-          <Text style={{ color: t.textPrimary, textAlign: 'center', fontWeight: '600' }}>Choose Image</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={takePhoto} style={{ flex: 1, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, padding: 12, borderRadius: 8 }}>
-          <Text style={{ color: t.textPrimary, textAlign: 'center', fontWeight: '600' }}>Take Photo</Text>
-        </TouchableOpacity>
-      </View>
-      {localUri && (
-        <View style={{ position: 'relative', marginBottom: 12 }}>
-          <Image source={{ uri: localUri }} style={{ width: '100%', height: 200, borderRadius: 8 }} />
-          <TouchableOpacity
-            onPress={removeImage}
-            style={{
-              position: 'absolute',
-              top: 8,
-              right: 8,
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
-              borderRadius: 16,
-              width: 32,
-              height: 32,
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>×</Text>
-          </TouchableOpacity>
-        </View>
       )}
+
+      {/* Receipt (only for income/expense) */}
+      {type !== 'transfer' && (
+        <>
+          <Text style={{ color: t.textSecondary, marginBottom: 6 }}>Receipt (optional)</Text>
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+            <TouchableOpacity onPress={pickImage} style={{ flex: 1, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, padding: 12, borderRadius: 8 }}>
+              <Text style={{ color: t.textPrimary, textAlign: 'center', fontWeight: '600' }}>Choose Image</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={takePhoto} style={{ flex: 1, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, padding: 12, borderRadius: 8 }}>
+              <Text style={{ color: t.textPrimary, textAlign: 'center', fontWeight: '600' }}>Take Photo</Text>
+            </TouchableOpacity>
+          </View>
+          {localUri && (
+            <View style={{ position: 'relative', marginBottom: 12 }}>
+              <Image source={{ uri: localUri }} style={{ width: '100%', height: 200, borderRadius: 8 }} />
+              <TouchableOpacity
+                onPress={removeImage}
+                style={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                  borderRadius: 16,
+                  width: 32,
+                  height: 32,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>×</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </>
+      )}
+
+      {/* Transfer Summary (only for transfer type) */}
+      {type === 'transfer' && walletId && toWalletId && amount && !isNaN(parseFloat(amount)) && parseFloat(amount) > 0 && (() => {
+        const fromWallet = wallets.find(w => w.id === walletId);
+        const toWallet = wallets.find(w => w.id === toWalletId);
+        const numAmount = parseFloat(amount);
+        
+        if (!fromWallet || !toWallet) return null;
+        
+        const currenciesDiffer = fromWallet.currency !== toWallet.currency;
+        let convertedAmount = numAmount;
+        
+        if (currenciesDiffer) {
+          const fromRate = fromWallet.exchange_rate ?? 1.0;
+          const toRate = toWallet.exchange_rate ?? 1.0;
+          convertedAmount = numAmount * fromRate / toRate;
+        }
+        
+        return (
+          <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 14, marginBottom: 12 }}>
+            <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 6 }}>Transfer Summary:</Text>
+            <Text style={{ color: t.textPrimary, fontSize: 14 }}>
+              {fromWallet.currency} {numAmount.toFixed(2)} from{' '}
+              <Text style={{ fontWeight: '600' }}>{fromWallet.name}</Text> to{' '}
+              <Text style={{ fontWeight: '600' }}>{toWallet.name}</Text>
+            </Text>
+            {currenciesDiffer && (
+              <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 6 }}>
+                Recipient receives: {toWallet.currency} {convertedAmount.toFixed(2)}
+              </Text>
+            )}
+          </View>
+        );
+      })()}
 
       {/* Save Button */}
       <TouchableOpacity onPress={onSave} style={{ backgroundColor: t.primary, padding: 14, borderRadius: 12, ...shadows.sm }}>
@@ -441,34 +621,7 @@ export default function AddTransactionScreen() {
         </View>
       </Modal>
 
-      {/* Wallet Picker Modal */}
-      <Modal visible={showWalletPicker} transparent animationType="fade" onRequestClose={() => setShowWalletPicker(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 16 }}>
-          <View style={{ backgroundColor: t.card, borderRadius: 12, borderWidth: 1, borderColor: t.border, maxHeight: '70%' }}>
-            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
-              <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Select Wallet</Text>
-            </View>
-            <ScrollView>
-              {wallets.map((wallet) => (
-                <TouchableOpacity
-                  key={wallet.id}
-                  onPress={() => {
-                    setWalletId(wallet.id!);
-                    setShowWalletPicker(false);
-                  }}
-                  style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}
-                >
-                  <Text style={{ color: walletId === wallet.id ? t.primary : t.textPrimary, fontSize: 16, fontWeight: walletId === wallet.id ? '800' : '600' }}>{wallet.name}</Text>
-                  <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>{wallet.currency}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity onPress={() => setShowWalletPicker(false)} style={{ padding: 16, alignItems: 'center' }}>
-              <Text style={{ color: t.primary, fontWeight: '700' }}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+
 
       {/* Custom Date Picker Modal */}
       <Modal visible={showDatePicker} transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>

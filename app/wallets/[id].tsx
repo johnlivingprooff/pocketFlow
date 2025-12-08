@@ -1,14 +1,23 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, useColorScheme } from 'react-native';
-import { useLocalSearchParams, Link } from 'expo-router';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, useColorScheme, Alert } from 'react-native';
+import { useLocalSearchParams, Link, router } from 'expo-router';
+import Svg, { Path } from 'react-native-svg';
 import { useFocusEffect } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
-import { getWallet, getWalletBalance } from '../../src/lib/db/wallets';
+import { getWallet, getWalletBalance, deleteWallet } from '../../src/lib/db/wallets';
 import { filterTransactions } from '../../src/lib/db/transactions';
 import { Transaction } from '../../src/types/transaction';
 import { TransactionItem } from '../../src/components/TransactionItem';
 import { formatDate } from '../../src/utils/date';
+
+const TrashIcon = ({ size = 18, color = '#fff' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M4 7h16M10 11v6M14 11v6" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M6 7v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
 
 export default function WalletDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -24,6 +33,8 @@ export default function WalletDetail() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [income, setIncome] = useState(0);
   const [expenses, setExpenses] = useState(0);
+  const [showAddCollapsed, setShowAddCollapsed] = useState(false);
+  const addButtonTimer = useRef<NodeJS.Timeout | null>(null);
 
   const loadWallet = useCallback(async () => {
     const w = (await getWallet(walletId))[0];
@@ -45,21 +56,103 @@ export default function WalletDetail() {
     setExpenses(expensesSum);
   }, [walletId]);
 
+  const handleDeleteWallet = () => {
+    Alert.alert(
+      'Delete wallet?',
+      'Deleting a wallet removes its balance and history from this device. Consider backing up first. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteWallet(walletId);
+              Alert.alert('Wallet deleted', 'The wallet was removed.');
+              router.back();
+            } catch (e) {
+              Alert.alert('Error', 'Could not delete wallet. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   useFocusEffect(
     useCallback(() => {
       loadWallet();
     }, [loadWallet])
   );
 
+  // Auto-collapse the add button after 6 seconds once transactions exist
+  useEffect(() => {
+    if (transactions.length === 0) {
+      setShowAddCollapsed(false);
+      if (addButtonTimer.current) clearTimeout(addButtonTimer.current);
+      return;
+    }
+
+    if (addButtonTimer.current) clearTimeout(addButtonTimer.current);
+    addButtonTimer.current = setTimeout(() => {
+      setShowAddCollapsed(true);
+    }, 6000); // 6 second delay
+
+    return () => {
+      if (addButtonTimer.current) clearTimeout(addButtonTimer.current);
+    };
+  }, [transactions]);
+
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: t.background }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+    <View style={{ flex: 1, backgroundColor: t.background }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
       {/* Top Actions */}
-      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 12 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12, gap: 8 }}>
+        {/* Add Transactions button on the left */}
+        <Link href={{ pathname: '/transactions/add', params: { walletId: String(walletId) } }} asChild>
+          <TouchableOpacity
+            style={{
+              backgroundColor: t.primary,
+              paddingVertical: 7,
+              paddingHorizontal: 12,
+              borderRadius: 10,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              ...shadows.sm,
+            }}
+          >
+            <Text style={{ color: '#fff', fontSize: 17, fontWeight: '900' }}>＋</Text>
+            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Transact</Text>
+          </TouchableOpacity>
+        </Link>
+        {/* Right side actions */}
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+        <TouchableOpacity
+          onPress={handleDeleteWallet}
+          style={{
+            backgroundColor: t.card,
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: t.border,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            ...shadows.sm,
+          }}
+        >
+          <TrashIcon size={16} color={t.textPrimary} />
+          <Text style={{ color: t.textPrimary, fontSize: 13, fontWeight: '700' }}>Delete</Text>
+        </TouchableOpacity>
+
         <Link href={{ pathname: '/wallets/edit', params: { id: String(walletId) } }} asChild>
           <TouchableOpacity style={{ backgroundColor: t.primary, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10, ...shadows.sm }}>
             <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Edit Wallet</Text>
           </TouchableOpacity>
         </Link>
+        </View>
       </View>
       {/* Wallet Header */}
       <View style={{ backgroundColor: t.card, padding: 20, borderRadius: 16, marginBottom: 20, ...shadows.md }}>
@@ -132,6 +225,7 @@ export default function WalletDetail() {
           </View>
         )}
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }

@@ -34,8 +34,8 @@ export function TransactionItem({ item, currency, mode = 'light' }: Props) {
   const displayCategory = getTransferLabel();
   return (
     <View style={{ flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: t.border }}>
-      <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: t.card, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-        <Text style={{ color }}>{item.type === 'income' ? '+' : '-'}</Text>
+      <View style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+        <Text style={{ color, fontSize: 20, fontWeight: '700' }}>{item.type === 'income' ? '+' : '−'}</Text>
       </View>
       <View style={{ flex: 1 }}>
         <Text style={{ color: t.textPrimary, fontWeight: '500' }}>{displayCategory}</Text>
