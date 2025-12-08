@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, Platform } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   runOnJS,
+  SharedValue,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { Link } from 'expo-router';
@@ -46,7 +47,7 @@ export function DraggableWalletList({
     positions.value = wallets.map((w) => w.id!);
   }, [wallets]);
 
-  const onDragEnd = async (fromIndex: number, toIndex: number) => {
+  const onDragEnd = useCallback(async (fromIndex: number, toIndex: number) => {
     if (fromIndex === toIndex) return;
 
     const newOrdered = [...ordered];
@@ -68,25 +69,30 @@ export function DraggableWalletList({
       setOrdered(wallets);
       positions.value = wallets.map((w) => w.id!);
     }
-  };
+  }, [ordered, wallets, positions, onOrderChange]);
 
   const resolvedMode: 'light' | 'dark' =
     themeMode === 'system' ? 'light' : themeMode;
 
+  const items = useMemo(() =>
+    ordered.map((wallet, index) => (
+      <DraggableItem
+        key={wallet.id}
+        wallet={wallet}
+        index={index}
+        balance={balances[wallet.id!] ?? 0}
+        themeMode={resolvedMode}
+        positions={positions}
+        showLink={showLinks}
+        onDragEnd={onDragEnd}
+      />
+    )),
+    [ordered, balances, resolvedMode, positions, showLinks, onDragEnd]
+  );
+
   return (
     <View style={{ paddingVertical: 10, minHeight: ordered.length * ITEM_HEIGHT }}>
-      {ordered.map((wallet, index) => (
-        <DraggableItem
-          key={wallet.id}
-          wallet={wallet}
-          index={index}
-          balance={balances[wallet.id!] ?? 0}
-          themeMode={resolvedMode}
-          positions={positions}
-          showLink={showLinks}
-          onDragEnd={onDragEnd}
-        />
-      ))}
+      {items}
     </View>
   );
 }
@@ -114,36 +120,38 @@ function DraggableItem({
   const translateY = useSharedValue(index * ITEM_HEIGHT);
   const isDragging = useSharedValue(false);
   const dragOffset = useSharedValue(0);
+  const dragStartIndex = useSharedValue(index); // Track position at drag start
 
   const longPress = Gesture.LongPress()
     .minDuration(220)
     .onStart(() => {
       isDragging.value = true;
+      dragStartIndex.value = positions.value.indexOf(id); // Capture current position
       runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
     });
 
   const pan = Gesture.Pan()
     .onStart(() => {
+      // Only start pan if long press has activated dragging
+      if (!isDragging.value) return;
       dragOffset.value = translateY.value;
     })
     .onUpdate((e) => {
+      if (!isDragging.value) return; // Defensive check
+      
       const nextY = dragOffset.value + e.translationY;
       translateY.value = nextY;
 
       // --- Auto-scroll when near top/bottom ---
       const isNearTop = e.absoluteY < AUTO_SCROLL_THRESHOLD;
-      const isNearBottom =
-        e.absoluteY > (e.viewportHeight - AUTO_SCROLL_THRESHOLD);
+      const isNearBottom = e.absoluteY > (e.containerHeight - AUTO_SCROLL_THRESHOLD);
 
       if (isNearTop) translateY.value -= AUTO_SCROLL_SPEED;
       if (isNearBottom) translateY.value += AUTO_SCROLL_SPEED;
 
-      // --- Compute new index ---
-      const newIndex = Math.round(nextY / ITEM_HEIGHT);
-      const clamped = Math.max(
-        0,
-        Math.min(positions.value.length - 1, newIndex)
-      );
+      // --- Compute new index based on current translateY ---
+      const newIndex = Math.round(translateY.value / ITEM_HEIGHT);
+      const clamped = Math.max(0, Math.min(positions.value.length - 1, newIndex));
 
       const currentOrder = positions.value;
       const from = currentOrder.indexOf(id);
@@ -157,6 +165,7 @@ function DraggableItem({
       }
     })
     .onEnd(() => {
+      // Reset dragging state before spring animation
       isDragging.value = false;
 
       const finalIndex = positions.value.indexOf(id);
@@ -167,29 +176,27 @@ function DraggableItem({
         damping: 20,
       });
 
-      runOnJS(onDragEnd)(index, finalIndex);
+      // Use the drag start index captured at long press, and final index from positions
+      runOnJS(onDragEnd)(dragStartIndex.value, finalIndex);
+    })
+    .onFinalize(() => {
+      // Ensure dragging is always reset, even on interruption
+      isDragging.value = false;
     });
 
+  // Use Simultaneous so both gestures can work together:
+  // longPress sets isDragging = true, then pan can respond to movement
   const gesture = Gesture.Simultaneous(longPress, pan);
 
   const animStyle = useAnimatedStyle(() => {
     const targetIndex = positions.value.indexOf(id);
     const targetY = targetIndex * ITEM_HEIGHT;
 
-    const y = isDragging.value
-      ? translateY.value
-      : withSpring(targetY, {
-          stiffness: 170,
-          damping: 20,
-        });
-
     return {
-      transform: [{ translateY: y }],
+      transform: [{ translateY: isDragging.value ? translateY.value : withSpring(targetY, { stiffness: 170, damping: 20 }) }],
       zIndex: isDragging.value ? 200 : 1,
       opacity: isDragging.value ? 0.96 : 1,
-      scale: isDragging.value
-        ? withSpring(1.02)
-        : withSpring(1),
+      scale: isDragging.value ? withSpring(1.02) : withSpring(1),
       shadowOpacity: isDragging.value ? 0.25 : 0.1,
       shadowRadius: isDragging.value ? 12 : 3,
     };
