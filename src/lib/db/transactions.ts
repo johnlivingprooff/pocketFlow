@@ -17,15 +17,22 @@ export async function addTransaction(t: Transaction) {
     t.recurrence_end_date ?? null,
     t.parent_transaction_id ?? null,
   ];
+  // Ensure database write completes before invalidating caches
+  const startTime = Date.now();
   await execRun(
     `INSERT INTO transactions 
      (wallet_id, type, amount, category, date, notes, receipt_uri, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
     params
   );
+  const writeTime = Date.now() - startTime;
   
-  // Invalidate caches after adding transaction
+  // Invalidate caches synchronously after write completes
+  // This ensures UI always sees fresh data after a transaction is added
   invalidateTransactionCaches();
+  
+  // Log for debugging (especially useful in release builds)
+  console.log(`[DB] Transaction added in ${writeTime}ms, type: ${t.type}, amount: ${t.amount}, wallet: ${t.wallet_id}, timestamp: ${new Date().toISOString()}`);
 }
 
 /**
@@ -144,17 +151,29 @@ export async function updateTransaction(id: number, t: Partial<Transaction>) {
   if (t.notes !== undefined) set('notes', t.notes);
   if (t.receipt_uri !== undefined) set('receipt_uri', t.receipt_uri);
   params.push(id);
+  // Ensure database write completes before invalidating caches
+  const startTime = Date.now();
   await execRun(`UPDATE transactions SET ${fields.join(', ')} WHERE id = ?;`, params);
+  const writeTime = Date.now() - startTime;
   
-  // Invalidate caches after update
+  // Invalidate caches synchronously after update completes
   invalidateTransactionCaches();
+  
+  // Log for debugging
+  console.log(`[DB] Transaction ${id} updated in ${writeTime}ms, fields: ${fields.length}, timestamp: ${new Date().toISOString()}`);
 }
 
 export async function deleteTransaction(id: number) {
+  // Ensure database write completes before invalidating caches
+  const startTime = Date.now();
   await execRun('DELETE FROM transactions WHERE id = ?;', [id]);
+  const writeTime = Date.now() - startTime;
   
-  // Invalidate caches after delete
+  // Invalidate caches synchronously after delete completes
   invalidateTransactionCaches();
+  
+  // Log for debugging
+  console.log(`[DB] Transaction ${id} deleted in ${writeTime}ms, timestamp: ${new Date().toISOString()}`);
 }
 
 export async function getTransactions(page = 0, pageSize = 20) {

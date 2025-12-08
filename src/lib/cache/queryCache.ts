@@ -186,9 +186,20 @@ export const transactionCache = new QueryCache(20, 15);
  * Call this after adding, updating, or deleting transactions
  */
 export function invalidateTransactionCaches(): void {
+  const timestamp = new Date().toISOString();
+  console.log(`[Cache] Invalidating all transaction caches at ${timestamp}`);
+  
+  const analyticsStats = analyticsCache.getStats();
+  const walletStats = walletCache.getStats();
+  const transactionStats = transactionCache.getStats();
+  
+  console.log(`[Cache] Before clear - Analytics: ${analyticsStats.size} entries, Wallet: ${walletStats.size} entries, Transaction: ${transactionStats.size} entries`);
+  
   analyticsCache.clear();
   walletCache.clear();
   transactionCache.clear();
+  
+  console.log(`[Cache] All caches cleared successfully`);
 }
 
 /**
