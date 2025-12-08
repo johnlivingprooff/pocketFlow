@@ -1,4 +1,5 @@
 import { exec, execRun } from './index';
+import { error as logError, log } from '../../utils/logger';
 
 export type Category = {
   id?: number;
@@ -12,18 +13,29 @@ export type Category = {
 };
 
 export async function createCategory(category: Category): Promise<number> {
-  const result = await execRun(
-    `INSERT INTO categories (name, type, icon, color, is_preset, created_at)
-     VALUES (?, ?, ?, ?, ?, datetime('now'));`,
-    [
-      category.name,
-      category.type,
-      category.icon ?? null,
-      category.color ?? null,
-      category.is_preset ?? 0,
-    ]
-  );
-  return result.lastInsertRowId;
+  const startTime = Date.now();
+  try {
+    const result = await execRun(
+      `INSERT INTO categories (name, type, icon, color, is_preset, created_at)
+       VALUES (?, ?, ?, ?, ?, datetime('now'));`,
+      [
+        category.name,
+        category.type,
+        category.icon ?? null,
+        category.color ?? null,
+        category.is_preset ?? 0,
+      ]
+    );
+    
+    const writeTime = Date.now() - startTime;
+    log(`[DB] Category created in ${writeTime}ms, name: ${category.name}, type: ${category.type}, timestamp: ${new Date().toISOString()}`);
+    
+    return result.lastInsertRowId;
+  } catch (err: any) {
+    const writeTime = Date.now() - startTime;
+    logError(`[DB] Failed to create category after ${writeTime}ms:`, err);
+    throw err; // Re-throw to allow UI to handle it
+  }
 }
 
 export async function updateCategory(id: number, category: Partial<Category>): Promise<void> {

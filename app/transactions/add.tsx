@@ -14,6 +14,8 @@ import { getCategories, Category } from '../../src/lib/db/categories';
 import { useWallets } from '../../src/lib/hooks/useWallets';
 import { RecurrenceFrequency } from '../../src/types/transaction';
 import { transferBetweenWallets } from '../../src/lib/db/transactions';
+import { ThemedAlert } from '../../src/components/ThemedAlert';
+import { error as logError } from '../../src/utils/logger';
 
 export default function AddTransactionScreen() {
   const router = useRouter();
@@ -43,6 +45,13 @@ export default function AddTransactionScreen() {
   const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>('monthly');
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<Date | null>(null);
   const [showRecurrenceEndDatePicker, setShowRecurrenceEndDatePicker] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    buttons: Array<{ text: string; onPress?: () => void }>;
+  }>({ visible: false, title: '', message: '', buttons: [] });
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     loadCategories();
@@ -164,65 +173,174 @@ export default function AddTransactionScreen() {
   };
 
   const onSave = async () => {
+    // Validation
     const numAmount = parseFloat(amount || '0');
     
-    // Handle transfer separately
-    if (type === 'transfer') {
-      if (!toWalletId) {
-        Alert.alert('Error', 'Please select a destination wallet');
+    if (!numAmount || numAmount <= 0) {
+      setAlertConfig({
+        visible: true,
+        title: 'Validation Error',
+        message: 'Please enter a valid amount',
+        buttons: [{ text: 'OK' }]
+      });
+      return;
+    }
+    
+    if (isSaving) return; // Prevent double submission
+    setIsSaving(true);
+    
+    try {
+      // Handle transfer separately
+      if (type === 'transfer') {
+        if (!toWalletId) {
+          setAlertConfig({
+            visible: true,
+            title: 'Validation Error',
+            message: 'Please select a destination wallet',
+            buttons: [{ text: 'OK' }]
+          });
+          setIsSaving(false);
+          return;
+        }
+        if (walletId === toWalletId) {
+          setAlertConfig({
+            visible: true,
+            title: 'Validation Error',
+            message: 'Cannot transfer to the same wallet',
+            buttons: [{ text: 'OK' }]
+          });
+          setIsSaving(false);
+          return;
+        }
+        const fromBalance = balances[walletId] ?? 0;
+        if (numAmount > fromBalance) {
+          setAlertConfig({
+            visible: true,
+            title: 'Insufficient Balance',
+            message: 'The amount exceeds your wallet balance',
+            buttons: [{ text: 'OK' }]
+          });
+          setIsSaving(false);
+          return;
+        }
+        
+        try {
+          await transferBetweenWallets(walletId, toWalletId, numAmount, notes.trim() || undefined);
+          router.back();
+        } catch (err: any) {
+          logError('[Transfer] Failed to complete transfer:', err);
+          setAlertConfig({
+            visible: true,
+            title: 'Transfer Failed',
+            message: 'Failed to complete transfer. Please try again.',
+            buttons: [{ text: 'OK' }]
+          });
+          setIsSaving(false);
+        }
         return;
       }
-      if (walletId === toWalletId) {
-        Alert.alert('Error', 'Cannot transfer to the same wallet');
-        return;
-      }
-      if (!numAmount || numAmount <= 0) {
-        Alert.alert('Error', 'Please enter a valid amount');
-        return;
-      }
-      const fromBalance = balances[walletId] ?? 0;
-      if (numAmount > fromBalance) {
-        Alert.alert('Error', 'Insufficient balance in source wallet');
+
+      // Handle regular income/expense
+      let receiptUri: string | undefined = undefined;
+      try {
+        if (imageBase64) {
+          // Simple filename without date - saveReceiptImage adds the date folder
+          const filename = `${amount || '0'}_receipt_${Date.now()}.jpg`;
+          receiptUri = await saveReceiptImage(filename, imageBase64);
+        }
+      } catch (err: any) {
+        logError('[Transaction] Error saving receipt:', err);
+        setAlertConfig({
+          visible: true,
+          title: 'Receipt Save Failed',
+          message: 'Failed to save receipt image. Continue without receipt?',
+          buttons: [
+            { text: 'Cancel', onPress: () => setIsSaving(false) },
+            { 
+              text: 'Continue', 
+              onPress: async () => {
+                await saveTransactionWithoutReceipt();
+              }
+            }
+          ]
+        });
         return;
       }
       
+      const finalAmount = type === 'expense' ? -Math.abs(numAmount) : Math.abs(numAmount);
+      
       try {
-        await transferBetweenWallets(walletId, toWalletId, numAmount, notes.trim() || undefined);
+        await addTransaction({ 
+          wallet_id: walletId, 
+          type: type as 'income' | 'expense', 
+          amount: finalAmount, 
+          category, 
+          date: date.toISOString(), 
+          notes, 
+          receipt_uri: receiptUri,
+          is_recurring: isRecurring,
+          recurrence_frequency: isRecurring ? recurrenceFrequency : undefined,
+          recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate.toISOString() : undefined
+        });
+        
+        // Success - navigate back
         router.back();
-      } catch (error) {
-        Alert.alert('Error', 'Failed to complete transfer');
+      } catch (err: any) {
+        logError('[Transaction] Failed to add transaction:', err);
+        
+        let errorMessage = 'Failed to add transaction. Please try again.';
+        
+        if (err?.message?.includes('database')) {
+          errorMessage = 'Database error occurred. Please restart the app and try again.';
+        } else if (err?.message?.includes('timeout')) {
+          errorMessage = 'Operation timed out. Please check your connection and try again.';
+        } else if (err?.message?.includes('FOREIGN KEY constraint')) {
+          errorMessage = 'Invalid wallet selected. Please select a different wallet.';
+        }
+        
+        setAlertConfig({
+          visible: true,
+          title: 'Error',
+          message: errorMessage,
+          buttons: [{ text: 'OK' }]
+        });
       }
-      return;
+    } finally {
+      setIsSaving(false);
     }
+  };
 
-    // Handle regular income/expense
-    let receiptUri: string | undefined = undefined;
-    try {
-      if (imageBase64) {
-        // Simple filename without date - saveReceiptImage adds the date folder
-        const filename = `${amount || '0'}_receipt_${Date.now()}.jpg`;
-        receiptUri = await saveReceiptImage(filename, imageBase64);
-      }
-    } catch (error) {
-      console.error('Error saving receipt:', error);
-      Alert.alert('Error', 'Failed to save receipt image');
-      return;
-    }
-    
+  // Helper function to save transaction without receipt
+  const saveTransactionWithoutReceipt = async () => {
+    const numAmount = parseFloat(amount || '0');
     const finalAmount = type === 'expense' ? -Math.abs(numAmount) : Math.abs(numAmount);
-    await addTransaction({ 
-      wallet_id: walletId, 
-      type: type as 'income' | 'expense', 
-      amount: finalAmount, 
-      category, 
-      date: date.toISOString(), 
-      notes, 
-      receipt_uri: receiptUri,
-      is_recurring: isRecurring,
-      recurrence_frequency: isRecurring ? recurrenceFrequency : undefined,
-      recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate.toISOString() : undefined
-    });
-    router.back();
+    
+    try {
+      await addTransaction({ 
+        wallet_id: walletId, 
+        type: type as 'income' | 'expense', 
+        amount: finalAmount, 
+        category, 
+        date: date.toISOString(), 
+        notes, 
+        receipt_uri: undefined,
+        is_recurring: isRecurring,
+        recurrence_frequency: isRecurring ? recurrenceFrequency : undefined,
+        recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate.toISOString() : undefined
+      });
+      
+      router.back();
+    } catch (err: any) {
+      logError('[Transaction] Failed to add transaction without receipt:', err);
+      setAlertConfig({
+        visible: true,
+        title: 'Error',
+        message: 'Failed to add transaction. Please try again.',
+        buttons: [{ text: 'OK' }]
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -592,8 +710,20 @@ export default function AddTransactionScreen() {
       })()}
 
       {/* Save Button */}
-      <TouchableOpacity onPress={onSave} style={{ backgroundColor: t.primary, padding: 14, borderRadius: 12, ...shadows.sm }}>
-        <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>Save Transaction</Text>
+      <TouchableOpacity 
+        onPress={onSave}
+        disabled={isSaving}
+        style={{ 
+          backgroundColor: isSaving ? t.border : t.primary, 
+          padding: 14, 
+          borderRadius: 12, 
+          ...shadows.sm,
+          opacity: isSaving ? 0.6 : 1
+        }}
+      >
+        <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>
+          {isSaving ? 'Saving...' : 'Save Transaction'}
+        </Text>
       </TouchableOpacity>
 
       {/* Category Picker Modal */}
@@ -742,6 +872,16 @@ export default function AddTransactionScreen() {
         </View>
       </Modal>
       </ScrollView>
+      
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={() => setAlertConfig({ ...alertConfig, visible: false })}
+        themeMode={themeMode}
+        systemColorScheme={systemColorScheme || 'light'}
+      />
     </KeyboardAvoidingView>
   );
 }
