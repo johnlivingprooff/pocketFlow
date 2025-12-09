@@ -45,6 +45,9 @@
     ],
     "extra": {
       "router": {},
+      "extra": {
+        "enableLogging": true
+      },
       "eas": {
         "projectId": "e63eeb3a-bc99-4112-b2c0-d0568d5593d3"
       }
