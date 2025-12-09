@@ -1,6 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import { Platform } from 'react-native';
 import { error as logError, log } from '../../utils/logger';
+import { enqueueWrite } from './writeQueue';
 
 let db: SQLite.SQLiteDatabase | null = null;
 
@@ -11,7 +12,15 @@ export async function getDb() {
   if (!db) {
     try {
       db = await SQLite.openDatabaseAsync('pocketflow.db');
-      log('[DB] Database connection opened successfully');
+      
+      // RELEASE-BUILD FIX: Enable WAL mode and busy timeout to prevent database lock errors
+      // WAL (Write-Ahead Logging) reduces write lock contention for concurrent operations
+      // busy_timeout makes writers wait instead of immediately failing with SQLITE_BUSY
+      await db.execAsync('PRAGMA journal_mode = WAL;');
+      await db.execAsync('PRAGMA busy_timeout = 5000;'); // 5 seconds
+      await db.execAsync('PRAGMA synchronous = NORMAL;'); // Balance safety and performance
+      
+      log('[DB] Database connection opened successfully with WAL mode enabled');
     } catch (err: any) {
       logError('[DB] Failed to open database:', err);
       throw new Error('Failed to open database. Please restart the app.');
@@ -32,14 +41,17 @@ export async function exec<T = any>(sql: string, params: any[] = []): Promise<T[
 }
 
 export async function execRun(sql: string, params: any[] = []): Promise<SQLite.SQLiteRunResult> {
-  try {
-    const database = await getDb();
-    const result = await database.runAsync(sql, params);
-    return result;
-  } catch (err: any) {
-    logError('[DB] Run execution failed:', { sql, params, error: err });
-    throw err;
-  }
+  // Serialize all write operations through write queue to prevent SQLITE_BUSY errors
+  return enqueueWrite(async () => {
+    try {
+      const database = await getDb();
+      const result = await database.runAsync(sql, params);
+      return result;
+    } catch (err: any) {
+      logError('[DB] Run execution failed:', { sql, params, error: err });
+      throw err;
+    }
+  }, 'execRun');
 }
 
 export async function ensureTables() {
@@ -234,58 +246,61 @@ export async function ensureTables() {
  * WARNING: This is destructive and cannot be undone
  */
 export async function clearDatabase() {
-  const database = await getDb();
-  
-  // Delete all data from tables in a single transaction
-  await database.withTransactionAsync(async () => {
-    await database.execAsync('DELETE FROM transactions;');
-    await database.execAsync('DELETE FROM wallets;');
-    await database.execAsync('DELETE FROM categories;');
+  // RELEASE-BUILD FIX: Wrap clear operation in write queue to prevent concurrent access
+  return enqueueWrite(async () => {
+    const database = await getDb();
     
-    // Reset autoincrement counters
-    await database.execAsync('DELETE FROM sqlite_sequence WHERE name IN ("transactions", "wallets", "categories");');
-  });
-  
-  // Re-seed preset categories
-  const presetExpense = [
-    { name: 'Food', icon: '🍔' },
-    { name: 'Transport', icon: '🚗' },
-    { name: 'Rent', icon: '🏠' },
-    { name: 'Groceries', icon: '🛒' },
-    { name: 'Utilities', icon: '💡' },
-    { name: 'Shopping', icon: '🛍️' },
-    { name: 'Healthcare', icon: '⚕️' },
-    { name: 'Entertainment', icon: '🎬' },
-    { name: 'Education', icon: '📚' },
-    { name: 'Bills', icon: '📄' },
-    { name: 'Other', icon: '📊' }
-  ];
-  const presetIncome = [
-    { name: 'Salary', icon: '💰' },
-    { name: 'Freelance', icon: '💼' },
-    { name: 'Business', icon: '🏢' },
-    { name: 'Investment', icon: '📈' },
-    { name: 'Gift', icon: '🎁' },
-    { name: 'Offering', icon: '🙏' },
-    { name: 'Other Income', icon: '💵' }
-  ];
-  
-  // Batch insert all categories in a single transaction for better performance
-  await database.withTransactionAsync(async () => {
-    const statement = await database.prepareAsync(
-      'INSERT INTO categories (name, type, icon, is_preset) VALUES (?, ?, ?, 1);'
-    );
-    
-    try {
-      for (const cat of presetExpense) {
-        await statement.executeAsync([cat.name, 'expense', cat.icon]);
-      }
+    // Delete all data from tables in a single transaction
+    await database.withTransactionAsync(async () => {
+      await database.execAsync('DELETE FROM transactions;');
+      await database.execAsync('DELETE FROM wallets;');
+      await database.execAsync('DELETE FROM categories;');
       
-      for (const cat of presetIncome) {
-        await statement.executeAsync([cat.name, 'income', cat.icon]);
+      // Reset autoincrement counters
+      await database.execAsync('DELETE FROM sqlite_sequence WHERE name IN ("transactions", "wallets", "categories");');
+    });
+    
+    // Re-seed preset categories
+    const presetExpense = [
+      { name: 'Food', icon: '🍔' },
+      { name: 'Transport', icon: '🚗' },
+      { name: 'Rent', icon: '🏠' },
+      { name: 'Groceries', icon: '🛒' },
+      { name: 'Utilities', icon: '💡' },
+      { name: 'Shopping', icon: '🛍️' },
+      { name: 'Healthcare', icon: '⚕️' },
+      { name: 'Entertainment', icon: '🎬' },
+      { name: 'Education', icon: '📚' },
+      { name: 'Bills', icon: '📄' },
+      { name: 'Other', icon: '📊' }
+    ];
+    const presetIncome = [
+      { name: 'Salary', icon: '💰' },
+      { name: 'Freelance', icon: '💼' },
+      { name: 'Business', icon: '🏢' },
+      { name: 'Investment', icon: '📈' },
+      { name: 'Gift', icon: '🎁' },
+      { name: 'Offering', icon: '🙏' },
+      { name: 'Other Income', icon: '💵' }
+    ];
+    
+    // Batch insert all categories in a single transaction for better performance
+    await database.withTransactionAsync(async () => {
+      const statement = await database.prepareAsync(
+        'INSERT INTO categories (name, type, icon, is_preset) VALUES (?, ?, ?, 1);'
+      );
+      
+      try {
+        for (const cat of presetExpense) {
+          await statement.executeAsync([cat.name, 'expense', cat.icon]);
+        }
+        
+        for (const cat of presetIncome) {
+          await statement.executeAsync([cat.name, 'income', cat.icon]);
+        }
+      } finally {
+        await statement.finalizeAsync();
       }
-    } finally {
-      await statement.finalizeAsync();
-    }
-  });
+    });
+  }, 'clear_database');
 }

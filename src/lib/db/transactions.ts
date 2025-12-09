@@ -3,6 +3,7 @@ import { Transaction } from '../../types/transaction';
 import { getWallet } from './wallets';
 import { analyticsCache, generateCacheKey, invalidateTransactionCaches } from '../cache/queryCache';
 import { log } from '../../utils/logger';
+import { enqueueWrite } from './writeQueue';
 
 export async function addTransaction(t: Transaction) {
   const params = [
@@ -44,38 +45,41 @@ export async function addTransaction(t: Transaction) {
 export async function addTransactionsBatch(transactions: Transaction[]): Promise<void> {
   if (transactions.length === 0) return;
   
-  const database = await getDb();
-  
-  await database.withTransactionAsync(async () => {
-    const statement = await database.prepareAsync(
-      `INSERT INTO transactions 
-       (wallet_id, type, amount, category, date, notes, receipt_uri, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
-    );
+  // RELEASE-BUILD FIX: Wrap batch transaction in write queue to prevent concurrent writes
+  return enqueueWrite(async () => {
+    const database = await getDb();
     
-    try {
-      for (const t of transactions) {
-        await statement.executeAsync([
-          t.wallet_id,
-          t.type,
-          t.amount,
-          t.category ?? null,
-          t.date,
-          t.notes ?? null,
-          t.receipt_uri ?? null,
-          t.is_recurring ? 1 : 0,
-          t.recurrence_frequency ?? null,
-          t.recurrence_end_date ?? null,
-          t.parent_transaction_id ?? null,
-        ]);
+    await database.withTransactionAsync(async () => {
+      const statement = await database.prepareAsync(
+        `INSERT INTO transactions 
+         (wallet_id, type, amount, category, date, notes, receipt_uri, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+      );
+      
+      try {
+        for (const t of transactions) {
+          await statement.executeAsync([
+            t.wallet_id,
+            t.type,
+            t.amount,
+            t.category ?? null,
+            t.date,
+            t.notes ?? null,
+            t.receipt_uri ?? null,
+            t.is_recurring ? 1 : 0,
+            t.recurrence_frequency ?? null,
+            t.recurrence_end_date ?? null,
+            t.parent_transaction_id ?? null,
+          ]);
+        }
+      } finally {
+        await statement.finalizeAsync();
       }
-    } finally {
-      await statement.finalizeAsync();
-    }
-  });
-  
-  // Invalidate caches after batch insert
-  invalidateTransactionCaches();
+    });
+    
+    // Invalidate caches after batch insert
+    invalidateTransactionCaches();
+  }, `batch_transactions_${transactions.length}`);
 }
 
 /**
