@@ -1,14 +1,91 @@
 import { exec, execRun, getDb } from './index';
 import { Wallet } from '../../types/wallet';
 import { invalidateWalletCaches } from '../cache/queryCache';
-import { error as logError, log } from '../../utils/logger';
+import { error as logError, log, generateOperationId, metrics, warn } from '../../utils/logger';
+import { detectJSEngine, toSafeInteger, isSafeInteger } from '../../utils/platform';
+
+// Idempotency tracking for wallet reorder operations
+// Prevents duplicate reorders within a short time window
+// NOTE: This is a simple in-memory cache suitable for single-user mobile app
+// The entire order (as comma-separated IDs) is used as the hash, so different
+// orderings of the same wallets are correctly treated as different operations
+const recentReorders = new Map<string, number>();
+const REORDER_IDEMPOTENCY_WINDOW_MS = 2000; // 2 seconds
+
+/**
+ * Generate a hash of the wallet order for idempotency checking
+ * Uses the complete ordered sequence of wallet IDs to uniquely identify each reorder operation
+ */
+function hashWalletOrder(orderUpdates: Array<{ id: number; display_order: number }>): string {
+  // Sort by display_order to get the intended final order, then join IDs
+  // This ensures [A,B,C] and [C,B,A] produce different hashes
+  return orderUpdates
+    .slice() // Create copy to avoid mutating input
+    .sort((a, b) => a.display_order - b.display_order)
+    .map(u => u.id)
+    .join(',');
+}
+
+/**
+ * Check if a reorder operation is a duplicate within the idempotency window
+ * 
+ * NOTE: This implementation uses an in-memory Map which is suitable for
+ * a single-user mobile app context. In React Native, JavaScript runs on a
+ * single thread, so Map operations are effectively atomic. For server-side
+ * or multi-threaded environments, proper synchronization would be needed.
+ */
+function isDuplicateReorder(orderUpdates: Array<{ id: number; display_order: number }>): boolean {
+  const orderHash = hashWalletOrder(orderUpdates);
+  const lastReorderTime = recentReorders.get(orderHash);
+  const now = Date.now();
+  
+  if (lastReorderTime && (now - lastReorderTime) < REORDER_IDEMPOTENCY_WINDOW_MS) {
+    return true;
+  }
+  
+  // Update the last reorder time
+  recentReorders.set(orderHash, now);
+  
+  // Clean up old entries to prevent memory leak
+  if (recentReorders.size > 100) {
+    const cutoffTime = now - REORDER_IDEMPOTENCY_WINDOW_MS;
+    for (const [hash, time] of recentReorders.entries()) {
+      if (time < cutoffTime) {
+        recentReorders.delete(hash);
+      }
+    }
+  }
+  
+  return false;
+}
 
 export async function createWallet(w: Wallet) {
+  const operationId = generateOperationId();
   const startTime = Date.now();
+  
   try {
+    log('[DB] Creating wallet', { name: w.name, currency: w.currency, operationId }, operationId);
+    metrics.increment('db.wallet.create.total');
+    
     // Get the count of existing wallets to set display_order
     const existingWallets = await exec<{ count: number }>('SELECT COUNT(*) as count FROM wallets;');
-    const nextDisplayOrder = existingWallets[0]?.count ?? 0;
+    const rawCount = existingWallets[0]?.count ?? 0;
+    
+    // RELEASE-BUILD FIX: Ensure display_order is a safe integer
+    // In Hermes, number handling can differ from JSC, and SQLite expects INTEGER type
+    const nextDisplayOrder = toSafeInteger(rawCount);
+    
+    // RELEASE DEBUG: Log type information for debugging
+    if (!__DEV__) {
+      console.log('[RELEASE_DEBUG] createWallet display_order:', {
+        rawCount,
+        nextDisplayOrder,
+        isInteger: Number.isInteger(nextDisplayOrder),
+        isSafe: isSafeInteger(nextDisplayOrder),
+        jsEngine: detectJSEngine(),
+        operationId,
+      });
+    }
     
     const params = [
       w.name,
@@ -30,13 +107,27 @@ export async function createWallet(w: Wallet) {
     );
     
     const writeTime = Date.now() - startTime;
-    log(`[DB] Wallet created in ${writeTime}ms, name: ${w.name}, currency: ${w.currency}, timestamp: ${new Date().toISOString()}`);
+    log('[DB] Wallet created successfully', { 
+      name: w.name, 
+      currency: w.currency, 
+      duration: writeTime,
+      display_order: nextDisplayOrder,
+      operationId 
+    }, operationId);
+    
+    metrics.increment('db.wallet.create.success');
     
     // Invalidate wallet caches after creation
     invalidateWalletCaches();
   } catch (err: any) {
     const writeTime = Date.now() - startTime;
-    logError(`[DB] Failed to create wallet after ${writeTime}ms:`, err);
+    logError('[DB] Failed to create wallet', { 
+      error: err.message, 
+      duration: writeTime,
+      operationId 
+    }, operationId);
+    
+    metrics.increment('db.wallet.create.error');
     throw err; // Re-throw to allow UI to handle it
   }
 }
@@ -79,27 +170,122 @@ export async function getWallets(): Promise<Wallet[]> {
 /**
  * Update the display order of multiple wallets at once
  * Ensures display_order values are always sequential (0, 1, 2, ...)
+ * Includes idempotency protection to prevent duplicate reorders within 2 seconds
+ * RELEASE-BUILD HARDENED: Adds explicit integer coercion and detailed logging
  * @param orderUpdates - Array of {id, display_order} objects (display_order values are ignored and forced sequential)
  */
 export async function updateWalletsOrder(orderUpdates: Array<{ id: number; display_order: number }>): Promise<void> {
+  const operationId = generateOperationId();
+  const startTime = Date.now();
   const database = await getDb();
   
-  // Use a transaction to batch all updates for better performance
-  // This ensures atomic updates and prevents partial state
-  await database.withTransactionAsync(async () => {
-    const statement = await database.prepareAsync('UPDATE wallets SET display_order = ? WHERE id = ?;');
+  // RELEASE DEBUG: Log input state for debugging release-specific issues
+  if (!__DEV__) {
+    console.log('[RELEASE_DEBUG] updateWalletsOrder input:', {
+      operationId,
+      updateCount: orderUpdates.length,
+      updates: orderUpdates,
+      jsEngine: detectJSEngine(),
+      timestamp: new Date().toISOString(),
+    });
+  }
+  
+  // Idempotency check: prevent duplicate reorder operations within short time window
+  if (isDuplicateReorder(orderUpdates)) {
+    warn('[DB] Duplicate wallet reorder detected within idempotency window', { 
+      walletCount: orderUpdates.length,
+      operationId 
+    }, operationId);
     
-    try {
-      // Ensure sequential ordering: index 0 gets display_order=0, index 1 gets display_order=1, etc.
-      // This guarantees that getWallets() will always return wallets in the intended order
-      for (let i = 0; i < orderUpdates.length; i++) {
-        const walletId = orderUpdates[i].id;
-        await statement.executeAsync([i, walletId]);
+    metrics.increment('db.wallet.reorder.duplicate');
+    return; // Skip duplicate operation
+  }
+  
+  try {
+    log('[DB] Updating wallet order', { 
+      walletCount: orderUpdates.length, 
+      operationId 
+    }, operationId);
+    
+    metrics.increment('db.wallet.reorder.total');
+    
+    // Use a transaction to batch all updates for better performance
+    // This ensures atomic updates and prevents partial state
+    await database.withTransactionAsync(async () => {
+      const statement = await database.prepareAsync('UPDATE wallets SET display_order = ? WHERE id = ?;');
+      
+      try {
+        // Ensure sequential ordering: index 0 gets display_order=0, index 1 gets display_order=1, etc.
+        // This guarantees that getWallets() will always return wallets in the intended order
+        // RELEASE-BUILD FIX: Explicitly convert index to safe integer for Hermes compatibility
+        for (let i = 0; i < orderUpdates.length; i++) {
+          const walletId = toSafeInteger(orderUpdates[i].id);
+          const displayOrder = toSafeInteger(i); // Force sequential integer values
+          
+          // RELEASE DEBUG: Log each update in release builds
+          if (!__DEV__ && i < 3) { // Log first 3 to avoid spam
+            console.log('[RELEASE_DEBUG] Updating wallet:', {
+              walletId,
+              displayOrder,
+              isIdInteger: Number.isInteger(walletId),
+              isOrderInteger: Number.isInteger(displayOrder),
+            });
+          }
+          
+          await statement.executeAsync([displayOrder, walletId]);
+        }
+      } finally {
+        await statement.finalizeAsync();
       }
-    } finally {
-      await statement.finalizeAsync();
+    });
+    
+    const duration = Date.now() - startTime;
+    log('[DB] Wallet order updated successfully', { 
+      walletCount: orderUpdates.length, 
+      duration,
+      operationId 
+    }, operationId);
+    
+    // RELEASE DEBUG: Verify final state after reorder
+    if (!__DEV__) {
+      const finalWallets = await exec<{ id: number; display_order: number }>(
+        'SELECT id, display_order FROM wallets ORDER BY display_order ASC LIMIT 5;'
+      );
+      console.log('[RELEASE_DEBUG] Post-reorder wallet state:', {
+        first5Wallets: finalWallets,
+        operationId,
+      });
     }
-  });
+    
+    metrics.increment('db.wallet.reorder.success');
+    
+    // Invalidate caches after successful reorder
+    invalidateWalletCaches();
+  } catch (err: any) {
+    const duration = Date.now() - startTime;
+    
+    // RELEASE DEBUG: Log full error details in release builds
+    if (!__DEV__) {
+      console.error('[RELEASE_DEBUG] Reorder error details:', {
+        error: err.message,
+        stack: err.stack,
+        errorCode: err.code,
+        walletCount: orderUpdates.length,
+        operationId,
+        jsEngine: detectJSEngine(),
+      });
+    }
+    
+    logError('[DB] Failed to update wallet order', { 
+      error: err.message, 
+      walletCount: orderUpdates.length,
+      duration,
+      operationId 
+    }, operationId);
+    
+    metrics.increment('db.wallet.reorder.error');
+    throw err;
+  }
 }
 
 export async function getWallet(id: number): Promise<Wallet[]> {
