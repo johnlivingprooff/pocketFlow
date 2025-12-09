@@ -331,15 +331,13 @@ function DraggableItem({
 
   const card = (
     <View style={{ height: CARD_HEIGHT, position: 'relative' }}>
-      <TouchableOpacity activeOpacity={0.8} style={{ flex: 1 }}>
-        <WalletCard
-          name={wallet.name}
-          balance={balance}
-          currency={wallet.currency}
-          color={wallet.color}
-          mode={themeMode}
-        />
-      </TouchableOpacity>
+      <WalletCard
+        name={wallet.name}
+        balance={balance}
+        currency={wallet.currency}
+        color={wallet.color}
+        mode={themeMode}
+      />
       {/* Drag handle: only this area activates gestures */}
       <GestureDetector gesture={gesture}>
         <View style={styles.handle}>
@@ -351,7 +349,9 @@ function DraggableItem({
 
   const content = showLink ? (
     <Link href={`/wallets/${wallet.id}`} asChild>
-      {card}
+      <TouchableOpacity activeOpacity={0.8}>
+        {card}
+      </TouchableOpacity>
     </Link>
   ) : (
     card

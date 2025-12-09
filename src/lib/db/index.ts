@@ -155,12 +155,13 @@ export async function ensureTables() {
   await database.execAsync(
     `CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
       type TEXT CHECK(type IN ('income','expense','both')),
       icon TEXT,
       color TEXT,
       is_preset INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(name, type)
     );`
   );
 

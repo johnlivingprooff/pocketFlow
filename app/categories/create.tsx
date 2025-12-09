@@ -97,7 +97,7 @@ export default function CreateCategory() {
         setAlertConfig({
           visible: true,
           title: 'Error',
-          message: 'A category with this name already exists',
+          message: `A ${categoryType} category with this name already exists`,
           buttons: [{ text: 'OK' }]
         });
       } else {

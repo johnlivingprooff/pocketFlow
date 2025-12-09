@@ -69,7 +69,17 @@ export async function getCategoryById(id: number): Promise<Category | null> {
   return results.length > 0 ? results[0] : null;
 }
 
-export async function getCategoryByName(name: string): Promise<Category | null> {
-  const results = await exec<Category>('SELECT * FROM categories WHERE name = ?;', [name]);
+export async function getCategoryByName(name: string, type?: 'income' | 'expense'): Promise<Category | null> {
+  if (type) {
+    const results = await exec<Category>(
+      'SELECT * FROM categories WHERE LOWER(name) = LOWER(?) AND type = ?;',
+      [name, type]
+    );
+    return results.length > 0 ? results[0] : null;
+  }
+  const results = await exec<Category>(
+    'SELECT * FROM categories WHERE LOWER(name) = LOWER(?);',
+    [name]
+  );
   return results.length > 0 ? results[0] : null;
 }
