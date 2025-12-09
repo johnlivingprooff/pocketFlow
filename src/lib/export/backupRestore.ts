@@ -101,6 +101,7 @@ export async function listBackups(): Promise<{ filename: string; uri: string; da
 
 /**
  * Restores data from a backup file
+ * FIXED: Wrapped in database transaction for atomicity
  */
 export async function restoreFromBackup(backupUri: string): Promise<{ success: boolean; error?: string }> {
   try {
@@ -113,68 +114,107 @@ export async function restoreFromBackup(backupUri: string): Promise<{ success: b
       throw new Error('Invalid backup file format');
     }
 
-    // Clear existing data
-    await exec('DELETE FROM transactions');
-    await exec('DELETE FROM wallets');
-    await exec('DELETE FROM categories');
+    // ✅ FIX: Import getDb and wrap entire operation in transaction
+    const { getDb } = await import('../db');
+    const database = await getDb();
+    
+    await database.withTransactionAsync(async () => {
+      // Clear existing data
+      await database.execAsync('DELETE FROM transactions;');
+      await database.execAsync('DELETE FROM wallets;');
+      await database.execAsync('DELETE FROM categories;');
+      
+      // Reset autoincrement counters
+      await database.execAsync('DELETE FROM sqlite_sequence WHERE name IN ("transactions", "wallets", "categories");');
 
-    // Restore categories
-    for (const cat of backupData.data.categories) {
-      await exec(
-        `INSERT INTO categories (id, name, type, icon, color, created_at, updated_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [cat.id, cat.name, cat.type, cat.icon, cat.color, cat.created_at, cat.updated_at]
-      );
-    }
+      // Restore categories
+      if (backupData.data.categories && backupData.data.categories.length > 0) {
+        const catStmt = await database.prepareAsync(
+          `INSERT INTO categories (id, name, type, icon, color, is_preset, created_at) 
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        );
+        try {
+          for (const cat of backupData.data.categories) {
+            await catStmt.executeAsync([
+              cat.id, 
+              cat.name, 
+              cat.type, 
+              cat.icon || null, 
+              cat.color || null, 
+              cat.is_preset ?? 0, 
+              cat.created_at || new Date().toISOString()
+            ]);
+          }
+        } finally {
+          await catStmt.finalizeAsync();
+        }
+      }
 
-    // Restore wallets
-    for (const wallet of backupData.data.wallets) {
-      await exec(
-        `INSERT INTO wallets (id, name, balance, currency, type, description, color, is_primary, order_index, exchange_rate, created_at, updated_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          wallet.id,
-          wallet.name,
-          wallet.balance,
-          wallet.currency,
-          wallet.type,
-          wallet.description,
-          wallet.color,
-          wallet.is_primary,
-          wallet.order_index,
-          wallet.exchange_rate,
-          wallet.created_at,
-          wallet.updated_at,
-        ]
+      // Restore wallets
+      const walletStmt = await database.prepareAsync(
+        `INSERT INTO wallets (id, name, currency, initial_balance, type, description, color, is_primary, display_order, exchange_rate, created_at) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       );
-    }
+      try {
+        for (const wallet of backupData.data.wallets) {
+          await walletStmt.executeAsync([
+            wallet.id,
+            wallet.name,
+            wallet.currency,
+            wallet.initial_balance ?? 0,
+            wallet.type || null,
+            wallet.description || null,
+            wallet.color || null,
+            wallet.is_primary ?? 0,
+            wallet.display_order ?? 0,
+            wallet.exchange_rate ?? 1.0,
+            wallet.created_at || new Date().toISOString(),
+          ]);
+        }
+      } finally {
+        await walletStmt.finalizeAsync();
+      }
 
-    // Restore transactions
-    for (const transaction of backupData.data.transactions) {
-      await exec(
-        `INSERT INTO transactions (id, wallet_id, type, amount, category, date, notes, receipt_uri, is_recurring, recurrence_frequency, recurrence_end_date, created_at, updated_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          transaction.id,
-          transaction.wallet_id,
-          transaction.type,
-          transaction.amount,
-          transaction.category,
-          transaction.date,
-          transaction.notes,
-          transaction.receipt_uri,
-          transaction.is_recurring,
-          transaction.recurrence_frequency,
-          transaction.recurrence_end_date,
-          transaction.created_at,
-          transaction.updated_at,
-        ]
+      // Restore transactions
+      const txnStmt = await database.prepareAsync(
+        `INSERT INTO transactions (id, wallet_id, type, amount, category, date, notes, receipt_uri, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id, created_at) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       );
-    }
+      try {
+        for (const txn of backupData.data.transactions) {
+          await txnStmt.executeAsync([
+            txn.id,
+            txn.wallet_id,
+            txn.type,
+            txn.amount,
+            txn.category || null,
+            txn.date,
+            txn.notes || null,
+            txn.receipt_uri || null,
+            txn.is_recurring ?? 0,
+            txn.recurrence_frequency || null,
+            txn.recurrence_end_date || null,
+            txn.parent_transaction_id || null,
+            txn.created_at || new Date().toISOString(),
+          ]);
+        }
+      } finally {
+        await txnStmt.finalizeAsync();
+      }
+    });
+
+    // ✅ Invalidate caches only after successful restore
+    const { invalidateTransactionCaches } = await import('../cache/queryCache');
+    invalidateTransactionCaches();
 
     return { success: true };
   } catch (error) {
     console.error('Error restoring backup:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Failed to restore backup' };
+    return { 
+      success: false, 
+      error: error instanceof Error 
+        ? `${error.message}. Your existing data was not modified.` 
+        : 'Failed to restore backup. Your existing data was not modified.' 
+    };
   }
 }
