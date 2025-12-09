@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, useColorScheme, Image, RefreshControl } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, useColorScheme, Image, RefreshControl, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useWallets } from '../../src/lib/hooks/useWallets';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
 import { WalletCard } from '../../src/components/WalletCard';
-import { DraggableWalletList } from '../../src/components/DraggableWalletList';
 import { TransferModal } from '../../src/components/TransferModal';
 import { transferBetweenWallets } from '../../src/lib/db/transactions';
 import { Link } from 'expo-router';
@@ -18,6 +17,7 @@ export default function WalletsList() {
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const [transferModalVisible, setTransferModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -34,6 +34,18 @@ export default function WalletsList() {
     await transferBetweenWallets(fromWalletId, toWalletId, amount, notes);
     // The useWallets hook will automatically refresh via useFocusEffect when modal closes
   };
+
+  // Filter wallets based on search query
+  const filteredWallets = useMemo(() => {
+    if (!searchQuery.trim()) return wallets;
+    const query = searchQuery.toLowerCase();
+    return wallets.filter(wallet => 
+      wallet.name.toLowerCase().includes(query) ||
+      wallet.currency.toLowerCase().includes(query)
+    );
+  }, [wallets, searchQuery]);
+
+  const showSearch = wallets.length > 10;
 
   return (
     <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
@@ -53,7 +65,7 @@ export default function WalletsList() {
           <View>
             <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>Wallets</Text>
               <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>
-                {wallets.length > 0 ? 'Hold & drag to reorder' : 'Manage your payment methods'}
+                {wallets.length === 0 ? 'Manage your payment methods' : `${wallets.length} wallet${wallets.length !== 1 ? 's' : ''}`}
               </Text>
           </View>
           <Link href="/profile" asChild>
@@ -68,16 +80,58 @@ export default function WalletsList() {
             </TouchableOpacity>
           </Link>
         </View>
-        {/* Wallet Cards */}
-          {wallets.length > 0 && (
-            <DraggableWalletList
-              wallets={wallets}
-              balances={balances}
-              themeMode={effectiveMode}
-              onOrderChange={refresh}
-              showLinks={true}
+
+        {/* Search Bar - Only visible when > 10 wallets */}
+        {showSearch && (
+          <View style={{ marginBottom: 16 }}>
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search wallets..."
+              placeholderTextColor={t.textSecondary}
+              style={{
+                backgroundColor: t.card,
+                borderWidth: 1,
+                borderColor: t.border,
+                borderRadius: 12,
+                padding: 12,
+                fontSize: 15,
+                color: t.textPrimary,
+              }}
             />
-          )}
+          </View>
+        )}
+
+        {/* Wallet Cards */}
+        {filteredWallets.length > 0 ? (
+          <View style={{ gap: 15, marginBottom: 16 }}>
+            {filteredWallets.map((wallet) => (
+              <Link key={wallet.id} href={`/wallets/${wallet.id}`} asChild>
+                <TouchableOpacity activeOpacity={0.8}>
+                  <WalletCard
+                    name={wallet.name}
+                    balance={balances[wallet.id!] ?? 0}
+                    currency={wallet.currency}
+                    color={wallet.color}
+                    mode={effectiveMode}
+                  />
+                </TouchableOpacity>
+              </Link>
+            ))}
+          </View>
+        ) : searchQuery.trim() ? (
+          <View style={{ 
+            backgroundColor: t.card, 
+            borderRadius: 12, 
+            padding: 24, 
+            alignItems: 'center',
+            marginBottom: 16,
+          }}>
+            <Text style={{ fontSize: 32, marginBottom: 8 }}>🔍</Text>
+            <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>No wallets found</Text>
+            <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Try a different search term</Text>
+          </View>
+        ) : null}
         
         {/* Transfer Button */}
         {wallets.length >= 2 && (
