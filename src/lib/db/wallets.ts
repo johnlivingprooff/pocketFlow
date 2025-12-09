@@ -203,6 +203,8 @@ export async function updateWalletsOrder(orderUpdates: Array<{ id: number; displ
   
   // RELEASE-BUILD FIX: Wrap entire transaction in write queue to prevent concurrent writes
   // This ensures atomic reorder operations don't conflict with other database writes
+  // Note: Database connection is obtained inside the queue callback to ensure it's ready
+  // when the operation executes. The connection is cached globally, so this is efficient.
   return enqueueWrite(async () => {
     const database = await getDb();
     

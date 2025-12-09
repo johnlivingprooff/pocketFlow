@@ -14,13 +14,28 @@ export async function getDb() {
       db = await SQLite.openDatabaseAsync('pocketflow.db');
       
       // RELEASE-BUILD FIX: Enable WAL mode and busy timeout to prevent database lock errors
-      // WAL (Write-Ahead Logging) reduces write lock contention for concurrent operations
-      // busy_timeout makes writers wait instead of immediately failing with SQLITE_BUSY
-      await db.execAsync('PRAGMA journal_mode = WAL;');
-      await db.execAsync('PRAGMA busy_timeout = 5000;'); // 5 seconds
-      await db.execAsync('PRAGMA synchronous = NORMAL;'); // Balance safety and performance
-      
-      log('[DB] Database connection opened successfully with WAL mode enabled');
+      // These PRAGMA commands are critical for the fix to work properly
+      try {
+        // WAL (Write-Ahead Logging) reduces write lock contention for concurrent operations
+        const walResult = await db.execAsync('PRAGMA journal_mode = WAL;');
+        log('[DB] WAL mode enabled successfully');
+        
+        // busy_timeout makes writers wait instead of immediately failing with SQLITE_BUSY
+        await db.execAsync('PRAGMA busy_timeout = 5000;'); // 5 seconds
+        
+        // NORMAL mode provides crash safety (survives app crashes) but not power failure protection.
+        // This is acceptable for mobile apps and significantly faster than FULL synchronous mode.
+        // Trade-off: Faster writes vs. protection against OS crashes/power failures.
+        await db.execAsync('PRAGMA synchronous = NORMAL;');
+        
+        log('[DB] Database connection opened successfully with WAL mode enabled');
+      } catch (pragmaError: any) {
+        // PRAGMA failures are critical - if we can't configure the database properly,
+        // we're at risk of lock errors. Log the error but don't fail initialization
+        // since the database may still be usable (though with higher lock risk).
+        logError('[DB] Failed to configure database PRAGMAs:', pragmaError);
+        warn('[DB] Database opened but not optimally configured - lock errors may occur');
+      }
     } catch (err: any) {
       logError('[DB] Failed to open database:', err);
       throw new Error('Failed to open database. Please restart the app.');

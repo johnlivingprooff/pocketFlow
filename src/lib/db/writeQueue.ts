@@ -11,6 +11,13 @@
  * - Automatic retry with exponential backoff for lock errors
  * - Metrics and logging for observability
  * 
+ * Architecture:
+ * The queue is implemented as a promise chain stored in `queueTail`. Each new operation
+ * is appended to the tail, ensuring FIFO execution. This pattern ensures that:
+ * 1. Operations execute in the order they were enqueued
+ * 2. Only one operation executes at a time (no concurrent writes)
+ * 3. Failed operations don't break the queue chain
+ * 
  * Usage:
  * ```typescript
  * import { enqueueWrite } from './writeQueue';
@@ -24,6 +31,9 @@
 import { log, warn, error as logError, metrics } from '../../utils/logger';
 
 // Global write queue - ensures single-threaded write execution
+// This promise chain represents the tail of the queue. Each new operation
+// is appended to this chain, guaranteeing FIFO ordering and preventing
+// concurrent write operations that could cause SQLITE_BUSY errors.
 let queueTail: Promise<void> = Promise.resolve();
 
 // Queue depth tracking for monitoring
@@ -34,12 +44,22 @@ let maxQueueDepth = 0;
  * Check if an error is a SQLite lock/busy error that should be retried
  */
 function isSQLiteLockError(error: any): boolean {
-  const errorStr = String(error).toLowerCase();
+  // Check structured error properties first
+  if (error.code) {
+    const code = String(error.code).toUpperCase();
+    if (code.includes('SQLITE_BUSY') || code.includes('SQLITE_LOCKED')) {
+      return true;
+    }
+  }
+  
+  // Check error message
+  const message = error.message || String(error);
+  const messageLower = message.toLowerCase();
   return (
-    errorStr.includes('sqlite_busy') ||
-    errorStr.includes('database is locked') ||
-    errorStr.includes('sqlite_locked') ||
-    errorStr.includes('database locked')
+    messageLower.includes('sqlite_busy') ||
+    messageLower.includes('database is locked') ||
+    messageLower.includes('sqlite_locked') ||
+    messageLower.includes('database locked')
   );
 }
 
@@ -148,9 +168,15 @@ export async function enqueueWrite<T>(
   });
   
   // Update queue tail
+  // This catch handler prevents unhandled promise rejections from breaking the queue chain.
+  // Errors are still properly propagated to the caller via operationPromise, but we need
+  // to catch them in the queue chain to ensure subsequent operations can still execute.
+  // Without this, one failed operation would prevent all future operations from running.
   queueTail = operationPromise.catch(() => {
-    // Catch errors so they don't break the queue chain
-    // Errors are still propagated to the caller via operationPromise
+    // Intentionally swallow errors here to maintain queue chain continuity.
+    // The original error is still propagated to the caller via operationPromise.
+    // This empty handler is necessary for queue integrity.
+    return; // Explicit return for clarity
   });
   
   return operationPromise;
