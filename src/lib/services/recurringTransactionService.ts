@@ -1,11 +1,28 @@
 import { exec, execRun } from '../db';
 import { Transaction, RecurrenceFrequency } from '../../types/transaction';
 
+// Maximum number of recurring instances to generate per processing run
+// This prevents app freeze when processing very old recurring transactions
+const MAX_INSTANCES_PER_BATCH = 100;
+
+// In-memory lock to prevent concurrent processing
+let processingRecurring = false;
+
 /**
  * Processes all recurring transactions and generates new instances if needed.
  * Should be called on app startup or when returning to foreground.
+ * FIXED: Added in-memory lock to prevent concurrent processing
  */
 export async function processRecurringTransactions(): Promise<void> {
+  // ✅ FIX: Check if already processing
+  if (processingRecurring) {
+    console.log('[Recurring] Already processing, skipping duplicate call');
+    return;
+  }
+  
+  processingRecurring = true;
+  const startTime = Date.now();
+  
   try {
     // Get all recurring transactions (templates)
     const recurringTransactions = await exec<Transaction>(
@@ -16,6 +33,9 @@ export async function processRecurringTransactions(): Promise<void> {
 
     const now = new Date();
     now.setHours(0, 0, 0, 0); // Start of today
+    
+    let totalGenerated = 0;
+    let cappedCount = 0; // ✅ Track how many templates hit the limit
 
     for (const template of recurringTransactions) {
       if (!template.id || !template.recurrence_frequency) continue;
@@ -41,24 +61,53 @@ export async function processRecurringTransactions(): Promise<void> {
         template.recurrence_frequency,
         template.recurrence_end_date
       );
+      
+      // ✅ Check if generation was capped
+      if (instancesToGenerate.length === MAX_INSTANCES_PER_BATCH) {
+        cappedCount++;
+        console.log(
+          `[Recurring] Template ${template.id} capped at ${MAX_INSTANCES_PER_BATCH} instances. ` +
+          `More will be generated on next launch.`
+        );
+      }
+      
+      totalGenerated += instancesToGenerate.length;
 
       for (const instanceDate of instancesToGenerate) {
         await createRecurringInstance(template, instanceDate);
       }
     }
+    
+    const duration = Date.now() - startTime;
+    console.log(
+      `[Recurring] Processed ${recurringTransactions.length} templates, ` +
+      `generated ${totalGenerated} instances in ${duration}ms`
+    );
+    
+    // ✅ Log summary if any templates were capped
+    if (cappedCount > 0) {
+      console.log(
+        `[Recurring] ${cappedCount} template(s) reached the ${MAX_INSTANCES_PER_BATCH} instance limit. ` +
+        `Remaining instances will be generated on subsequent app launches.`
+      );
+    }
   } catch (error) {
     console.error('Error processing recurring transactions:', error);
+  } finally {
+    processingRecurring = false;
   }
 }
 
 /**
  * Calculate which dates need transaction instances generated
+ * FIXED: Added maxInstances parameter to prevent unbounded generation
  */
 function calculateMissingInstances(
   startDate: Date,
   endDate: Date,
   frequency: RecurrenceFrequency,
-  recurrenceEndDate?: string
+  recurrenceEndDate?: string,
+  maxInstances: number = MAX_INSTANCES_PER_BATCH
 ): Date[] {
   const instances: Date[] = [];
   const current = new Date(startDate);
@@ -68,7 +117,8 @@ function calculateMissingInstances(
   // Start from the next occurrence after startDate
   advanceDate(current, frequency);
 
-  while (current <= end) {
+  // ✅ FIX: Add maxInstances limit to while condition
+  while (current <= end && instances.length < maxInstances) {
     // Check if we've passed the recurrence end date
     if (recurEnd && current > recurEnd) break;
 
@@ -101,6 +151,7 @@ function advanceDate(date: Date, frequency: RecurrenceFrequency): void {
 
 /**
  * Create a new transaction instance from a recurring template
+ * FIXED: Uses INSERT OR IGNORE to prevent duplicates
  */
 async function createRecurringInstance(
   template: Transaction,
@@ -108,8 +159,10 @@ async function createRecurringInstance(
 ): Promise<void> {
   const dateStr = instanceDate.toISOString();
 
+  // ✅ FIX: Use INSERT OR IGNORE to prevent duplicate instances
+  // This makes the operation idempotent
   await execRun(
-    `INSERT INTO transactions 
+    `INSERT OR IGNORE INTO transactions 
      (wallet_id, type, amount, category, date, notes, parent_transaction_id, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [

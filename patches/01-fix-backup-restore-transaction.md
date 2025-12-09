@@ -1,104 +1,16 @@
-import * as FileSystem from 'expo-file-system/legacy';
-import { yyyyMmDd } from '../../utils/date';
-import { exec } from '../db';
-import { Alert } from 'react-native';
+# CRITICAL PATCH 1: Fix Backup Restore Transaction Atomicity
 
-export interface BackupData {
-  version: string;
-  exportedAt: string;
-  data: {
-    wallets: any[];
-    transactions: any[];
-    categories: any[];
-  };
-}
+## File: src/lib/export/backupRestore.ts
 
-/**
- * Creates a complete backup of all app data
- */
-export async function createBackup(): Promise<{ success: boolean; uri?: string; error?: string }> {
-  try {
-    const documentDir = FileSystem.documentDirectory;
-    if (!documentDir) {
-      throw new Error('Document directory not available');
-    }
+## Issue
+Restore operation uses sequential exec() calls without transaction wrapper.
+Partial failure leaves database in inconsistent state.
 
-    // Fetch all data
-    const wallets = await exec('SELECT * FROM wallets ORDER BY created_at DESC');
-    const transactions = await exec('SELECT * FROM transactions ORDER BY date DESC');
-    const categories = await exec('SELECT * FROM categories ORDER BY name ASC');
+## Changes
 
-    const backupData: BackupData = {
-      version: '1.0',
-      exportedAt: new Date().toISOString(),
-      data: {
-        wallets,
-        transactions,
-        categories,
-      },
-    };
+Replace the `restoreFromBackup` function (lines 105-179) with:
 
-    // Create backups directory
-    const backupsDir = `${documentDir}backups`;
-    try {
-      await FileSystem.makeDirectoryAsync(backupsDir, { intermediates: true });
-    } catch (e) {
-      // Directory might already exist
-    }
-
-    // Create backup file with timestamp
-    const filename = `pocketFlow_backup_${Date.now()}.json`;
-    const fileUri = `${backupsDir}/${filename}`;
-    await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(backupData, null, 2), {
-      encoding: FileSystem.EncodingType.UTF8,
-    });
-
-    return { success: true, uri: fileUri };
-  } catch (error) {
-    console.error('Error creating backup:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Failed to create backup' };
-  }
-}
-
-/**
- * Lists all available backups
- */
-export async function listBackups(): Promise<{ filename: string; uri: string; date: Date }[]> {
-  try {
-    const documentDir = FileSystem.documentDirectory;
-    if (!documentDir) {
-      throw new Error('Document directory not available');
-    }
-
-    const backupsDir = `${documentDir}backups`;
-    
-    // Check if backups directory exists
-    const dirInfo = await FileSystem.getInfoAsync(backupsDir);
-    if (!dirInfo.exists) {
-      return [];
-    }
-
-    const files = await FileSystem.readDirectoryAsync(backupsDir);
-    const backups = files
-      .filter((f) => f.startsWith('pocketFlow_backup_') && f.endsWith('.json'))
-      .map((f) => {
-        const match = f.match(/pocketFlow_backup_(\d+)\.json/);
-        const timestamp = match ? parseInt(match[1]) : 0;
-        return {
-          filename: f,
-          uri: `${backupsDir}/${f}`,
-          date: new Date(timestamp),
-        };
-      })
-      .sort((a, b) => b.date.getTime() - a.date.getTime());
-
-    return backups;
-  } catch (error) {
-    console.error('Error listing backups:', error);
-    return [];
-  }
-}
-
+```typescript
 /**
  * Restores data from a backup file
  * FIXED: Wrapped in database transaction for atomicity
@@ -218,3 +130,21 @@ export async function restoreFromBackup(backupUri: string): Promise<{ success: b
     };
   }
 }
+```
+
+## Testing Steps
+
+1. Create a backup with valid data
+2. Manually corrupt the backup JSON (invalid wallet_id reference in transaction)
+3. Attempt to restore the corrupted backup
+4. Verify: Database remains in original state (no partial deletion)
+5. Verify: Error message indicates data was not modified
+
+## Expected Results
+
+- Failed restore leaves database unchanged (transaction rolled back)
+- Success case still works correctly
+- Cache invalidation only happens on successful restore
+- Clear error message to user
+
+---

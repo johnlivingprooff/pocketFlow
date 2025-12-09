@@ -152,6 +152,18 @@ export async function ensureTables() {
     // noop: indexes may already exist
   }
 
+  // Create index to enforce uniqueness of recurring instances
+  // This prevents duplicate generation of the same recurring transaction date
+  try {
+    await database.execAsync(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_recurring_unique 
+      ON transactions(parent_transaction_id, date) 
+      WHERE parent_transaction_id IS NOT NULL;
+    `);
+  } catch (e) {
+    // Index may already exist
+  }
+
   await database.execAsync(
     `CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
