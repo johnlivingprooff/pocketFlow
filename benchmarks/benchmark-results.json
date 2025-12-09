@@ -1,0 +1,49 @@
+{
+  "timestamp": "2025-12-09T09:29:33.712Z",
+  "database": "SQLite (Mock)",
+  "results": [
+    {
+      "operation": "Read Wallets with Balances",
+      "count": 10,
+      "totalDuration": 598,
+      "avgDuration": 59.8
+    },
+    {
+      "operation": "Read Wallets with Balances (Optimized)",
+      "count": 10,
+      "totalDuration": 27,
+      "avgDuration": 2.7
+    },
+    {
+      "operation": "Monthly Analytics",
+      "count": 1,
+      "totalDuration": 90,
+      "avgDuration": 90
+    },
+    {
+      "operation": "7-Day Chart Data (Naive)",
+      "count": 7,
+      "totalDuration": 187,
+      "avgDuration": 26.714285714285715
+    },
+    {
+      "operation": "7-Day Chart Data (Optimized)",
+      "count": 1,
+      "totalDuration": 22,
+      "avgDuration": 22
+    },
+    {
+      "operation": "Create Transactions (Batch)",
+      "count": 50,
+      "totalDuration": 534,
+      "avgDuration": 10.68
+    }
+  ],
+  "queryMetrics": {
+    "totalQueries": 83,
+    "avgLatency": 17.53012048192771,
+    "p50": 14,
+    "p95": 41,
+    "p99": 47
+  }
+}
