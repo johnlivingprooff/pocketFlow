@@ -1,0 +1,372 @@
+# 1) Agent prompt — isolate release-only SQLite locking (drop-in)
+
+Goal: Reproduce and conclusively identify the root cause(s) of `database is locked` errors that appear in Android **release** builds (debug works), triggered by wallet reorders, recurring transactions, or other user actions. Provide deterministic repro, root cause, full mitigation plan, patches and tests. Do not land changes without tests.
+
+Work rules:
+
+* Auto-detect every native/JS DB adapter in repo and test each hypothesis (adapter bug, concurrency, minification of native bindings, JS engine timing).
+* Always snapshot DB before any change. Preserve mapping files from release builds.
+* Reproduce on release-mode APK (the same minify/proguard/R8 options as production).
+* Produce artifacts listed below.
+
+Artifacts to produce (must be attached to report):
+
+* `diagnostic-bundle/` with `logcat-release.txt`, `logcat-debug.txt`, `db-before.sqlite`, `db-after.sqlite`, mapping.txt (if proguard), any JSON payload logs, failing SQL statements.
+* `reproduce.sh` — installs release APK, runs adb commands to perform the repro steps, collects logs and DB files.
+* `root-cause.md` — narrative with exact error strings, stack traces, file:line refs, and failing SQL/transaction statements.
+* `fixes.patch` + tests and stress scripts.
+* `repair-scripts/*` — DB repair + dry-run mode.
+* `issues.csv` — machine-readable list of findings.
+
+Exact reproduction procedure (run this first):
+
+1. Build release APK that matches production flags (including minify/proguard/R8 and Hermes toggle exactly as in production).
+
+   * `cd android && ./gradlew assembleRelease`
+   * Install: `adb install -r app/build/outputs/apk/release/app-release.apk`
+
+2. Start log capture:
+
+   * `adb logcat -v threadtime > diagnostic-bundle/logcat-release.txt &`
+   * (For debug run later) `adb install -r app/build/outputs/apk/debug/app-debug.apk` then `adb logcat -v threadtime > diagnostic-bundle/logcat-debug.txt &`
+
+3. Snapshot DB before repro:
+
+   * `adb shell "run-as <package.name> cat /data/data/<package.name>/databases/<dbfile>" > diagnostic-bundle/db-before.sqlite`
+   * If `run-as` fails for release, build a debug-flavored release clone that keeps DB path accessible or instrument the app to export DB to external storage.
+
+4. Reproduce sequence (script these UI steps with adb input or Espresso/Detox):
+
+   * Create baseline data (2–4 wallets, categories, transactions).
+   * Trigger **wallet reorder** (drag or simulated reorder API).
+   * Immediately try to add a new category/wallet/transaction (create + save).
+   * Trigger **create recurring transaction**.
+   * Again attempt to add new data.
+   * Capture precise timestamps.
+
+5. Collect logs and DB after repro:
+
+   * Stop logcat and ensure it’s persisted.
+   * Pull `db-after.sqlite` the same way.
+   * Record any errors including `database is locked`, `SQLITE_BUSY`, `SQLITE_LOCKED`, `attempt to write a readonly database`, or `database disk image is malformed`.
+
+6. If error does not appear locally, run release build on a device that more closely matches production (same Android version / Play signing behavior). If necessary, instrument release APK to record *every* DB statement (write SQL + params + timestamp) to a safe file.
+
+Hypotheses to test (binary-toggle experiments — do one toggle at a time and log results):
+
+A. **Concurrency / long transaction**
+
+* Test: Add `PRAGMA busy_timeout=5000` and `PRAGMA journal_mode=WAL` to DB open path; reproduce.
+* Test: Add a JS-level mutex to serialize writes and reproduce.
+* If these remove the error, locking is due to parallel writes or long transactions.
+
+B. **Adapter-level bug in release** (native module differences)
+
+* Detect adapter used (expo-sqlite, react-native-sqlite-storage, WatermelonDB, Realm, Room via native).
+* Test: Replace adapter with known-good debug shim or swap to alternative in local branch (e.g., use `react-native-sqlite-storage` vs `expo-sqlite`) and reproduce.
+
+C. **Minification / ProGuard / R8 breaking serialization / native bindings**
+
+* Toggle `minifyEnabled false` in `android/app/build.gradle`, rebuild release, reproduce.
+* If disabling minification eliminates the error, inspect `mapping.txt`, and add `-keep` rules for models and classes used by serialization/native modules.
+
+D. **JS engine (Hermes) timing/semantics**
+
+* Toggle Hermes on/off in build config; reproduce. If one engine fails and the other passes, investigate engine-specific async behavior.
+
+E. **Background worker collision (WorkManager/JobScheduler/JS timers)**
+
+* Temporarily disable background sync/recurring scheduler; reproduce. If locking stops, background job collides with foreground writes.
+
+F. **File permissions / WAL vs DELETE journal differences**
+
+* After installing release APK, `adb shell ls -l /data/data/<pkg>/databases/` and check owner/permissions.
+* Inspect `PRAGMA wal_checkpoint` and `PRAGMA integrity_check`.
+
+For each test, record:
+
+* Did the error occur? (Y/N)
+* Exact logs/stack traces.
+* DB diffs (before/after).
+* Which toggle isolates the issue.
+
+Deliverable acceptance criteria:
+
+* At least one deterministic repro that triggers the lock error on a release build and not on debug.
+* Root cause documented with file:line and failing SQL/transaction trace.
+* A minimal patch that removes the error for that repro plus tests.
+* Repair script (if DB corruption occurred) with dry-run.
+
+---
+
+# 2) Technical breakdown — fixes & implementation plan for RN/Expo SQLite locking
+
+Below is a prioritized, practical plan you can implement immediately. I’ll list **short-term mitigations** (fast to ship), then **robust, long-term fixes** with sample code and tests.
+
+## A. Short-term mitigations (ship these first — low risk)
+
+1. **Set WAL mode + busy timeout on DB open**
+
+   * WAL reduces write lock contention for reads and improves concurrency in many cases.
+   * Set `busy_timeout` so writers wait instead of immediately failing.
+
+   SQL to run when opening DB:
+
+   ```sql
+   PRAGMA journal_mode = WAL;
+   PRAGMA busy_timeout = 5000; -- milliseconds
+   PRAGMA synchronous = NORMAL; -- optional for perf
+   ```
+
+   Implement in app's DB initialization (native or JS wrapper) — ensure this runs for both debug & release.
+
+2. **Shorten transactions**
+
+   * Avoid holding long transactions open while performing network calls, heavy CPU work, or UI operations.
+   * Do compute/serialization *outside* transactions; open transaction only for the minimal set of SQL statements that must be atomic.
+
+3. **Serialize writes with a single write queue / mutex (JS-level)**
+
+   * Ensure all DB writes go through a single queue (FIFO). Never call write operations in parallel.
+   * Example simple JS queue (works for any adapter):
+
+   ```js
+   // writeQueue.js -- simple queue
+   let tail = Promise.resolve();
+
+   export function enqueueWrite(fn /* async */) {
+     // fn: an async function that performs DB writes
+     tail = tail.then(() => fn()).catch(err => {
+       // handle error so queue continues
+       console.error('DB write failed', err);
+     });
+     return tail;
+   }
+   ```
+
+   * Usage:
+
+   ```js
+   enqueueWrite(async () => {
+     await db.runInTransaction(async (tx) => {
+       await tx.executeSql(...);
+       // minimal work inside tx
+     });
+   });
+   ```
+
+4. **Add retry/backoff around SQLITE_BUSY**
+
+   * If a write gets `SQLITE_BUSY` or `database is locked`, retry with exponential backoff (short number of attempts).
+   * Example:
+
+   ```js
+   async function execWithRetry(execFn, tries = 5) {
+     let backoff = 50;
+     for (let i=0;i<tries;i++) {
+       try { return await execFn(); }
+       catch (e) {
+         if (!/SQLITE_BUSY|database is locked/i.test(String(e))) throw e;
+         await new Promise(r => setTimeout(r, backoff));
+         backoff *= 2;
+       }
+     }
+     throw new Error('DB busy after retries');
+   }
+   ```
+
+   * Combine with queue to avoid masking concurrency issues, but this reduces transient failures.
+
+5. **Add defensive checks to reorder logic**
+
+   * Reorder should use an **atomic multi-row update** instead of many sequential updates. On SQLite, update many rows inside one transaction using `UPDATE ... FROM (VALUES ...)` pattern (or perform sequential updates inside a single transaction). This reduces transaction count and lock time.
+
+   Example (pseudo SQL):
+
+   ```sql
+   BEGIN;
+   UPDATE wallets SET position = CASE id
+     WHEN 'id1' THEN 10
+     WHEN 'id2' THEN 20
+     ...
+   END
+   WHERE id IN ('id1','id2',...);
+   COMMIT;
+   ```
+
+## B. Robust long-term fixes (next iteration)
+
+1. **Centralized DB access layer**
+
+   * Create a single DB module that exposes `runWrite(fn)`, `runRead(fn)`, and enforces:
+
+     * write serialization
+     * short transactions
+     * logging/tracing for each statement
+   * This module becomes the single place to instrument performance and catch regressions.
+
+2. **Use adapter-specific runInTransaction**
+
+   * Many adapters expose `db.transaction(tx => { tx.executeSql(...) })` or `runInTransaction` — rely on the adapter transactional API to ensure atomicity and correct commits.
+
+3. **Audit all code that touches DB**
+
+   * Find code that:
+
+     * Opens transactions without closing
+     * Calls `executeSql` in parallel without transactions
+     * Uses synchronous loops to trigger writes (e.g., map over wallets and call `db.executeSql` for each without awaiting)
+   * Replace with batch updates inside a single transaction.
+
+4. **Prevent background/foreground collisions**
+
+   * If you have background sync or recurring schedulers, ensure they also go through the same write queue and use short transactions. If a background worker uses native threads, coordinate via a lockfile or WorkManager/JobScheduler contract so only one writer is active.
+
+5. **Failure-mode handling**
+
+   * If a write fails with `SQLITE_CORRUPT`, fail fast and prompt for repair flow (backup & restore).
+   * Move malformed messages to a dead-letter mechanism rather than applying them.
+
+6. **Instrument & monitor**
+
+   * Track metrics: `db.write_latency_p50/p95`, `db.busy_errors_per_minute`, `db.long_tx_count` (tx longer than X ms), `sync.queue_depth`.
+   * Log each long transaction with stack traces in staging & canary.
+
+## C. Repair scripts (if DB corruption or malformed rows exist)
+
+1. **Identify locked/corrupt DB**
+
+   * `PRAGMA integrity_check;` — returns `ok` if fine, otherwise details.
+   * If corrupt: backup DB file and attempt `sqlite3 db.sqlite "PRAGMA integrity_check;"`.
+
+2. **Safely fix common issues**
+
+   * Missing `position`: recompute from `created_at`.
+
+   ```sql
+   -- dry-run: show rows
+   SELECT id, position FROM wallets WHERE position IS NULL OR position < 0;
+
+   -- apply
+   WITH ordered AS (
+     SELECT id, row_number() OVER (ORDER BY created_at) * 10 AS new_pos
+     FROM wallets
+     WHERE position IS NULL OR position < 0
+   )
+   UPDATE wallets SET position = (SELECT new_pos FROM ordered WHERE ordered.id = wallets.id)
+   WHERE id IN (SELECT id FROM ordered);
+   ```
+
+3. **Vacuum & rebuild**
+
+   * If sqlite file grows or is partially corrupted, create new DB and copy good rows:
+
+   ```sql
+   sqlite3 old.db ".dump" | sqlite3 new.db
+   ```
+
+   * Test new DB with `PRAGMA integrity_check`.
+
+4. **Automation script (dry-run + apply)**
+
+   * Provide script `repair-scripts/check_and_fix.sh` that:
+
+     * creates DB backup
+     * runs integrity_check
+     * if fixable, runs specific SQL fixes
+     * logs result and exits non-zero on failure
+
+## D. Tests & stress scripts
+
+1. **Unit tests**
+
+   * Test reorder logic: empty list, duplicate IDs, concurrent calls.
+   * Test recurring creation: ensure it does not open long transactions.
+
+2. **Integration / E2E tests (release-mode)**
+
+   * CI job that builds release APK with same minify settings and runs a smoke E2E that:
+
+     * Creates wallets, reorders, creates recurring transaction, then creates new transaction — assert DB consistent.
+   * Tools: Detox (RN), Espresso (native), or Appium.
+
+3. **Stress test script (node)** — spawn parallel clients to perform:
+
+   * 1000 fast `reorder`s + interleaved `createTransaction`s.
+   * Assert zero `database is locked` errors and final DB consistency.
+
+## E. Observability & alerts
+
+* Add metrics:
+
+  * `db.busy_errors_total` (counter)
+  * `db.long_transactions_total` (counter)
+  * `db.transaction_duration_seconds` (histogram)
+* Alerts:
+
+  * `db.busy_errors_total rate > 0.1% writes in 5m` → page dev on-call.
+  * `db.transaction_duration_seconds p95 > 2s` → investigate long txs.
+* Attach mapping.txt (R8) to crash aggregator so release stack traces are symbolicated.
+
+## F. Example code snippets
+
+1. **Atomic multi-row update (JS + SQL)**
+
+```js
+// build CASE WHEN update
+async function applyOrder(db, ids) {
+  const cases = ids.map((id, idx) => `WHEN '${id}' THEN ${ (idx+1)*10 }`).join(' ');
+  const idList = ids.map(id => `'${id}'`).join(',');
+  const sql = `UPDATE wallets SET position = CASE id ${cases} END WHERE id IN (${idList});`;
+  await db.exec(sql); // run inside a transaction if adapter requires
+}
+```
+
+2. **Simple write queue (JS)**
+
+```js
+// dbQueue.js
+let tail = Promise.resolve();
+
+export function enqueue(fn) {
+  tail = tail.then(() => fn()).catch(err => {
+    console.error('DB op failed', err);
+  });
+  return tail;
+}
+```
+
+Usage:
+
+```js
+enqueue(async () => {
+  await execWithRetry(async () => {
+    // run transact
+    await db.transaction(tx => {
+      tx.executeSql(...); // do minimal work
+    });
+  });
+});
+```
+
+---
+
+# Checklist for immediate actions (prioritized)
+
+1. **Add WAL & `busy_timeout`** in DB init and ship to staging.
+2. **Add JS-level write queue** and wrap all write entry-points to funnel through it.
+3. **Convert reorder to single atomic update inside one transaction** (CASE WHEN or VALUES technique).
+4. **Add retry/backoff for SQLITE_BUSY** (temporary safety).
+5. **Reproduce release bug via script** and validate fix removes repro.
+6. **Add release E2E CI test** (release flags identical to prod).
+7. **Add monitoring & alerts** to detect recurrence.
+
+---
+
+# Short summary / TL;DR
+
+* `database is locked` is **very likely** the core cause of your downstream failures. It means concurrent or long-running writes are blocking subsequent writes.
+* The release/debug difference points to a **timing or native-binding** issue that surfaces only in release (e.g., race condition, adapter behavior under Hermes, proguard obfuscation, or background worker clash).
+* Immediate wins: enable WAL, busy_timeout, serialize writes with a queue, do atomic multi-row updates for reorder, add retry/backoff.
+* Longer-term: centralize DB access, add release-mode e2e tests, add monitoring, and audit background workers.
+* I provided an agent prompt that will reproduce, run toggles, gather artifacts, and produce fixes/patches.

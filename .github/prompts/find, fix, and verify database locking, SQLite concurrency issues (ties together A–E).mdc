@@ -1,0 +1,316 @@
+# Comprehensive agent prompt — find, fix, and verify **database locking / SQLite concurrency** issues (ties together A–E)
+
+Use this prompt exactly as the instruction for an autonomous agent or an engineer. It combines: (A) full repair plan, (B) DB-access architecture & hardening blueprint, (C) a starter patch pattern to ship quickly, (D) targeted diagnostics to isolate locking, and (E) step-by-step debugging instructions. The agent must produce the artifacts and tests listed under **Deliverables** and must not land any change without deterministic repro + tests.
+
+---
+
+## Mission (short)
+
+Reproduce, isolate, and permanently fix the `database is locked` failures that appear in release builds (debug OK). These failures occur after wallet reorders, recurring transaction creation, and similar multi-write flows. Deliver deterministic repros, root cause, patch(es), repair scripts for any corrupted DB state, tests (including release-mode E2E), monitoring, and a safe rollout plan.
+
+---
+
+## Non-negotiable work rules
+
+* Always snapshot DB before any change. Preserve mapping/proguard files for every release-mode build used in tests.
+* Reproduce on a release-mode APK that matches production flags (minify/proguard/R8, Hermes on/off as in prod).
+* Do not push speculative fixes. Every fix must have an automated test that demonstrates the pre-fix failure and post-fix success.
+* If a fix requires runtime behavior changes (locks, queues), make them configurable via a feature flag and include a canary plan.
+* Provide dry-run repair scripts for any destructive migrations.
+
+---
+
+## Deliverables (must produce)
+
+1. `diagnostic-bundle/` with: `logcat-release.txt`, `logcat-debug.txt`, `db-before.sqlite`, `db-after.sqlite`, ProGuard/R8 `mapping.txt`, JSON payload logs, captured failing SQL/statements.
+2. `reproduce.sh` — installs release APK, runs scripted UI steps (adb/input or Detox/Espresso), collects logs & DB.
+3. `root-cause.md` — narrative, stack traces, failing SQL, file:line refs, and failing transaction traces.
+4. `fixes.patch` (or PRs) — code changes + tests.
+5. `repair-scripts/` — SQL repair scripts with `--dry-run` and `--apply` modes.
+6. `tests/release/` — unit, integration, and E2E tests that run in CI and reproduce release-mode behavior.
+7. `observability.md` — metrics, alerts, tracing spans, dashboard wireframes.
+8. `runbook.md` — staging verification, canary rollout, automated rollback rules, post-deploy checks.
+9. `issues.csv` — machine-readable issues list.
+
+Acceptance: a reproducible release-mode repro fails pre-fix and succeeds post-fix; tests added to CI; monitoring catches regressions.
+
+---
+
+## High-level approach (phases)
+
+1. Recon & stack detection (auto-detect DB adapter, JS engine, release flags).
+2. Deterministic reproduction on release build; collect artifacts.
+3. Hypothesis testing (binary toggles: minify, Hermes, busy_timeout, WAL, background workers).
+4. Root-cause isolation (file:line, SQL trace, transaction timeline).
+5. Implement short-term mitigations (WAL, busy_timeout, write queue, retry/backoff, atomic reorder).
+6. Implement robust architecture changes (central DB layer, transactional patterns, worker coordination).
+7. Repair corrupted data if needed.
+8. Tests, CI release-mode E2E, observability, rollout.
+
+---
+
+## Exact reproduction steps (script these)
+
+1. Build release APK with prod flags:
+
+   * `cd android && ./gradlew assembleRelease`
+2. Install and capture logs:
+
+   * `adb install -r app/build/outputs/apk/release/app-release.apk`
+   * `adb logcat -v threadtime > diagnostic-bundle/logcat-release.txt &`
+3. Pull DB snapshot before:
+
+   * `adb shell "run-as <pkg> cat /data/data/<pkg>/databases/<dbfile>" > diagnostic-bundle/db-before.sqlite`
+4. Reproduce scenario (automate with adb input or test runner):
+
+   * Create baseline data (2–4 wallets, categories).
+   * Trigger wallet reorder (drag or API).
+   * Immediately attempt to create category/wallet/transaction.
+   * Create a recurring transaction.
+   * Try another write.
+5. Pull DB and stop logs:
+
+   * `adb shell "run-as <pkg> cat /data/data/<pkg>/databases/<dbfile>" > diagnostic-bundle/db-after.sqlite`
+6. Collect mapping.txt (from `app/build/outputs/mapping/release/mapping.txt`) and include in diagnostic bundle.
+
+Record exact timestamps for each step. If `run-as` fails on release, instrument a release-like build that exports DB to external storage.
+
+---
+
+## Hypothesis tests (one toggle at a time)
+
+* Toggle A: `minifyEnabled=false` (same release build otherwise) — reproduce.
+* Toggle B: Hermes on/off — reproduce.
+* Toggle C: Set `PRAGMA journal_mode=WAL` + `PRAGMA busy_timeout=5000` — reproduce.
+* Toggle D: Temporarily disable background sync/worker — reproduce.
+* Toggle E: Add JS mutex/queue to serialize writes — reproduce.
+
+For each toggle: record pass/fail, logs, DB diffs, stack traces. Maintain a matrix.
+
+---
+
+## Immediate short-term fixes (ship quickly, low-risk)
+
+Implement all of these behind a feature-flag so they can be canaried:
+
+### 1) Enable WAL + busy timeout on DB init
+
+```sql
+PRAGMA journal_mode = WAL;
+PRAGMA busy_timeout = 5000;
+PRAGMA synchronous = NORMAL;
+```
+
+Run these as the first statements after DB open.
+
+### 2) JS-level single-writer queue (enqueue all writes)
+
+`src/lib/db/writeQueue.ts`
+
+```js
+let tail = Promise.resolve();
+export function enqueueWrite(fn) {
+  tail = tail.then(() => fn()).catch(err => {
+    console.error('[DB Queue] op failed', err);
+    // swallow so queue continues
+  });
+  return tail;
+}
+```
+
+Wrap all write entry points:
+
+```js
+enqueueWrite(() => db.runInTransaction(async (tx) => {
+  await tx.executeSql(...);
+}));
+```
+
+### 3) Atomic multi-row reorder (single transaction)
+
+Use CASE WHEN or VALUES update inside one transaction.
+
+```sql
+BEGIN;
+UPDATE wallets SET position = CASE id
+  WHEN 'id1' THEN 10
+  WHEN 'id2' THEN 20
+END
+WHERE id IN ('id1','id2');
+COMMIT;
+```
+
+### 4) Retry/backoff for SQLITE_BUSY
+
+Small exponential backoff and limited tries around `executeSql` or `execAsync`.
+
+---
+
+## Robust long-term architecture (B)
+
+1. **Central DB module** (`db/core`) with `runWrite(fn)`, `runRead(fn)`, `runTransaction(fn)` — responsible for: WAL, busy_timeout, queueing, tracing, retries.
+2. **All code uses that module**. Enforce via lint rule / code owner review.
+3. **Short transactions** policy: compute payloads outside transaction; only minimal SQL inside transaction.
+4. **Worker coordination**: background sync/workers must use same central module; if native parallel writers exist, serialise via WorkManager contract or a lightweight lock table.
+5. **Idempotency keys** for operations retried by network or UI (create operations).
+6. **Dead-letter and validation** for worker payloads — malformed messages should not be applied.
+
+---
+
+## Starter patch (C) — what to implement now
+
+1. Add `db/writeQueue.ts` (enqueueWrite above).
+2. Update DB init to set WAL & busy timeout.
+3. Replace wallet reorder implementation to use single transaction CASE WHEN update.
+4. Add wrapper `execWithRetry` to catch SQLITE_BUSY and retry.
+5. Add unit tests for reorder logic and for concurrent writes (simulate parallel calls but ensure queue serializes them).
+
+Include a PR description explaining risk, feature-flag, and rollback path.
+
+---
+
+## Step-by-step debugging (D & E — isolate exact lines)
+
+1. Reproduce release-mode failure and capture `logcat-release.txt`.
+2. Enable SQL logging: instrument DB adapter to log every SQL statement + start/end timestamp + call stack (or lightweight stack via `new Error().stack`), write to a safe file.
+3. Re-run repro; use diff of SQL sequences pre/post-fail to see which statement was last successful and which statement attempted when lock began.
+4. Correlate statement timestamps with stack traces to find file:line of caller (stack captured when executing statement).
+5. If stack is obfuscated (release), use `mapping.txt` to deobfuscate; attach mapping to crash processor or use `retrace`.
+6. Search for any code that:
+
+   * runs multiple `executeSql` in parallel without awaiting,
+   * calls `db.exec` in a loop,
+   * starts a transaction and then performs async work before commit.
+7. Audit recurring-scheduler and sync worker for overlapping writes: instrument them to log when they start write and when they finish.
+8. If a transaction never finalizes, search for code paths that `throw` inside transaction callback without proper rollback/cleanup.
+
+---
+
+## Repair scripts (if corruption detected)
+
+* `repair-scripts/integrity_check.sh`
+
+```bash
+sqlite3 db.sqlite "PRAGMA integrity_check;"
+```
+
+* `repair-scripts/fix_positions.sql` (dry-run mode prints affected rows)
+
+```sql
+-- dry-run
+SELECT id FROM wallets WHERE position IS NULL OR position < 0;
+
+-- apply
+WITH ordered AS (
+  SELECT id, row_number() OVER (ORDER BY created_at) * 10 AS new_pos
+  FROM wallets WHERE position IS NULL OR position < 0
+)
+UPDATE wallets SET position=(SELECT new_pos FROM ordered WHERE ordered.id=wallets.id)
+WHERE id IN (SELECT id FROM ordered);
+```
+
+* `repair-scripts/rebuild_db.sh` — dump & import new DB if `integrity_check` fails.
+
+Always backup DB before any changes.
+
+---
+
+## Tests & CI
+
+* Unit tests for `enqueueWrite`, `execWithRetry`.
+* Integration tests that simulate concurrent writes (Promise.all of write calls) to confirm queue serializes them.
+* Release-mode E2E: CI job that builds release APK (same minify/proguard), installs on emulator, runs script `reproduce.sh` and asserts no `database is locked` in logs and DB writes succeed.
+* Add lint rule requiring all DB writes to call `db/runWrite` API.
+
+---
+
+## Observability & alerts
+
+Metrics to emit:
+
+* `db.write_latency_seconds` (histogram)
+* `db.busy_errors_total` (counter)
+* `db.transaction_duration_seconds` (histogram)
+* `sync.queue_depth` (gauge)
+  Alerts:
+* `db.busy_errors_total` > 0.1% of writes in 5m → page
+* `db.transaction_duration_seconds p95 > 2s` → investigate
+* `worker.dead_letter_count > 0` → warning
+
+Trace spans:
+
+* `db.open` → `db.exec` per statement, include correlation id & user action (reorder, createRecurring).
+
+---
+
+## Safe rollout & rollback
+
+1. Merge behind feature flag. Deploy to staging and run release-mode E2E.
+2. Canary: enable for 5% of users or internal testers. Monitor `db.busy_errors_total` for 30–60 minutes.
+3. Gradually ramp. If errors > threshold, rollback feature flag automatically.
+4. For DB repair, run `repair-scripts` in dry-run, verify, then schedule apply during low-traffic window with DB backup.
+
+---
+
+## Example minimal code snippets (copy-ready)
+
+### execWithRetry
+
+```js
+async function execWithRetry(execFn, tries = 5) {
+  let backoff = 50;
+  for (let i = 0; i < tries; i++) {
+    try { return await execFn(); }
+    catch (e) {
+      if (!/SQLITE_BUSY|database is locked/i.test(String(e))) throw e;
+      await new Promise(r => setTimeout(r, backoff));
+      backoff *= 2;
+    }
+  }
+  throw new Error('DB busy after retries');
+}
+```
+
+### enqueueWrite
+
+```js
+// src/lib/db/writeQueue.ts
+let tail = Promise.resolve();
+export function enqueueWrite(fn) {
+  tail = tail.then(() => fn()).catch(err => {
+    console.error('[DB Queue] op failed', err);
+  });
+  return tail;
+}
+```
+
+### atomic reorder SQL (JS builder)
+
+```js
+function buildReorderSql(ids) {
+  const cases = ids.map((id, i) => `WHEN '${id}' THEN ${(i+1)*10}`).join(' ');
+  const idList = ids.map(id => `'${id}'`).join(',');
+  return `UPDATE wallets SET position = CASE id ${cases} END WHERE id IN (${idList});`;
+}
+```
+
+---
+
+## Debugging checklist (short)
+
+* [ ] Reproduce release-mode failure and gather logs & DB.
+* [ ] Toggle minify and Hermes one at a time; record results.
+* [ ] Enable WAL & busy_timeout; test effect.
+* [ ] Add write queue; test effect.
+* [ ] Instrument SQL per-statement logging; find last successful statement and offending caller stack.
+* [ ] Implement repair-script if DB corrupted.
+* [ ] Add tests and CI release-mode E2E.
+* [ ] Canary + monitor.
+
+---
+
+## Final note
+
+This prompt ties together the full lifecycle: reproduce, isolate, mitigate, patch, test, repair, monitor, and roll out. It balances immediate, low-risk mitigations (WAL, busy timeout, write-queue, atomic reorder) with long-term architecture changes (central DB module, worker coordination, idempotency). The agent must attach artifacts proving each claim and must not land changes without automated verification.
+
+---
