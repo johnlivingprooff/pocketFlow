@@ -131,6 +131,7 @@ export function debug(message: string, context?: Record<string, any>, operationI
  */
 class MetricsCollector {
   private metrics: Map<string, number> = new Map();
+  private timings: Map<string, number[]> = new Map();
   
   /**
    * Increment a counter metric
@@ -141,10 +142,43 @@ class MetricsCollector {
   }
   
   /**
+   * Record a timing metric (in milliseconds)
+   */
+  timing(metricName: string, durationMs: number): void {
+    const timingArray = this.timings.get(metricName) || [];
+    timingArray.push(durationMs);
+    this.timings.set(metricName, timingArray);
+    
+    // Also track as a counter for total count
+    this.increment(`${metricName}.count`);
+  }
+  
+  /**
    * Get current value of a metric
    */
   get(metricName: string): number {
     return this.metrics.get(metricName) || 0;
+  }
+  
+  /**
+   * Get timing statistics for a metric
+   */
+  getTimingStats(metricName: string): { count: number; avg: number; min: number; max: number; p50: number; p95: number } | null {
+    const timings = this.timings.get(metricName);
+    if (!timings || timings.length === 0) {
+      return null;
+    }
+    
+    const sorted = [...timings].sort((a, b) => a - b);
+    const count = sorted.length;
+    const sum = sorted.reduce((acc, val) => acc + val, 0);
+    const avg = sum / count;
+    const min = sorted[0];
+    const max = sorted[count - 1];
+    const p50 = sorted[Math.floor(count * 0.5)];
+    const p95 = sorted[Math.floor(count * 0.95)];
+    
+    return { count, avg, min, max, p50, p95 };
   }
   
   /**
@@ -163,6 +197,7 @@ class MetricsCollector {
    */
   reset(metricName: string): void {
     this.metrics.delete(metricName);
+    this.timings.delete(metricName);
   }
   
   /**
@@ -170,6 +205,7 @@ class MetricsCollector {
    */
   resetAll(): void {
     this.metrics.clear();
+    this.timings.clear();
   }
 }
 
