@@ -23,6 +23,31 @@ interface CategoryWithBudget extends Category {
   walletCurrency?: string;
 }
 
+// Helper function to determine if a string is an emoji
+const isEmojiIcon = (iconValue: string): boolean => {
+  if (!iconValue) return false;
+  return /[\p{Emoji}]/u.test(iconValue);
+};
+
+// Helper function to render an icon (emoji or SVG)
+const renderCategoryIcon = (
+  iconValue: string | undefined,
+  categoryName: string,
+  fontSize: number = 20,
+  color: string = '#FFFFFF'
+) => {
+  const icon = iconValue || '';
+  
+  if (isEmojiIcon(icon)) {
+    return <Text style={{ fontSize }}>{icon}</Text>;
+  } else {
+    // Try to resolve SVG icon
+    const iconKey = (icon || categoryName) as CategoryIconName;
+    const IconComp = CATEGORY_ICONS[iconKey] || CATEGORY_ICONS['Other'];
+    return IconComp ? <IconComp size={fontSize > 24 ? 24 : fontSize} color={color} /> : null;
+  }
+};
+
 export default function CategoriesScreen() {
   const router = useRouter();
   const systemColorScheme = useColorScheme();
@@ -207,13 +232,6 @@ export default function CategoriesScreen() {
           sections={sections}
           keyExtractor={(item) => `${item.id}`}
           renderItem={({ item: category }) => {
-            // Resolve icon component using the same mapping as categories list
-            const iconKeyFromCategory = (category.icon || '') as CategoryIconName;
-            const iconKeyFromName = (category.name || '') as CategoryIconName;
-            const IconComp =
-              (iconKeyFromCategory && CATEGORY_ICONS[iconKeyFromCategory]) ? CATEGORY_ICONS[iconKeyFromCategory]
-              : (CATEGORY_ICONS[iconKeyFromName] || CATEGORY_ICONS['Other']);
-
             return (
               <TouchableOpacity
                 onPress={() => handleEditBudget(category)}
@@ -239,7 +257,7 @@ export default function CategoriesScreen() {
                     justifyContent: 'center',
                     alignItems: 'center',
                   }}>
-                    {IconComp ? <IconComp size={22} color="#FFFFFF" /> : <Text style={{ color: '#FFFFFF', fontSize: 18 }}>⋯</Text>}
+                    {renderCategoryIcon(category.icon, category.name, 22, '#FFFFFF')}
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>
@@ -285,7 +303,16 @@ export default function CategoriesScreen() {
             {/* Header */}
             <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                <Text style={{ fontSize: 28 }}>{editingCategory?.icon || '📊'}</Text>
+                <View style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: editingCategory?.color || t.primary,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                  {editingCategory && renderCategoryIcon(editingCategory.icon, editingCategory.name, 28, '#FFFFFF')}
+                </View>
                 <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', flex: 1 }}>
                   {editingCategory?.name}
                 </Text>

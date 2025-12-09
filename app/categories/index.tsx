@@ -6,6 +6,31 @@ import { Link, router } from 'expo-router';
 import { getCategories, Category } from '../../src/lib/db/categories';
 import { CATEGORY_ICONS, CategoryIconName } from '../../src/assets/icons/CategoryIcons';
 
+// Helper function to determine if a string is an emoji
+const isEmojiIcon = (iconValue: string): boolean => {
+  if (!iconValue) return false;
+  return /[\p{Emoji}]/u.test(iconValue);
+};
+
+// Helper function to render an icon (emoji or SVG)
+const renderCategoryIcon = (
+  iconValue: string | undefined,
+  categoryName: string,
+  fontSize: number = 20,
+  color: string = '#FFFFFF'
+) => {
+  const icon = iconValue || '';
+  
+  if (isEmojiIcon(icon)) {
+    return <Text style={{ fontSize }}>{icon}</Text>;
+  } else {
+    // Try to resolve SVG icon
+    const iconKey = (icon || categoryName) as CategoryIconName;
+    const IconComp = CATEGORY_ICONS[iconKey] || CATEGORY_ICONS['Other'];
+    return IconComp ? <IconComp size={fontSize > 24 ? 24 : fontSize} color={color} /> : null;
+  }
+};
+
 export default function CategoriesPage() {
   const { themeMode } = useSettings();
   const systemColorScheme = useColorScheme();
@@ -117,16 +142,7 @@ export default function CategoriesPage() {
                   justifyContent: 'center',
                   alignItems: 'center'
                 }}>
-                  {(() => {
-                    // Resolve icon component by explicit icon key, else by category name, else fallback
-                    const iconKeyFromCategory = (category.icon || '') as CategoryIconName;
-                    const iconKeyFromName = (category.name || '') as CategoryIconName;
-                    const IconComp =
-                      (iconKeyFromCategory && CATEGORY_ICONS[iconKeyFromCategory]) ? CATEGORY_ICONS[iconKeyFromCategory]
-                      : (CATEGORY_ICONS[iconKeyFromName] || CATEGORY_ICONS['Other']);
-                    const IconEl = IconComp ? <IconComp size={22} color="#FFFFFF" /> : <></>;
-                    return IconEl;
-                  })()}
+                  {renderCategoryIcon(category.icon, category.name, 22, '#FFFFFF')}
                 </View>
                 <View>
                   <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>{category.name}</Text>

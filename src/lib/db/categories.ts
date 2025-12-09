@@ -16,14 +16,15 @@ export async function createCategory(category: Category): Promise<number> {
   const startTime = Date.now();
   try {
     const result = await execRun(
-      `INSERT INTO categories (name, type, icon, color, is_preset, created_at)
-       VALUES (?, ?, ?, ?, ?, datetime('now'));`,
+      `INSERT INTO categories (name, type, icon, color, is_preset, budget, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, datetime('now'));`,
       [
         category.name,
         category.type,
         category.icon ?? null,
         category.color ?? null,
         category.is_preset ?? 0,
+        category.budget ?? null,
       ]
     );
     

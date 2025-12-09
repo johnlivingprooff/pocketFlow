@@ -7,7 +7,7 @@ import * as CategoryIcons from '../../src/assets/icons/CategoryIcons';
 import { createCategory } from '../../src/lib/db/categories';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
 
-const ICON_OPTIONS: Array<{ name: CategoryIcons.CategoryIconName; Icon: React.FC<any> }> = [
+const SVG_ICON_OPTIONS: Array<{ name: CategoryIcons.CategoryIconName; Icon: React.FC<any> }> = [
   { name: 'Food', Icon: CategoryIcons.FoodIcon },
   { name: 'Transport', Icon: CategoryIcons.TransportIcon },
   { name: 'Rent', Icon: CategoryIcons.HomeIcon },
@@ -25,6 +25,26 @@ const ICON_OPTIONS: Array<{ name: CategoryIcons.CategoryIconName; Icon: React.FC
   { name: 'Clothing', Icon: CategoryIcons.ClothingIcon },
   { name: 'Travel', Icon: CategoryIcons.TravelIcon },
 ];
+
+const EMOJI_ICON_OPTIONS = [
+  { name: '🍔', emoji: '🍔' },
+  { name: '🍕', emoji: '🍕' },
+  { name: '🚗', emoji: '🚗' },
+  { name: '🏠', emoji: '🏠' },
+  { name: '🛒', emoji: '🛒' },
+  { name: '💊', emoji: '💊' },
+  { name: '🎬', emoji: '🎬' },
+  { name: '📚', emoji: '📚' },
+  { name: '💰', emoji: '💰' },
+  { name: '💼', emoji: '💼' },
+  { name: '📈', emoji: '📈' },
+  { name: '🎁', emoji: '🎁' },
+  { name: '👕', emoji: '👕' },
+  { name: '✈️', emoji: '✈️' },
+  { name: '🎓', emoji: '🎓' },
+  { name: '💳', emoji: '💳' },
+];
+
 const COLOR_OPTIONS = ['#6B6658', '#84670B', '#B3B09E', '#C1A12F', '#332D23', '#8B7355', '#A67C52', '#D4AF37'];
 
 export default function CreateCategory() {
@@ -33,6 +53,8 @@ export default function CreateCategory() {
   const t = theme(themeMode, systemColorScheme || 'light');
   const [categoryName, setCategoryName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState<CategoryIcons.CategoryIconName>('Food');
+  const [selectedEmoji, setSelectedEmoji] = useState('🍔');
+  const [iconType, setIconType] = useState<'svg' | 'emoji'>('svg');
   const [selectedColor, setSelectedColor] = useState('#C1A12F');
   const [categoryType, setCategoryType] = useState<'income' | 'expense'>('expense');
   const [monthlyBudget, setMonthlyBudget] = useState('');
@@ -55,12 +77,14 @@ export default function CreateCategory() {
     }
 
     try {
+      const budgetValue = monthlyBudget ? parseFloat(monthlyBudget) : null;
       await createCategory({
         name: categoryName.trim(),
         type: categoryType,
-        icon: selectedIcon,
+        icon: iconType === 'emoji' ? selectedEmoji : selectedIcon,
         color: selectedColor,
         is_preset: 0,
+        budget: budgetValue,
       });
       setAlertConfig({
         visible: true,
@@ -157,30 +181,88 @@ export default function CreateCategory() {
         {/* Icon Selector */}
         <View style={{ marginBottom: 24 }}>
           <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 12 }}>Select Icon</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-            {ICON_OPTIONS.map((iconOption) => {
-              const IconComponent = iconOption.Icon;
-              const isSelected = selectedIcon === iconOption.name;
-              return (
+          
+          {/* Icon Type Toggle */}
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+            <TouchableOpacity
+              onPress={() => setIconType('svg')}
+              style={{
+                flex: 1,
+                padding: 8,
+                borderRadius: 8,
+                backgroundColor: iconType === 'svg' ? t.primary : t.card,
+                borderWidth: 1,
+                borderColor: iconType === 'svg' ? t.primary : t.border,
+              }}
+            >
+              <Text style={{ color: iconType === 'svg' ? '#FFFFFF' : t.textPrimary, fontSize: 12, fontWeight: '600', textAlign: 'center' }}>SVG Icons</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setIconType('emoji')}
+              style={{
+                flex: 1,
+                padding: 8,
+                borderRadius: 8,
+                backgroundColor: iconType === 'emoji' ? t.primary : t.card,
+                borderWidth: 1,
+                borderColor: iconType === 'emoji' ? t.primary : t.border,
+              }}
+            >
+              <Text style={{ color: iconType === 'emoji' ? '#FFFFFF' : t.textPrimary, fontSize: 12, fontWeight: '600', textAlign: 'center' }}>Emoji Icons</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* SVG Icons Section */}
+          {iconType === 'svg' && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+              {SVG_ICON_OPTIONS.map((iconOption) => {
+                const IconComponent = iconOption.Icon;
+                const isSelected = selectedIcon === iconOption.name;
+                return (
+                  <TouchableOpacity
+                    key={iconOption.name}
+                    onPress={() => setSelectedIcon(iconOption.name)}
+                    style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: 28,
+                      backgroundColor: isSelected ? t.primary : t.card,
+                      borderWidth: 2,
+                      borderColor: isSelected ? t.primary : t.border,
+                      justifyContent: 'center',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <IconComponent size={28} color={isSelected ? '#FFFFFF' : t.textPrimary} />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Emoji Icons Section */}
+          {iconType === 'emoji' && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+              {EMOJI_ICON_OPTIONS.map((emojiOption) => (
                 <TouchableOpacity
-                  key={iconOption.name}
-                  onPress={() => setSelectedIcon(iconOption.name)}
+                  key={emojiOption.name}
+                  onPress={() => setSelectedEmoji(emojiOption.emoji)}
                   style={{
                     width: 56,
                     height: 56,
                     borderRadius: 28,
-                    backgroundColor: isSelected ? t.primary : t.card,
+                    backgroundColor: selectedEmoji === emojiOption.emoji ? t.primary : t.card,
                     borderWidth: 2,
-                    borderColor: isSelected ? t.primary : t.border,
+                    borderColor: selectedEmoji === emojiOption.emoji ? t.primary : t.border,
                     justifyContent: 'center',
                     alignItems: 'center'
                   }}
                 >
-                  <IconComponent size={28} color={isSelected ? '#FFFFFF' : t.textPrimary} />
+                  <Text style={{ fontSize: 28 }}>{emojiOption.emoji}</Text>
                 </TouchableOpacity>
-              );
-            })}
-          </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Color Selector */}
@@ -247,10 +329,14 @@ export default function CreateCategory() {
               justifyContent: 'center',
               alignItems: 'center'
             }}>
-              {(() => {
-                const IconComp = ICON_OPTIONS.find(opt => opt.name === selectedIcon)?.Icon;
-                return IconComp ? <IconComp size={24} color="#FFFFFF" /> : null;
-              })()}
+              {iconType === 'svg' ? (
+                (() => {
+                  const IconComp = SVG_ICON_OPTIONS.find(opt => opt.name === selectedIcon)?.Icon;
+                  return IconComp ? <IconComp size={24} color="#FFFFFF" /> : null;
+                })()
+              ) : (
+                <Text style={{ fontSize: 24 }}>{selectedEmoji}</Text>
+              )}
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>

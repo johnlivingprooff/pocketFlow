@@ -6,7 +6,7 @@ import { theme, shadows } from '../../src/theme/theme';
 import { useTransactions } from '../../src/lib/hooks/useTransactions';
 import { useWallets } from '../../src/lib/hooks/useWallets';
 import { TransactionItem } from '../../src/components/TransactionItem';
-import { Link, useFocusEffect } from 'expo-router';
+import { Link, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { formatDate, yyyyMmDd, formatShortDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { getCategories, Category } from '../../src/lib/db/categories';
@@ -17,6 +17,7 @@ export default function HistoryScreen() {
   const t = theme(themeMode, systemColorScheme || 'light');
   const { transactions } = useTransactions(0, 1000);
   const { wallets } = useWallets();
+  const searchParams = useLocalSearchParams();
   const [filterCategory, setFilterCategory] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
@@ -24,6 +25,13 @@ export default function HistoryScreen() {
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Set filter category from route params
+  useEffect(() => {
+    if (searchParams.category) {
+      setFilterCategory(String(searchParams.category));
+    }
+  }, [searchParams.category]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
