@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, useColorScheme, Image, FlatList, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { theme } from '../../src/theme/theme';
 import { useSettings } from '../../src/store/useStore';
@@ -120,12 +121,12 @@ export default function ReceiptsGalleryScreen() {
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: t.background }}>
+    <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
       {/* Header */}
       <View
         style={{
           paddingHorizontal: 16,
-          paddingTop: 48,
+          paddingTop: 16,
           paddingBottom: 16,
           borderBottomWidth: 1,
           borderBottomColor: t.border,
@@ -257,6 +258,6 @@ export default function ReceiptsGalleryScreen() {
           )}
         </View>
       )}
-    </View>
+    </SafeAreaView>
   );
 }

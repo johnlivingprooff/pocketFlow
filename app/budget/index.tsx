@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Platform, Modal } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '../../src/store/useStore';
 import { theme } from '../../src/theme/theme';
 import { formatCurrency } from '../../src/utils/formatCurrency';
@@ -136,7 +137,7 @@ export default function BudgetPage() {
   });
 
   return (
-    <View style={{ flex: 1, backgroundColor: t.background }}>
+    <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
       <ScrollView style={{ flex: 1 }}>
         <View style={{ padding: 16 }}>
         {/* Header */}
@@ -387,6 +388,6 @@ export default function BudgetPage() {
         </View>
       </Modal>
       )}
-    </View>
+    </SafeAreaView>
   );
 }

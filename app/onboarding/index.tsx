@@ -8,7 +8,7 @@ export default function Onboarding() {
   const { themeMode } = useSettings();
   const t = theme(themeMode);
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['top', 'bottom', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         <Text style={{ color: t.textPrimary, fontSize: 22, fontWeight: '800' }}>Welcome to pocketFlow</Text>
         <Text style={{ color: t.textSecondary, marginTop: 8 }}>Track wallets and transactions offline with receipts.</Text>

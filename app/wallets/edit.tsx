@@ -78,7 +78,7 @@ export default function EditWallet() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['top', 'bottom', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
       <ScrollView style={{ flex: 1, backgroundColor: t.background }} contentContainerStyle={{ padding: 16, paddingTop: 152, paddingBottom: 40, alignItems: 'center' }}>
       <TouchableOpacity onPress={() => router.back()} style={{ position: 'absolute', top: 60, left: 16, zIndex: 10 }}>
         <Text style={{ color: t.primary, fontSize: 18, fontWeight: '600' }}>← Back</Text>

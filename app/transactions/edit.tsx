@@ -128,7 +128,7 @@ export default function EditTransaction() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['top', 'bottom', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
       <KeyboardAvoidingView 
         style={{ flex: 1, backgroundColor: t.background }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

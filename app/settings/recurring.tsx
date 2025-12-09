@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, useColorScheme, Modal, Switch, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { theme } from '../../src/theme/theme';
@@ -242,12 +243,12 @@ export default function RecurringTransactionsScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: t.background }}>
+    <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
       {/* Header */}
       <View
         style={{
           paddingHorizontal: 16,
-          paddingTop: 48,
+          paddingTop: 16,
           paddingBottom: 16,
           borderBottomWidth: 1,
           borderBottomColor: t.border,
@@ -440,6 +441,6 @@ export default function RecurringTransactionsScreen() {
           </View>
         </Modal>
       )}
-    </View>
+    </SafeAreaView>
   );
 }

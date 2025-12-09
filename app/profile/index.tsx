@@ -45,7 +45,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['top', 'bottom', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
       <ScrollView style={{ flex: 1, backgroundColor: t.background }}>
       <View style={{ padding: 16, paddingTop: 20 }}>
         {/* Header */}

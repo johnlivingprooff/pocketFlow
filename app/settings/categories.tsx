@@ -180,7 +180,7 @@ export default function CategoriesScreen() {
   const sections = groupCategoriesByType(filteredCategories);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
       {/* Header */}
       <View style={{ backgroundColor: t.background, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 }}>
         <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: 16 }}>

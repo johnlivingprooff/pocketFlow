@@ -159,7 +159,7 @@ export default function HistoryScreen() {
   });
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['top', 'bottom', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
       <ScrollView 
         style={{ flex: 1, backgroundColor: t.background }}
         refreshControl={

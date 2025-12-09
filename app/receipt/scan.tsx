@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Image, ScrollView, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useSettings } from '../../src/store/useStore';
@@ -34,12 +35,14 @@ export default function ReceiptScan() {
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: t.background }} contentContainerStyle={{ padding: 16, paddingTop: 20 }}>
-      <TouchableOpacity onPress={pickOrCapture} style={{ backgroundColor: t.accent, padding: 12, borderRadius: 10 }}>
-        <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '700' }}>Capture Receipt</Text>
-      </TouchableOpacity>
-      {localUri ? <Image source={{ uri: localUri }} style={{ width: 200, height: 200, marginTop: 12 }} /> : null}
-      {savedUri ? <Text style={{ color: t.textSecondary, marginTop: 8 }}>Saved at: {savedUri}</Text> : null}
-    </ScrollView>
+    <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 20 }}>
+        <TouchableOpacity onPress={pickOrCapture} style={{ backgroundColor: t.accent, padding: 12, borderRadius: 10 }}>
+          <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '700' }}>Capture Receipt</Text>
+        </TouchableOpacity>
+        {localUri ? <Image source={{ uri: localUri }} style={{ width: 200, height: 200, marginTop: 12 }} /> : null}
+        {savedUri ? <Text style={{ color: t.textSecondary, marginTop: 8 }}>Saved at: {savedUri}</Text> : null}
+      </ScrollView>
+    </SafeAreaView>
   );
 }

@@ -105,7 +105,7 @@ export default function WalletDetail() {
   }, [transactions]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['top', 'bottom', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
       <View style={{ flex: 1, backgroundColor: t.background }}>
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
       {/* Top Actions */}

@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Switch, TouchableOpacity, Alert, useColorScheme } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
 import { checkBiometricAvailability, authenticateWithBiometrics } from '../../src/lib/services/biometricService';
 import { clearDatabase } from '../../src/lib/db';
 
 export default function SecuritySettings() {
+  const router = useRouter();
   const { 
     themeMode, 
     biometricEnabled, 
@@ -87,8 +90,27 @@ export default function SecuritySettings() {
             try {
               await clearDatabase();
               resetSettings();
-              Alert.alert('Success', 'All data has been cleared. The app will restart.');
-              // App will reinitialize on next launch
+              // Close the app using native modules to restart fresh
+              setTimeout(() => {
+                try {
+                  const { NativeModules } = require('react-native');
+                  // Try Android exit
+                  if (NativeModules.RNExitApp) {
+                    NativeModules.RNExitApp.exitApp();
+                  }
+                  // Try iOS exit via native code
+                  else if (NativeModules.ExitApp) {
+                    NativeModules.ExitApp.exit();
+                  }
+                  // Fallback: navigate and clear router state
+                  else {
+                    router.replace('/');
+                  }
+                } catch (e) {
+                  // If all else fails, just navigate back
+                  router.replace('/');
+                }
+              }, 200);
             } catch (error) {
               Alert.alert('Error', 'Failed to clear data. Please try again.');
             }
@@ -108,11 +130,12 @@ export default function SecuritySettings() {
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: t.background }} contentContainerStyle={{ padding: 16 }}>
-      {/* Header */}
-      <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 24 }}>
-        Security Settings
-      </Text>
+    <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
+      <ScrollView contentContainerStyle={{ padding: 16 }}>
+        {/* Header */}
+        <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 24 }}>
+          Security Settings
+        </Text>
 
       {/* Biometric Authentication */}
       <View style={{ marginBottom: 24 }}>
@@ -243,5 +266,6 @@ export default function SecuritySettings() {
         </View>
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 }
