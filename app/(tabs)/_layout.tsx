@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, useColorScheme } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeIcon } from '../../src/assets/icons/HomeIcon';
 import { WalletsIcon } from '../../src/assets/icons/WalletsIcon';
 import { AnalyticsIcon } from '../../src/assets/icons/AnalyticsIcon';
@@ -14,6 +15,11 @@ export default function TabsLayout() {
   const { themeMode } = useSettings();
   const systemColorScheme = useColorScheme();
   const t = theme(themeMode, systemColorScheme || 'light');
+  const insets = useSafeAreaInsets();
+
+  // On Android with 3-button nav, insets.bottom > 0. Use it to lift the bar; gesture nav reports 0 so it stays flush.
+  const bottomPadding = insets.bottom;
+  const tabBarHeight = 60 + insets.bottom;
 
   return (
     <Tabs
@@ -23,15 +29,13 @@ export default function TabsLayout() {
         tabBarActiveTintColor: t.primary,
         tabBarInactiveTintColor: t.textTertiary,
         tabBarStyle: {
-          height: 60,
-          paddingBottom: 6,
-          paddingTop: 6,
+          height: tabBarHeight,
+          paddingBottom: bottomPadding,
+          paddingTop: 0,
           backgroundColor: t.card,
           borderTopColor: t.border,
           borderTopWidth: 1,
         },
-        // SafeAreaInsets for Android: prevent tab bar from hiding behind nav bar
-        safeAreaInsets: { bottom: 0 },
       }}
     >
       <Tabs.Screen

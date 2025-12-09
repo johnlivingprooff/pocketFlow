@@ -84,17 +84,6 @@ export default function AnalyticsPage() {
   const [showCategoryDrillDown, setShowCategoryDrillDown] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await loadData();
-    } catch (error) {
-      console.error('Error refreshing analytics:', error);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [loadData]);
-
   const loadData = useCallback(async () => {
     if (Platform.OS !== 'web') {
       const month = await monthSpend();
@@ -182,6 +171,17 @@ export default function AnalyticsPage() {
     }
   }, [incomeExpensePeriod]);
 
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadData();
+    } catch (error) {
+      console.error('Error refreshing analytics:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadData]);
+
   useFocusEffect(
     useCallback(() => {
       loadData();
@@ -264,9 +264,9 @@ export default function AnalyticsPage() {
   const colors = ['#C1A12F', '#84670B', '#B3B09E', '#6B6658', '#332D23', '#8B7355', '#A67C52', '#D4AF37'];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }}>
+    <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
       <ScrollView 
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 0 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={t.primary} colors={[t.primary]} />}
       >
         {/* Header Section */}

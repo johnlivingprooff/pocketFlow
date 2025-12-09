@@ -488,9 +488,9 @@ export default function Home() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }}>
+    <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
       <ScrollView 
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 0 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

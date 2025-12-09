@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { Platform, View, ActivityIndicator, useColorScheme, AppState, AppStateStatus, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { Platform, View, ActivityIndicator, useColorScheme, AppState, AppStateStatus, Text, TouchableOpacity, StyleSheet, Image, TextStyle } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { useSettings } from '../src/store/useStore';
@@ -8,6 +8,7 @@ import { processRecurringTransactions } from '../src/lib/services/recurringTrans
 import { theme, shadows } from '../src/theme/theme';
 import { authenticateWithBiometrics, shouldRequireAuth } from '../src/lib/services/biometricService';
 import { FingerprintIcon } from '../src/assets/icons/FingerprintIcon';
+import { createBackup } from '../src/lib/export/backupRestore';
 
 export default function RootLayout() {
   const { 
@@ -15,12 +16,15 @@ export default function RootLayout() {
     biometricEnabled, 
     biometricSetupComplete,
     lastAuthTime,
-    setLastAuthTime 
+    lastBackupAt,
+    setLastAuthTime,
+    setLastBackupAt,
   } = useSettings();
   const systemColorScheme = useColorScheme();
   const [dbReady, setDbReady] = useState(Platform.OS === 'web');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const backupInProgressRef = useRef(false);
   
   const t = useMemo(() => {
     const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
@@ -33,6 +37,7 @@ export default function RootLayout() {
         .then(async () => {
           // Process recurring transactions after DB is ready
           await processRecurringTransactions();
+          await maybeRunAutoBackup();
           setDbReady(true);
         })
         .catch(err => {
@@ -71,6 +76,7 @@ export default function RootLayout() {
         invalidateTransactionCaches();
         
         await processRecurringTransactions();
+        await maybeRunAutoBackup();
       }
       
       if (biometricEnabled && biometricSetupComplete) {
@@ -93,6 +99,40 @@ export default function RootLayout() {
       setAuthError(null);
     } else {
       setAuthError(result.error || 'Authentication failed');
+    }
+  };
+
+  const shouldRunAutoBackup = (lastBackup: number | null) => {
+    const now = new Date();
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const daysLeft = Math.ceil((endOfMonth.getTime() - now.getTime()) / msPerDay);
+    const hasBackupThisMonth = lastBackup
+      ? (() => {
+          const last = new Date(lastBackup);
+          return last.getMonth() === now.getMonth() && last.getFullYear() === now.getFullYear();
+        })()
+      : false;
+    return daysLeft <= 5 && !hasBackupThisMonth;
+  };
+
+  const maybeRunAutoBackup = async () => {
+    if (Platform.OS === 'web') return;
+    if (backupInProgressRef.current) return;
+    if (!shouldRunAutoBackup(lastBackupAt)) return;
+    backupInProgressRef.current = true;
+    try {
+      const result = await createBackup();
+      if (result.success) {
+        setLastBackupAt(Date.now());
+        console.log('[AutoBackup] Backup created at', result.uri);
+      } else {
+        console.warn('[AutoBackup] Backup failed:', result.error);
+      }
+    } catch (error) {
+      console.error('[AutoBackup] Unexpected error creating backup:', error);
+    } finally {
+      backupInProgressRef.current = false;
     }
   };
 
@@ -161,7 +201,7 @@ export default function RootLayout() {
     headerTintColor: t.textPrimary,
     headerTitleStyle: {
       color: t.textPrimary,
-      fontWeight: '700',
+      fontWeight: '700' as TextStyle['fontWeight'],
     },
     headerShadowVisible: false,
   };

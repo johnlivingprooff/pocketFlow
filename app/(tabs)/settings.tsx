@@ -12,8 +12,9 @@ import { exportTransactionsToCSV } from '../../src/lib/export/csvExport';
 import { BackupIcon } from '../../src/assets/icons/BackupIcon';
 import { CsvIcon } from '../../src/assets/icons/CsvIcon';
 import { ReceiptIcon } from '../../src/assets/icons/ReceiptIcon';
+import appPackage from '../../package.json';
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = appPackage.version;
 
 export default function SettingsScreen() {
   const { 
@@ -188,8 +189,8 @@ export default function SettingsScreen() {
   const handleFeedback = () => Linking.openURL('mailto:hello@eiteone.org?subject=Feedback');
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+    <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 0 }}>
         <View style={{ marginBottom: 24, paddingTop: 20 }}>
           {/* Header */}
           <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 24 }}>Settings</Text>
