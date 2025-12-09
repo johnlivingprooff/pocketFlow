@@ -5,21 +5,33 @@ import { error as logError, log, generateOperationId, metrics, warn } from '../.
 
 // Idempotency tracking for wallet reorder operations
 // Prevents duplicate reorders within a short time window
+// NOTE: This is a simple in-memory cache suitable for single-user mobile app
+// The entire order (as comma-separated IDs) is used as the hash, so different
+// orderings of the same wallets are correctly treated as different operations
 const recentReorders = new Map<string, number>();
 const REORDER_IDEMPOTENCY_WINDOW_MS = 2000; // 2 seconds
 
 /**
  * Generate a hash of the wallet order for idempotency checking
+ * Uses the complete ordered sequence of wallet IDs to uniquely identify each reorder operation
  */
 function hashWalletOrder(orderUpdates: Array<{ id: number; display_order: number }>): string {
+  // Sort by display_order to get the intended final order, then join IDs
+  // This ensures [A,B,C] and [C,B,A] produce different hashes
   return orderUpdates
+    .slice() // Create copy to avoid mutating input
+    .sort((a, b) => a.display_order - b.display_order)
     .map(u => u.id)
-    .sort((a, b) => a - b)
     .join(',');
 }
 
 /**
  * Check if a reorder operation is a duplicate within the idempotency window
+ * 
+ * NOTE: This implementation uses an in-memory Map which is suitable for
+ * a single-user mobile app context. In React Native, JavaScript runs on a
+ * single thread, so Map operations are effectively atomic. For server-side
+ * or multi-threaded environments, proper synchronization would be needed.
  */
 function isDuplicateReorder(orderUpdates: Array<{ id: number; display_order: number }>): boolean {
   const orderHash = hashWalletOrder(orderUpdates);

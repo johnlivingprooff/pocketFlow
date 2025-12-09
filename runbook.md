@@ -36,7 +36,7 @@
 
 - [ ] **Run Database Integrity Check**
   ```typescript
-  import { checkDatabaseIntegrity } from './repair-scripts/integrityChecker';
+  import { checkDatabaseIntegrity } from './src/lib/db/integrityChecker';
   const issues = await checkDatabaseIntegrity();
   console.log('Issues found:', issues.length);
   ```
@@ -58,7 +58,7 @@
   - [ ] `src/lib/db/wallets.ts` - createWallet, getWallets, updateWalletsOrder
   - [ ] `src/lib/db/index.ts` - ensureTables migration
   - [ ] `src/components/DraggableWalletList.tsx` - UI reorder logic
-  - [ ] `repair-scripts/integrityChecker.ts` - Repair tools
+  - [ ] `src/lib/db/integrityChecker.ts` - Repair tools
 
 - [ ] **TypeScript Compilation Check**
   ```bash
@@ -180,7 +180,7 @@ The migration runs automatically when app starts (`ensureTables()`):
 
 - [ ] **Database Health Check**
   ```typescript
-  import { getDatabaseHealthScore } from './repair-scripts/integrityChecker';
+  import { getDatabaseHealthScore } from './src/lib/db/integrityChecker';
   const score = await getDatabaseHealthScore();
   // Score should be 100 for healthy database
   ```
@@ -235,7 +235,7 @@ If users have corrupted data:
 
 ```typescript
 // Option A: Use automated repair
-import { repairDatabaseIntegrity } from './repair-scripts/integrityChecker';
+import { repairDatabaseIntegrity } from './src/lib/db/integrityChecker';
 await repairDatabaseIntegrity(dryRun: false);
 
 // Option B: Manual SQL restore
@@ -346,7 +346,7 @@ if (wallets.length > 0) {
 1. Check app logs for migration errors
 2. Manually trigger repair:
    ```typescript
-   import { repairDatabaseIntegrity } from './repair-scripts/integrityChecker';
+   import { repairDatabaseIntegrity } from './src/lib/db/integrityChecker';
    await repairDatabaseIntegrity(dryRun: false);
    ```
 3. If that fails, run SQL repair script
@@ -365,7 +365,7 @@ HAVING COUNT(*) > 1;
 
 **Solution:**
 ```typescript
-import { checkDatabaseIntegrity, repairDatabaseIntegrity } from './repair-scripts/integrityChecker';
+import { checkDatabaseIntegrity, repairDatabaseIntegrity } from './src/lib/db/integrityChecker';
 
 const issues = await checkDatabaseIntegrity();
 console.log('Issues found:', issues);
@@ -481,7 +481,7 @@ adb logcat | grep pocketflow
 - [reorder-root-cause.md](./reorder-root-cause.md) - Root cause analysis
 - [WALLET_ORDERING_FIX.md](./WALLET_ORDERING_FIX.md) - Original fix documentation
 - [tests/wallet-reorder.test.ts](./tests/wallet-reorder.test.ts) - Test suite
-- [repair-scripts/integrityChecker.ts](./repair-scripts/integrityChecker.ts) - Repair tools
+- [src/lib/db/integrityChecker.ts](./src/lib/db/integrityChecker.ts) - Repair tools
 
 ---
 

@@ -13,7 +13,6 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import * as SQLite from 'expo-sqlite';
 import { getDb, ensureTables, clearDatabase } from '../src/lib/db/index';
 import { 
   createWallet, 

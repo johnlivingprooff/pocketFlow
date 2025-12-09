@@ -21,7 +21,7 @@ const isLoggingEnabled = Constants.expoConfig?.extra?.enableLogging === true;
  * Format: op_<timestamp>_<random>
  */
 export function generateOperationId(): string {
-  return `op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `op_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 }
 
 /**

@@ -13,8 +13,8 @@
  *   }
  */
 
-import { getDb } from '../src/lib/db/index';
-import { log, error as logError } from '../src/utils/logger';
+import { getDb } from './index';
+import { log, error as logError } from '../../utils/logger';
 
 export interface IntegrityIssue {
   issueType: 'null_display_order' | 'negative_display_order' | 'duplicate_display_order' | 'gap_in_sequence';
@@ -213,13 +213,14 @@ export async function repairDatabaseIntegrity(dryRun: boolean = true): Promise<R
     // ACTUAL REPAIR - Create backup and fix issues
     log('[Integrity Repair] Creating backup table...');
     
+    const backupTableName = `wallets_backup_integrity_repair_${Date.now()}`;
     await database.execAsync(`
-      DROP TABLE IF EXISTS wallets_backup_integrity_repair;
-      CREATE TABLE wallets_backup_integrity_repair AS SELECT * FROM wallets;
+      DROP TABLE IF EXISTS ${backupTableName};
+      CREATE TABLE ${backupTableName} AS SELECT * FROM wallets;
     `);
     
     result.backupCreated = true;
-    log('[Integrity Repair] ✓ Backup created: wallets_backup_integrity_repair');
+    log(`[Integrity Repair] ✓ Backup created: ${backupTableName}`);
 
     // Perform repair in a transaction
     await database.withTransactionAsync(async () => {

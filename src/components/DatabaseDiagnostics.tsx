@@ -22,7 +22,7 @@ import {
   getDatabaseHealthScore,
   IntegrityIssue,
   RepairResult,
-} from '../../repair-scripts/integrityChecker';
+} from '../lib/db/integrityChecker';
 
 export function DatabaseDiagnostics() {
   const { themeMode } = useSettings();
