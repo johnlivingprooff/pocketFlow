@@ -211,8 +211,73 @@ export async function ensureTables() {
       if (!hasBudget) {
         await database.execAsync('ALTER TABLE categories ADD COLUMN budget REAL DEFAULT NULL;');
       }
+      const hasParentId = catCols.some(c => c.name === 'parent_category_id');
+      if (!hasParentId) {
+        await database.execAsync(
+          'ALTER TABLE categories ADD COLUMN parent_category_id INTEGER REFERENCES categories(id) ON DELETE CASCADE;'
+        );
+      }
     } catch (e) {
       // noop: best-effort migration
+    }
+
+    // Goals Table: Track income-based savings targets
+    await database.execAsync(
+      `CREATE TABLE IF NOT EXISTS goals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        target_amount REAL NOT NULL,
+        current_progress REAL NOT NULL DEFAULT 0,
+        target_date TEXT NOT NULL,
+        notes TEXT,
+        linked_wallet_id INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY(linked_wallet_id) REFERENCES wallets(id) ON DELETE CASCADE,
+        CHECK(target_amount > 0),
+        CHECK(current_progress >= 0)
+      );`
+    );
+
+    // Create indexes for goals
+    try {
+      await database.execAsync('CREATE INDEX IF NOT EXISTS idx_goals_wallet_id ON goals(linked_wallet_id);');
+      await database.execAsync('CREATE INDEX IF NOT EXISTS idx_goals_target_date ON goals(target_date);');
+    } catch (e) {
+      // noop: indexes may already exist
+    }
+
+    // Budgets Table: Track spending limits by category and period
+    await database.execAsync(
+      `CREATE TABLE IF NOT EXISTS budgets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        category_id INTEGER,
+        subcategory_id INTEGER,
+        limit_amount REAL NOT NULL,
+        current_spending REAL NOT NULL DEFAULT 0,
+        period_type TEXT NOT NULL CHECK(period_type IN ('weekly', 'monthly', 'custom')),
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        notes TEXT,
+        linked_wallet_id INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE SET NULL,
+        FOREIGN KEY(subcategory_id) REFERENCES categories(id) ON DELETE SET NULL,
+        FOREIGN KEY(linked_wallet_id) REFERENCES wallets(id) ON DELETE CASCADE,
+        CHECK(limit_amount > 0),
+        CHECK(current_spending >= 0)
+      );`
+    );
+
+    // Create indexes for budgets
+    try {
+      await database.execAsync('CREATE INDEX IF NOT EXISTS idx_budgets_wallet_id ON budgets(linked_wallet_id);');
+      await database.execAsync('CREATE INDEX IF NOT EXISTS idx_budgets_category_id ON budgets(category_id);');
+      await database.execAsync('CREATE INDEX IF NOT EXISTS idx_budgets_period ON budgets(start_date, end_date);');
+    } catch (e) {
+      // noop: indexes may already exist
     }
 
     // Seed or repair preset categories (idempotent via INSERT OR IGNORE)

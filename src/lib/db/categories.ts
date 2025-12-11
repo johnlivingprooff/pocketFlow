@@ -10,14 +10,15 @@ export type Category = {
   is_preset?: number;
   created_at?: string;
   budget?: number | null;
+  parent_category_id?: number | null;
 };
 
 export async function createCategory(category: Category): Promise<number> {
   const startTime = Date.now();
   try {
     const result = await execRun(
-      `INSERT INTO categories (name, type, icon, color, is_preset, budget, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, datetime('now'));`,
+      `INSERT INTO categories (name, type, icon, color, is_preset, budget, parent_category_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'));`,
       [
         category.name,
         category.type,
@@ -25,6 +26,7 @@ export async function createCategory(category: Category): Promise<number> {
         category.color ?? null,
         category.is_preset ?? 0,
         category.budget ?? null,
+        category.parent_category_id ?? null,
       ]
     );
     
@@ -48,6 +50,7 @@ export async function updateCategory(id: number, category: Partial<Category>): P
   if (category.icon !== undefined) { fields.push('icon = ?'); params.push(category.icon); }
   if (category.color !== undefined) { fields.push('color = ?'); params.push(category.color); }
   if (category.budget !== undefined) { fields.push('budget = ?'); params.push(category.budget); }
+  if (category.parent_category_id !== undefined) { fields.push('parent_category_id = ?'); params.push(category.parent_category_id); }
   
   params.push(id);
   await execRun(`UPDATE categories SET ${fields.join(', ')} WHERE id = ?;`, params);
@@ -82,4 +85,52 @@ export async function getCategoryByName(name: string, type?: 'income' | 'expense
     [name]
   );
   return results.length > 0 ? results[0] : null;
+}
+
+/**
+ * Get all subcategories for a given parent category
+ */
+export async function getSubcategories(parentId: number): Promise<Category[]> {
+  return exec<Category>(
+    'SELECT * FROM categories WHERE parent_category_id = ? ORDER BY name ASC;',
+    [parentId]
+  );
+}
+
+/**
+ * Get all parent categories (categories with no parent)
+ */
+export async function getParentCategories(type?: 'income' | 'expense'): Promise<Category[]> {
+  if (type) {
+    return exec<Category>(
+      'SELECT * FROM categories WHERE parent_category_id IS NULL AND (type = ? OR type = "both") ORDER BY is_preset DESC, name ASC;',
+      [type]
+    );
+  }
+  return exec<Category>(
+    'SELECT * FROM categories WHERE parent_category_id IS NULL ORDER BY is_preset DESC, name ASC;'
+  );
+}
+
+/**
+ * Get category with its subcategories
+ */
+export async function getCategoryWithChildren(id: number): Promise<{ category: Category | null; children: Category[] }> {
+  const category = await getCategoryById(id);
+  const children = category ? await getSubcategories(id) : [];
+  return { category, children };
+}
+
+/**
+ * Get all categories organized hierarchically
+ */
+export async function getCategoriesHierarchy(type?: 'income' | 'expense'): Promise<Array<{ category: Category; children: Category[] }>> {
+  const parents = await getParentCategories(type);
+  const hierarchy = await Promise.all(
+    parents.map(async (parent) => ({
+      category: parent,
+      children: await getSubcategories(parent.id!),
+    }))
+  );
+  return hierarchy;
 }

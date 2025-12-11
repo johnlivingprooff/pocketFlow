@@ -290,7 +290,7 @@ export default function SettingsScreen() {
               <Text style={{ color: t.textSecondary, fontSize: 20 }}>›</Text>
             </TouchableOpacity>
           </Link>
-            <Link href="/settings/categories" asChild>
+            <Link href="/budget" asChild>
               <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
                 <View>
                   <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Budget & Goals</Text>

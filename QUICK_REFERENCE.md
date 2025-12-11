@@ -191,3 +191,50 @@ import { AddButton } from './src/components/AddButton';
 
 ---
 **📖 Full docs:** See `README.md`, `STRUCTURE.md`, `PROJECT_SUMMARY.md`
+
+##  Goals & Budgets (NEW!)
+
+### Goals (src/lib/db/goals.ts)
+Track income-based savings targets with automatic progress updates.
+
+See GOALS_BUDGETS_README.md for full documentation.
+
+**Key Functions**:
+- createGoal(input) - Create a new goal
+- getGoalWithMetrics(id) - Get goal with calculated metrics
+- recalculateGoalProgress(id) - Update progress from wallet income
+- getGoalsByWallet(walletId) - Get goals for a wallet
+- getAtRiskGoals() - Get goals not on track
+
+**Key Metrics**:
+- progressPercentage (0-100)
+- daysRemaining (until deadline)
+- monthlyRequired (amount needed per month)
+- onTrack (boolean)
+
+### Budgets (src/lib/db/budgets.ts)
+Track spending limits for categories with automatic spending updates.
+
+See GOALS_BUDGETS_README.md for full documentation.
+
+**Key Functions**:
+- createBudget(input) - Create a new budget
+- getBudgetWithMetrics(id) - Get budget with calculated metrics
+- recalculateBudgetSpending(id) - Update spending from category expenses
+- getBudgetsByWallet(walletId) - Get budgets for a wallet
+- getOverBudgets() - Get budgets exceeding limit
+- getApproachingLimitBudgets() - Get budgets near limit (>75%)
+
+**Key Metrics**:
+- percentageUsed (0-100)
+- remainingBalance (limit - spent)
+- isOverBudget (boolean)
+- averageDailySpend (daily average)
+
+### Goals & Budgets Documentation
+- GOALS_BUDGETS_README.md - START HERE
+- GOALS_BUDGETS_SUMMARY.md - Overview
+- GOALS_BUDGETS_SPEC.md - Full specification
+- GOALS_BUDGETS_FLOWDIAGRAMS.md - Architecture diagrams
+- GOALS_BUDGETS_IMPLEMENTATION_GUIDE.md - Developer guide
+- TRANSACTION_INTEGRATION_GUIDE.md - CRITICAL for transaction integration

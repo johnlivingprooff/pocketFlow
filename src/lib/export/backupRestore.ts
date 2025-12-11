@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { yyyyMmDd } from '../../utils/date';
-import { exec } from '../db';
+import { exec, getDb } from '../db';
+import { enqueueWrite } from '../db/writeQueue';
 import { Alert } from 'react-native';
 
 export interface BackupData {
@@ -101,7 +102,8 @@ export async function listBackups(): Promise<{ filename: string; uri: string; da
 
 /**
  * Restores data from a backup file
- * FIXED: Wrapped in database transaction for atomicity
+ * FIXED: Wrapped in enqueueWrite to serialize with other database writes,
+ * and in database transaction for atomicity
  */
 export async function restoreFromBackup(backupUri: string): Promise<{ success: boolean; error?: string }> {
   try {
@@ -114,11 +116,12 @@ export async function restoreFromBackup(backupUri: string): Promise<{ success: b
       throw new Error('Invalid backup file format');
     }
 
-    // ✅ FIX: Import getDb and wrap entire operation in transaction
-    const { getDb } = await import('../db');
-    const database = await getDb();
-    
-    await database.withTransactionAsync(async () => {
+    // ✅ FIX: Wrap entire restore in enqueueWrite to serialize with other writes
+    // This prevents conflicts if user happens to add/edit data during restore
+    return await enqueueWrite(async () => {
+      const database = await getDb();
+      
+      await database.withTransactionAsync(async () => {
       // Clear existing data
       await database.execAsync('DELETE FROM transactions;');
       await database.execAsync('DELETE FROM wallets;');
@@ -201,13 +204,14 @@ export async function restoreFromBackup(backupUri: string): Promise<{ success: b
       } finally {
         await txnStmt.finalizeAsync();
       }
-    });
+      });
 
-    // ✅ Invalidate caches only after successful restore
-    const { invalidateTransactionCaches } = await import('../cache/queryCache');
-    invalidateTransactionCaches();
+      // ✅ Invalidate caches only after successful restore
+      const { invalidateTransactionCaches } = await import('../cache/queryCache');
+      invalidateTransactionCaches();
 
-    return { success: true };
+      return { success: true };
+    }, 'restore_backup');
   } catch (error) {
     console.error('Error restoring backup:', error);
     return { 

@@ -145,23 +145,51 @@ const styles = StyleSheet.create({
 - All database operations are in `src/lib/db/`
 - Use async/await for all database operations
 - Always use parameterized queries to prevent SQL injection
+- **CRITICAL**: All database write operations (INSERT, UPDATE, DELETE) MUST be wrapped in `enqueueWrite()` from `src/lib/db/writeQueue.ts`
 - Transaction operations: `src/lib/db/transactions.ts`
 - Wallet operations: `src/lib/db/wallets.ts`
 - Category operations: `src/lib/db/categories.ts`
 
-Example database query:
+**Write Queue Pattern (MANDATORY for all writes):**
 ```typescript
-// GOOD - Parameterized query
-await db.runAsync(
+// CORRECT - Write operations wrapped in enqueueWrite
+import { enqueueWrite } from '@/lib/db/writeQueue';
+
+await enqueueWrite(async () => {
+  await db.runAsync(
+    'INSERT INTO transactions (wallet_id, amount, type) VALUES (?, ?, ?)',
+    [walletId, amount, type]
+  );
+}, 'insertTransaction'); // Operation name for logging
+
+// Also correct - Using execRun which wraps in enqueueWrite automatically
+import { execRun } from '@/lib/db';
+
+await execRun(
   'INSERT INTO transactions (wallet_id, amount, type) VALUES (?, ?, ?)',
   [walletId, amount, type]
 );
 
+// BAD - Direct db.runAsync without write queue
+await db.runAsync(...); // ❌ Will cause SQLITE_BUSY errors!
+
 // BAD - String concatenation (SQL injection risk)
-await db.runAsync(
+await execRun(
   `INSERT INTO transactions (wallet_id, amount) VALUES (${walletId}, ${amount})`
-);
+); // ❌ SQL Injection vulnerability!
 ```
+
+**Why the Write Queue is Critical:**
+- SQLite only allows one writer at a time
+- Without write queue serialization, concurrent writes cause `SQLITE_BUSY: "database is locked"` errors
+- The write queue automatically retries with exponential backoff on lock errors
+- **Rule**: If your function calls `db.runAsync()`, `database.runAsync()`, or modifies data, it MUST use `enqueueWrite()`
+
+**Checking Your Work:**
+- Search for `await db.runAsync` - all results should be inside an `enqueueWrite()` callback or use `execRun()`
+- Search for `database.runAsync` - same requirement
+- Use `execRun()` instead of `db.runAsync()` for INSERT/UPDATE/DELETE when possible
+
 
 ### File Operations
 - Receipt images: `DocumentDirectory/receipts/YYYY-MM-DD/{filename}.jpg`

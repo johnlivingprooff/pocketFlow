@@ -1,4 +1,5 @@
-import { exec, execRun } from '../db';
+import { exec, execRun, getDb } from '../db';
+import { enqueueWrite } from '../db/writeQueue';
 import { Transaction, RecurrenceFrequency } from '../../types/transaction';
 
 // Maximum number of recurring instances to generate per processing run
@@ -151,7 +152,7 @@ function advanceDate(date: Date, frequency: RecurrenceFrequency): void {
 
 /**
  * Create a new transaction instance from a recurring template
- * FIXED: Uses INSERT OR IGNORE to prevent duplicates
+ * FIXED: Uses INSERT OR IGNORE to prevent duplicates and enqueueWrite for serialization
  */
 async function createRecurringInstance(
   template: Transaction,
@@ -159,23 +160,27 @@ async function createRecurringInstance(
 ): Promise<void> {
   const dateStr = instanceDate.toISOString();
 
-  // ✅ FIX: Use INSERT OR IGNORE to prevent duplicate instances
-  // This makes the operation idempotent
-  await execRun(
-    `INSERT OR IGNORE INTO transactions 
-     (wallet_id, type, amount, category, date, notes, parent_transaction_id, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      template.wallet_id,
-      template.type,
-      template.amount,
-      template.category || null,
-      dateStr,
-      template.notes || null,
-      template.id,
-      new Date().toISOString()
-    ]
-  );
+  // ✅ FIX: Wrap in enqueueWrite to serialize with other writes
+  await enqueueWrite(async () => {
+    // ✅ FIX: Use INSERT OR IGNORE to prevent duplicate instances
+    // This makes the operation idempotent
+    const database = await getDb();
+    await database.runAsync(
+      `INSERT OR IGNORE INTO transactions 
+       (wallet_id, type, amount, category, date, notes, parent_transaction_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        template.wallet_id,
+        template.type,
+        template.amount,
+        template.category || null,
+        dateStr,
+        template.notes || null,
+        template.id,
+        new Date().toISOString()
+      ]
+    );
+  }, `recurring_instance_${template.id}_${dateStr}`);
 }
 
 /**
@@ -193,12 +198,16 @@ export async function getRecurringTemplates(): Promise<Transaction[]> {
  * Cancel a recurring transaction (stops future generations)
  */
 export async function cancelRecurringTransaction(templateId: number): Promise<void> {
-  await execRun(
-    `UPDATE transactions 
-     SET is_recurring = 0, recurrence_end_date = date('now') 
-     WHERE id = ?`,
-    [templateId]
-  );
+  // ✅ FIX: Wrap in enqueueWrite for proper serialization
+  await enqueueWrite(async () => {
+    const database = await getDb();
+    await database.runAsync(
+      `UPDATE transactions 
+       SET is_recurring = 0, recurrence_end_date = date('now') 
+       WHERE id = ?`,
+      [templateId]
+    );
+  }, `cancel_recurring_${templateId}`);
 }
 
 /**
@@ -209,10 +218,14 @@ export async function updateRecurringTransaction(
   frequency: RecurrenceFrequency,
   endDate?: string
 ): Promise<void> {
-  await execRun(
-    `UPDATE transactions 
-     SET recurrence_frequency = ?, recurrence_end_date = ? 
-     WHERE id = ?`,
-    [frequency, endDate || null, templateId]
-  );
+  // ✅ FIX: Wrap in enqueueWrite for proper serialization
+  await enqueueWrite(async () => {
+    const database = await getDb();
+    await database.runAsync(
+      `UPDATE transactions 
+       SET recurrence_frequency = ?, recurrence_end_date = ? 
+       WHERE id = ?`,
+      [frequency, endDate || null, templateId]
+    );
+  }, `update_recurring_${templateId}`);
 }

@@ -1,17 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, useColorScheme, Modal, Switch, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, useColorScheme, Modal, Switch, Platform, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { theme } from '../../src/theme/theme';
 import { useSettings } from '../../src/store/useStore';
-import { Transaction, RecurrenceFrequency } from '../../src/types/transaction';
-import { exec } from '../../src/lib/db';
+import { Transaction, RecurrenceFrequency, TransactionType } from '../../src/types/transaction';
+import { exec, getDb } from '../../src/lib/db';
 import { 
   cancelRecurringTransaction, 
   updateRecurringTransaction 
 } from '../../src/lib/services/recurringTransactionService';
 import { formatCurrency } from '../../src/utils/formatCurrency';
+import { getWallets } from '../../src/lib/db/wallets';
+import { getCategories, getCategoriesHierarchy } from '../../src/lib/db/categories';
+import { enqueueWrite } from '../../src/lib/db/writeQueue';
+import { CalendarModal } from '../../src/components/CalendarModal';
+import { SelectModal, SelectOption } from '../../src/components/SelectModal';
 
 export default function RecurringTransactionsScreen() {
   const router = useRouter();
@@ -27,10 +32,67 @@ export default function RecurringTransactionsScreen() {
   const [editFrequency, setEditFrequency] = useState<RecurrenceFrequency>('monthly');
   const [editEndDate, setEditEndDate] = useState<Date | null>(null);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  
+  // Create new recurring transaction states
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createType, setCreateType] = useState<TransactionType>('expense');
+  const [createWalletId, setCreateWalletId] = useState<number>(0);
+  const [createAmount, setCreateAmount] = useState('');
+  const [createCategory, setCreateCategory] = useState('');
+  const [createNotes, setCreateNotes] = useState('');
+  const [createDate, setCreateDate] = useState(new Date());
+  const [showCreateDatePicker, setShowCreateDatePicker] = useState(false);
+  const [createFrequency, setCreateFrequency] = useState<RecurrenceFrequency>('monthly');
+  const [categoryHierarchy, setCategoryHierarchy] = useState<Array<{ category: any; children: any[] }>>([]);
+  const [createEndDate, setCreateEndDate] = useState<Date | null>(null);
+  const [showCreateEndDatePicker, setShowCreateEndDatePicker] = useState(false);
+  const [wallets, setWallets] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [createToWalletId, setCreateToWalletId] = useState<number>(0);
+
+  // Modal visibility states
+  const [showWalletModal, setShowWalletModal] = useState(false);
+  const [showToWalletModal, setShowToWalletModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   useEffect(() => {
     loadRecurringTransactions();
+    loadWalletsAndCategories();
   }, []);
+
+  const loadWalletsAndCategories = async () => {
+    try {
+      const w = await getWallets();
+      setWallets(w);
+      if (w.length > 0) {
+        setCreateWalletId(w[0].id!);
+      }
+
+      // Load category hierarchy
+      const hierarchy = await getCategoriesHierarchy(createType as 'income' | 'expense');
+      setCategoryHierarchy(hierarchy);
+      
+      // Flatten for backwards compatibility
+      const flatCats: any[] = [];
+      hierarchy.forEach(h => {
+        flatCats.push(h.category);
+        flatCats.push(...h.children);
+      });
+      setCategories(flatCats);
+      
+      if (flatCats.length > 0) {
+        setCreateCategory(flatCats[0].name);
+      }
+    } catch (error) {
+      console.error('Error loading wallets and categories:', error);
+      // Fallback to flat categories
+      const cats = await getCategories();
+      setCategories(cats);
+      if (cats.length > 0) {
+        setCreateCategory(cats[0].name);
+      }
+    }
+  };
 
   const loadRecurringTransactions = async () => {
     try {
@@ -138,6 +200,115 @@ export default function RecurringTransactionsScreen() {
     } catch (error) {
       console.error('Error updating recurring transaction:', error);
       Alert.alert('Error', 'Failed to update recurring transaction');
+    }
+  };
+
+  const handleCreateRecurring = async () => {
+    // Validation
+    const amount = parseFloat(createAmount);
+    if (!createWalletId || !amount || !createCategory) {
+      Alert.alert('Validation Error', 'Please fill in all required fields');
+      return;
+    }
+
+    if (createType === 'transfer' && !createToWalletId) {
+      Alert.alert('Validation Error', 'Please select a destination wallet for the transfer');
+      return;
+    }
+
+    try {
+      await enqueueWrite(async () => {
+        const database = await getDb();
+        
+        if (createType === 'transfer') {
+          // Create paired transfer transactions
+          const now = createDate.toISOString();
+          const transferNotes = createNotes ? `Transfer: ${createNotes}` : 'Transfer between wallets';
+          
+          const fromWallet = wallets.find(w => w.id === createWalletId);
+          const toWallet = wallets.find(w => w.id === createToWalletId);
+          
+          let receivedAmount = amount;
+          if (fromWallet && toWallet && fromWallet.currency !== toWallet.currency) {
+            const fromRate = fromWallet.exchange_rate ?? 1.0;
+            const toRate = toWallet.exchange_rate ?? 1.0;
+            receivedAmount = amount * fromRate / toRate;
+          }
+
+          // Create both transactions in a single batch
+          await database.withTransactionAsync(async () => {
+            const stmt = await database.prepareAsync(
+              `INSERT INTO transactions 
+               (wallet_id, type, amount, category, date, notes, is_recurring, recurrence_frequency, recurrence_end_date, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            );
+            
+            try {
+              // Outgoing transfer
+              await stmt.executeAsync([
+                createWalletId,
+                'expense',
+                -Math.abs(amount),
+                'Transfer',
+                createDate.toISOString(),
+                `${transferNotes} to ${toWallet?.name}`,
+                1,
+                createFrequency,
+                createEndDate ? createEndDate.toISOString().split('T')[0] : null,
+                new Date().toISOString(),
+              ]);
+
+              // Incoming transfer
+              await stmt.executeAsync([
+                createToWalletId,
+                'income',
+                Math.abs(receivedAmount),
+                'Transfer',
+                createDate.toISOString(),
+                `${transferNotes} from ${fromWallet?.name}`,
+                1,
+                createFrequency,
+                createEndDate ? createEndDate.toISOString().split('T')[0] : null,
+                new Date().toISOString(),
+              ]);
+            } finally {
+              await stmt.finalizeAsync();
+            }
+          });
+        } else {
+          // Create single income/expense transaction
+          await database.runAsync(
+            `INSERT INTO transactions 
+             (wallet_id, type, amount, category, date, notes, is_recurring, recurrence_frequency, recurrence_end_date, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              createWalletId,
+              createType,
+              createType === 'income' ? Math.abs(amount) : -Math.abs(amount),
+              createCategory,
+              createDate.toISOString(),
+              createNotes || null,
+              1,
+              createFrequency,
+              createEndDate ? createEndDate.toISOString().split('T')[0] : null,
+              new Date().toISOString(),
+            ]
+          );
+        }
+      }, 'create_recurring_transaction');
+
+      // Reset form and reload
+      setShowCreateModal(false);
+      setCreateAmount('');
+      setCreateNotes('');
+      setCreateDate(new Date());
+      setCreateFrequency('monthly');
+      setCreateEndDate(null);
+      await loadRecurringTransactions();
+      Alert.alert('Success', 'Recurring transaction created successfully');
+    } catch (error) {
+      console.error('Error creating recurring transaction:', error);
+      Alert.alert('Error', 'Failed to create recurring transaction');
     }
   };
 
@@ -287,6 +458,29 @@ export default function RecurringTransactionsScreen() {
         )}
       </ScrollView>
 
+      {/* Floating Action Button */}
+      <TouchableOpacity
+        onPress={() => setShowCreateModal(true)}
+        style={{
+          position: 'absolute',
+          bottom: 16,
+          right: 16,
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          backgroundColor: t.primary,
+          justifyContent: 'center',
+          alignItems: 'center',
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+        }}
+      >
+        <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 28 }}>+</Text>
+      </TouchableOpacity>
+
       {/* Edit Modal */}
       <Modal visible={showEditModal} transparent animationType="slide" onRequestClose={() => setShowEditModal(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
@@ -404,43 +598,406 @@ export default function RecurringTransactionsScreen() {
       </Modal>
 
       {/* End Date Picker */}
-      {showEndDatePicker && (
-        <Modal transparent animationType="fade" onRequestClose={() => setShowEndDatePicker(false)}>
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 16 }}>
-            <View style={{ backgroundColor: t.card, borderRadius: 12, padding: 16 }}>
-              <DateTimePicker
-                value={editEndDate || new Date()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(event, selectedDate) => {
-                  if (Platform.OS === 'android') {
-                    setShowEndDatePicker(false);
-                  }
-                  if (selectedDate) {
-                    setEditEndDate(selectedDate);
-                  }
+      <CalendarModal
+        visible={showEndDatePicker}
+        onClose={() => setShowEndDatePicker(false)}
+        onSelectDate={(date) => setEditEndDate(date)}
+        selectedDate={editEndDate || new Date()}
+        minDate={editingTransaction?.date ? new Date(editingTransaction.date) : new Date()}
+        title="End Date"
+      />
+
+      {/* Create Recurring Transaction Modal */}
+      <Modal visible={showCreateModal} transparent animationType="slide" onRequestClose={() => setShowCreateModal(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: t.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%' }}>
+            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Create Recurring Transaction</Text>
+              <TouchableOpacity onPress={() => setShowCreateModal(false)}>
+                <Text style={{ color: t.textSecondary, fontSize: 20 }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ padding: 16 }} showsVerticalScrollIndicator={false}>
+              {/* Transaction Type */}
+              <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>
+                TYPE
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+                {(['expense', 'income', 'transfer'] as const).map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    onPress={() => setCreateType(type as any)}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 12,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: createType === type ? t.primary : t.border,
+                      backgroundColor: createType === type ? t.primary + '15' : t.background,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: createType === type ? t.primary : t.textSecondary,
+                        fontSize: 12,
+                        fontWeight: createType === type ? '700' : '600',
+                      }}
+                      numberOfLines={1}
+                    >
+                      {type === 'expense' ? '💸 Expense' : type === 'income' ? '💰 Income' : '⇄ Transfer'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Source Wallet */}
+              <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>
+                {createType === 'transfer' ? 'FROM WALLET' : 'WALLET'}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowWalletModal(true)}
+                style={{
+                  padding: 14,
+                  backgroundColor: t.background,
+                  borderWidth: 1,
+                  borderColor: t.border,
+                  borderRadius: 8,
+                  marginBottom: 20,
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
                 }}
-                minimumDate={new Date()}
-                textColor={t.textPrimary}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: t.textPrimary, fontSize: 15, fontWeight: '600' }}>
+                    {wallets.find(w => w.id === createWalletId)?.name || 'Select wallet'}
+                  </Text>
+                  <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>
+                    {wallets.find(w => w.id === createWalletId)?.currency}
+                  </Text>
+                </View>
+                <Text style={{ color: t.textSecondary, fontSize: 16 }}>›</Text>
+              </TouchableOpacity>
+
+              {/* Destination Wallet (Transfer only) */}
+              {createType === 'transfer' && (
+                <>
+                  <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>
+                    TO WALLET
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setShowToWalletModal(true)}
+                    style={{
+                      padding: 14,
+                      backgroundColor: t.background,
+                      borderWidth: 1,
+                      borderColor: t.border,
+                      borderRadius: 8,
+                      marginBottom: 20,
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: t.textPrimary, fontSize: 15, fontWeight: '600' }}>
+                        {wallets.find(w => w.id === createToWalletId)?.name || 'Select wallet'}
+                      </Text>
+                      <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>
+                        {wallets.find(w => w.id === createToWalletId)?.currency}
+                      </Text>
+                    </View>
+                    <Text style={{ color: t.textSecondary, fontSize: 16 }}>›</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {/* Amount */}
+              <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>
+                AMOUNT
+              </Text>
+              <TextInput
+                value={createAmount}
+                onChangeText={setCreateAmount}
+                placeholder="0.00"
+                placeholderTextColor={t.textSecondary}
+                keyboardType="decimal-pad"
+                style={{
+                  backgroundColor: t.background,
+                  borderWidth: 1,
+                  borderColor: t.border,
+                  borderRadius: 8,
+                  padding: 12,
+                  color: t.textPrimary,
+                  marginBottom: 20,
+                  fontSize: 16,
+                }}
               />
-              {Platform.OS === 'ios' && (
+
+              {/* Category */}
+              <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>
+                CATEGORY
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowCategoryModal(true)}
+                style={{
+                  padding: 14,
+                  backgroundColor: t.background,
+                  borderWidth: 1,
+                  borderColor: t.border,
+                  borderRadius: 8,
+                  marginBottom: 20,
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <View style={{ flex: 1 }}>
+                  {(() => {
+                    const currentCat = categories.find(c => c.name === createCategory);
+                    return (
+                      <Text style={{ color: t.textPrimary, fontSize: 15, fontWeight: '600' }}>
+                        {currentCat ? `${currentCat.icon} ${currentCat.name}` : 'Select category'}
+                      </Text>
+                    );
+                  })()}
+                </View>
+                <Text style={{ color: t.textSecondary, fontSize: 16 }}>›</Text>
+              </TouchableOpacity>
+
+              {/* Notes */}
+              <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>
+                NOTES (OPTIONAL)
+              </Text>
+              <TextInput
+                value={createNotes}
+                onChangeText={setCreateNotes}
+                placeholder="Add notes..."
+                placeholderTextColor={t.textSecondary}
+                multiline
+                numberOfLines={3}
+                style={{
+                  backgroundColor: t.background,
+                  borderWidth: 1,
+                  borderColor: t.border,
+                  borderRadius: 8,
+                  padding: 12,
+                  color: t.textPrimary,
+                  marginBottom: 20,
+                  fontSize: 14,
+                  textAlignVertical: 'top',
+                }}
+              />
+
+              {/* Start Date */}
+              <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>
+                START DATE
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowCreateDatePicker(true)}
+                style={{
+                  padding: 14,
+                  backgroundColor: t.background,
+                  borderWidth: 1,
+                  borderColor: t.border,
+                  borderRadius: 8,
+                  marginBottom: 20,
+                }}
+              >
+                <Text style={{ color: t.textPrimary, fontSize: 15 }}>
+                  {createDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Frequency */}
+              <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>
+                FREQUENCY
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+                {frequencyOptions.map((freq) => (
+                  <TouchableOpacity
+                    key={freq}
+                    onPress={() => setCreateFrequency(freq)}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 12,
+                      paddingHorizontal: 8,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: createFrequency === freq ? t.primary : t.border,
+                      backgroundColor: createFrequency === freq ? t.primary + '15' : t.background,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: createFrequency === freq ? t.primary : t.textSecondary,
+                        fontSize: 12,
+                        fontWeight: createFrequency === freq ? '700' : '600',
+                      }}
+                      numberOfLines={1}
+                    >
+                      {freq.charAt(0).toUpperCase() + freq.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* End Date */}
+              <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>
+                END DATE (OPTIONAL)
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 32 }}>
                 <TouchableOpacity
-                  onPress={() => setShowEndDatePicker(false)}
+                  onPress={() => setShowCreateEndDatePicker(true)}
                   style={{
-                    marginTop: 12,
-                    padding: 12,
-                    backgroundColor: t.primary,
+                    flex: 1,
+                    padding: 14,
+                    backgroundColor: t.background,
+                    borderWidth: 1,
+                    borderColor: t.border,
                     borderRadius: 8,
-                    alignItems: 'center',
                   }}
                 >
-                  <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Done</Text>
+                  <Text style={{ color: createEndDate ? t.textPrimary : t.textSecondary, fontSize: 15 }}>
+                    {createEndDate ? createEndDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No end date'}
+                  </Text>
                 </TouchableOpacity>
-              )}
+                {createEndDate && (
+                  <TouchableOpacity
+                    onPress={() => setCreateEndDate(null)}
+                    style={{
+                      padding: 14,
+                      backgroundColor: t.danger + '15',
+                      borderWidth: 1,
+                      borderColor: t.danger,
+                      borderRadius: 8,
+                    }}
+                  >
+                    <Text style={{ color: t.danger, fontWeight: '600' }}>Clear</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </ScrollView>
+
+            {/* Action Buttons */}
+            <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: t.border, flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => setShowCreateModal(false)}
+                style={{
+                  flex: 1,
+                  padding: 16,
+                  backgroundColor: t.background,
+                  borderWidth: 1,
+                  borderColor: t.border,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: t.textPrimary, fontWeight: '600' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleCreateRecurring}
+                style={{
+                  flex: 1,
+                  padding: 16,
+                  backgroundColor: t.primary,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Create</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </Modal>
+        </View>
+      </Modal>
+
+      {/* Create Date Picker */}
+      <CalendarModal
+        visible={showCreateDatePicker}
+        onClose={() => setShowCreateDatePicker(false)}
+        onSelectDate={(date) => setCreateDate(date)}
+        selectedDate={createDate}
+        title="Start Date"
+      />
+
+      {/* Create End Date Picker */}
+      <CalendarModal
+        visible={showCreateEndDatePicker}
+        onClose={() => setShowCreateEndDatePicker(false)}
+        onSelectDate={(date) => setCreateEndDate(date)}
+        selectedDate={createEndDate || new Date()}
+        minDate={createDate}
+        title="End Date"
+      />
+      {/* Wallet Selection Modal */}
+      <SelectModal
+        visible={showWalletModal}
+        onClose={() => setShowWalletModal(false)}
+        onSelect={(option) => setCreateWalletId(option.id as number)}
+        options={wallets.map(w => ({
+          id: w.id,
+          label: w.name,
+          secondaryLabel: w.currency,
+        }))}
+        selectedId={createWalletId}
+        title={createType === 'transfer' ? 'From Wallet' : 'Select Wallet'}
+      />
+
+      {/* Destination Wallet Selection Modal */}
+      {createType === 'transfer' && (
+        <SelectModal
+          visible={showToWalletModal}
+          onClose={() => setShowToWalletModal(false)}
+          onSelect={(option) => setCreateToWalletId(option.id as number)}
+          options={wallets.filter(w => w.id !== createWalletId).map(w => ({
+            id: w.id,
+            label: w.name,
+            secondaryLabel: w.currency,
+          }))}
+          selectedId={createToWalletId}
+          title="To Wallet"
+        />
       )}
+
+      {/* Category Selection Modal */}
+      <SelectModal
+        visible={showCategoryModal}
+        onClose={() => setShowCategoryModal(false)}
+        onSelect={(option) => setCreateCategory(option.label)}
+        options={
+          createType === 'transfer' 
+            ? [{ id: 'transfer', label: 'Transfer', indent: 0 }]
+            : categoryHierarchy
+                .filter(item => {
+                  if (createType === 'income') return item.category.type === 'income' || item.category.type === 'both';
+                  return item.category.type === 'expense' || item.category.type === 'both';
+                })
+                .flatMap(item => [
+                  {
+                    id: item.category.id!,
+                    label: item.category.name,
+                    icon: item.category.icon,
+                    indent: 0,
+                    isParent: item.children.length > 0,
+                  } as SelectOption,
+                  ...(item.children.length > 0
+                    ? item.children.map(child => ({
+                        id: child.id!,
+                        label: child.name,
+                        icon: child.icon,
+                        indent: 1,
+                      } as SelectOption))
+                    : [])
+                ])
+        }
+        selectedId={createCategory}
+        title="Select Category"
+        hierarchical={createType !== 'transfer'}
+      />
     </SafeAreaView>
   );
 }

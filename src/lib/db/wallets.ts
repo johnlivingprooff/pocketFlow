@@ -301,8 +301,18 @@ export async function getWallet(id: number): Promise<Wallet[]> {
 }
 
 export async function setPrimaryWallet(id: number) {
-  await execRun('UPDATE wallets SET is_primary = 0;');
-  await execRun('UPDATE wallets SET is_primary = 1 WHERE id = ?;', [id]);
+  // ✅ FIX: Wrap in enqueueWrite and transaction to ensure atomic operation
+  // Prevents case where app crashes between the two UPDATEs, leaving both wallets non-primary
+  return enqueueWrite(async () => {
+    const database = await getDb();
+    
+    await database.withTransactionAsync(async () => {
+      await database.runAsync('UPDATE wallets SET is_primary = 0;');
+      await database.runAsync('UPDATE wallets SET is_primary = 1 WHERE id = ?;', [id]);
+    });
+    
+    invalidateWalletCaches();
+  }, 'set_primary_wallet');
 }
 
 export async function getWalletBalance(id: number): Promise<number> {

@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Platform, Modal, useColorScheme, KeyboardAvoidingView, Switch, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
 import { addTransaction } from '../../src/lib/db/transactions';
+import { CalendarModal } from '@/components/CalendarModal';
 import { yyyyMmDd, formatShortDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { saveReceiptImage } from '../../src/lib/services/fileService';
-import { getCategories, Category } from '../../src/lib/db/categories';
+import { getCategories, getCategoriesHierarchy, Category } from '../../src/lib/db/categories';
 import { useWallets } from '../../src/lib/hooks/useWallets';
 import { RecurrenceFrequency } from '../../src/types/transaction';
 import { transferBetweenWallets } from '../../src/lib/db/transactions';
@@ -37,6 +37,7 @@ export default function AddTransactionScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryHierarchy, setCategoryHierarchy] = useState<Array<{ category: Category; children: Category[] }>>([]);
   
   // Transfer-specific fields
   const [toWalletId, setToWalletId] = useState<number | null>(null);
@@ -63,13 +64,31 @@ export default function AddTransactionScreen() {
 
   const loadCategories = async () => {
     if (type === 'transfer') return; // No categories for transfers
-    const cats = await getCategories(type as 'income' | 'expense');
-    setCategories(cats);
-    if (cats.length > 0) {
-      // If no category selected, or current category isn't valid for this type,
-      // pick the first available category for the selected type
-      const hasCurrent = category && cats.some(c => c.name === category);
-      if (!hasCurrent) setCategory(cats[0].name);
+    try {
+      const hierarchy = await getCategoriesHierarchy(type as 'income' | 'expense');
+      setCategoryHierarchy(hierarchy);
+      
+      // Flatten for backwards compatibility
+      const flatCats: Category[] = [];
+      hierarchy.forEach(h => {
+        flatCats.push(h.category);
+        flatCats.push(...h.children);
+      });
+      setCategories(flatCats);
+      
+      if (flatCats.length > 0) {
+        const hasCurrent = category && flatCats.some(c => c.name === category);
+        if (!hasCurrent) setCategory(flatCats[0].name);
+      }
+    } catch (err) {
+      logError('Failed to load categories:', { error: err });
+      // Fallback to flat categories
+      const cats = await getCategories(type as 'income' | 'expense');
+      setCategories(cats);
+      if (cats.length > 0) {
+        const hasCurrent = category && cats.some(c => c.name === category);
+        if (!hasCurrent) setCategory(cats[0].name);
+      }
     }
   };
 
@@ -231,7 +250,7 @@ export default function AddTransactionScreen() {
           await transferBetweenWallets(walletId, toWalletId, numAmount, notes.trim() || undefined);
           router.back();
         } catch (err: any) {
-          logError('[Transfer] Failed to complete transfer:', err);
+          logError('[Transfer] Failed to complete transfer:', { error: err });
           setAlertConfig({
             visible: true,
             title: 'Transfer Failed',
@@ -252,7 +271,7 @@ export default function AddTransactionScreen() {
           receiptUri = await saveReceiptImage(filename, imageBase64);
         }
       } catch (err: any) {
-        logError('[Transaction] Error saving receipt:', err);
+        logError('[Transaction] Error saving receipt:', { error: err });
         setAlertConfig({
           visible: true,
           title: 'Receipt Save Failed',
@@ -289,7 +308,7 @@ export default function AddTransactionScreen() {
         // Success - navigate back
         router.back();
       } catch (err: any) {
-        logError('[Transaction] Failed to add transaction:', err);
+        logError('[Transaction] Failed to add transaction:', { error: err });
         
         let errorMessage = 'Failed to add transaction. Please try again.';
         
@@ -334,7 +353,7 @@ export default function AddTransactionScreen() {
       
       router.back();
     } catch (err: any) {
-      logError('[Transaction] Failed to add transaction without receipt:', err);
+      logError('[Transaction] Failed to add transaction without receipt:', { error: err });
       setAlertConfig({
         visible: true,
         title: 'Error',
@@ -738,17 +757,46 @@ export default function AddTransactionScreen() {
               <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Select Category</Text>
             </View>
             <ScrollView>
-              {categories.map((cat) => (
-                <TouchableOpacity
-                  key={cat.id}
-                  onPress={() => {
-                    setCategory(cat.name);
-                    setShowCategoryPicker(false);
-                  }}
-                  style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}
-                >
-                  <Text style={{ color: category === cat.name ? t.primary : t.textPrimary, fontSize: 16, fontWeight: category === cat.name ? '800' : '600' }}>{cat.name}</Text>
-                </TouchableOpacity>
+              {categoryHierarchy.map((item) => (
+                <View key={item.category.id}>
+                  {/* Parent Category Header - not selectable */}
+                  <View style={{ padding: 16, backgroundColor: t.background, borderBottomWidth: 1, borderBottomColor: t.border }}>
+                    <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>
+                      {item.category.icon} {item.category.name}
+                    </Text>
+                  </View>
+                  
+                  {/* Subcategories */}
+                  {item.children.length > 0 ? (
+                    item.children.map((child) => (
+                      <TouchableOpacity
+                        key={child.id}
+                        onPress={() => {
+                          setCategory(child.name);
+                          setShowCategoryPicker(false);
+                        }}
+                        style={{ paddingLeft: 32, paddingVertical: 12, paddingRight: 16, borderBottomWidth: 1, borderBottomColor: t.border }}
+                      >
+                        <Text style={{ color: category === child.name ? t.primary : t.textPrimary, fontSize: 14, fontWeight: category === child.name ? '700' : '500' }}>
+                          ↳ {child.icon} {child.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    /* Parent Category is selectable if no children */
+                    <TouchableOpacity
+                      onPress={() => {
+                        setCategory(item.category.name);
+                        setShowCategoryPicker(false);
+                      }}
+                      style={{ paddingLeft: 32, paddingVertical: 12, paddingRight: 16, borderBottomWidth: 1, borderBottomColor: t.border }}
+                    >
+                      <Text style={{ color: category === item.category.name ? t.primary : t.textPrimary, fontSize: 14, fontWeight: category === item.category.name ? '700' : '500' }}>
+                        {item.category.icon} {item.category.name}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               ))}
             </ScrollView>
             <TouchableOpacity onPress={() => setShowCategoryPicker(false)} style={{ padding: 16, alignItems: 'center' }}>
@@ -761,122 +809,25 @@ export default function AddTransactionScreen() {
 
 
       {/* Custom Date Picker Modal */}
-      <Modal visible={showDatePicker} transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 16 }}>
-          <View style={{ backgroundColor: t.card, borderRadius: 12, borderWidth: 1, borderColor: t.border, maxHeight: '80%' }}>
-            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Select Date</Text>
-              <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                <Text style={{ fontSize: 28, color: t.textSecondary, lineHeight: 28 }}>×</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView contentContainerStyle={{ padding: 16 }}>
-              {generateCalendarMonths().map((month, monthIdx) => (
-                <View key={monthIdx} style={{ marginBottom: 24 }}>
-                  <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '800', marginBottom: 12 }}>
-                    {month.name}
-                  </Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                    {month.days.map((day, dayIdx) => {
-                      const isSelected = date && day.date.toDateString() === date.toDateString();
-                      const isPast = day.date > new Date();
-
-                      return (
-                        <TouchableOpacity
-                          key={dayIdx}
-                          disabled={isPast}
-                          onPress={() => {
-                            setDate(day.date);
-                            setShowDatePicker(false);
-                          }}
-                          style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 20,
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            backgroundColor: isSelected ? t.primary : isPast ? t.background : t.card,
-                            borderWidth: 1,
-                            borderColor: isSelected ? t.primary : t.border
-                          }}
-                        >
-                          <Text style={{
-                            color: isSelected ? '#FFFFFF' : isPast ? t.textTertiary : t.textPrimary,
-                            fontSize: 14,
-                            fontWeight: isSelected ? '800' : '600'
-                          }}>
-                            {day.day}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      <CalendarModal
+        visible={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        onSelectDate={(selectedDate: Date) => setDate(selectedDate)}
+        selectedDate={date}
+        maxDate={new Date()}
+        title="Select Date"
+      />
 
       {/* Recurrence End Date Picker Modal */}
-      <Modal visible={showRecurrenceEndDatePicker} transparent animationType="fade" onRequestClose={() => setShowRecurrenceEndDatePicker(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 16 }}>
-          <View style={{ backgroundColor: t.card, borderRadius: 12, borderWidth: 1, borderColor: t.border, maxHeight: '80%' }}>
-            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Recurrence End Date</Text>
-              <TouchableOpacity onPress={() => setShowRecurrenceEndDatePicker(false)}>
-                <Text style={{ fontSize: 28, color: t.textSecondary, lineHeight: 28 }}>×</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView contentContainerStyle={{ padding: 16 }}>
-              {generateCalendarMonths().map((month, monthIdx) => (
-                <View key={monthIdx} style={{ marginBottom: 24 }}>
-                  <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '800', marginBottom: 12 }}>
-                    {month.name}
-                  </Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                    {month.days.map((day, dayIdx) => {
-                      const isSelected = recurrenceEndDate && day.date.toDateString() === recurrenceEndDate.toDateString();
-                      const isBeforeStart = day.date < date;
+      <CalendarModal
+        visible={showRecurrenceEndDatePicker}
+        onClose={() => setShowRecurrenceEndDatePicker(false)}
+        onSelectDate={(selectedDate: Date) => setRecurrenceEndDate(selectedDate)}
+        selectedDate={recurrenceEndDate || date}
+        minDate={date}
+        title="Recurrence End Date"
+      />
 
-                      return (
-                        <TouchableOpacity
-                          key={dayIdx}
-                          disabled={isBeforeStart}
-                          onPress={() => {
-                            setRecurrenceEndDate(day.date);
-                            setShowRecurrenceEndDatePicker(false);
-                          }}
-                          style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 20,
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            backgroundColor: isSelected ? t.primary : isBeforeStart ? t.background : t.card,
-                            borderWidth: 1,
-                            borderColor: isSelected ? t.primary : t.border
-                          }}
-                        >
-                          <Text style={{
-                            color: isSelected ? '#FFFFFF' : isBeforeStart ? t.textTertiary : t.textPrimary,
-                            fontSize: 14,
-                            fontWeight: isSelected ? '800' : '600'
-                          }}>
-                            {day.day}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-      </ScrollView>
-      
       <ThemedAlert
         visible={alertConfig.visible}
         title={alertConfig.title}
@@ -886,6 +837,7 @@ export default function AddTransactionScreen() {
         themeMode={themeMode}
         systemColorScheme={systemColorScheme || 'light'}
       />
+      </ScrollView>
     </KeyboardAvoidingView>
     </SafeAreaView>
   );
