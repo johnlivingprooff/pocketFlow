@@ -10,6 +10,7 @@ import { Link, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { formatDate, yyyyMmDd, formatShortDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { getCategories, Category } from '../../src/lib/db/categories';
+import { invalidateTransactionCaches } from '../../src/lib/cache/queryCache';
 
 export default function HistoryScreen() {
   const { themeMode, defaultCurrency } = useSettings();
@@ -36,8 +37,11 @@ export default function HistoryScreen() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      // Reload transactions
-      await new Promise(resolve => setTimeout(resolve, 500)); // Brief delay for user feedback
+      // Clear transaction caches to force fresh data fetch
+      invalidateTransactionCaches();
+      // Brief delay for user feedback and to allow cache clear to propagate
+      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log('Transaction history refreshed - cache cleared');
     } catch (error) {
       console.error('Error refreshing transactions:', error);
     } finally {

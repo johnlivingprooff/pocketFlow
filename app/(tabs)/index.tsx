@@ -17,6 +17,7 @@ import { formatShortDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { Transaction } from '../../src/types/transaction';
 import { log } from '../../src/utils/logger';
+import { invalidateTransactionCaches, invalidateWalletCaches } from '../../src/lib/cache/queryCache';
 
 type TimePeriod = 'all' | 'today' | 'week' | 'month' | 'lastMonth' | 'custom';
 
@@ -437,8 +438,14 @@ export default function Home() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
+      // Clear all caches to force fresh data fetch from database
+      invalidateTransactionCaches();
+      invalidateWalletCaches();
+      
+      // Refresh wallet data
       await refresh();
-      // Re-trigger data loading
+      
+      // Re-trigger data loading with fresh database queries
       if (Platform.OS !== 'web') {
         const order = await getWalletsOrderedByRecentActivity();
         setRecentOrder(order);
@@ -446,8 +453,11 @@ export default function Home() {
         setMonthTotal(await monthSpend());
         setTodayTotal(await todaySpend());
       }
-      // Increment dataVersion to force useEffect to re-run
+      
+      // Increment dataVersion to force useEffect to re-run and reload all analytics
       setDataVersion(prev => prev + 1);
+      
+      console.log('Full refresh completed - all caches cleared and data reloaded');
     } catch (error) {
       console.error('Error refreshing data:', error);
     } finally {
@@ -678,72 +688,6 @@ export default function Home() {
           </View>
           </View>
         </ScrollView>
-
-        {/* Top Categories Section */}
-        <View style={{ marginBottom: 16 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700' }}>Top Categories</Text>
-            <Link href="/categories" asChild>
-              <TouchableOpacity>
-                <Text style={{ color: t.primary, fontSize: 14, fontWeight: '600' }}>Manage</Text>
-              </TouchableOpacity>
-            </Link>
-          </View>
-          
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-            {/* Show only categories with transactions */}
-            {getCategoryBreakdown().map((cat, idx) => (
-              <Link key={idx} href={`/transactions/history?category=${cat.category}`} asChild>
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: t.card,
-                    borderWidth: 1,
-                    borderColor: t.border,
-                    borderRadius: 16,
-                    paddingVertical: 12,
-                    paddingHorizontal: 16,
-                    minWidth: 140,
-                    ...shadows.sm
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                    <View style={{ 
-                      width: 8, 
-                      height: 8, 
-                      borderRadius: 4, 
-                      backgroundColor: cat.color,
-                      marginRight: 8
-                    }} />
-                    <Text style={{ color: t.textPrimary, fontSize: 13, fontWeight: '700' }}>{cat.category}</Text>
-                  </View>
-                  <Text style={{ color: t.danger, fontSize: 16, fontWeight: '800' }}>{formatCurrency(cat.amount, defaultCurrency)}</Text>
-                  <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 2 }}>{cat.percentage}% of expenses</Text>
-                </TouchableOpacity>
-              </Link>
-            ))}
-            
-            {/* Add Category Button */}
-            <Link href="/categories/create" asChild>
-              <TouchableOpacity
-                style={{
-                  backgroundColor: t.card,
-                  borderWidth: 2,
-                  borderColor: t.primary,
-                  borderStyle: 'dashed',
-                  borderRadius: 16,
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                  minWidth: 140,
-                  justifyContent: 'center',
-                  alignItems: 'center'
-                }}
-              >
-                <Text style={{ color: t.primary, fontSize: 24, fontWeight: '300', marginBottom: 4 }}>+</Text>
-                <Text style={{ color: t.primary, fontSize: 12, fontWeight: '600' }}>Add Category</Text>
-              </TouchableOpacity>
-            </Link>
-          </ScrollView>
-        </View>
 
         {/* Recent Activity */}
         <View style={{ marginBottom: 24 }}>

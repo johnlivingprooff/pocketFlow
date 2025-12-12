@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, useColorScheme } from 'react-native';
 import { useSettings } from '../../src/store/useStore';
 import { theme } from '../../src/theme/theme';
 import { router } from 'expo-router';
 import * as CategoryIcons from '../../src/assets/icons/CategoryIcons';
-import { createCategory } from '../../src/lib/db/categories';
+import { createCategory, getCategories, Category } from '../../src/lib/db/categories';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
 
 const SVG_ICON_OPTIONS: Array<{ name: CategoryIcons.CategoryIconName; Icon: React.FC<any> }> = [
@@ -58,6 +58,9 @@ export default function CreateCategory() {
   const [selectedColor, setSelectedColor] = useState('#C1A12F');
   const [categoryType, setCategoryType] = useState<'income' | 'expense'>('expense');
   const [monthlyBudget, setMonthlyBudget] = useState('');
+  const [isSubcategory, setIsSubcategory] = useState(false);
+  const [parentCategories, setParentCategories] = useState<Category[]>([]);
+  const [selectedParentId, setSelectedParentId] = useState<number | null>(null);
   const [alertConfig, setAlertConfig] = useState<{
     visible: boolean;
     title: string;
@@ -65,12 +68,37 @@ export default function CreateCategory() {
     buttons: Array<{ text: string; onPress?: () => void }>;
   }>({ visible: false, title: '', message: '', buttons: [] });
 
+  useEffect(() => {
+    loadParentCategories();
+  }, [categoryType]);
+
+  const loadParentCategories = async () => {
+    try {
+      const cats = await getCategories(categoryType);
+      // Only show main categories (no parent_category_id)
+      const mainCats = cats.filter(c => !c.parent_category_id);
+      setParentCategories(mainCats);
+    } catch (error) {
+      console.error('Failed to load parent categories:', error);
+    }
+  };
+
   const handleSave = async () => {
     if (!categoryName.trim()) {
       setAlertConfig({
         visible: true,
         title: 'Error',
         message: 'Please enter a category name',
+        buttons: [{ text: 'OK' }]
+      });
+      return;
+    }
+
+    if (isSubcategory && !selectedParentId) {
+      setAlertConfig({
+        visible: true,
+        title: 'Error',
+        message: 'Please select a parent category',
         buttons: [{ text: 'OK' }]
       });
       return;
@@ -85,6 +113,7 @@ export default function CreateCategory() {
         color: selectedColor,
         is_preset: 0,
         budget: budgetValue,
+        parent_category_id: isSubcategory ? selectedParentId : null,
       });
       setAlertConfig({
         visible: true,
@@ -122,7 +151,43 @@ export default function CreateCategory() {
         {/* Header */}
         <View style={{ marginBottom: 32 }}>
           <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 8 }}>Add New Category</Text>
-          <Text style={{ color: t.textSecondary, fontSize: 14 }}>Create a custom spending category</Text>
+          <Text style={{ color: t.textSecondary, fontSize: 14 }}>Create a {isSubcategory ? 'subcategory' : 'main category'}</Text>
+        </View>
+
+        {/* Subcategory Toggle */}
+        <View style={{ marginBottom: 24 }}>
+          <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 8 }}>Category Level</Text>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TouchableOpacity
+              onPress={() => {
+                setIsSubcategory(false);
+                setSelectedParentId(null);
+              }}
+              style={{
+                flex: 1,
+                padding: 12,
+                borderRadius: 8,
+                backgroundColor: !isSubcategory ? t.primary : t.card,
+                borderWidth: 1,
+                borderColor: !isSubcategory ? t.primary : t.border,
+              }}
+            >
+              <Text style={{ color: !isSubcategory ? '#FFFFFF' : t.textPrimary, fontSize: 14, fontWeight: '600', textAlign: 'center' }}>Main Category</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setIsSubcategory(true)}
+              style={{
+                flex: 1,
+                padding: 12,
+                borderRadius: 8,
+                backgroundColor: isSubcategory ? t.primary : t.card,
+                borderWidth: 1,
+                borderColor: isSubcategory ? t.primary : t.border,
+              }}
+            >
+              <Text style={{ color: isSubcategory ? '#FFFFFF' : t.textPrimary, fontSize: 14, fontWeight: '600', textAlign: 'center' }}>Subcategory</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Category Type */}
@@ -158,9 +223,52 @@ export default function CreateCategory() {
           </View>
         </View>
 
+        {/* Parent Category Selector (for subcategories) */}
+        {isSubcategory && (
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 8 }}>Parent Category *</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16, paddingHorizontal: 16 }}>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {parentCategories.map((cat) => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    onPress={() => setSelectedParentId(cat.id!)}
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 10,
+                      borderRadius: 8,
+                      backgroundColor: selectedParentId === cat.id ? t.primary : t.card,
+                      borderWidth: 1,
+                      borderColor: selectedParentId === cat.id ? t.primary : t.border,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8,
+                    }}
+                  >
+                    <View style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: 12,
+                      backgroundColor: cat.color || t.primary,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}>
+                      <Text style={{ fontSize: 12 }}>{cat.icon}</Text>
+                    </View>
+                    <Text style={{ color: selectedParentId === cat.id ? '#FFFFFF' : t.textPrimary, fontSize: 14, fontWeight: '600' }}>
+                      {cat.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+            <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>Subcategories inherit the type from their parent</Text>
+          </View>
+        )}
+
         {/* Category Name */}
         <View style={{ marginBottom: 24 }}>
-          <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 8 }}>Category Name</Text>
+          <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 8 }}>{isSubcategory ? 'Subcategory' : 'Category'} Name</Text>
           <TextInput
             style={{
               backgroundColor: t.card,

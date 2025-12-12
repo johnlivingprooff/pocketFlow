@@ -8,6 +8,7 @@ import { WalletCard } from '../../src/components/WalletCard';
 import { TransferModal } from '../../src/components/TransferModal';
 import { transferBetweenWallets } from '../../src/lib/db/transactions';
 import { Link } from 'expo-router';
+import { invalidateWalletCaches } from '../../src/lib/cache/queryCache';
 
 export default function WalletsList() {
   const { wallets, balances, loading, refresh } = useWallets();
@@ -22,7 +23,10 @@ export default function WalletsList() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
+      // Clear wallet caches to force fresh data fetch
+      invalidateWalletCaches();
       await refresh();
+      console.log('Wallets refreshed - cache cleared');
     } catch (error) {
       console.error('Error refreshing wallets:', error);
     } finally {

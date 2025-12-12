@@ -26,6 +26,7 @@ import {
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { formatShortDate } from '../../src/utils/date';
 import { Link } from 'expo-router';
+import { invalidateTransactionCaches, invalidateWalletCaches } from '../../src/lib/cache/queryCache';
 import SevenDayTrendChart from '../../src/components/charts/SevenDayTrendChart';
 import MonthlyBarChart from '../../src/components/charts/MonthlyBarChart';
 import IncomeExpenseChart from '../../src/components/charts/IncomeExpenseChart';
@@ -174,7 +175,11 @@ export default function AnalyticsPage() {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
+      // Clear all caches to force fresh analytics data
+      invalidateTransactionCaches();
+      invalidateWalletCaches();
       await loadData();
+      console.log('Analytics refreshed - all caches cleared');
     } catch (error) {
       console.error('Error refreshing analytics:', error);
     } finally {

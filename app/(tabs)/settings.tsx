@@ -281,17 +281,27 @@ export default function SettingsScreen() {
         {/* Transactions */}
         <View style={{ marginBottom: 24 }}>
           <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 12 }}>TRANSACTIONS</Text>
-          <Link href="/settings/recurring" asChild>
-            <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <View>
-                <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Recurring Transactions</Text>
-                <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>Manage automated transactions</Text>
-              </View>
-              <Text style={{ color: t.textSecondary, fontSize: 20 }}>›</Text>
-            </TouchableOpacity>
-          </Link>
+          <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, overflow: 'hidden' }}>
+            <Link href="/categories" asChild>
+              <TouchableOpacity style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: t.border }}>
+                <View>
+                  <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Categories</Text>
+                  <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>Manage income & expense categories</Text>
+                </View>
+                <Text style={{ color: t.textSecondary, fontSize: 20 }}>›</Text>
+              </TouchableOpacity>
+            </Link>
+            <Link href="/settings/recurring" asChild>
+              <TouchableOpacity style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: t.border }}>
+                <View>
+                  <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Recurring Transactions</Text>
+                  <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>Manage automated transactions</Text>
+                </View>
+                <Text style={{ color: t.textSecondary, fontSize: 20 }}>›</Text>
+              </TouchableOpacity>
+            </Link>
             <Link href="/budget" asChild>
-              <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+              <TouchableOpacity style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <View>
                   <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Budget & Goals</Text>
                   <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>Set and manage category budgets</Text>
@@ -299,6 +309,7 @@ export default function SettingsScreen() {
                 <Text style={{ color: t.textSecondary, fontSize: 20 }}>›</Text>
               </TouchableOpacity>
             </Link>
+          </View>
         </View>
 
         {/* Data */}
