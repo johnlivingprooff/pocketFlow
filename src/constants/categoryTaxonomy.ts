@@ -107,7 +107,7 @@ export const INCOME_TAXONOMY: CategoryDefinition[] = [
   },
   {
     name: 'Miscellaneous Income',
-    icon: 'other',
+    icon: 'moneyrecive',
     subcategories: [
       'Refunds',
       'Lotto / Prize Wins',
@@ -287,7 +287,7 @@ export const EXPENSE_TAXONOMY: CategoryDefinition[] = [
   },
   {
     name: 'Miscellaneous',
-    icon: 'other',
+    icon: 'moneysend',
     subcategories: [
       'Unexpected Expenses',
       'Penalties & Fines',

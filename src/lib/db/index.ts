@@ -250,9 +250,9 @@ export async function ensureTables() {
         'Shopping': 'shopping',
         'Bills': 'bills',
         'Investments': 'stock',
-        'Other': 'other',
-        'Other Income': 'other',
-        'Other Expenses': 'other',
+        'Other': 'moneysend',
+        'Other Income': 'moneyrecive',
+        'Other Expenses': 'moneysend',
         'Groceries': 'groceries',
         'Rent': 'home',
         'Utilities': 'electricity',
@@ -275,6 +275,10 @@ export async function ensureTables() {
       } finally {
         await updateStmt.finalizeAsync();
       }
+
+      // Normalize legacy 'other' icons to explicit money send/receive icons by type
+      await database.runAsync("UPDATE categories SET icon = 'moneyrecive' WHERE icon = 'other' AND type = 'income';");
+      await database.runAsync("UPDATE categories SET icon = 'moneysend' WHERE icon = 'other' AND type = 'expense';");
     } catch (e) {
       // noop
     }
@@ -416,7 +420,7 @@ export async function ensureTables() {
         await insertStmt.executeAsync([
           mainCat.name,
           'income',
-          mainCat.icon || 'other', // Use icon from taxonomy
+          mainCat.icon || 'moneyrecive', // Use icon from taxonomy
           categoryColor,
           null // No parent
         ]);
@@ -438,7 +442,7 @@ export async function ensureTables() {
             await insertStmt.executeAsync([
               subCat,
               'income',
-              mainCat.icon || 'other', // Inherit parent's icon
+              mainCat.icon || 'moneyrecive', // Inherit parent's icon
               categoryColor, // Inherit parent's color
               parentId
             ]);
@@ -457,7 +461,7 @@ export async function ensureTables() {
         await insertStmt.executeAsync([
           mainCat.name,
           'expense',
-          mainCat.icon || 'other', // Use icon from taxonomy
+          mainCat.icon || 'moneysend', // Use icon from taxonomy
           categoryColor,
           null // No parent
         ]);
@@ -479,7 +483,7 @@ export async function ensureTables() {
             await insertStmt.executeAsync([
               subCat,
               'expense',
-              mainCat.icon || 'other', // Inherit parent's icon
+              mainCat.icon || 'moneysend', // Inherit parent's icon
               categoryColor, // Inherit parent's color
               parentId
             ]);
@@ -558,7 +562,7 @@ export async function clearDatabase() {
           await statement.executeAsync([
             mainCat.name,
             'income',
-            mainCat.icon || 'other', // Use icon from taxonomy
+            mainCat.icon || 'moneyrecive', // Use icon from taxonomy
             categoryColor,
             null
           ]);
@@ -576,7 +580,7 @@ export async function clearDatabase() {
               await statement.executeAsync([
                 subCat,
                 'income',
-                mainCat.icon || 'other', // Inherit parent's icon
+                mainCat.icon || 'moneyrecive', // Inherit parent's icon
                 categoryColor,
                 parentId
               ]);
@@ -591,7 +595,7 @@ export async function clearDatabase() {
           await statement.executeAsync([
             mainCat.name,
             'expense',
-            mainCat.icon || 'other', // Use icon from taxonomy
+            mainCat.icon || 'moneysend', // Use icon from taxonomy
             categoryColor,
             null
           ]);
@@ -609,7 +613,7 @@ export async function clearDatabase() {
               await statement.executeAsync([
                 subCat,
                 'expense',
-                mainCat.icon || 'other', // Inherit parent's icon
+                mainCat.icon || 'moneysend', // Inherit parent's icon
                 categoryColor,
                 parentId
               ]);

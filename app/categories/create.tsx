@@ -23,7 +23,7 @@ export default function CreateCategory() {
   
   const [categoryName, setCategoryName] = useState('');
   const [iconType, setIconType] = useState<'emoji' | 'svg'>('svg');
-  const [selectedSvg, setSelectedSvg] = useState<CategoryIconName>('other');
+  const [selectedSvg, setSelectedSvg] = useState<CategoryIconName>(typeParam === 'income' ? 'moneyrecive' : 'moneysend');
   const [selectedEmoji, setSelectedEmoji] = useState('💰');
   const [selectedColor, setSelectedColor] = useState('#66BB6A');
   const [categoryType, setCategoryType] = useState<'income' | 'expense'>(typeParam);
@@ -47,6 +47,14 @@ export default function CreateCategory() {
     // Set first recommended color as default if current color isn't in the new list
     if (!recommendedColors.find(c => c.color === selectedColor)) {
       setSelectedColor(recommendedColors[0].color);
+    }
+
+    // Keep default money send/receive icons aligned with category type
+    if (iconType === 'svg' && (selectedSvg === 'moneyrecive' || selectedSvg === 'moneysend')) {
+      const fallbackIcon = categoryType === 'income' ? 'moneyrecive' : 'moneysend';
+      if (selectedSvg !== fallbackIcon) {
+        setSelectedSvg(fallbackIcon);
+      }
     }
   }, [categoryType]);
 

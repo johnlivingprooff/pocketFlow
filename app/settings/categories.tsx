@@ -33,19 +33,19 @@ const isEmojiIcon = (iconValue: string): boolean => {
 const renderCategoryIcon = (
   iconValue: string | undefined,
   categoryName: string,
+  categoryType: 'income' | 'expense' | 'both' | undefined,
   fontSize: number = 20,
   color: string = '#FFFFFF'
 ) => {
   const icon = iconValue || '';
-  
   if (isEmojiIcon(icon)) {
     return <Text style={{ fontSize }}>{icon}</Text>;
-  } else {
-    // Try to resolve SVG icon
-    const iconKey = (icon || categoryName) as CategoryIconName;
-    const IconComp = CATEGORY_ICONS[iconKey] || CATEGORY_ICONS['Other'];
-    return IconComp ? <IconComp size={fontSize > 24 ? 24 : fontSize} color={color} /> : null;
   }
+
+  const iconKey = (icon || categoryName) as CategoryIconName;
+  const fallbackKey: CategoryIconName = (categoryType === 'income' ? 'moneyrecive' : 'moneysend') as CategoryIconName;
+  const IconComp = CATEGORY_ICONS[iconKey] || CATEGORY_ICONS[fallbackKey];
+  return IconComp ? <IconComp size={fontSize > 24 ? 24 : fontSize} color={color} /> : null;
 };
 
 export default function CategoriesScreen() {
@@ -257,7 +257,7 @@ export default function CategoriesScreen() {
                     justifyContent: 'center',
                     alignItems: 'center',
                   }}>
-                    {renderCategoryIcon(category.icon, category.name, 22, '#FFFFFF')}
+                    {renderCategoryIcon(category.icon, category.name, category.type, 22, '#FFFFFF')}
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>
@@ -311,7 +311,7 @@ export default function CategoriesScreen() {
                   justifyContent: 'center',
                   alignItems: 'center',
                 }}>
-                  {editingCategory && renderCategoryIcon(editingCategory.icon, editingCategory.name, 28, '#FFFFFF')}
+                  {editingCategory && renderCategoryIcon(editingCategory.icon, editingCategory.name, editingCategory.type, 28, '#FFFFFF')}
                 </View>
                 <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', flex: 1 }}>
                   {editingCategory?.name}

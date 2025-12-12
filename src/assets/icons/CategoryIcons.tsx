@@ -33,11 +33,11 @@ export const ChartIcon: React.FC<IconProps> = ({ size = 24, color = '#000' }) =>
 
 export const SettingsIcon: React.FC<IconProps> = ({ size = 24, color = '#000' }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <Circle cx="12" cy="12" r="3" />
-    <Path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    <Circle cx="12" cy="12" r="10" />
+    <Path d="M9 9.5c0-.83.895-1.5 2-1.5s2 .67 2 1.5-1 1.5-2 1.5v1" />
+    <Line x1="12" y1="17" x2="12" y2="17" />
   </Svg>
 );
-
 export const PlusIcon: React.FC<IconProps> = ({ size = 24, color = '#000' }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <Line x1="12" y1="5" x2="12" y2="19" />
@@ -320,15 +320,6 @@ export const KabazaIcon: React.FC<IconProps> = ({ size = 24, color = '#000' }) =
   </Svg>
 );
 
-// Other/More
-export const OtherIcon: React.FC<IconProps> = ({ size = 24, color = '#888' }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Circle cx="12" cy="12" r="1" fill={color} />
-    <Circle cx="12" cy="5" r="1" fill={color} />
-    <Circle cx="12" cy="19" r="1" fill={color} />
-  </Svg>
-);
-
 // --- Additional Icons ---
 
 export const AirbnbIcon: React.FC<IconProps> = ({ size = 24, color = '#000' }) => (
@@ -561,7 +552,9 @@ export const WatchIcon: React.FC<IconProps> = ({ size = 24, color = '#000' }) =>
 
 export const WheelIcon: React.FC<IconProps> = ({ size = 24, color = '#000' }) => (
   <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-    <Path fill={color} d="M134,7577 C129.927,7577 126.556,7574 126.063,7570 L130.126,7570 C130.57,7572 132.136,7573 134,7573 C135.864,7573 137.43,7572 137.874,7570 L141.937,7570 C141.444,7574 138.073,7577 134,7577 M134,7561 C138.073,7561 141.444,7564 141.937,7568 L137.874,7568 C137.43,7566 135.864,7565 134,7565 C132.136,7565 130.57,7566 130.126,7568 L126.063,7568 C126.556,7564 129.927,7561 134,7561 M134,7559 C128.477,7559 124,7563.477 124,7569 C124,7574.523 128.477,7579 134,7579 C139.523,7579 144,7574.523 144,7569 C144,7563.477 139.523,7559 134,7559" />
+    <Circle cx="10" cy="10" r="8" stroke={color} strokeWidth="1.5" fill="none" />
+    <Circle cx="10" cy="10" r="2" fill={color} />
+    <Path stroke={color} strokeWidth="1" d="M10 2 L10 6 M10 14 L10 18 M2 10 L6 10 M14 10 L18 10 M4.5 4.5 L7 7 M13 13 L15.5 15.5 M15.5 4.5 L13 7 M7 13 L4.5 15.5" />
   </Svg>
 );
 
@@ -616,17 +609,10 @@ export const CATEGORY_ICONS = {
   'Housing & Utilities': HomeIcon,
   'Electricity': ElectricityIcon,
   'Water': WaterIcon,
-  'Food': FoodIcon,
   'Food & Groceries': FoodIcon,
   'Groceries': GroceriesIcon,
-  'Transport': TransportIcon,
   'Fuel': FuelIcon,
-  'Health': HealthIcon,
-  'Education': EducationIcon,
   'Communication': PhoneIcon,
-  'Entertainment': EntertainmentIcon,
-  'Shopping': ShoppingIcon,
-  'Debt': MoneySendIcon,
   'Insurance': MoneySendIcon,
   'Giving': GivingIcon,
   'Family': FamilyIcon,
@@ -675,9 +661,6 @@ export const CATEGORY_ICONS = {
   'wrenchandscrewdriver': WrenchAndScrewdriverIcon,
   'wrench': WrenchIcon,
 
-  // Fallback
-  'Other': OtherIcon,
-
   // Simple Keys for Picker & Migration
   'wallet': WalletIcon,
   'chart': ChartIcon,
@@ -699,7 +682,8 @@ export const CATEGORY_ICONS = {
   'salary': SalaryIcon,
   'business': BusinessIcon,
   'investment': InvestmentIcon,
-  'other': OtherIcon,
+  'moneyrecive': MoneyReciveIcon,
+  'moneysend': MoneySendIcon,
 };
 
 export type CategoryIconName = keyof typeof CATEGORY_ICONS;
