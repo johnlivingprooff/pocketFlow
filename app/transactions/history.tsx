@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, useColorScheme, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '../../src/store/useStore';
@@ -9,7 +9,7 @@ import { TransactionItem } from '../../src/components/TransactionItem';
 import { Link, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { formatDate, yyyyMmDd, formatShortDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
-import { getCategories, Category } from '../../src/lib/db/categories';
+import { getCategories, Category, getCategoriesHierarchy } from '../../src/lib/db/categories';
 import { invalidateTransactionCaches } from '../../src/lib/cache/queryCache';
 
 export default function HistoryScreen() {
@@ -26,6 +26,28 @@ export default function HistoryScreen() {
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [hierarchicalView, setHierarchicalView] = useState(false);
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+  const [categoryHierarchy, setCategoryHierarchy] = useState<Array<{ category: Category; children: Category[] }>>([]);
+  const categoryScrollViewRef = useRef<ScrollView>(null);
+
+  // Sort categories to put selected one first
+  const sortedCategories = useMemo(() => {
+    if (!filterCategory) return categories;
+    
+    return [...categories].sort((a, b) => {
+      if (a.name === filterCategory) return -1;
+      if (b.name === filterCategory) return 1;
+      return 0;
+    });
+  }, [categories, filterCategory]);
+
+  // Scroll to start when filter changes
+  useEffect(() => {
+    if (categoryScrollViewRef.current) {
+      categoryScrollViewRef.current.scrollTo({ x: 0, animated: true });
+    }
+  }, [filterCategory]);
 
   // Set filter category from route params
   useEffect(() => {
@@ -63,6 +85,31 @@ export default function HistoryScreen() {
   const loadCategories = async () => {
     const cats = await getCategories();
     setCategories(cats);
+    const hierarchy = await getCategoriesHierarchy();
+    setCategoryHierarchy(hierarchy);
+  };
+
+  const toggleCategoryCollapse = (categoryName: string) => {
+    const newCollapsed = new Set(collapsedCategories);
+    if (newCollapsed.has(categoryName)) {
+      newCollapsed.delete(categoryName);
+    } else {
+      newCollapsed.add(categoryName);
+    }
+    setCollapsedCategories(newCollapsed);
+  };
+
+  const getCategoryDisplayName = (tx: typeof transactions[number]) => {
+    if (tx.category === 'Transfer') {
+      return getTransferLabel(tx);
+    }
+    // Find if this is a subcategory
+    const cat = categories.find(c => c.name === tx.category);
+    if (cat?.parent_category_id) {
+      const parent = categories.find(c => c.id === cat.parent_category_id);
+      return parent ? `${parent.name} > ${cat.name}` : tx.category || 'Uncategorized';
+    }
+    return tx.category || 'Uncategorized';
   };
 
   const handleDateSelect = (date: Date) => {
@@ -115,8 +162,30 @@ export default function HistoryScreen() {
 
   // Group transactions by date
   const groupedTransactions: Record<string, typeof transactions> = {};
+
+  // Memoize allowed categories for the current filter to support main category filtering (including subcategories)
+  const allowedCategories = useMemo(() => {
+    if (!filterCategory) return null;
+    
+    const filterCatObj = categories.find(c => c.name === filterCategory);
+    if (!filterCatObj) return new Set([filterCategory]);
+    
+    const allowed = new Set([filterCategory]);
+    
+    // If it's a main category (no parent), add all its children
+    if (!filterCatObj.parent_category_id) {
+      categories.forEach(c => {
+        if (c.parent_category_id === filterCatObj.id) {
+          allowed.add(c.name);
+        }
+      });
+    }
+    
+    return allowed;
+  }, [filterCategory, categories]);
+
   const filteredTransactions = transactions.filter(tx => {
-    const matchesCategory = !filterCategory || tx.category === filterCategory;
+    const matchesCategory = !allowedCategories || (tx.category && allowedCategories.has(tx.category));
     const matchesSearch = !searchQuery || 
       (tx.category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
        tx.notes?.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -135,6 +204,64 @@ export default function HistoryScreen() {
     }
     groupedTransactions[date].push(tx);
   });
+
+  // Group transactions hierarchically by category (date -> main category -> subcategories)
+  type HierarchicalGroup = {
+    parent: string;
+    parentColor?: string;
+    total: number;
+    transactions: typeof transactions;
+    children: Record<string, typeof transactions>;
+  };
+
+  const groupedByDateAndCategory: Record<string, Record<string, HierarchicalGroup>> = {};
+  
+  if (hierarchicalView) {
+    Object.keys(groupedTransactions).forEach(date => {
+      groupedByDateAndCategory[date] = {};
+      
+      groupedTransactions[date].forEach(tx => {
+        const cat = categories.find(c => c.name === tx.category);
+        let parentName = tx.category || 'Uncategorized';
+        let parentColor = cat?.color;
+        
+        // If it's a subcategory, find parent
+        if (cat?.parent_category_id) {
+          const parent = categories.find(c => c.id === cat.parent_category_id);
+          if (parent) {
+            parentName = parent.name;
+            parentColor = parent.color;
+          }
+        }
+        
+        if (!groupedByDateAndCategory[date][parentName]) {
+          groupedByDateAndCategory[date][parentName] = {
+            parent: parentName,
+            parentColor,
+            total: 0,
+            transactions: [],
+            children: {},
+          };
+        }
+        
+        const rate = walletExchangeRate[tx.wallet_id] ?? 1.0;
+        if (tx.type === 'expense' && tx.category !== 'Transfer') {
+          groupedByDateAndCategory[date][parentName].total += Math.abs(tx.amount * rate);
+        }
+        
+        // Add to parent or child
+        if (cat?.parent_category_id) {
+          const childName = cat.name;
+          if (!groupedByDateAndCategory[date][parentName].children[childName]) {
+            groupedByDateAndCategory[date][parentName].children[childName] = [];
+          }
+          groupedByDateAndCategory[date][parentName].children[childName].push(tx);
+        } else {
+          groupedByDateAndCategory[date][parentName].transactions.push(tx);
+        }
+      });
+    });
+  }
 
   const getTransferLabel = (tx: typeof transactions[number]) => {
     if (tx.category !== 'Transfer') return tx.category || 'Uncategorized';
@@ -196,6 +323,42 @@ export default function HistoryScreen() {
           onChangeText={setSearchQuery}
         />
 
+        {/* View Mode Toggle */}
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+          <TouchableOpacity
+            onPress={() => setHierarchicalView(true)}
+            style={{
+              flex: 1,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 8,
+              backgroundColor: hierarchicalView ? t.primary : t.card,
+              borderWidth: 1,
+              borderColor: hierarchicalView ? t.primary : t.border
+            }}
+          >
+            <Text style={{ color: hierarchicalView ? '#FFFFFF' : t.textSecondary, fontWeight: '600', textAlign: 'center', fontSize: 12 }}>
+              📊 Grouped
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setHierarchicalView(false)}
+            style={{
+              flex: 1,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 8,
+              backgroundColor: !hierarchicalView ? t.primary : t.card,
+              borderWidth: 1,
+              borderColor: !hierarchicalView ? t.primary : t.border
+            }}
+          >
+            <Text style={{ color: !hierarchicalView ? '#FFFFFF' : t.textSecondary, fontWeight: '600', textAlign: 'center', fontSize: 12 }}>
+              📝 List View
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Date Range Filter */}
         <View style={{ marginBottom: 12 }}>
           <TouchableOpacity
@@ -227,7 +390,12 @@ export default function HistoryScreen() {
         </View>
 
         {/* Category Filter */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 24 }}>
+        <ScrollView 
+          ref={categoryScrollViewRef}
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          style={{ marginBottom: 24 }}
+        >
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <TouchableOpacity
               onPress={() => setFilterCategory('')}
@@ -242,7 +410,7 @@ export default function HistoryScreen() {
             >
               <Text style={{ color: !filterCategory ? '#FFFFFF' : t.textPrimary, fontWeight: '600' }}>All</Text>
             </TouchableOpacity>
-            {categories.map(cat => (
+            {sortedCategories.map(cat => (
               <TouchableOpacity
                 key={cat.id}
                 onPress={() => setFilterCategory(cat.name)}
@@ -288,7 +456,171 @@ export default function HistoryScreen() {
           </View>
         )}
 
-        {Object.keys(groupedTransactions).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()).map(date => (
+        {hierarchicalView ? (
+          /* Hierarchical View: Group by Date -> Main Category -> Subcategories */
+          Object.keys(groupedByDateAndCategory).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()).map(date => (
+            <View key={date} style={{ marginBottom: 24 }}>
+              {/* Date Header with Daily Total */}
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 12,
+                paddingBottom: 8,
+                borderBottomWidth: 1,
+                borderBottomColor: t.border
+              }}>
+                <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>{date}</Text>
+                <Text style={{ color: t.accent, fontSize: 14, fontWeight: '700' }}>
+                  {formatCurrency(dailyTotals[date], defaultCurrency)}
+                </Text>
+              </View>
+
+              {/* Categories for this date */}
+              <View style={{ gap: 12 }}>
+                {Object.values(groupedByDateAndCategory[date]).map((group, idx) => {
+                  const isCollapsed = collapsedCategories.has(group.parent);
+                  const hasChildren = Object.keys(group.children).length > 0;
+                  
+                  return (
+                    <View key={idx} style={{ gap: 8 }}>
+                      {/* Main Category Header */}
+                      <TouchableOpacity
+                        onPress={() => hasChildren && toggleCategoryCollapse(group.parent)}
+                        style={{
+                          backgroundColor: t.card,
+                          borderWidth: 1,
+                          borderColor: t.border,
+                          borderRadius: 12,
+                          padding: 12,
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          {hasChildren && (
+                            <Text style={{ color: t.textSecondary, fontSize: 16 }}>
+                              {isCollapsed ? '▶' : '▼'}
+                            </Text>
+                          )}
+                          <View style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 16,
+                            backgroundColor: group.parentColor || t.primary,
+                            justifyContent: 'center',
+                            alignItems: 'center'
+                          }}>
+                            <Text style={{ fontSize: 16 }}>
+                              {group.parent === 'Transfer' ? '🔄' : '📁'}
+                            </Text>
+                          </View>
+                          <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>
+                            {group.parent}
+                          </Text>
+                        </View>
+                        <Text style={{ color: t.expense, fontSize: 14, fontWeight: '700' }}>
+                          -{formatCurrency(group.total, defaultCurrency)}
+                        </Text>
+                      </TouchableOpacity>
+
+                      {/* Main Category Direct Transactions */}
+                      {!isCollapsed && group.transactions.map(tx => {
+                        const isTransfer = tx.category === 'Transfer';
+                        return (
+                          <Link key={tx.id} href={`/transactions/${tx.id}`} asChild>
+                            <TouchableOpacity style={{
+                              backgroundColor: t.card,
+                              borderWidth: 1,
+                              borderColor: t.border,
+                              borderRadius: 12,
+                              padding: 12,
+                              marginLeft: hasChildren ? 24 : 0,
+                              opacity: isTransfer ? 0.6 : 1
+                            }}>
+                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600' }}>
+                                    {getCategoryDisplayName(tx)}
+                                  </Text>
+                                  {tx.notes && (
+                                    <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
+                                      {tx.notes}
+                                    </Text>
+                                  )}
+                                </View>
+                                <Text style={{
+                                  color: isTransfer ? t.textSecondary : tx.type === 'income' ? t.income : t.expense,
+                                  fontSize: 14,
+                                  fontWeight: '700'
+                                }}>
+                                  {tx.type === 'income' ? '+' : '-'}
+                                  {formatCurrency(Math.abs(tx.amount * (walletExchangeRate[tx.wallet_id] ?? 1.0)), defaultCurrency)}
+                                </Text>
+                              </View>
+                            </TouchableOpacity>
+                          </Link>
+                        );
+                      })}
+
+                      {/* Subcategories */}
+                      {!isCollapsed && Object.entries(group.children).map(([childName, childTxs]) => (
+                        <View key={childName} style={{ marginLeft: 24, gap: 8 }}>
+                          {/* Subcategory Label */}
+                          <View style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 4,
+                            backgroundColor: `${group.parentColor || t.primary}15`,
+                            borderRadius: 6,
+                            alignSelf: 'flex-start'
+                          }}>
+                            <Text style={{ color: group.parentColor || t.primary, fontSize: 12, fontWeight: '600' }}>
+                              {group.parent} &gt; {childName}
+                            </Text>
+                          </View>
+                          
+                          {/* Subcategory Transactions */}
+                          {childTxs.map(tx => (
+                            <Link key={tx.id} href={`/transactions/${tx.id}`} asChild>
+                              <TouchableOpacity style={{
+                                backgroundColor: t.card,
+                                borderWidth: 1,
+                                borderColor: t.border,
+                                borderRadius: 12,
+                                padding: 12
+                              }}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <View style={{ flex: 1 }}>
+                                    {tx.notes && (
+                                      <Text style={{ color: t.textSecondary, fontSize: 12 }} numberOfLines={1}>
+                                        {tx.notes}
+                                      </Text>
+                                    )}
+                                  </View>
+                                  <Text style={{
+                                    color: tx.type === 'income' ? t.income : t.expense,
+                                    fontSize: 14,
+                                    fontWeight: '700'
+                                  }}>
+                                    {tx.type === 'income' ? '+' : '-'}
+                                    {formatCurrency(Math.abs(tx.amount * (walletExchangeRate[tx.wallet_id] ?? 1.0)), defaultCurrency)}
+                                  </Text>
+                                </View>
+                              </TouchableOpacity>
+                            </Link>
+                          ))}
+                        </View>
+                      ))}
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          ))
+        ) : (
+          /* List View: Simple flat list grouped by date */
+          Object.keys(groupedTransactions).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()).map(date => (
           <View key={date} style={{ marginBottom: 24 }}>
             {/* Date Header with Daily Total */}
             <View style={{
@@ -323,7 +655,7 @@ export default function HistoryScreen() {
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>
-                          {getTransferLabel(tx)}
+                          {getCategoryDisplayName(tx)}
                         </Text>
                         {tx.notes && (
                           <Text style={{ color: isTransfer ? t.textTertiary : t.textSecondary, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
@@ -354,7 +686,8 @@ export default function HistoryScreen() {
               })}
             </View>
           </View>
-        ))}
+        ))
+        )}
       </View>
 
       {/* Date Range Picker Modal */}

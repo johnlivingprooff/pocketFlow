@@ -759,43 +759,34 @@ export default function AddTransactionScreen() {
             <ScrollView>
               {categoryHierarchy.map((item) => (
                 <View key={item.category.id}>
-                  {/* Parent Category Header - not selectable */}
-                  <View style={{ padding: 16, backgroundColor: t.background, borderBottomWidth: 1, borderBottomColor: t.border }}>
-                    <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>
+                  {/* Parent Category - Always selectable */}
+                  <TouchableOpacity
+                    onPress={() => {
+                      setCategory(item.category.name);
+                      setShowCategoryPicker(false);
+                    }}
+                    style={{ padding: 16, backgroundColor: t.background, borderBottomWidth: 1, borderBottomColor: t.border }}
+                  >
+                    <Text style={{ color: category === item.category.name ? t.primary : t.textPrimary, fontSize: 16, fontWeight: '700' }}>
                       {item.category.icon} {item.category.name}
                     </Text>
-                  </View>
+                  </TouchableOpacity>
                   
                   {/* Subcategories */}
-                  {item.children.length > 0 ? (
-                    item.children.map((child) => (
-                      <TouchableOpacity
-                        key={child.id}
-                        onPress={() => {
-                          setCategory(child.name);
-                          setShowCategoryPicker(false);
-                        }}
-                        style={{ paddingLeft: 32, paddingVertical: 12, paddingRight: 16, borderBottomWidth: 1, borderBottomColor: t.border }}
-                      >
-                        <Text style={{ color: category === child.name ? t.primary : t.textPrimary, fontSize: 14, fontWeight: category === child.name ? '700' : '500' }}>
-                          ↳ {child.icon} {child.name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))
-                  ) : (
-                    /* Parent Category is selectable if no children */
+                  {item.children.map((child) => (
                     <TouchableOpacity
+                      key={child.id}
                       onPress={() => {
-                        setCategory(item.category.name);
+                        setCategory(child.name);
                         setShowCategoryPicker(false);
                       }}
                       style={{ paddingLeft: 32, paddingVertical: 12, paddingRight: 16, borderBottomWidth: 1, borderBottomColor: t.border }}
                     >
-                      <Text style={{ color: category === item.category.name ? t.primary : t.textPrimary, fontSize: 14, fontWeight: category === item.category.name ? '700' : '500' }}>
-                        {item.category.icon} {item.category.name}
+                      <Text style={{ color: category === child.name ? t.primary : t.textPrimary, fontSize: 14, fontWeight: category === child.name ? '700' : '500' }}>
+                        ↳ {child.icon} {child.name}
                       </Text>
                     </TouchableOpacity>
-                  )}
+                  ))}
                 </View>
               ))}
             </ScrollView>

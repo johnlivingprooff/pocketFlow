@@ -1,7 +1,8 @@
 import * as SQLite from 'expo-sqlite';
 import { Platform } from 'react-native';
-import { error as logError, log } from '../../utils/logger';
+import { error as logError, log, warn } from '../../utils/logger';
 import { enqueueWrite } from './writeQueue';
+import { INCOME_TAXONOMY, EXPENSE_TAXONOMY } from '../../constants/categoryTaxonomy';
 
 let db: SQLite.SQLiteDatabase | null = null;
 
@@ -221,6 +222,63 @@ export async function ensureTables() {
       // noop: best-effort migration
     }
 
+    // Migration: Update preset categories to use SVG icons from taxonomy
+    try {
+      // Create a mapping of category names to their icons from taxonomy
+      const iconMapping: Record<string, string> = {};
+      
+      // Add icons from INCOME_TAXONOMY
+      INCOME_TAXONOMY.forEach(cat => {
+        if (cat.icon) {
+          iconMapping[cat.name] = cat.icon;
+        }
+      });
+      
+      // Add icons from EXPENSE_TAXONOMY
+      EXPENSE_TAXONOMY.forEach(cat => {
+        if (cat.icon) {
+          iconMapping[cat.name] = cat.icon;
+        }
+      });
+      
+      // Add legacy category mappings for backward compatibility
+      const legacyMapping: Record<string, string> = {
+        'Food': 'food',
+        'Transport': 'fuel',
+        'Healthcare': 'health',
+        'Entertainment': 'tv',
+        'Shopping': 'shopping',
+        'Bills': 'bills',
+        'Investments': 'stock',
+        'Other': 'other',
+        'Other Income': 'other',
+        'Other Expenses': 'other',
+        'Groceries': 'groceries',
+        'Rent': 'home',
+        'Utilities': 'electricity',
+        'Transfer': 'transfer',
+        'Freelance': 'internet',
+        'Offering': 'gift',
+        'Salary': 'salary'
+      };
+
+      const updateStmt = await database.prepareAsync('UPDATE categories SET icon = ? WHERE name = ? AND is_preset = 1;');
+      try {
+        // Update from taxonomy first (these are the new comprehensive categories)
+        for (const [name, icon] of Object.entries(iconMapping)) {
+          await updateStmt.executeAsync([icon, name]);
+        }
+        // Then update legacy mappings for any old categories still in database
+        for (const [name, icon] of Object.entries(legacyMapping)) {
+          await updateStmt.executeAsync([icon, name]);
+        }
+      } finally {
+        await updateStmt.finalizeAsync();
+      }
+    } catch (e) {
+      // noop
+    }
+
     // Goals Table: Track income-based savings targets
     await database.execAsync(
       `CREATE TABLE IF NOT EXISTS goals (
@@ -281,42 +339,156 @@ export async function ensureTables() {
     }
 
     // Seed or repair preset categories (idempotent via INSERT OR IGNORE)
-  const presetExpense = [
-    { name: 'Food', icon: '🍔' },
-    { name: 'Transport', icon: '🚗' },
-    { name: 'Rent', icon: '🏠' },
-    { name: 'Groceries', icon: '🛒' },
-    { name: 'Utilities', icon: '💡' },
-    { name: 'Shopping', icon: '🛍️' },
-    { name: 'Healthcare', icon: '⚕️' },
-    { name: 'Entertainment', icon: '🎬' },
-    { name: 'Education', icon: '📚' },
-    { name: 'Bills', icon: '📄' },
-    { name: 'Other', icon: '📊' }
-  ];
-  const presetIncome = [
-    { name: 'Salary', icon: '💰' },
-    { name: 'Freelance', icon: '💼' },
-    { name: 'Business', icon: '🏢' },
-    { name: 'Investment', icon: '📈' },
-    { name: 'Gift', icon: '🎁' },
-    { name: 'Offering', icon: '🙏' },
-    { name: 'Other Income', icon: '💵' }
-  ];
+  // Use new comprehensive taxonomy instead of old limited categories
   
   await database.withTransactionAsync(async () => {
-    const statement = await database.prepareAsync(
-      'INSERT OR IGNORE INTO categories (name, type, icon, is_preset) VALUES (?, ?, ?, 1);'
+    // First, check if we need to migrate from old preset categories to new ones
+    const existingPresets = await database.getAllAsync<{ name: string }>(
+      'SELECT name FROM categories WHERE is_preset = 1 LIMIT 1;'
     );
-    try {
-      for (const cat of presetExpense) {
-        await statement.executeAsync([cat.name, 'expense', cat.icon]);
+    
+    // If old presets exist, delete them to replace with new comprehensive taxonomy
+    if (existingPresets.length > 0) {
+      const oldCategories = [
+        'Food', 'Transport', 'Rent', 'Groceries', 'Utilities', 'Shopping',
+        'Healthcare', 'Entertainment', 'Education', 'Bills', 'Other',
+        'Salary', 'Freelance', 'Business', 'Investment', 'Gift', 'Offering', 'Other Income'
+      ];
+      
+      // Only delete the specific old preset categories that will be replaced
+      for (const oldCat of oldCategories) {
+        await database.runAsync(
+          'DELETE FROM categories WHERE name = ? AND is_preset = 1;',
+          [oldCat]
+        );
       }
-      for (const cat of presetIncome) {
-        await statement.executeAsync([cat.name, 'income', cat.icon]);
+    }
+    
+    // Category color mapping based on color psychology
+    const incomeCategoryColors: Record<string, string> = {
+      'Agriculture & Farming': '#4CAF50', // Leaf Green - Nature, produce
+      'Business': '#2E7D32', // Deep Green - Growth, profit
+      'Employment': '#F9A825', // Gold/Yellow - Earned success, reward
+      'Investments': '#1B5E20', // Deep Green - Long-term growth
+      'Remittances': '#1976D2', // Blue - Trust, stable inflow
+      'Government Support': '#1565C0', // Blue - Trust, reliability
+      'Religious Organizations': '#FBC02D', // Warm Yellow - Community, giving
+      'Sales': '#43A047', // Green - Money coming in
+      'Other Income': '#66BB6A' // Green - Abundance, growth
+    };
+    
+    const expenseCategoryColors: Record<string, string> = {
+      'Agriculture & Farming': '#4CAF50', // Leaf Green - Nature, resources
+      'Business Operations': '#757575', // Grey - Professional, operations
+      'Education': '#7B1FA2', // Purple - Learning, growth
+      'Financial Services': '#616161', // Grey - Structure, professional
+      'Food & Dining': '#FF6F00', // Warm Orange - Nourishment, comfort
+      'Healthcare & Medical': '#00897B', // Turquoise - Healing, wellness
+      'Housing & Utilities': '#1A237E', // Dark Blue/Navy - Stability, foundation
+      'Insurance & Savings': '#0288D1', // Sky Blue - Future planning
+      'Loans & Debt': '#D32F2F', // Red - Outflow, attention
+      'Personal Care & Lifestyle': '#E91E63', // Pink - Self-care, personal expression
+      'Taxes & Fees': '#757575', // Grey - Neutral, mandatory costs
+      'Transport & Fuel': '#00897B', // Teal - Movement, flow
+      'Communication': '#00ACC1', // Cyan - Connection, digital
+      'Social & Community': '#F9A825', // Warm Yellow - Community, warmth
+      'Household Items': '#A1887F', // Beige/Soft Neutrals - Home comfort
+      'Other Expenses': '#607D8B' // Grey-Blue - Neutral, flexible
+    };
+    
+    // Insert new comprehensive preset categories
+    const insertStmt = await database.prepareAsync(
+      'INSERT OR IGNORE INTO categories (name, type, icon, is_preset, color, parent_category_id) VALUES (?, ?, ?, 1, ?, ?);'
+    );
+    const updateStmt = await database.prepareAsync(
+      'UPDATE categories SET color = ? WHERE name = ? AND type = ? AND is_preset = 1;'
+    );
+    
+    try {
+      // Insert Income categories
+      for (const mainCat of INCOME_TAXONOMY) {
+        const categoryColor = incomeCategoryColors[mainCat.name] || '#66BB6A'; // Default green
+        
+        // Update existing color to ensure psychology-based colors are applied
+        await updateStmt.executeAsync([categoryColor, mainCat.name, 'income']);
+
+        // Insert main category
+        await insertStmt.executeAsync([
+          mainCat.name,
+          'income',
+          mainCat.icon || 'other', // Use icon from taxonomy
+          categoryColor,
+          null // No parent
+        ]);
+        
+        // Get the main category ID for subcategories
+        const mainCatRow = await database.getAllAsync<{ id: number }>(
+          'SELECT id FROM categories WHERE name = ? AND type = ? AND is_preset = 1;',
+          [mainCat.name, 'income']
+        );
+        
+        if (mainCatRow.length > 0 && mainCat.subcategories) {
+          const parentId = mainCatRow[0].id;
+          
+          // Insert subcategories - inherit parent's color and icon
+          for (const subCat of mainCat.subcategories) {
+            // Update subcategory color
+            await updateStmt.executeAsync([categoryColor, subCat, 'income']);
+
+            await insertStmt.executeAsync([
+              subCat,
+              'income',
+              mainCat.icon || 'other', // Inherit parent's icon
+              categoryColor, // Inherit parent's color
+              parentId
+            ]);
+          }
+        }
+      }
+      
+      // Insert Expense categories
+      for (const mainCat of EXPENSE_TAXONOMY) {
+        const categoryColor = expenseCategoryColors[mainCat.name] || '#607D8B'; // Default grey-blue
+        
+        // Update existing color to ensure psychology-based colors are applied
+        await updateStmt.executeAsync([categoryColor, mainCat.name, 'expense']);
+
+        // Insert main category
+        await insertStmt.executeAsync([
+          mainCat.name,
+          'expense',
+          mainCat.icon || 'other', // Use icon from taxonomy
+          categoryColor,
+          null // No parent
+        ]);
+        
+        // Get the main category ID for subcategories
+        const mainCatRow = await database.getAllAsync<{ id: number }>(
+          'SELECT id FROM categories WHERE name = ? AND type = ? AND is_preset = 1;',
+          [mainCat.name, 'expense']
+        );
+        
+        if (mainCatRow.length > 0 && mainCat.subcategories) {
+          const parentId = mainCatRow[0].id;
+          
+          // Insert subcategories - inherit parent's color and icon
+          for (const subCat of mainCat.subcategories) {
+            // Update subcategory color
+            await updateStmt.executeAsync([categoryColor, subCat, 'expense']);
+
+            await insertStmt.executeAsync([
+              subCat,
+              'expense',
+              mainCat.icon || 'other', // Inherit parent's icon
+              categoryColor, // Inherit parent's color
+              parentId
+            ]);
+          }
+        }
       }
     } finally {
-      await statement.finalizeAsync();
+      await insertStmt.finalizeAsync();
+      await updateStmt.finalizeAsync();
     }
   });
 }
@@ -340,43 +512,109 @@ export async function clearDatabase() {
       await database.execAsync('DELETE FROM sqlite_sequence WHERE name IN ("transactions", "wallets", "categories");');
     });
     
-    // Re-seed preset categories
-    const presetExpense = [
-      { name: 'Food', icon: '🍔' },
-      { name: 'Transport', icon: '🚗' },
-      { name: 'Rent', icon: '🏠' },
-      { name: 'Groceries', icon: '🛒' },
-      { name: 'Utilities', icon: '💡' },
-      { name: 'Shopping', icon: '🛍️' },
-      { name: 'Healthcare', icon: '⚕️' },
-      { name: 'Entertainment', icon: '🎬' },
-      { name: 'Education', icon: '📚' },
-      { name: 'Bills', icon: '📄' },
-      { name: 'Other', icon: '📊' }
-    ];
-    const presetIncome = [
-      { name: 'Salary', icon: '💰' },
-      { name: 'Freelance', icon: '💼' },
-      { name: 'Business', icon: '🏢' },
-      { name: 'Investment', icon: '📈' },
-      { name: 'Gift', icon: '🎁' },
-      { name: 'Offering', icon: '🙏' },
-      { name: 'Other Income', icon: '💵' }
-    ];
-    
-    // Batch insert all categories in a single transaction for better performance
+    // Re-seed preset categories using new comprehensive taxonomy
     await database.withTransactionAsync(async () => {
+      // Category color mapping based on color psychology
+      const incomeCategoryColors: Record<string, string> = {
+        'Agriculture & Farming': '#4CAF50',
+        'Business': '#2E7D32',
+        'Employment': '#F9A825',
+        'Investments': '#1B5E20',
+        'Remittances': '#1976D2',
+        'Government Support': '#1565C0',
+        'Religious Organizations': '#FBC02D',
+        'Sales': '#43A047',
+        'Other Income': '#66BB6A'
+      };
+      
+      const expenseCategoryColors: Record<string, string> = {
+        'Agriculture & Farming': '#4CAF50',
+        'Business Operations': '#757575',
+        'Education': '#7B1FA2',
+        'Financial Services': '#616161',
+        'Food & Dining': '#FF6F00',
+        'Healthcare & Medical': '#00897B',
+        'Housing & Utilities': '#1A237E',
+        'Insurance & Savings': '#0288D1',
+        'Loans & Debt': '#D32F2F',
+        'Personal Care & Lifestyle': '#E91E63',
+        'Taxes & Fees': '#757575',
+        'Transport & Fuel': '#00897B',
+        'Communication': '#00ACC1',
+        'Social & Community': '#F9A825',
+        'Household Items': '#A1887F',
+        'Other Expenses': '#607D8B'
+      };
+      
       const statement = await database.prepareAsync(
-        'INSERT INTO categories (name, type, icon, is_preset) VALUES (?, ?, ?, 1);'
+        'INSERT INTO categories (name, type, icon, is_preset, color, parent_category_id) VALUES (?, ?, ?, 1, ?, ?);'
       );
       
       try {
-        for (const cat of presetExpense) {
-          await statement.executeAsync([cat.name, 'expense', cat.icon]);
+        // Insert Income categories
+        for (const mainCat of INCOME_TAXONOMY) {
+          const categoryColor = incomeCategoryColors[mainCat.name] || '#66BB6A';
+          
+          await statement.executeAsync([
+            mainCat.name,
+            'income',
+            mainCat.icon || 'other', // Use icon from taxonomy
+            categoryColor,
+            null
+          ]);
+          
+          const mainCatRow = await database.getAllAsync<{ id: number }>(
+            'SELECT id FROM categories WHERE name = ? AND type = ? AND is_preset = 1;',
+            [mainCat.name, 'income']
+          );
+          
+          if (mainCatRow.length > 0 && mainCat.subcategories) {
+            const parentId = mainCatRow[0].id;
+            
+            // Subcategories inherit parent's color and icon
+            for (const subCat of mainCat.subcategories) {
+              await statement.executeAsync([
+                subCat,
+                'income',
+                mainCat.icon || 'other', // Inherit parent's icon
+                categoryColor,
+                parentId
+              ]);
+            }
+          }
         }
         
-        for (const cat of presetIncome) {
-          await statement.executeAsync([cat.name, 'income', cat.icon]);
+        // Insert Expense categories
+        for (const mainCat of EXPENSE_TAXONOMY) {
+          const categoryColor = expenseCategoryColors[mainCat.name] || '#607D8B';
+          
+          await statement.executeAsync([
+            mainCat.name,
+            'expense',
+            mainCat.icon || 'other', // Use icon from taxonomy
+            categoryColor,
+            null
+          ]);
+          
+          const mainCatRow = await database.getAllAsync<{ id: number }>(
+            'SELECT id FROM categories WHERE name = ? AND type = ? AND is_preset = 1;',
+            [mainCat.name, 'expense']
+          );
+          
+          if (mainCatRow.length > 0 && mainCat.subcategories) {
+            const parentId = mainCatRow[0].id;
+            
+            // Subcategories inherit parent's color and icon
+            for (const subCat of mainCat.subcategories) {
+              await statement.executeAsync([
+                subCat,
+                'expense',
+                mainCat.icon || 'other', // Inherit parent's icon
+                categoryColor,
+                parentId
+              ]);
+            }
+          }
         }
       } finally {
         await statement.finalizeAsync();

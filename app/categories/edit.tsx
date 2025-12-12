@@ -1,37 +1,41 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, useColorScheme } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, useColorScheme, ActivityIndicator } from 'react-native';
 import { useSettings } from '../../src/store/useStore';
 import { theme } from '../../src/theme/theme';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as CategoryIcons from '../../src/assets/icons/CategoryIcons';
 import { CATEGORY_ICONS, CategoryIconName } from '../../src/assets/icons/CategoryIcons';
-import { createCategory, getCategories, Category } from '../../src/lib/db/categories';
+import { updateCategory, getCategoryById, getCategories, Category } from '../../src/lib/db/categories';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
 import { EmojiPicker } from '../../src/components/EmojiPicker';
 import { INCOME_TAXONOMY, EXPENSE_TAXONOMY } from '../../src/constants/categoryTaxonomy';
 import { getRecommendedColors, type ColorOption } from '../../src/constants/categoryColors';
 
-export default function CreateCategory() {
+// Helper to check if a string is an emoji
+const isEmojiIcon = (iconValue: string): boolean => {
+  if (!iconValue) return false;
+  return /[\p{Emoji}]/u.test(iconValue);
+};
+
+export default function EditCategory() {
   const { themeMode } = useSettings();
   const systemColorScheme = useColorScheme();
   const t = theme(themeMode, systemColorScheme || 'light');
   const params = useLocalSearchParams();
+  const categoryId = params.id ? parseInt(String(params.id)) : null;
   
-  // Get query params for pre-filling (e.g., when adding subcategory)
-  const parentIdParam = params.parentId ? parseInt(String(params.parentId)) : null;
-  const typeParam = (params.type as 'income' | 'expense') || 'expense';
-  
+  const [loading, setLoading] = useState(true);
   const [categoryName, setCategoryName] = useState('');
-  const [iconType, setIconType] = useState<'emoji' | 'svg'>('svg');
-  const [selectedSvg, setSelectedSvg] = useState<CategoryIconName>('other');
+  const [iconType, setIconType] = useState<'emoji' | 'svg'>('emoji');
+  const [selectedSvg, setSelectedSvg] = useState<CategoryIconName>('wallet');
   const [selectedEmoji, setSelectedEmoji] = useState('💰');
   const [selectedColor, setSelectedColor] = useState('#66BB6A');
-  const [categoryType, setCategoryType] = useState<'income' | 'expense'>(typeParam);
-  const [colorOptions, setColorOptions] = useState<ColorOption[]>(getRecommendedColors(typeParam));
+  const [categoryType, setCategoryType] = useState<'income' | 'expense'>('expense');
+  const [colorOptions, setColorOptions] = useState<ColorOption[]>(getRecommendedColors('expense'));
   const [monthlyBudget, setMonthlyBudget] = useState('');
-  const [isSubcategory, setIsSubcategory] = useState(!!parentIdParam);
+  const [isSubcategory, setIsSubcategory] = useState(false);
   const [parentCategories, setParentCategories] = useState<Category[]>([]);
-  const [selectedParentId, setSelectedParentId] = useState<number | null>(parentIdParam);
+  const [selectedParentId, setSelectedParentId] = useState<number | null>(null);
   const [alertConfig, setAlertConfig] = useState<{
     visible: boolean;
     title: string;
@@ -40,21 +44,76 @@ export default function CreateCategory() {
   }>({ visible: false, title: '', message: '', buttons: [] });
 
   useEffect(() => {
-    loadParentCategories();
-    // Update color options when category type changes
-    const recommendedColors = getRecommendedColors(categoryType);
-    setColorOptions(recommendedColors);
-    // Set first recommended color as default if current color isn't in the new list
-    if (!recommendedColors.find(c => c.color === selectedColor)) {
-      setSelectedColor(recommendedColors[0].color);
+    loadCategory();
+  }, [categoryId]);
+
+  useEffect(() => {
+    if (!loading) {
+      loadParentCategories();
+      // Update color options when category type changes
+      const recommendedColors = getRecommendedColors(categoryType);
+      setColorOptions(recommendedColors);
     }
-  }, [categoryType]);
+  }, [categoryType, loading]);
+
+  const loadCategory = async () => {
+    if (!categoryId) {
+      router.back();
+      return;
+    }
+
+    try {
+      const cat = await getCategoryById(categoryId);
+      if (!cat) {
+        setAlertConfig({
+          visible: true,
+          title: 'Error',
+          message: 'Category not found',
+          buttons: [{ text: 'OK', onPress: () => router.back() }]
+        });
+        return;
+      }
+
+      setCategoryName(cat.name);
+      setCategoryType(cat.type === 'both' ? 'expense' : cat.type);
+      setSelectedColor(cat.color || '#C1A12F');
+      setMonthlyBudget(cat.budget ? String(cat.budget) : '');
+      setIsSubcategory(!!cat.parent_category_id);
+      setSelectedParentId(cat.parent_category_id || null);
+
+      // Set icon state
+      if (cat.icon && isEmojiIcon(cat.icon)) {
+        setIconType('emoji');
+        setSelectedEmoji(cat.icon);
+      } else if (cat.icon && Object.keys(CATEGORY_ICONS).includes(cat.icon)) {
+        setIconType('svg');
+        setSelectedSvg(cat.icon as CategoryIconName);
+      } else {
+        // Default fallback
+        setIconType('emoji');
+        setSelectedEmoji('💰');
+      }
+
+      // Initialize color options based on category type
+      setColorOptions(getRecommendedColors(cat.type === 'both' ? 'expense' : cat.type));
+
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to load category:', error);
+      setAlertConfig({
+        visible: true,
+        title: 'Error',
+        message: 'Failed to load category',
+        buttons: [{ text: 'OK', onPress: () => router.back() }]
+      });
+    }
+  };
 
   const loadParentCategories = async () => {
     try {
       const cats = await getCategories(categoryType);
-      // Only show main categories (no parent_category_id)
-      const mainCats = cats.filter(c => !c.parent_category_id);
+      // Only show main categories (no parent_category_id) and exclude current category
+      const mainCats = cats.filter(c => !c.parent_category_id && c.id !== categoryId);
       setParentCategories(mainCats);
     } catch (error) {
       console.error('Failed to load parent categories:', error);
@@ -62,6 +121,8 @@ export default function CreateCategory() {
   };
 
   const handleSave = async () => {
+    if (!categoryId) return;
+
     if (!categoryName.trim()) {
       setAlertConfig({
         visible: true,
@@ -84,19 +145,20 @@ export default function CreateCategory() {
 
     try {
       const budgetValue = monthlyBudget ? parseFloat(monthlyBudget) : null;
-      await createCategory({
+      const iconToSave = iconType === 'svg' ? selectedSvg : selectedEmoji;
+      
+      await updateCategory(categoryId, {
         name: categoryName.trim(),
         type: categoryType,
-        icon: iconType === 'emoji' ? selectedEmoji : selectedSvg,
+        icon: iconToSave,
         color: selectedColor,
-        is_preset: 0,
         budget: budgetValue,
         parent_category_id: isSubcategory ? selectedParentId : null,
       });
       setAlertConfig({
         visible: true,
         title: 'Success',
-        message: 'Category created successfully',
+        message: 'Category updated successfully',
         buttons: [{ text: 'OK', onPress: () => router.back() }]
       });
     } catch (error: any) {
@@ -111,12 +173,20 @@ export default function CreateCategory() {
         setAlertConfig({
           visible: true,
           title: 'Error',
-          message: 'Failed to create category',
+          message: 'Failed to update category',
           buttons: [{ text: 'OK' }]
         });
       }
     }
   };
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: t.background, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={t.primary} />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView 
@@ -128,8 +198,8 @@ export default function CreateCategory() {
         <View style={{ padding: 16, paddingTop: 20 }}>
         {/* Header */}
         <View style={{ marginBottom: 32 }}>
-          <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 8 }}>Add New Category</Text>
-          <Text style={{ color: t.textSecondary, fontSize: 14 }}>Create a {isSubcategory ? 'subcategory' : 'main category'}</Text>
+          <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 8 }}>Edit Category</Text>
+          <Text style={{ color: t.textSecondary, fontSize: 14 }}>Update {isSubcategory ? 'subcategory' : 'category'} details</Text>
         </View>
 
         {/* Subcategory Toggle */}
@@ -207,46 +277,54 @@ export default function CreateCategory() {
             <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 8 }}>Parent Category *</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16, paddingHorizontal: 16 }}>
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                {parentCategories.map((cat) => (
-                  <TouchableOpacity
-                    key={cat.id}
-                    onPress={() => setSelectedParentId(cat.id!)}
-                    style={{
-                      paddingHorizontal: 16,
-                      paddingVertical: 10,
-                      borderRadius: 8,
-                      backgroundColor: selectedParentId === cat.id ? t.primary : t.card,
-                      borderWidth: 1,
-                      borderColor: selectedParentId === cat.id ? t.primary : t.border,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 8,
-                    }}
-                  >
-                    <View style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: 12,
-                      backgroundColor: cat.color || t.primary,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                    }}>
-                      <Text style={{ fontSize: 12 }}>{cat.icon}</Text>
-                    </View>
-                    <Text style={{ color: selectedParentId === cat.id ? '#FFFFFF' : t.textPrimary, fontSize: 14, fontWeight: '600' }}>
-                      {cat.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {parentCategories.map((cat) => {
+                  const catIcon = cat.icon || '';
+                  const isCatEmoji = isEmojiIcon(catIcon);
+                  
+                  return (
+                    <TouchableOpacity
+                      key={cat.id}
+                      onPress={() => setSelectedParentId(cat.id!)}
+                      style={{
+                        paddingHorizontal: 16,
+                        paddingVertical: 10,
+                        borderRadius: 8,
+                        backgroundColor: selectedParentId === cat.id ? t.primary : t.card,
+                        borderWidth: 1,
+                        borderColor: selectedParentId === cat.id ? t.primary : t.border,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 8,
+                      }}
+                    >
+                      <View style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: 12,
+                        backgroundColor: cat.color || t.primary,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                      }}>
+                        <Text style={{ fontSize: 12 }}>{cat.icon || '💰'}</Text>
+                      </View>
+                      <Text style={{ 
+                        color: selectedParentId === cat.id ? '#FFFFFF' : t.textPrimary, 
+                        fontSize: 14, 
+                        fontWeight: '600' 
+                      }}>
+                        {cat.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </ScrollView>
-            <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>Subcategories inherit the type from their parent</Text>
           </View>
         )}
 
         {/* Category Name */}
         <View style={{ marginBottom: 24 }}>
-          <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 8 }}>{isSubcategory ? 'Subcategory' : 'Category'} Name</Text>
+          <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 8 }}>Name *</Text>
           <TextInput
             style={{
               backgroundColor: t.card,
@@ -257,7 +335,7 @@ export default function CreateCategory() {
               color: t.textPrimary,
               fontSize: 16
             }}
-            placeholder="e.g., Groceries, Entertainment"
+            placeholder="Enter category name"
             placeholderTextColor={t.textSecondary}
             value={categoryName}
             onChangeText={setCategoryName}
@@ -338,7 +416,7 @@ export default function CreateCategory() {
           )}
         </View>
 
-        {/* Color Selector */}
+        {/* Color Selection */}
         <View style={{ marginBottom: 24 }}>
           <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 8 }}>Accent Color</Text>
           <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 12 }}>Colors chosen based on psychology for {categoryType} categories</Text>
@@ -371,8 +449,8 @@ export default function CreateCategory() {
           )}
         </View>
 
-        {/* Monthly Budget (Optional) */}
-        <View style={{ marginBottom: 32 }}>
+        {/* Monthly Budget */}
+        <View style={{ marginBottom: 24 }}>
           <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 8 }}>{categoryType === 'income' ? 'Monthly Target' : 'Monthly Budget'} (Optional)</Text>
           <TextInput
             style={{
@@ -447,7 +525,7 @@ export default function CreateCategory() {
             marginBottom: 32
           }}
         >
-          <Text style={{ color: t.background, fontSize: 16, fontWeight: '700' }}>Save Category</Text>
+          <Text style={{ color: t.background, fontSize: 16, fontWeight: '700' }}>Update Category</Text>
         </TouchableOpacity>
       </View>
       </ScrollView>
