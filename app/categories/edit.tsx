@@ -17,6 +17,23 @@ const isEmojiIcon = (iconValue: string): boolean => {
   return /[\p{Emoji}]/u.test(iconValue);
 };
 
+const renderCategoryIcon = (
+  iconValue: string | undefined,
+  categoryType: 'income' | 'expense' | 'both' | undefined,
+  size: number = 14,
+  color: string = '#FFFFFF'
+) => {
+  const icon = iconValue || '';
+  if (isEmojiIcon(icon)) {
+    return <Text style={{ fontSize: size }}>{icon}</Text>;
+  }
+
+  const fallbackKey: CategoryIconName = (categoryType === 'income' ? 'moneyrecive' : 'moneysend') as CategoryIconName;
+  const iconKey = (icon || fallbackKey) as CategoryIconName;
+  const IconComp = CATEGORY_ICONS[iconKey] || CATEGORY_ICONS[fallbackKey];
+  return IconComp ? <IconComp size={size} color={color} /> : null;
+};
+
 export default function EditCategory() {
   const { themeMode } = useSettings();
   const systemColorScheme = useColorScheme();
@@ -305,7 +322,7 @@ export default function EditCategory() {
                         justifyContent: 'center',
                         alignItems: 'center',
                       }}>
-                        <Text style={{ fontSize: 12 }}>{cat.icon || '💰'}</Text>
+                        {renderCategoryIcon(cat.icon, cat.type, 14, '#FFFFFF')}
                       </View>
                       <Text style={{ 
                         color: selectedParentId === cat.id ? '#FFFFFF' : t.textPrimary, 

@@ -9,6 +9,7 @@ import { theme, shadows } from '../../src/theme/theme';
 import { getWallet, getWalletBalance, deleteWallet } from '../../src/lib/db/wallets';
 import { filterTransactions } from '../../src/lib/db/transactions';
 import { Transaction } from '../../src/types/transaction';
+import { Wallet } from '../../src/types/wallet';
 import { TransactionItem } from '../../src/components/TransactionItem';
 // date formatting not needed in this view
 
@@ -27,6 +28,7 @@ export default function WalletDetail() {
   const systemColorScheme = useColorScheme();
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const t = theme(effectiveMode);
+  const [wallet, setWallet] = useState<Wallet | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [balance, setBalance] = useState(0);
@@ -40,6 +42,7 @@ export default function WalletDetail() {
   const loadWallet = useCallback(async () => {
     const w = (await getWallet(walletId))[0];
     if (w) {
+      setWallet(w);
       setName(w.name);
       setDescription(w.description || '');
       setCurrency(w.currency);
@@ -166,7 +169,87 @@ export default function WalletDetail() {
           <Text style={{ color: t.textSecondary, fontSize: 14, marginBottom: 16 }}>{description}</Text>
         ) : null}
 
-        {/* Edit Button moved to top actions */}
+        {/* Wallet Type and Details */}
+        {wallet && (
+          <View style={{ marginBottom: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <Text style={{ color: t.textSecondary, fontSize: 13, marginRight: 8 }}>Type:</Text>
+              <View style={{ 
+                backgroundColor: t.primary + '20', 
+                paddingHorizontal: 10, 
+                paddingVertical: 4, 
+                borderRadius: 8 
+              }}>
+                <Text style={{ color: t.primary, fontSize: 13, fontWeight: '700' }}>{wallet.type}</Text>
+              </View>
+            </View>
+
+            {/* Bank Account Details */}
+            {wallet.type === 'Bank Account' && (wallet.accountType || wallet.accountNumber) && (
+              <View style={{ 
+                backgroundColor: t.background, 
+                padding: 12, 
+                borderRadius: 10, 
+                marginTop: 8,
+                borderLeftWidth: 3,
+                borderLeftColor: t.primary
+              }}>
+                <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>
+                  Bank Account Details
+                </Text>
+                {wallet.accountType && (
+                  <View style={{ flexDirection: 'row', marginBottom: 4 }}>
+                    <Text style={{ color: t.textSecondary, fontSize: 13, width: 110 }}>Account Type:</Text>
+                    <Text style={{ color: t.textPrimary, fontSize: 13, fontWeight: '600' }}>{wallet.accountType}</Text>
+                  </View>
+                )}
+                {wallet.accountNumber && (
+                  <View style={{ flexDirection: 'row' }}>
+                    <Text style={{ color: t.textSecondary, fontSize: 13, width: 110 }}>Account Number:</Text>
+                    <Text style={{ color: t.textPrimary, fontSize: 13, fontWeight: '600' }}>{wallet.accountNumber}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Mobile Money Details */}
+            {wallet.type === 'Mobile Money' && (wallet.serviceProvider || wallet.phoneNumber) && (
+              <View style={{ 
+                backgroundColor: t.background, 
+                padding: 12, 
+                borderRadius: 10, 
+                marginTop: 8,
+                borderLeftWidth: 3,
+                borderLeftColor: t.primary
+              }}>
+                <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>
+                  Mobile Money Details
+                </Text>
+                {wallet.serviceProvider && (
+                  <View style={{ flexDirection: 'row', marginBottom: 4 }}>
+                    <Text style={{ color: t.textSecondary, fontSize: 13, width: 110 }}>Provider:</Text>
+                    <Text style={{ color: t.textPrimary, fontSize: 13, fontWeight: '600' }}>{wallet.serviceProvider}</Text>
+                  </View>
+                )}
+                {wallet.phoneNumber && (
+                  <View style={{ flexDirection: 'row' }}>
+                    <Text style={{ color: t.textSecondary, fontSize: 13, width: 110 }}>Phone Number:</Text>
+                    <Text style={{ color: t.textPrimary, fontSize: 13, fontWeight: '600' }}>{wallet.phoneNumber}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Exchange Rate Info */}
+            {wallet.exchange_rate && wallet.exchange_rate !== 1.0 && wallet.currency !== defaultCurrency && (
+              <View style={{ marginTop: 8 }}>
+                <Text style={{ color: t.textSecondary, fontSize: 12 }}>
+                  Exchange Rate: 1 {wallet.currency} = {wallet.exchange_rate} {defaultCurrency}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
         
         <View style={{ borderTopWidth: 1, borderTopColor: t.border, paddingTop: 16, marginTop: 8 }}>
           <Text style={{ color: t.textSecondary, fontSize: 14, marginBottom: 4 }}>Current Balance</Text>

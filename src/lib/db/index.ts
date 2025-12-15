@@ -97,10 +97,28 @@ export async function ensureTables() {
     if (!hasExchangeRate) {
       await database.execAsync('ALTER TABLE wallets ADD COLUMN exchange_rate REAL DEFAULT 1.0;');
     }
-      const hasDisplayOrder = cols.some(c => c.name === 'display_order');
-      if (!hasDisplayOrder) {
-        await database.execAsync('ALTER TABLE wallets ADD COLUMN display_order INTEGER DEFAULT 0;');
-      }
+    const hasDisplayOrder = cols.some(c => c.name === 'display_order');
+    if (!hasDisplayOrder) {
+      await database.execAsync('ALTER TABLE wallets ADD COLUMN display_order INTEGER DEFAULT 0;');
+    }
+    // Bank Account fields
+    const hasAccountType = cols.some(c => c.name === 'accountType');
+    if (!hasAccountType) {
+      await database.execAsync('ALTER TABLE wallets ADD COLUMN accountType TEXT;');
+    }
+    const hasAccountNumber = cols.some(c => c.name === 'accountNumber');
+    if (!hasAccountNumber) {
+      await database.execAsync('ALTER TABLE wallets ADD COLUMN accountNumber TEXT;');
+    }
+    // Mobile Money fields
+    const hasPhoneNumber = cols.some(c => c.name === 'phoneNumber');
+    if (!hasPhoneNumber) {
+      await database.execAsync('ALTER TABLE wallets ADD COLUMN phoneNumber TEXT;');
+    }
+    const hasServiceProvider = cols.some(c => c.name === 'serviceProvider');
+    if (!hasServiceProvider) {
+      await database.execAsync('ALTER TABLE wallets ADD COLUMN serviceProvider TEXT;');
+    }
   } catch (e) {
     // noop: best-effort migration
   }

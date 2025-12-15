@@ -8,6 +8,9 @@ import { getWallet, updateWallet } from '../../src/lib/db/wallets';
 import { Wallet } from '../../src/types/wallet';
 import { CURRENCIES } from '../../src/constants/currencies';
 
+const BANK_ACCOUNT_TYPES = ['Checking', 'Savings', 'Current', 'Other'];
+const MOBILE_MONEY_PROVIDERS = ['AirtelMoney', 'Mpesa', 'Mpamba', 'Other'];
+
 export default function EditWallet() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const walletId = Number(id);
@@ -25,6 +28,16 @@ export default function EditWallet() {
   const [isPrimary, setIsPrimary] = useState(0);
   const [currencyPickerVisible, setCurrencyPickerVisible] = useState(false);
   const [currencySearch, setCurrencySearch] = useState('');
+  
+  // Bank Account fields
+  const [accountType, setAccountType] = useState<string>('Checking');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [showAccountTypePicker, setShowAccountTypePicker] = useState(false);
+  
+  // Mobile Money fields
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [serviceProvider, setServiceProvider] = useState<string>('Mpesa');
+  const [showServiceProviderPicker, setShowServiceProviderPicker] = useState(false);
 
   const loadWallet = useCallback(async () => {
     const w = (await getWallet(walletId))[0];
@@ -35,6 +48,12 @@ export default function EditWallet() {
       setExchangeRate(String(w.exchange_rate ?? 1.0));
       setColor(w.color);
       setIsPrimary(w.is_primary ?? 0);
+      
+      // Load conditional fields
+      if (w.accountType) setAccountType(w.accountType);
+      if (w.accountNumber) setAccountNumber(w.accountNumber);
+      if (w.phoneNumber) setPhoneNumber(w.phoneNumber);
+      if (w.serviceProvider) setServiceProvider(w.serviceProvider);
     }
   }, [walletId]);
 
@@ -53,14 +72,36 @@ export default function EditWallet() {
       return;
     }
 
+    // Validate conditional fields
+    if (wallet?.type === 'Bank Account' && !accountNumber.trim()) {
+      Alert.alert('Validation', 'Please enter an account number');
+      return;
+    }
+
+    if (wallet?.type === 'Mobile Money' && !phoneNumber.trim()) {
+      Alert.alert('Validation', 'Please enter a phone number');
+      return;
+    }
+
     try {
-      await updateWallet(walletId, {
+      const updateData: any = {
         name,
         currency,
         exchange_rate: rate,
         color,
         is_primary: isPrimary,
-      });
+      };
+
+      // Add conditional fields based on wallet type
+      if (wallet?.type === 'Bank Account') {
+        updateData.accountType = accountType;
+        updateData.accountNumber = accountNumber.trim();
+      } else if (wallet?.type === 'Mobile Money') {
+        updateData.phoneNumber = phoneNumber.trim();
+        updateData.serviceProvider = serviceProvider;
+      }
+
+      await updateWallet(walletId, updateData);
       Alert.alert('Success', 'Wallet updated');
       router.back();
     } catch (e) {
@@ -222,6 +263,91 @@ export default function EditWallet() {
           }}
         />
 
+        {/* Bank Account Conditional Fields */}
+        {wallet?.type === 'Bank Account' && (
+          <>
+            <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 6 }}>Account Type</Text>
+            <TouchableOpacity 
+              onPress={() => setShowAccountTypePicker(true)}
+              style={{ 
+                backgroundColor: t.background,
+                borderWidth: 1, 
+                borderColor: t.border, 
+                padding: 12, 
+                borderRadius: 12, 
+                marginBottom: 12,
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}
+            >
+              <Text style={{ color: t.textPrimary, fontSize: 16 }}>{accountType}</Text>
+              <Text style={{ color: t.textSecondary }}>▼</Text>
+            </TouchableOpacity>
+
+            <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 6 }}>Account Number</Text>
+            <TextInput 
+              value={accountNumber} 
+              onChangeText={setAccountNumber} 
+              placeholder="e.g. 1234567890"
+              placeholderTextColor={t.textTertiary}
+              style={{ 
+                backgroundColor: t.background,
+                borderWidth: 1, 
+                borderColor: t.border, 
+                color: t.textPrimary, 
+                padding: 12, 
+                borderRadius: 12, 
+                marginBottom: 12,
+                fontSize: 16
+              }} 
+            />
+          </>
+        )}
+
+        {/* Mobile Money Conditional Fields */}
+        {wallet?.type === 'Mobile Money' && (
+          <>
+            <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 6 }}>Service Provider</Text>
+            <TouchableOpacity 
+              onPress={() => setShowServiceProviderPicker(true)}
+              style={{ 
+                backgroundColor: t.background,
+                borderWidth: 1, 
+                borderColor: t.border, 
+                padding: 12, 
+                borderRadius: 12, 
+                marginBottom: 12,
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}
+            >
+              <Text style={{ color: t.textPrimary, fontSize: 16 }}>{serviceProvider}</Text>
+              <Text style={{ color: t.textSecondary }}>▼</Text>
+            </TouchableOpacity>
+
+            <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 6 }}>Phone Number</Text>
+            <TextInput 
+              value={phoneNumber} 
+              onChangeText={setPhoneNumber} 
+              placeholder="e.g. +265999123456"
+              placeholderTextColor={t.textTertiary}
+              keyboardType="phone-pad"
+              style={{ 
+                backgroundColor: t.background,
+                borderWidth: 1, 
+                borderColor: t.border, 
+                color: t.textPrimary, 
+                padding: 12, 
+                borderRadius: 12, 
+                marginBottom: 12,
+                fontSize: 16
+              }} 
+            />
+          </>
+        )}
+
         {/* Save Button */}
         <TouchableOpacity
           onPress={onSave}
@@ -231,6 +357,74 @@ export default function EditWallet() {
         </TouchableOpacity>
       </View>
       </ScrollView>
+
+      {/* Account Type Picker Modal */}
+      <Modal
+        visible={showAccountTypePicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAccountTypePicker(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: t.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 24, paddingHorizontal: 16, paddingBottom: 24 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: t.textPrimary, marginBottom: 16 }}>Select Account Type</Text>
+            {BANK_ACCOUNT_TYPES.map((type) => (
+              <TouchableOpacity
+                key={type}
+                onPress={() => {
+                  setAccountType(type);
+                  setShowAccountTypePicker(false);
+                }}
+                style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: t.border }}
+              >
+                <Text style={{ fontSize: 16, color: accountType === type ? t.primary : t.textPrimary }}>
+                  {accountType === type ? '✓ ' : ''}{type}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              onPress={() => setShowAccountTypePicker(false)}
+              style={{ marginTop: 16, paddingVertical: 12, alignItems: 'center', backgroundColor: t.background }}
+            >
+              <Text style={{ fontSize: 16, color: t.primary, fontWeight: '600' }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Service Provider Picker Modal */}
+      <Modal
+        visible={showServiceProviderPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowServiceProviderPicker(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: t.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 24, paddingHorizontal: 16, paddingBottom: 24 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: t.textPrimary, marginBottom: 16 }}>Select Service Provider</Text>
+            {MOBILE_MONEY_PROVIDERS.map((provider) => (
+              <TouchableOpacity
+                key={provider}
+                onPress={() => {
+                  setServiceProvider(provider);
+                  setShowServiceProviderPicker(false);
+                }}
+                style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: t.border }}
+              >
+                <Text style={{ fontSize: 16, color: serviceProvider === provider ? t.primary : t.textPrimary }}>
+                  {serviceProvider === provider ? '✓ ' : ''}{provider}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              onPress={() => setShowServiceProviderPicker(false)}
+              style={{ marginTop: 16, paddingVertical: 12, alignItems: 'center', backgroundColor: t.background }}
+            >
+              <Text style={{ fontSize: 16, color: t.primary, fontWeight: '600' }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

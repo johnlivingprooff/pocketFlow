@@ -650,7 +650,7 @@ export default function Home() {
                     {/* Mini indicator placeholder */}
                     <View style={{ marginTop: 8, flexDirection: 'row', gap: 8 }}>
                       <View style={{ backgroundColor: t.success, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}>
-                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>+ this week</Text>
+                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>{w.type || 'Wallet'}</Text>
                       </View>
                     </View>
                   </LinearGradient>
