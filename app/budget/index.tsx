@@ -12,6 +12,8 @@ import { getBudgets, getBudgetWithMetrics, deleteBudget } from '@/lib/db/budgets
 import { getGoals, getGoalWithMetrics, deleteGoal } from '@/lib/db/goals';
 import type { BudgetWithMetrics } from '@/types/goal';
 import type { GoalWithMetrics } from '@/types/goal';
+import { BudgetAlertBanner } from '@/components/BudgetAlertBanner';
+import { GoalAlertBanner } from '@/components/GoalAlertBanner';
 
 type TabType = 'budget' | 'goals';
 
@@ -260,9 +262,23 @@ export default function BudgetGoalsScreen() {
       >
       <View style={styles.categoryHeader}>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.categoryName, { color: colors.textPrimary }]}>
-            {item.name}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={[styles.categoryName, { color: colors.textPrimary }]}>
+              {item.name}
+            </Text>
+            {(item.progressPercentage || 0) >= 100 && (
+              <Text style={styles.milestoneBadge}>🎉</Text>
+            )}
+            {(item.progressPercentage || 0) >= 75 && (item.progressPercentage || 0) < 100 && (
+              <Text style={styles.milestoneBadge}>🔥</Text>
+            )}
+            {(item.progressPercentage || 0) >= 50 && (item.progressPercentage || 0) < 75 && (
+              <Text style={styles.milestoneBadge}>💪</Text>
+            )}
+            {(item.progressPercentage || 0) >= 25 && (item.progressPercentage || 0) < 50 && (
+              <Text style={styles.milestoneBadge}>🌱</Text>
+            )}
+          </View>
           <Text style={[styles.categorySubtext, { color: colors.textSecondary }]}>
             Target: {formatCurrency(item.targetAmount, defaultCurrency)}
           </Text>
@@ -448,6 +464,14 @@ export default function BudgetGoalsScreen() {
                     </View>
                   </View>
 
+                  {/* Budget Alerts */}
+                  <BudgetAlertBanner 
+                    budgets={budgets} 
+                    colors={colors}
+                    defaultCurrency={defaultCurrency}
+                    formatCurrency={formatCurrency}
+                  />
+
                   {budgets.map(renderBudgetItem)}
                   <Pressable
                     onPress={() => router.push('/budgets/create')}
@@ -532,6 +556,14 @@ export default function BudgetGoalsScreen() {
                       </View>
                     </View>
                   </View>
+
+                  {/* Goal Alerts */}
+                  <GoalAlertBanner 
+                    goals={goals} 
+                    colors={colors}
+                    defaultCurrency={defaultCurrency}
+                    formatCurrency={formatCurrency}
+                  />
 
                   {goals.map(renderGoalItem)}
                   <Pressable
@@ -652,6 +684,9 @@ const styles = StyleSheet.create({
   paceText: {
     fontSize: 11,
     fontWeight: '500',
+  },
+  milestoneBadge: {
+    fontSize: 16,
   },
   emptyState: {
     alignItems: 'center',
