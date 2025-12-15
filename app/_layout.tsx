@@ -86,6 +86,10 @@ export default function RootLayout() {
           performBiometricAuth();
         }
       }
+    } else if (nextAppState === 'background' || nextAppState === 'inactive') {
+      // Force re-auth on next launch after the app is backgrounded/closed
+      setLastAuthTime(null);
+      setIsAuthenticated(false);
     }
   };
 
@@ -170,24 +174,15 @@ export default function RootLayout() {
           </Text>
         )}
         
-        {/* Fingerprint Icon */}
-        <View style={{ marginBottom: 24 }}>
-          <FingerprintIcon size={72} color={t.primary} />
-        </View>
-        
-        <TouchableOpacity 
+        {/* Fingerprint Icon as the authenticate button (no background) */}
+        <TouchableOpacity
           onPress={performBiometricAuth}
-          style={{ 
-            backgroundColor: t.primary, 
-            paddingHorizontal: 40, 
-            paddingVertical: 16, 
-            borderRadius: 12,
-            ...shadows.md 
-          }}
+          accessibilityRole="button"
+          accessibilityLabel="Authenticate with biometrics"
+          style={{ marginBottom: 24 }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
-            Authenticate
-          </Text>
+          <FingerprintIcon size={72} color={t.primary} />
         </TouchableOpacity>
       </View>
     );
@@ -230,6 +225,7 @@ export default function RootLayout() {
       <Stack.Screen name="profile/index" options={{ headerShown: true, title: 'Profile', ...headerOptions }} />
       <Stack.Screen name="settings/currency" options={{ headerShown: true, title: 'Currency Settings', ...headerOptions }} />
       <Stack.Screen name="settings/security" options={{ headerShown: true, title: 'Security Settings', ...headerOptions }} />
+      <Stack.Screen name="budget/index" options={{ headerShown: false }} />
       <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
     </Stack>
     </GestureHandlerRootView>

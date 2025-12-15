@@ -1,7 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import type { GoalWithMetrics } from '@/types/goal';
+
+const ALERT_BACKGROUND_OPACITY = '15'; // Hex opacity for alert backgrounds
 
 interface GoalAlertBannerProps {
   goals: GoalWithMetrics[];

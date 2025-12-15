@@ -140,12 +140,11 @@ export async function updateGoal(id: number, updates: Partial<GoalInput>): Promi
   values.push(now);
   values.push(id);
 
-  await enqueueWrite(async () => {
-    await execRun(
-      `UPDATE goals SET ${fields.join(', ')} WHERE id = ?`,
-      values
-    );
-  }, 'updateGoal');
+  // execRun already serializes via the write queue; avoid double-wrapping
+  await execRun(
+    `UPDATE goals SET ${fields.join(', ')} WHERE id = ?`,
+    values
+  );
 }
 
 /**
@@ -153,9 +152,8 @@ export async function updateGoal(id: number, updates: Partial<GoalInput>): Promi
  * @param id Goal ID
  */
 export async function deleteGoal(id: number): Promise<void> {
-  await enqueueWrite(async () => {
-    await execRun('DELETE FROM goals WHERE id = ?', [id]);
-  }, 'deleteGoal');
+  // execRun already serializes via the write queue
+  await execRun('DELETE FROM goals WHERE id = ?', [id]);
 }
 
 /**
@@ -178,12 +176,11 @@ export async function recalculateGoalProgress(goalId: number): Promise<void> {
 
     const totalIncome = result[0]?.total || 0;
 
-    await enqueueWrite(async () => {
-      await execRun(
-        `UPDATE goals SET current_progress = ?, updated_at = ? WHERE id = ?`,
-        [totalIncome, new Date().toISOString(), goalId]
-      );
-    }, 'recalculateGoalProgress');
+    // execRun already serializes via the write queue
+    await execRun(
+      `UPDATE goals SET current_progress = ?, updated_at = ? WHERE id = ?`,
+      [totalIncome, new Date().toISOString(), goalId]
+    );
   } catch (error) {
     console.error('Failed to recalculate goal progress:', error);
   }

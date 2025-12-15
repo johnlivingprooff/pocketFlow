@@ -190,12 +190,11 @@ export async function updateBudget(id: number, updates: Partial<BudgetInput>): P
   values.push(now);
   values.push(id);
 
-  await enqueueWrite(async () => {
-    await execRun(
-      `UPDATE budgets SET ${fields.join(', ')} WHERE id = ?`,
-      values
-    );
-  }, 'updateBudget');
+  // execRun already serializes via the write queue; do not double-wrap
+  await execRun(
+    `UPDATE budgets SET ${fields.join(', ')} WHERE id = ?`,
+    values
+  );
 }
 
 /**
@@ -203,9 +202,8 @@ export async function updateBudget(id: number, updates: Partial<BudgetInput>): P
  * @param id Budget ID
  */
 export async function deleteBudget(id: number): Promise<void> {
-  await enqueueWrite(async () => {
-    await execRun('DELETE FROM budgets WHERE id = ?', [id]);
-  }, 'deleteBudget');
+  // execRun already serializes via the write queue
+  await execRun('DELETE FROM budgets WHERE id = ?', [id]);
 }
 
 /**
@@ -268,12 +266,11 @@ export async function recalculateBudgetSpending(budgetId: number): Promise<void>
     const result = await exec<{ total: number }>(query, params);
     const totalSpending = result[0]?.total || 0;
 
-    await enqueueWrite(async () => {
-      await execRun(
-        `UPDATE budgets SET current_spending = ?, updated_at = ? WHERE id = ?`,
-        [totalSpending, new Date().toISOString(), budgetId]
-      );
-    }, 'recalculateBudgetSpending');
+    // execRun already serializes via the write queue
+    await execRun(
+      `UPDATE budgets SET current_spending = ?, updated_at = ? WHERE id = ?`,
+      [totalSpending, new Date().toISOString(), budgetId]
+    );
   } catch (error) {
     console.error('Failed to recalculate budget spending:', error);
   }
