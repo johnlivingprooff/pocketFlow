@@ -14,6 +14,7 @@ import type { BudgetWithMetrics } from '@/types/goal';
 import type { GoalWithMetrics } from '@/types/goal';
 import { BudgetAlertBanner } from '@/components/BudgetAlertBanner';
 import { GoalAlertBanner } from '@/components/GoalAlertBanner';
+import { FinancialSummaryCard } from '@/components/FinancialSummaryCard';
 
 type TabType = 'budget' | 'goals';
 
@@ -423,10 +424,28 @@ export default function BudgetGoalsScreen() {
                 </View>
               ) : (
                 <>
+                  {/* Financial Summary Card */}
+                  <FinancialSummaryCard
+                    budgets={budgets}
+                    goals={[]}
+                    colors={colors}
+                    defaultCurrency={defaultCurrency}
+                    formatCurrency={formatCurrency}
+                    type="budget"
+                  />
+
+                  {/* Budget Alerts */}
+                  <BudgetAlertBanner 
+                    budgets={budgets} 
+                    colors={colors}
+                    defaultCurrency={defaultCurrency}
+                    formatCurrency={formatCurrency}
+                  />
+
                   {/* Budget Dashboard Summary */}
                   <View style={[styles.dashboardCard, { backgroundColor: colors.card }]}>
                     <Text style={[styles.dashboardTitle, { color: colors.textPrimary }]}>
-                      Budget Overview
+                      Budget Status
                     </Text>
                     <View style={styles.dashboardStats}>
                       <View style={styles.dashboardStat}>
@@ -463,14 +482,6 @@ export default function BudgetGoalsScreen() {
                       </View>
                     </View>
                   </View>
-
-                  {/* Budget Alerts */}
-                  <BudgetAlertBanner 
-                    budgets={budgets} 
-                    colors={colors}
-                    defaultCurrency={defaultCurrency}
-                    formatCurrency={formatCurrency}
-                  />
 
                   {budgets.map(renderBudgetItem)}
                   <Pressable
@@ -516,10 +527,28 @@ export default function BudgetGoalsScreen() {
                 </View>
               ) : (
                 <>
+                  {/* Financial Summary Card */}
+                  <FinancialSummaryCard
+                    budgets={[]}
+                    goals={goals}
+                    colors={colors}
+                    defaultCurrency={defaultCurrency}
+                    formatCurrency={formatCurrency}
+                    type="goal"
+                  />
+
+                  {/* Goal Alerts */}
+                  <GoalAlertBanner 
+                    goals={goals} 
+                    colors={colors}
+                    defaultCurrency={defaultCurrency}
+                    formatCurrency={formatCurrency}
+                  />
+
                   {/* Goals Dashboard Summary */}
                   <View style={[styles.dashboardCard, { backgroundColor: colors.card }]}>
                     <Text style={[styles.dashboardTitle, { color: colors.textPrimary }]}>
-                      Goals Overview
+                      Goal Status
                     </Text>
                     <View style={styles.dashboardStats}>
                       <View style={styles.dashboardStat}>
@@ -556,14 +585,6 @@ export default function BudgetGoalsScreen() {
                       </View>
                     </View>
                   </View>
-
-                  {/* Goal Alerts */}
-                  <GoalAlertBanner 
-                    goals={goals} 
-                    colors={colors}
-                    defaultCurrency={defaultCurrency}
-                    formatCurrency={formatCurrency}
-                  />
 
                   {goals.map(renderGoalItem)}
                   <Pressable
