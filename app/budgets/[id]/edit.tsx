@@ -23,6 +23,7 @@ import { getWallets } from '@/lib/db/wallets';
 import type { Budget } from '@/types/goal';
 import type { Category } from '@/lib/db/categories';
 import type { Wallet } from '@/types/wallet';
+import * as CategoryIcons from '@/assets/icons/CategoryIcons';
 
 type PeriodType = 'weekly' | 'monthly' | 'custom';
 
@@ -264,19 +265,34 @@ export default function EditBudgetScreen() {
                   ]}
                   disabled={saving}
                 >
-                  <Text
-                    style={[
-                      styles.categoryButtonText,
-                      {
-                        color:
-                          selectedCategory === cat.id
-                            ? colors.background
-                            : colors.textPrimary,
-                      },
-                    ]}
-                  >
-                    {cat.icon} {cat.name}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {(() => {
+                      const iconKey = cat.icon || cat.name;
+                      const IconComp = (CategoryIcons as any)[iconKey] || (CategoryIcons as any)[iconKey?.toLowerCase?.()] || null;
+                      const isEmoji = typeof iconKey === 'string' && /\p{Extended_Pictographic}/u.test(iconKey);
+                      if (isEmoji) {
+                        return <Text style={{ fontSize: 16 }}>{iconKey}</Text>;
+                      }
+                      if (IconComp) {
+                        const color = selectedCategory === cat.id ? colors.background : colors.textPrimary;
+                        return <IconComp size={18} color={color} />;
+                      }
+                      return null;
+                    })()}
+                    <Text
+                      style={[
+                        styles.categoryButtonText,
+                        {
+                          color:
+                            selectedCategory === cat.id
+                              ? colors.background
+                              : colors.textPrimary,
+                        },
+                      ]}
+                    >
+                      {cat.name}
+                    </Text>
+                  </View>
                 </Pressable>
               ))}
             </ScrollView>

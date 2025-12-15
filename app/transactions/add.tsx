@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Platform, Modal, useColorScheme, KeyboardAvoidingView, Switch, Alert } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -179,6 +180,7 @@ export default function AddTransactionScreen() {
   };
 
   const handleAmountInput = (value: string) => {
+    const operators = ['+', '-', '×', '÷'];
     setAmount((prev) => {
       if (value === 'backspace') {
         return prev.slice(0, -1);
@@ -189,11 +191,20 @@ export default function AddTransactionScreen() {
       }
       // Allow decimal point anywhere; evaluation will handle
       if (value === '.') {
-        return `${prev}${value}`;
+        const lastNumber = prev.split(/[+×÷-]/).pop();
+        if (lastNumber && lastNumber.includes('.')) {
+          return prev;
+        }
+        return prev ? `${prev}${value}` : '0.';
       }
       // Allow operators + - × ÷, only if there's a preceding number
-      if (['+', '-', '×', '÷'].includes(value)) {
-        return prev ? `${prev}${value}` : prev;
+      if (operators.includes(value)) {
+        if (!prev) return prev;
+        const lastChar = prev.slice(-1);
+        if (operators.includes(lastChar) || lastChar === '.') {
+          return `${prev.slice(0, -1)}${value}`;
+        }
+        return `${prev}${value}`;
       }
       return prev;
     });
@@ -202,15 +213,18 @@ export default function AddTransactionScreen() {
   const evaluateExpression = (expr: string): number => {
     if (!expr) return 0;
     const sanitized = expr.replace(/×/g, '*').replace(/÷/g, '/');
+    const trimmed = sanitized.replace(/([+\-*/.])+$/, '');
+    if (!trimmed) return 0;
     try {
-      if (/^[0-9+\-*/.\s]+$/.test(sanitized)) {
+      if (/^[0-9+\-*/.\s]+$/.test(trimmed)) {
         // eslint-disable-next-line no-eval
-        const result = eval(sanitized);
+        const result = eval(trimmed);
         return typeof result === 'number' && Number.isFinite(result) ? result : 0;
       }
       return 0;
     } catch {
-      return 0;
+      const fallback = parseFloat(trimmed);
+      return Number.isFinite(fallback) ? fallback : 0;
     }
   };
 
@@ -420,7 +434,7 @@ export default function AddTransactionScreen() {
 
             <AmountDisplay amount={amount} currency={displayCurrency} colors={t} evaluated={numericAmount} />
 
-            <SectionLabel text="From wallet" colors={t} />
+            <SectionLabel text="Tap to Select Wallet to Transact From" colors={t} />
             <WalletCarousel
               wallets={wallets}
               selectedId={walletId}
@@ -770,28 +784,45 @@ function RowButton({ label, onPress, colors }: { label: string; onPress: () => v
 }
 
 function TimeInput({ date, onChange, colors }: { date: Date; onChange: (d: Date) => void; colors: Colors }) {
+  const [showPicker, setShowPicker] = useState(false);
   const hh = String(date.getHours()).padStart(2, '0');
   const mm = String(date.getMinutes()).padStart(2, '0');
-  const [value, setValue] = useState(`${hh}:${mm}`);
-  useEffect(() => {
-    const h = parseInt(value.split(':')[0] || '0', 10);
-    const m = parseInt(value.split(':')[1] || '0', 10);
-    if (!Number.isNaN(h) && !Number.isNaN(m) && h >= 0 && h <= 23 && m >= 0 && m <= 59) {
-      const d = new Date(date);
-      d.setHours(h);
-      d.setMinutes(m);
-      onChange(d);
-    }
-  }, [value]);
+  const display = `${hh}:${mm}`;
+
   return (
-    <TextInput
-      value={value}
-      onChangeText={setValue}
-      placeholder="HH:MM"
-      placeholderTextColor={colors.textTertiary}
-      keyboardType="numeric"
-      style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.textPrimary, padding: 14, borderRadius: 12 }}
-    />
+    <View>
+      <TouchableOpacity
+        onPress={() => setShowPicker(true)}
+        style={{
+          borderWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: colors.card,
+          padding: 14,
+          borderRadius: 12,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}
+      >
+        <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>Time</Text>
+        <Text style={{ color: colors.textSecondary }}>{display}</Text>
+      </TouchableOpacity>
+
+      {showPicker && (
+        <DateTimePicker
+          value={date}
+          mode="time"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          is24Hour={true}
+          onChange={(e, selectedDate) => {
+            setShowPicker(Platform.OS === 'ios');
+            if (selectedDate) {
+              onChange(selectedDate);
+            }
+          }}
+        />
+      )}
+    </View>
   );
 }
 
@@ -902,17 +933,30 @@ function Keypad({ onPress, colors }: { onPress: (value: string) => void; colors:
   return (
     <View style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 8, ...shadows.sm }}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-        {keys.map((key) => (
-          <TouchableOpacity
-            key={key}
-            onPress={() => onPress(key)}
-            style={{ width: '25%', paddingVertical: 14, alignItems: 'center', justifyContent: 'center' }}
-          >
-            <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: '700' }}>
-              {key === 'backspace' ? '⌫' : key}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {keys.map((key) => {
+          const isNumber = /^[0-9]$/.test(key);
+          return (
+            <TouchableOpacity
+              key={key}
+              onPress={() => onPress(key)}
+              style={{
+                width: '25%',
+                paddingVertical: 14,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: isNumber ? 12 : 0,
+                borderWidth: isNumber ? 1 : 0,
+                borderColor: isNumber ? colors.border : 'transparent',
+                backgroundColor: isNumber ? colors.background : 'transparent',
+                marginVertical: isNumber ? 4 : 0
+              }}
+            >
+              <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: '700' }}>
+                {key === 'backspace' ? '⌫' : key}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );
