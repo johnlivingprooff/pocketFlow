@@ -22,6 +22,8 @@ interface SettingsState {
   lastAuthTime: number | null;
   // Backups
   lastBackupAt: number | null;
+  // Privacy
+  hideBalances: boolean;
   // Actions
   setUserInfo: (info: Partial<UserInfo>) => void;
   setThemeMode: (m: ThemeMode) => void;
@@ -30,6 +32,7 @@ interface SettingsState {
   setBiometricSetupComplete: (v: boolean) => void;
   setLastAuthTime: (time: number | null) => void;
   setLastBackupAt: (time: number | null) => void;
+  setHideBalances: (v: boolean) => void;
   resetSettings: () => void;
 }
 
@@ -46,6 +49,7 @@ const initialState = {
   biometricSetupComplete: false,
   lastAuthTime: null,
   lastBackupAt: null,
+  hideBalances: false,
 };
 
 export const useSettings = create<SettingsState>()(
@@ -61,6 +65,7 @@ export const useSettings = create<SettingsState>()(
       setBiometricSetupComplete: (biometricSetupComplete) => set({ biometricSetupComplete }),
       setLastAuthTime: (lastAuthTime) => set({ lastAuthTime }),
       setLastBackupAt: (lastBackupAt) => set({ lastBackupAt }),
+      setHideBalances: (hideBalances) => set({ hideBalances }),
       resetSettings: () => set(initialState),
     }),
     {

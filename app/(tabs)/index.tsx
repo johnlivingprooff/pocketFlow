@@ -19,6 +19,7 @@ import { formatCurrency } from '../../src/utils/formatCurrency';
 import { Transaction } from '../../src/types/transaction';
 import { log } from '../../src/utils/logger';
 import { invalidateTransactionCaches, invalidateWalletCaches } from '../../src/lib/cache/queryCache';
+import { EyeOffIcon } from '../../src/assets/icons/EyeOffIcon';
 
 type TimePeriod = 'all' | 'today' | 'week' | 'month' | 'lastMonth' | 'custom';
 
@@ -57,7 +58,7 @@ function formatFullDate(date: Date): string {
 }
 
 export default function Home() {
-  const { themeMode, defaultCurrency, userInfo } = useSettings();
+  const { themeMode, defaultCurrency, userInfo, hideBalances, setHideBalances } = useSettings();
   const systemColorScheme = useColorScheme();
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const t = theme(effectiveMode);
@@ -553,20 +554,38 @@ export default function Home() {
         </Link>
         </View>
 
+        {/* Privacy toggle above total balance */}
+        <View style={{ marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={{ color: t.textSecondary, opacity: 0.35, fontSize: 12, fontWeight: '700' }}>
+            {hideBalances ? 'Show Amount' : 'Hide Amounts'}
+          </Text>
+          <TouchableOpacity
+            onPress={() => setHideBalances(!hideBalances)}
+            accessibilityRole="button"
+            accessibilityLabel={hideBalances ? 'Show amounts' : 'Hide amounts'}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={{ padding: 6, borderRadius: 8 }}
+          >
+            <EyeOffIcon size={20} color={t.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
         {/* Total Balance Across Wallets */}
         {wallets.length > 0 && (
           <View style={{ marginBottom: 12 }}>
             <Text style={{ color: t.textSecondary, fontSize: 13, fontWeight: '600' }}>
               Available Balance Across Wallets:{' '}
               <Text style={{ color: t.textPrimary, fontWeight: '800' }}>
-                {formatCurrency(
-                  wallets.reduce((sum, w) => {
-                    const balance = balances[w.id!] ?? 0;
-                    const rate = w.exchange_rate ?? 1.0;
-                    return sum + (balance * rate);
-                  }, 0),
-                  defaultCurrency
-                )}
+                {hideBalances
+                  ? '******'
+                  : formatCurrency(
+                      wallets.reduce((sum, w) => {
+                        const balance = balances[w.id!] ?? 0;
+                        const rate = w.exchange_rate ?? 1.0;
+                        return sum + balance * rate;
+                      }, 0),
+                      defaultCurrency
+                    )}
               </Text>
             </Text>
           </View>
@@ -624,7 +643,9 @@ export default function Home() {
                     <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>{w.name}</Text>
                     <Text style={{ color: t.primaryLight, fontSize: 12, marginTop: 4 }}>{w.currency}</Text>
                     <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '900', marginTop: 8 }}>
-                      {formatCurrency(balances[w.id!], w.currency || defaultCurrency)}
+                      {hideBalances
+                        ? '******'
+                        : formatCurrency(balances[w.id!], w.currency || defaultCurrency)}
                     </Text>
                     {/* Mini indicator placeholder */}
                     <View style={{ marginTop: 8, flexDirection: 'row', gap: 8 }}>
@@ -695,19 +716,24 @@ export default function Home() {
           {/* Income Card */}
           <View style={{ minWidth: 160, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 14, ...shadows.sm }}>
             <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Income ({defaultCurrency})</Text>
-            <Text style={{ color: t.success, fontSize: 18, fontWeight: '800' }} numberOfLines={1}>{income.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</Text>
+            <Text style={{ color: t.success, fontSize: 18, fontWeight: '800' }} numberOfLines={1}>
+              {hideBalances ? '******' : income.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</Text>
           </View>
 
           {/* Expenses Card */}
           <View style={{ minWidth: 160, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 14, ...shadows.sm }}>
             <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Expenses ({defaultCurrency})</Text>
-            <Text style={{ color: t.danger, fontSize: 18, fontWeight: '800' }} numberOfLines={1}>{expenses.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</Text>
+            <Text style={{ color: t.danger, fontSize: 18, fontWeight: '800' }} numberOfLines={1}>
+              {hideBalances ? '******' : expenses.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </Text>
           </View>
 
           {/* Net Card */}
           <View style={{ minWidth: 160, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 14, ...shadows.sm }}>
             <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Net ({defaultCurrency})</Text>
-            <Text style={{ color: income - expenses >= 0 ? t.success : t.danger, fontSize: 18, fontWeight: '800' }} numberOfLines={1}>{(income - expenses).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</Text>
+            <Text style={{ color: income - expenses >= 0 ? t.success : t.danger, fontSize: 18, fontWeight: '800' }} numberOfLines={1}>
+              {hideBalances ? '******' : (income - expenses).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </Text>
           </View>
           </View>
         </ScrollView>
@@ -733,7 +759,9 @@ export default function Home() {
                       <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>{tx.category || 'Transfer'}</Text>
                       <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>Recurring • {tx.recurrence_frequency || 'N/A'}</Text>
                     </View>
-                    <Text style={{ color: tx.type === 'income' ? t.success : t.danger, fontSize: 16, fontWeight: '700' }}>{tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount, transactionCurrency)}</Text>
+                    <Text style={{ color: tx.type === 'income' ? t.success : t.danger, fontSize: 16, fontWeight: '700' }}>
+                      {hideBalances ? (tx.type === 'income' ? '+******' : '-******') : `${tx.type === 'income' ? '+' : '-'}${formatCurrency(tx.amount, transactionCurrency)}`}
+                    </Text>
                   </View>
                 );
               })}
@@ -762,7 +790,9 @@ export default function Home() {
                         <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>{getTransferLabel(transaction)}</Text>
                       <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>{formatShortDate(transaction.date)}</Text>
                     </View>
-                    <Text style={{ color: t.accent, fontSize: 16, fontWeight: '700' }}>{formatCurrency(transaction.amount, transactionCurrency)}</Text>
+                    <Text style={{ color: t.accent, fontSize: 16, fontWeight: '700' }}>
+                      {hideBalances ? '******' : formatCurrency(transaction.amount, transactionCurrency)}
+                    </Text>
                   </View>
                 </TouchableOpacity>
               </Link>

@@ -1,5 +1,5 @@
 /**
- * Category Taxonomy - Universal Income and Expense Categories
+ * Category Taxonomy - Essential Income and Expense Categories
  */
 
 export interface CategoryDefinition {
@@ -9,94 +9,46 @@ export interface CategoryDefinition {
 }
 
 // ============================================================================
-// INCOME CATEGORIES (10 categories, 2 subcategories each)
+// INCOME CATEGORIES (Essential Only)
 // ============================================================================
 
 export const INCOME_TAXONOMY: CategoryDefinition[] = [
   {
-    name: 'Salary/Wages',
+    name: 'Work Income',
     icon: 'salary',
     subcategories: [
-      'Primary Job',
-      'Overtime/Bonuses',
+      'Salary / Wages',
+      'Overtime / Bonuses',
     ],
   },
   {
     name: 'Business Income',
     icon: 'business',
     subcategories: [
-      'Sales Revenue',
-      'Service Fees',
+      'Sales',
+      'Services',
     ],
   },
   {
-    name: 'Freelance/Gig Work',
-    icon: 'Freelance',
-    subcategories: [
-      'Contract Projects',
-      'One-off Tasks',
-    ],
-  },
-  {
-    name: 'Investments',
+    name: 'Investment Income',
     icon: 'investment',
     subcategories: [
-      'Dividends/Interest',
+      'Interest / Dividends',
       'Capital Gains',
     ],
   },
   {
-    name: 'Rental Income',
-    icon: 'Property',
-    subcategories: [
-      'Residential Property',
-      'Commercial Property',
-    ],
-  },
-  {
-    name: 'Agriculture/Farming',
-    icon: 'Agriculture',
-    subcategories: [
-      'Crop Sales',
-      'Livestock Sales',
-    ],
-  },
-  {
-    name: 'Online/Digital Income',
-    icon: 'moneyrecive',
-    subcategories: [
-      'Content Creation',
-      'Online Services',
-    ],
-  },
-  {
-    name: 'Gifts & Support Received',
+    name: 'Support & Transfers',
     icon: 'gift',
     subcategories: [
       'Family Support',
-      'Donations/Gifts',
-    ],
-  },
-  {
-    name: 'Refunds & Rebates',
-    icon: 'moneyrecive',
-    subcategories: [
-      'Purchase Refunds',
-      'Tax/Fee Rebates',
-    ],
-  },
-  {
-    name: 'Other Income',
-    icon: 'moneyrecive',
-    subcategories: [
-      'Prizes/Winnings',
-      'Miscellaneous Income',
+      'Gifts / Remittances',
     ],
   },
 ];
 
 // ============================================================================
-// EXPENSE CATEGORIES (10 categories, 2 subcategories each)
+// EXPENSE CATEGORIES (Essential Only)
 // ============================================================================
 
 export const EXPENSE_TAXONOMY: CategoryDefinition[] = [
@@ -104,80 +56,32 @@ export const EXPENSE_TAXONOMY: CategoryDefinition[] = [
     name: 'Housing',
     icon: 'Housing',
     subcategories: [
-      'Rent/Mortgage',
-      'Maintenance & Repairs',
+      'Rent / Mortgage',
+      'Maintenance',
     ],
   },
   {
-    name: 'Food & Groceries',
+    name: 'Food',
     icon: 'Food & Groceries',
     subcategories: [
-      'Home Groceries',
-      'Eating Out',
+      'Groceries / Snacks',
+      'Eating Out / Fine Dining',
     ],
   },
   {
     name: 'Transport',
     icon: 'Travel',
     subcategories: [
-      'Fuel/Fares',
+      'Fuel / Fares',
       'Maintenance',
     ],
   },
   {
-    name: 'Utilities',
+    name: 'Utilities & Communication',
     icon: 'Utilities',
     subcategories: [
-      'Electricity & Water',
-      'Waste & Sanitation',
-    ],
-  },
-  {
-    name: 'Communication',
-    icon: 'Communication',
-    subcategories: [
-      'Airtime & Data',
-      'Internet Services',
-    ],
-  },
-  {
-    name: 'Health',
-    icon: 'health',
-    subcategories: [
-      'Medical Visits',
-      'Medication',
-    ],
-  },
-  {
-    name: 'Education',
-    icon: 'education',
-    subcategories: [
-      'Tuition Fees',
-      'Learning Materials',
-    ],
-  },
-  {
-    name: 'Personal & Lifestyle',
-    icon: 'shopping',
-    subcategories: [
-      'Clothing & Personal Care',
-      'Entertainment',
-    ],
-  },
-  {
-    name: 'Savings & Investments',
-    icon: 'savings',
-    subcategories: [
-      'Short-term Savings',
-      'Long-term Investments',
-    ],
-  },
-  {
-    name: 'Other Expenses',
-    icon: 'moneysend',
-    subcategories: [
-      'Emergency Costs',
-      'Miscellaneous Expenses',
+      'Electricity / Water',
+      'Airtime / Internet',
     ],
   },
 ];

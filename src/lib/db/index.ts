@@ -352,64 +352,50 @@ export async function ensureTables() {
     }
 
     // Seed or repair preset categories (idempotent via INSERT OR IGNORE)
-  // Use new comprehensive taxonomy instead of old limited categories
+  // Use essential taxonomy only
   
   await database.withTransactionAsync(async () => {
-    // First, check if we need to migrate from old preset categories to new ones
+    // Determine allowed preset names (parents + subcategories) for cleanup
+    const allowedNames = new Set<string>();
+    INCOME_TAXONOMY.forEach(cat => {
+      allowedNames.add(cat.name);
+      (cat.subcategories || []).forEach(sub => allowedNames.add(sub));
+    });
+    EXPENSE_TAXONOMY.forEach(cat => {
+      allowedNames.add(cat.name);
+      (cat.subcategories || []).forEach(sub => allowedNames.add(sub));
+    });
+    const allowedList = Array.from(allowedNames);
+
+    // If presets exist, remove any preset not in the new essential list
     const existingPresets = await database.getAllAsync<{ name: string }>(
       'SELECT name FROM categories WHERE is_preset = 1 LIMIT 1;'
     );
-    
-    // If old presets exist, delete them to replace with new comprehensive taxonomy
-    if (existingPresets.length > 0) {
-      const oldCategories = [
-        'Food', 'Transport', 'Rent', 'Groceries', 'Utilities', 'Shopping',
-        'Healthcare', 'Entertainment', 'Education', 'Bills', 'Other',
-        'Salary', 'Freelance', 'Business', 'Investment', 'Gift', 'Offering', 'Other Income'
-      ];
-      
-      // Only delete the specific old preset categories that will be replaced
-      for (const oldCat of oldCategories) {
-        await database.runAsync(
-          'DELETE FROM categories WHERE name = ? AND is_preset = 1;',
-          [oldCat]
-        );
-      }
+
+    if (existingPresets.length > 0 && allowedList.length > 0) {
+      const placeholders = allowedList.map(() => '?').join(', ');
+      await database.runAsync(
+        `DELETE FROM categories WHERE is_preset = 1 AND name NOT IN (${placeholders});`,
+        allowedList
+      );
     }
     
-    // Category color mapping based on color psychology
+    // Category color mapping for essential taxonomy
     const incomeCategoryColors: Record<string, string> = {
-      'Agriculture & Farming': '#4CAF50', // Leaf Green - Nature, produce
-      'Business': '#2E7D32', // Deep Green - Growth, profit
-      'Employment': '#F9A825', // Gold/Yellow - Earned success, reward
-      'Investments': '#1B5E20', // Deep Green - Long-term growth
-      'Remittances': '#1976D2', // Blue - Trust, stable inflow
-      'Government Support': '#1565C0', // Blue - Trust, reliability
-      'Religious Organizations': '#FBC02D', // Warm Yellow - Community, giving
-      'Sales': '#43A047', // Green - Money coming in
-      'Other Income': '#66BB6A' // Green - Abundance, growth
+      'Work Income': '#F9A825', // Gold - earned income
+      'Business Income': '#2E7D32', // Deep green - growth
+      'Investment Income': '#1B5E20', // Dark green - long-term
+      'Support & Transfers': '#1976D2', // Blue - trusted inflow
     };
     
     const expenseCategoryColors: Record<string, string> = {
-      'Agriculture & Farming': '#4CAF50', // Leaf Green - Nature, resources
-      'Business Operations': '#757575', // Grey - Professional, operations
-      'Education': '#7B1FA2', // Purple - Learning, growth
-      'Financial Services': '#616161', // Grey - Structure, professional
-      'Food & Dining': '#FF6F00', // Warm Orange - Nourishment, comfort
-      'Healthcare & Medical': '#00897B', // Turquoise - Healing, wellness
-      'Housing & Utilities': '#1A237E', // Dark Blue/Navy - Stability, foundation
-      'Insurance & Savings': '#0288D1', // Sky Blue - Future planning
-      'Loans & Debt': '#D32F2F', // Red - Outflow, attention
-      'Personal Care & Lifestyle': '#E91E63', // Pink - Self-care, personal expression
-      'Taxes & Fees': '#757575', // Grey - Neutral, mandatory costs
-      'Transport & Fuel': '#00897B', // Teal - Movement, flow
-      'Communication': '#00ACC1', // Cyan - Connection, digital
-      'Social & Community': '#F9A825', // Warm Yellow - Community, warmth
-      'Household Items': '#A1887F', // Beige/Soft Neutrals - Home comfort
-      'Other Expenses': '#607D8B' // Grey-Blue - Neutral, flexible
+      'Housing': '#1A237E', // Navy - stability
+      'Food': '#FF6F00', // Orange - nourishment
+      'Transport': '#00897B', // Teal - movement
+      'Utilities & Communication': '#00ACC1', // Cyan - connectivity
     };
     
-    // Insert new comprehensive preset categories
+    // Insert new essential preset categories
     const insertStmt = await database.prepareAsync(
       'INSERT OR IGNORE INTO categories (name, type, icon, is_preset, color, parent_category_id) VALUES (?, ?, ?, 1, ?, ?);'
     );
@@ -422,7 +408,7 @@ export async function ensureTables() {
       for (const mainCat of INCOME_TAXONOMY) {
         const categoryColor = incomeCategoryColors[mainCat.name] || '#66BB6A'; // Default green
         
-        // Update existing color to ensure psychology-based colors are applied
+        // Update existing color to ensure palette is applied
         await updateStmt.executeAsync([categoryColor, mainCat.name, 'income']);
 
         // Insert main category
@@ -463,7 +449,7 @@ export async function ensureTables() {
       for (const mainCat of EXPENSE_TAXONOMY) {
         const categoryColor = expenseCategoryColors[mainCat.name] || '#607D8B'; // Default grey-blue
         
-        // Update existing color to ensure psychology-based colors are applied
+        // Update existing color to ensure palette is applied
         await updateStmt.executeAsync([categoryColor, mainCat.name, 'expense']);
 
         // Insert main category
