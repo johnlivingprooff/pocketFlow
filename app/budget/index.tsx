@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, useColorScheme, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS } from 'react-native-reanimated';
 import { useSettings } from '@/store/useStore';
@@ -31,9 +31,11 @@ export default function BudgetGoalsScreen() {
   
   const translateX = useSharedValue(0);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      loadData();
+    }, [])
+  );
 
   const loadData = async () => {
     try {
@@ -170,12 +172,12 @@ export default function BudgetGoalsScreen() {
   }));
 
   const renderBudgetItem = (item: BudgetWithMetrics) => (
-    <Pressable
-      key={item.id}
-      onPress={() => handleEditBudget(item.id!)}
-      style={[styles.categoryCard, { backgroundColor: colors.card }]}
-      android_ripple={{ color: colors.primary }}
-    >
+    <View key={item.id}>
+      <Pressable
+        onPress={() => handleEditBudget(item.id!)}
+        style={[styles.categoryCard, { backgroundColor: colors.card }]}
+        android_ripple={{ color: colors.primary }}
+      >
       <View style={styles.categoryHeader}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.categoryName, { color: colors.textPrimary }]}>
@@ -246,16 +248,17 @@ export default function BudgetGoalsScreen() {
           {item.daysRemaining} day{item.daysRemaining !== 1 ? 's' : ''} left in period
         </Text>
       )}
-    </Pressable>
+      </Pressable>
+    </View>
   );
 
   const renderGoalItem = (item: GoalWithMetrics) => (
-    <Pressable
-      key={item.id}
-      onPress={() => handleEditGoal(item.id!)}
-      style={[styles.categoryCard, { backgroundColor: colors.card }]}
-      android_ripple={{ color: colors.primary }}
-    >
+    <View key={item.id}>
+      <Pressable
+        onPress={() => handleEditGoal(item.id!)}
+        style={[styles.categoryCard, { backgroundColor: colors.card }]}
+        android_ripple={{ color: colors.primary }}
+      >
       <View style={styles.categoryHeader}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.categoryName, { color: colors.textPrimary }]}>
@@ -310,7 +313,8 @@ export default function BudgetGoalsScreen() {
           {item.daysRemaining} day{item.daysRemaining !== 1 ? 's' : ''} until deadline
         </Text>
       )}
-    </Pressable>
+      </Pressable>
+    </View>
   );
 
   return (
@@ -491,6 +495,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 12,
+    paddingTop: 20,
   },
   categoryCard: {
     marginBottom: 12,

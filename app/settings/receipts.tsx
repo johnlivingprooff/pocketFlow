@@ -162,7 +162,7 @@ export default function ReceiptsGalleryScreen() {
           numColumns={2}
           renderItem={({ item }) => renderReceiptThumbnail(item)}
           keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={{ padding: 8, paddingBottom: 40 }}
+          contentContainerStyle={{ padding: 8, paddingTop: 20, paddingBottom: 40 }}
         />
       )}
 

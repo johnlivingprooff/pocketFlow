@@ -61,10 +61,19 @@ export async function deleteCategory(id: number): Promise<void> {
 }
 
 export async function getCategories(type?: 'income' | 'expense'): Promise<Category[]> {
+  const startTime = Date.now();
+  let result: Category[];
+  
   if (type) {
-    return exec<Category>('SELECT * FROM categories WHERE type = ? OR type = "both" ORDER BY is_preset DESC, name ASC;', [type]);
+    result = await exec<Category>('SELECT * FROM categories WHERE type = ? OR type = "both" ORDER BY is_preset DESC, name ASC;', [type]);
+  } else {
+    result = await exec<Category>('SELECT * FROM categories ORDER BY is_preset DESC, name ASC;');
   }
-  return exec<Category>('SELECT * FROM categories ORDER BY is_preset DESC, name ASC;');
+  
+  const duration = Date.now() - startTime;
+  log(`[DB] getCategories (${type || 'all'}) took ${duration}ms, fetched ${result.length} categories`);
+  
+  return result;
 }
 
 export async function getCategoryById(id: number): Promise<Category | null> {
@@ -101,15 +110,24 @@ export async function getSubcategories(parentId: number): Promise<Category[]> {
  * Get all parent categories (categories with no parent)
  */
 export async function getParentCategories(type?: 'income' | 'expense'): Promise<Category[]> {
+  const startTime = Date.now();
+  let result: Category[];
+  
   if (type) {
-    return exec<Category>(
+    result = await exec<Category>(
       'SELECT * FROM categories WHERE parent_category_id IS NULL AND (type = ? OR type = "both") ORDER BY is_preset DESC, name ASC;',
       [type]
     );
+  } else {
+    result = await exec<Category>(
+      'SELECT * FROM categories WHERE parent_category_id IS NULL ORDER BY is_preset DESC, name ASC;'
+    );
   }
-  return exec<Category>(
-    'SELECT * FROM categories WHERE parent_category_id IS NULL ORDER BY is_preset DESC, name ASC;'
-  );
+  
+  const duration = Date.now() - startTime;
+  log(`[DB] getParentCategories (${type || 'all'}) took ${duration}ms, fetched ${result.length} parents`);
+  
+  return result;
 }
 
 /**
@@ -123,14 +141,54 @@ export async function getCategoryWithChildren(id: number): Promise<{ category: C
 
 /**
  * Get all categories organized hierarchically
+ * Optimized: Single query instead of N+1 queries
  */
 export async function getCategoriesHierarchy(type?: 'income' | 'expense'): Promise<Array<{ category: Category; children: Category[] }>> {
+  const startTime = Date.now();
+  
+  // Get all parent categories with their children in one efficient query
+  const parentsStart = Date.now();
   const parents = await getParentCategories(type);
-  const hierarchy = await Promise.all(
-    parents.map(async (parent) => ({
-      category: parent,
-      children: await getSubcategories(parent.id!),
-    }))
-  );
+  const parentsDuration = Date.now() - parentsStart;
+  log(`[DB] getParentCategories (${type || 'all'}) took ${parentsDuration}ms`);
+  
+  // Get all children categories in a single query (not one per parent)
+  const childrenStart = Date.now();
+  let childrenQuery = 'SELECT * FROM categories WHERE parent_category_id IS NOT NULL';
+  const params: any[] = [];
+  
+  if (type) {
+    childrenQuery += ' AND (type = ? OR type = "both")';
+    params.push(type);
+  }
+  
+  childrenQuery += ' ORDER BY parent_category_id, is_preset DESC, name ASC;';
+  
+  const allChildren = await exec<Category>(childrenQuery, params);
+  const childrenDuration = Date.now() - childrenStart;
+  log(`[DB] getChildren query (${type || 'all'}) took ${childrenDuration}ms, fetched ${allChildren.length} children`);
+  
+  // Group children by parent_id
+  const groupStart = Date.now();
+  const childrenByParentId = new Map<number, Category[]>();
+  for (const child of allChildren) {
+    if (child.parent_category_id) {
+      if (!childrenByParentId.has(child.parent_category_id)) {
+        childrenByParentId.set(child.parent_category_id, []);
+      }
+      childrenByParentId.get(child.parent_category_id)!.push(child);
+    }
+  }
+  const groupDuration = Date.now() - groupStart;
+  
+  // Build hierarchy
+  const hierarchy = parents.map((parent) => ({
+    category: parent,
+    children: childrenByParentId.get(parent.id!) || [],
+  }));
+  
+  const totalDuration = Date.now() - startTime;
+  log(`[DB] getCategoriesHierarchy (${type || 'all'}) total: ${totalDuration}ms (parents: ${parentsDuration}ms, children: ${childrenDuration}ms, group: ${groupDuration}ms)`);
+  
   return hierarchy;
 }

@@ -218,6 +218,36 @@ export async function recalculateBudgetSpending(budgetId: number): Promise<void>
   if (!budget) return;
 
   try {
+    // Get category name(s) to filter transactions
+    let categoryNames: string[] = [];
+    
+    if (budget.categoryId) {
+      // Get the category and all its subcategories
+      const categoryResult = await exec<{ name: string }>(
+        'SELECT name FROM categories WHERE id = ?',
+        [budget.categoryId]
+      );
+      if (categoryResult.length > 0) {
+        categoryNames.push(categoryResult[0].name);
+        
+        // Also get subcategories
+        const subcategories = await exec<{ name: string }>(
+          'SELECT name FROM categories WHERE parent_category_id = ?',
+          [budget.categoryId]
+        );
+        categoryNames.push(...subcategories.map(s => s.name));
+      }
+    } else if (budget.subcategoryId) {
+      // Just get the specific subcategory
+      const subcategoryResult = await exec<{ name: string }>(
+        'SELECT name FROM categories WHERE id = ?',
+        [budget.subcategoryId]
+      );
+      if (subcategoryResult.length > 0) {
+        categoryNames.push(subcategoryResult[0].name);
+      }
+    }
+    
     // Sum all expense transactions matching category, wallet, and period
     let query = `SELECT COALESCE(SUM(ABS(amount)), 0) as total
                  FROM transactions
@@ -228,13 +258,11 @@ export async function recalculateBudgetSpending(budgetId: number): Promise<void>
 
     const params: any[] = [budget.linkedWalletId, budget.startDate, budget.endDate];
 
-    // Add category filter if specified
-    if (budget.categoryId) {
-      query += ' AND category = ?';
-      params.push(budget.categoryId);
-    } else if (budget.subcategoryId) {
-      query += ' AND category = ?';
-      params.push(budget.subcategoryId);
+    // Add category filter if we have category names
+    if (categoryNames.length > 0) {
+      const placeholders = categoryNames.map(() => '?').join(', ');
+      query += ` AND category IN (${placeholders})`;
+      params.push(...categoryNames);
     }
 
     const result = await exec<{ total: number }>(query, params);

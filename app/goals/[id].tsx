@@ -9,7 +9,7 @@ import {
   useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSettings } from '@/store/useStore';
 import { theme } from '@/theme/theme';
 import { formatCurrency } from '@/utils/formatCurrency';
@@ -29,9 +29,11 @@ export default function GoalDetailScreen() {
 
   const goalId = typeof id === 'string' ? parseInt(id) : null;
 
-  useEffect(() => {
-    loadGoal();
-  }, [goalId]);
+  useFocusEffect(
+    React.useCallback(() => {
+      loadGoal();
+    }, [goalId])
+  );
 
   const loadGoal = async () => {
     if (!goalId) {
@@ -280,6 +282,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
+    paddingTop: 20,
   },
   loadingContainer: {
     flex: 1,

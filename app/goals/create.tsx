@@ -130,6 +130,9 @@ export default function CreateGoalScreen() {
       });
 
       console.log('[Goal Create] Goal created successfully');
+      // Invalidate caches so goal page will reload with new data
+      const { invalidateTransactionCaches } = await import('@/lib/cache/queryCache');
+      invalidateTransactionCaches();
       Alert.alert("Success", "Goal created successfully", [
         {
           text: "OK",
@@ -325,6 +328,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
+    paddingTop: 20,
   },
   loadingContainer: {
     flex: 1,

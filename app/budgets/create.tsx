@@ -164,6 +164,9 @@ export default function CreateBudgetScreen() {
       });
 
       console.log('[Budget Create] Budget created successfully');
+      // Invalidate caches so budget page will reload with new data
+      const { invalidateTransactionCaches } = await import('@/lib/cache/queryCache');
+      invalidateTransactionCaches();
       Alert.alert('Success', 'Budget created successfully', [
         {
           text: 'OK',
@@ -479,6 +482,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
+    paddingTop: 20,
   },
   loadingContainer: {
     flex: 1,

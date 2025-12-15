@@ -11,7 +11,8 @@ import { CalendarModal } from '@/components/CalendarModal';
 import { formatShortDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { saveReceiptImage } from '../../src/lib/services/fileService';
-import { getCategories, getCategoriesHierarchy, Category } from '../../src/lib/db/categories';
+import { Category } from '../../src/lib/db/categories';
+import { useCategoriesHierarchy } from '../../src/lib/hooks/useCategoriesCache';
 import * as CategoryIcons from '../../src/assets/icons/CategoryIcons';
 import { useWallets } from '../../src/lib/hooks/useWallets';
 import { RecurrenceFrequency } from '../../src/types/transaction';
@@ -37,6 +38,7 @@ export default function AddTransactionScreen() {
   const [localUri, setLocalUri] = useState<string | undefined>(undefined);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
   const [categoryHierarchy, setCategoryHierarchy] = useState<Array<{ category: Category; children: Category[] }>>([]);
   const [toWalletId, setToWalletId] = useState<number | null>(null);
   const [isRecurring, setIsRecurring] = useState(false);
@@ -55,6 +57,8 @@ export default function AddTransactionScreen() {
     const selected = wallets.find((w) => w.id === walletId);
     return selected?.currency || defaultCurrency || 'MWK';
   }, [walletId, wallets, defaultCurrency]);
+
+  const { loadCategoriesHierarchy } = useCategoriesHierarchy(type === 'transfer' ? undefined : (type as 'income' | 'expense'));
 
   useEffect(() => {
     if (wallets.length > 0 && !walletId) {
@@ -77,7 +81,7 @@ export default function AddTransactionScreen() {
 
   const loadCategories = async (selectedType: 'income' | 'expense') => {
     try {
-      const hierarchy = await getCategoriesHierarchy(selectedType);
+      const hierarchy = await loadCategoriesHierarchy();
       setCategoryHierarchy(hierarchy);
 
       const flatCats: Category[] = [];
@@ -92,11 +96,6 @@ export default function AddTransactionScreen() {
       }
     } catch (err) {
       logError('Failed to load categories:', { error: err });
-      const cats = await getCategories(selectedType);
-      if (cats.length > 0) {
-        const hasCurrent = category && cats.some((c) => c.name === category);
-        setCategory(hasCurrent ? category : cats[0].name);
-      }
     }
   };
 
@@ -414,7 +413,7 @@ export default function AddTransactionScreen() {
         <View style={{ flex: 1 }}>
           <ScrollView
             style={{ flex: 1 }}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 140 }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 140 }}
             keyboardShouldPersistTaps="handled"
           >
             <TypeTabs current={type} onChange={setType} colors={t} />
@@ -446,11 +445,35 @@ export default function AddTransactionScreen() {
             {type !== 'transfer' && (
               <>
                 <SectionLabel text="Category" colors={t} />
-                <RowButton
-                  label={category || 'Select category'}
+                <TouchableOpacity
                   onPress={() => setShowCategoryPicker(true)}
-                  colors={t}
-                />
+                  style={{
+                    borderWidth: 1,
+                    borderColor: t.border,
+                    backgroundColor: t.card,
+                    padding: 14,
+                    borderRadius: 12,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                    <View style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}>
+                      {(() => {
+                        const selectedCat = categoryHierarchy
+                          .flatMap(h => [h.category, ...h.children])
+                          .find(c => c.name === category);
+                        const Icon = selectedCat ? resolveCategoryIcon(selectedCat.icon, type) : null;
+                        return Icon ? <Icon width={22} height={22} color={t.primary} /> : <Text style={{ color: t.textSecondary }}>•</Text>;
+                      })()}
+                    </View>
+                    <Text style={{ color: t.textPrimary, fontWeight: '600' }}>
+                      {category || 'Select category'}
+                    </Text>
+                  </View>
+                  <Text style={{ color: t.textSecondary }}>›</Text>
+                </TouchableOpacity>
               </>
             )}
 
@@ -516,48 +539,96 @@ export default function AddTransactionScreen() {
 
         <Modal visible={showCategoryPicker} transparent animationType="fade" onRequestClose={() => setShowCategoryPicker(false)}>
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 16 }}>
-            <View style={{ backgroundColor: t.card, borderRadius: 12, borderWidth: 1, borderColor: t.border, maxHeight: '70%' }}>
+            <View style={{ backgroundColor: t.card, borderRadius: 12, borderWidth: 1, borderColor: t.border, maxHeight: '80%' }}>
+              {/* Header */}
               <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
-                <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Select Category</Text>
-              </View>
-              <ScrollView>
-                {categoryHierarchy.map((item) => (
-                  <View key={item.category.id}>
-                    <TouchableOpacity
-                      onPress={() => {
-                        setCategory(item.category.name);
-                        setShowCategoryPicker(false);
-                      }}
-                      style={{ padding: 16, backgroundColor: t.background, borderBottomWidth: 1, borderBottomColor: t.border, flexDirection: 'row', alignItems: 'center', gap: 10 }}
-                    >
-                      <View style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}>
-                        {(() => { const Icon = resolveCategoryIcon(item.category.icon, type); return Icon ? <Icon width={22} height={22} color={t.textSecondary} /> : null; })()}
-                      </View>
-                      <Text style={{ color: category === item.category.name ? t.primary : t.textPrimary, fontSize: 16, fontWeight: '700' }}>
-                        {item.category.name}
-                      </Text>
+                <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Select Category</Text>
+                
+                {/* Search Bar */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: t.background, borderRadius: 8, borderWidth: 1, borderColor: t.border, paddingHorizontal: 12 }}>
+                  <TextInput
+                    placeholder="Search categories..."
+                    placeholderTextColor={t.textSecondary}
+                    value={categorySearchQuery}
+                    onChangeText={setCategorySearchQuery}
+                    style={{ flex: 1, paddingVertical: 10, color: t.textPrimary, fontSize: 14 }}
+                  />
+                  {categorySearchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setCategorySearchQuery('')}>
+                      <Text style={{ color: t.textSecondary, fontSize: 18 }}>×</Text>
                     </TouchableOpacity>
-                    {item.children.map((child) => (
-                      <TouchableOpacity
-                        key={child.id}
-                        onPress={() => {
-                          setCategory(child.name);
-                          setShowCategoryPicker(false);
-                        }}
-                        style={{ paddingLeft: 32, paddingVertical: 12, paddingRight: 16, borderBottomWidth: 1, borderBottomColor: t.border, flexDirection: 'row', alignItems: 'center', gap: 10 }}
-                      >
-                        <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
-                          {(() => { const Icon = resolveCategoryIcon(child.icon, type); return Icon ? <Icon width={20} height={20} color={t.textSecondary} /> : null; })()}
-                        </View>
-                        <Text style={{ color: category === child.name ? t.primary : t.textPrimary, fontSize: 14, fontWeight: category === child.name ? '700' : '500' }}>
-                          {child.name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                  )}
+                </View>
+              </View>
+
+              {/* Categories List */}
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {categoryHierarchy
+                  .filter(item => 
+                    item.category.name.toLowerCase().includes(categorySearchQuery.toLowerCase()) ||
+                    item.children.some(child => child.name.toLowerCase().includes(categorySearchQuery.toLowerCase()))
+                  )
+                  .map((item) => (
+                    <View key={item.category.id}>
+                      {item.category.name.toLowerCase().includes(categorySearchQuery.toLowerCase()) && (
+                        <TouchableOpacity
+                          onPress={() => {
+                            setCategory(item.category.name);
+                            setShowCategoryPicker(false);
+                            setCategorySearchQuery('');
+                          }}
+                          style={{ padding: 16, backgroundColor: t.background, borderBottomWidth: 1, borderBottomColor: t.border, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                        >
+                          <View style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}>
+                            {(() => { const Icon = resolveCategoryIcon(item.category.icon, type); return Icon ? <Icon width={22} height={22} color={category === item.category.name ? t.primary : t.accent} /> : <Text style={{ color: t.textSecondary }}>•</Text>; })()}
+                          </View>
+                          <Text style={{ color: category === item.category.name ? t.primary : t.textPrimary, fontSize: 16, fontWeight: '700', flex: 1 }}>
+                            {item.category.name}
+                          </Text>
+                          {category === item.category.name && <Text style={{ color: t.primary, fontSize: 16 }}>✓</Text>}
+                        </TouchableOpacity>
+                      )}
+                      {item.children
+                        .filter(child => child.name.toLowerCase().includes(categorySearchQuery.toLowerCase()))
+                        .map((child) => (
+                          <TouchableOpacity
+                            key={child.id}
+                            onPress={() => {
+                              setCategory(child.name);
+                              setShowCategoryPicker(false);
+                              setCategorySearchQuery('');
+                            }}
+                            style={{ paddingLeft: 40, paddingVertical: 12, paddingRight: 16, borderBottomWidth: 1, borderBottomColor: t.border, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                          >
+                            <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+                              {(() => { const Icon = resolveCategoryIcon(child.icon, type); return Icon ? <Icon width={20} height={20} color={category === child.name ? t.primary : t.accent} /> : <Text style={{ color: t.textSecondary }}>•</Text>; })()}
+                            </View>
+                            <Text style={{ color: category === child.name ? t.primary : t.textPrimary, fontSize: 14, fontWeight: category === child.name ? '700' : '500', flex: 1 }}>
+                              {child.name}
+                            </Text>
+                            {category === child.name && <Text style={{ color: t.primary, fontSize: 14 }}>✓</Text>}
+                          </TouchableOpacity>
+                        ))}
+                    </View>
+                  ))}
+                {categoryHierarchy.filter(item => 
+                  item.category.name.toLowerCase().includes(categorySearchQuery.toLowerCase()) ||
+                  item.children.some(child => child.name.toLowerCase().includes(categorySearchQuery.toLowerCase()))
+                ).length === 0 && categorySearchQuery.length > 0 && (
+                  <View style={{ padding: 20, alignItems: 'center' }}>
+                    <Text style={{ color: t.textSecondary, fontSize: 14 }}>No categories found</Text>
                   </View>
-                ))}
+                )}
               </ScrollView>
-              <TouchableOpacity onPress={() => setShowCategoryPicker(false)} style={{ padding: 16, alignItems: 'center' }}>
+
+              {/* Close Button */}
+              <TouchableOpacity 
+                onPress={() => {
+                  setShowCategoryPicker(false);
+                  setCategorySearchQuery('');
+                }} 
+                style={{ padding: 16, borderTopWidth: 1, borderTopColor: t.border, alignItems: 'center' }}
+              >
                 <Text style={{ color: t.primary, fontWeight: '700' }}>Close</Text>
               </TouchableOpacity>
             </View>
@@ -849,14 +920,26 @@ function Keypad({ onPress, colors }: { onPress: (value: string) => void; colors:
 
 function resolveCategoryIcon(iconName?: string, currentType?: 'income' | 'expense' | 'transfer') {
   if (!iconName) {
-    if (currentType === 'income' && (CategoryIcons as any).MoneyReciveIcon) return (CategoryIcons as any).MoneyReciveIcon;
-    if (currentType === 'expense' && (CategoryIcons as any).MoneySendIcon) return (CategoryIcons as any).MoneySendIcon;
+    if (currentType === 'income') return (CategoryIcons as any).MoneyReciveIcon;
+    if (currentType === 'expense') return (CategoryIcons as any).MoneySendIcon;
     return null;
   }
-  const IconComp = (CategoryIcons as any)[iconName];
+
+  // Try direct lookup first
+  let IconComp = (CategoryIcons as any)[iconName];
   if (IconComp) return IconComp;
-  // fallback by type if string not found
-  if (currentType === 'income' && (CategoryIcons as any).MoneyReciveIcon) return (CategoryIcons as any).MoneyReciveIcon;
-  if (currentType === 'expense' && (CategoryIcons as any).MoneySendIcon) return (CategoryIcons as any).MoneySendIcon;
+
+  // Try by category name (e.g., "Salary/Wages" -> CATEGORY_ICONS['Salary'])
+  const categoryName = iconName.split('/')[0].trim(); // Get first part before slash if exists
+  IconComp = (CategoryIcons as any)[categoryName];
+  if (IconComp) return IconComp;
+
+  // Try lowercase version (e.g., "Electricity" -> "electricity")
+  IconComp = (CategoryIcons as any)[iconName.toLowerCase()];
+  if (IconComp) return IconComp;
+
+  // Fallback by type if string not found
+  if (currentType === 'income') return (CategoryIcons as any).MoneyReciveIcon;
+  if (currentType === 'expense') return (CategoryIcons as any).MoneySendIcon;
   return null;
 }

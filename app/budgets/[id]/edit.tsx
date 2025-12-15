@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { CalendarModal } from '@/components/CalendarModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSettings } from '@/store/useStore';
 import { theme } from '@/theme/theme';
 import { error as logError } from '@/utils/logger';
@@ -70,9 +70,11 @@ export default function EditBudgetScreen() {
 
   const budgetId = typeof id === 'string' ? parseInt(id) : null;
 
-  useEffect(() => {
-    loadData();
-  }, [budgetId]);
+  useFocusEffect(
+    React.useCallback(() => {
+      loadData();
+    }, [budgetId])
+  );
 
   useEffect(() => {
     if (periodType !== 'custom') {
@@ -479,6 +481,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
+    paddingTop: 20,
   },
   loadingContainer: {
     flex: 1,

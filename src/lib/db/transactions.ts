@@ -4,6 +4,36 @@ import { getWallet } from './wallets';
 import { analyticsCache, generateCacheKey, invalidateTransactionCaches } from '../cache/queryCache';
 import { log } from '../../utils/logger';
 import { enqueueWrite } from './writeQueue';
+import { recalculateGoalProgress, getGoalsByWallet } from './goals';
+import { recalculateBudgetSpending, getBudgetsByWallet } from './budgets';
+
+/**
+ * Helper function to update all goals and budgets for a wallet
+ * Call this after adding, updating, or deleting transactions
+ * @param walletId - Wallet ID to update goals and budgets for
+ */
+async function updateGoalsAndBudgets(walletId: number): Promise<void> {
+  try {
+    // Update all goals linked to this wallet
+    const goals = await getGoalsByWallet(walletId);
+    for (const goal of goals) {
+      if (goal.id) {
+        await recalculateGoalProgress(goal.id);
+      }
+    }
+
+    // Update all budgets linked to this wallet
+    const budgets = await getBudgetsByWallet(walletId);
+    for (const budget of budgets) {
+      if (budget.id) {
+        await recalculateBudgetSpending(budget.id);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to update goals and budgets:', error);
+    // Don't throw - we don't want to fail the transaction operation
+  }
+}
 
 export async function addTransaction(t: Transaction) {
   const params = [
@@ -35,6 +65,12 @@ export async function addTransaction(t: Transaction) {
   
   // Log for debugging (especially useful in release builds)
   log(`[DB] Transaction added in ${writeTime}ms, type: ${t.type}, amount: ${t.amount}, wallet: ${t.wallet_id}, timestamp: ${new Date().toISOString()}`);
+  
+  // Update goals and budgets AFTER the write completes (don't await to avoid blocking)
+  // This runs asynchronously and won't block the transaction save
+  updateGoalsAndBudgets(t.wallet_id).catch(err => 
+    console.error('Failed to update goals/budgets after transaction:', err)
+  );
 }
 
 /**
@@ -79,6 +115,17 @@ export async function addTransactionsBatch(transactions: Transaction[]): Promise
     
     // Invalidate caches after batch insert
     invalidateTransactionCaches();
+    
+    // Update goals and budgets for all affected wallets AFTER the write completes
+    // Run asynchronously to avoid blocking
+    const affectedWallets = new Set(transactions.map(t => t.wallet_id));
+    Promise.all(
+      Array.from(affectedWallets).map(walletId => 
+        updateGoalsAndBudgets(walletId).catch(err => 
+          console.error(`Failed to update goals/budgets for wallet ${walletId}:`, err)
+        )
+      )
+    ).catch(() => {}); // Swallow errors - already logged
   }, `batch_transactions_${transactions.length}`);
 }
 
@@ -166,9 +213,29 @@ export async function updateTransaction(id: number, t: Partial<Transaction>) {
   
   // Log for debugging
   log(`[DB] Transaction ${id} updated in ${writeTime}ms, fields: ${fields.length}, timestamp: ${new Date().toISOString()}`);
+  
+  // Update goals and budgets AFTER the write completes (don't await to avoid blocking)
+  if (t.wallet_id !== undefined) {
+    updateGoalsAndBudgets(t.wallet_id).catch(err => 
+      console.error('Failed to update goals/budgets after transaction update:', err)
+    );
+  } else {
+    // If wallet wasn't updated, fetch the transaction to get wallet_id
+    getById(id).then(transaction => {
+      if (transaction) {
+        updateGoalsAndBudgets(transaction.wallet_id).catch(err => 
+          console.error('Failed to update goals/budgets after transaction update:', err)
+        );
+      }
+    }).catch(err => console.error('Failed to get transaction for goal/budget update:', err));
+  }
 }
 
 export async function deleteTransaction(id: number) {
+  // Get transaction wallet_id before deleting
+  const transaction = await getById(id);
+  const walletId = transaction?.wallet_id;
+  
   // Ensure database write completes before invalidating caches
   const startTime = Date.now();
   await execRun('DELETE FROM transactions WHERE id = ?;', [id]);
@@ -179,6 +246,13 @@ export async function deleteTransaction(id: number) {
   
   // Log for debugging
   log(`[DB] Transaction ${id} deleted in ${writeTime}ms, timestamp: ${new Date().toISOString()}`);
+  
+  // Update goals and budgets AFTER the write completes (don't await to avoid blocking)
+  if (walletId) {
+    updateGoalsAndBudgets(walletId).catch(err => 
+      console.error('Failed to update goals/budgets after transaction delete:', err)
+    );
+  }
 }
 
 export async function getTransactions(page = 0, pageSize = 20) {

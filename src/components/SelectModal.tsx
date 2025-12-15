@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Modal, ScrollView, useColorScheme, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, ScrollView, useColorScheme, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { theme } from '../theme/theme';
 import { useSettings } from '../store/useStore';
+import { CATEGORY_ICONS } from '../assets/icons/CategoryIcons';
 
 export interface SelectOption {
   id: string | number;
@@ -65,7 +66,10 @@ export function SelectModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}
+      >
         <View style={{ backgroundColor: t.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%' }}>
           {/* Header */}
           <View
@@ -140,7 +144,15 @@ export function SelectModal({
                   >
                     <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                       {option.icon && (
-                        <Text style={{ fontSize: 20 }}>{option.icon}</Text>
+                        <View style={{ width: 24, height: 24, justifyContent: 'center', alignItems: 'center' }}>
+                          {typeof option.icon === 'string' && CATEGORY_ICONS[option.icon.toLowerCase() as keyof typeof CATEGORY_ICONS] 
+                            ? React.createElement(CATEGORY_ICONS[option.icon.toLowerCase() as keyof typeof CATEGORY_ICONS], {
+                                size: 20,
+                                color: isSelected ? t.primary : isDisabled ? t.textSecondary : t.textPrimary,
+                              })
+                            : <Text style={{ fontSize: 20 }}>{option.icon}</Text>
+                          }
+                        </View>
                       )}
                       {hierarchical && (option.indent || 0) > 0 && (
                         <Text style={{ color: t.textSecondary, fontSize: 12, marginRight: 4 }}>↳</Text>
@@ -169,7 +181,7 @@ export function SelectModal({
             )}
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

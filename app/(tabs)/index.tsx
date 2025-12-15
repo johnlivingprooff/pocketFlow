@@ -7,6 +7,7 @@ import { theme, shadows } from '../../src/theme/theme';
 import { Link } from 'expo-router';
 import { useWallets } from '../../src/lib/hooks/useWallets';
 import { useTransactions } from '../../src/lib/hooks/useTransactions';
+import { exec } from '../../src/lib/db';
 import { WalletCard } from '../../src/components/WalletCard';
 import { DraggableWalletList } from '../../src/components/DraggableWalletList';
 import { AddButton } from '../../src/components/AddButton';
@@ -63,8 +64,9 @@ export default function Home() {
     const { wallets, balances, refresh } = useWallets();
     // Build quick maps for wallet exchange rates
     const walletExchangeRate: Record<number, number> = Object.fromEntries(wallets.map(w => [w.id!, w.exchange_rate ?? 1.0]));
-  const { transactions: recentTransactions } = useTransactions(0, 5); // Only for displaying recent transactions
+  const { transactions: recentTransactions } = useTransactions(0, 3); // Only for displaying recent transactions
   const [analyticsTransactions, setAnalyticsTransactions] = useState<Transaction[]>([]); // For analytics calculations
+  const [upcomingTransactions, setUpcomingTransactions] = useState<Transaction[]>([]); // For upcoming recurring transactions
   const [total, setTotal] = useState(0);
   const [monthTotal, setMonthTotal] = useState(0);
   const [todayTotal, setTodayTotal] = useState(0);
@@ -85,6 +87,27 @@ export default function Home() {
   const [recentOrder, setRecentOrder] = useState<number[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [dataVersion, setDataVersion] = useState(0); // Force re-render when data changes
+
+  // Load upcoming recurring transactions
+  const loadUpcomingTransactions = async () => {
+    try {
+      const transactions = await exec<Transaction & { walletCurrency: string }>(
+        `SELECT t.*, w.currency as walletCurrency FROM transactions t
+         LEFT JOIN wallets w ON t.wallet_id = w.id
+         WHERE t.is_recurring = 1 
+         ORDER BY ABS(t.amount) DESC
+         LIMIT 3`
+      );
+      setUpcomingTransactions(transactions || []);
+    } catch (error) {
+      console.error('Error loading upcoming transactions:', error);
+      setUpcomingTransactions([]);
+    }
+  };
+
+  useEffect(() => {
+    loadUpcomingTransactions();
+  }, [dataVersion]);
 
   const handleDateSelect = (date: Date) => {
     if (!customStartDate || (customStartDate && customEndDate)) {
@@ -630,7 +653,7 @@ export default function Home() {
         {/* Time Period Filter Tabs */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-          {(['all', 'today', 'week', 'month', 'lastMonth', 'custom'] as TimePeriod[]).map((period) => (
+          {(['all', 'today', 'week', 'month', 'lastMonth'] as TimePeriod[]).map((period) => (
             <TouchableOpacity
               key={period}
               onPress={() => {
@@ -689,6 +712,35 @@ export default function Home() {
           </View>
         </ScrollView>
 
+        {/* Upcoming Transactions */}
+        {upcomingTransactions.length > 0 && (
+          <View style={{ marginBottom: 24 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700' }}>Upcoming</Text>
+              <Link href="/settings/recurring" asChild>
+                <TouchableOpacity>
+                  <Text style={{ color: t.accent, fontSize: 14 }}>Manage</Text>
+                </TouchableOpacity>
+              </Link>
+            </View>
+            <View style={{ gap: 8 }}>
+              {upcomingTransactions.slice(0, 3).map((tx, idx) => {
+                const transactionWallet = wallets.find(w => w.id === tx.wallet_id);
+                const transactionCurrency = transactionWallet?.currency || defaultCurrency;
+                return (
+                  <View key={idx} style={{ backgroundColor: t.card, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: t.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>{tx.category || 'Transfer'}</Text>
+                      <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>Recurring • {tx.recurrence_frequency || 'N/A'}</Text>
+                    </View>
+                    <Text style={{ color: tx.type === 'income' ? t.success : t.danger, fontSize: 16, fontWeight: '700' }}>{tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount, transactionCurrency)}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
         {/* Recent Activity */}
         <View style={{ marginBottom: 24 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -699,7 +751,7 @@ export default function Home() {
               </TouchableOpacity>
             </Link>
           </View>
-          {recentTransactions.slice(0, 5).map((transaction: any) => {
+          {recentTransactions.slice(0, 3).map((transaction: any) => {
             const transactionWallet = wallets.find(w => w.id === transaction.wallet_id);
             const transactionCurrency = transactionWallet?.currency || defaultCurrency;
             return (
@@ -767,7 +819,7 @@ export default function Home() {
         </View>
 
         {/* Insights Preview Strip */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, marginBottom: 24 }}>
           <Link href="/analytics" asChild>
             <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 12, minWidth: 220, ...shadows.sm }}>
               {weekComparison ? (
@@ -783,23 +835,6 @@ export default function Home() {
                 <>
                   <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '700' }}>No spending data</Text>
                   <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>Start tracking transactions</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </Link>
-          <Link href="/analytics" asChild>
-            <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 12, minWidth: 220, ...shadows.sm }}>
-              {biggestCategory ? (
-                <>
-                  <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '700' }}>Biggest category today</Text>
-                  <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>
-                    {biggestCategory.category} - {formatCurrency(biggestCategory.amount, defaultCurrency)}
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '700' }}>No expenses today</Text>
-                  <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>Great job saving!</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -843,7 +878,7 @@ export default function Home() {
             </View>
 
             {/* Calendar Grid */}
-            <ScrollView contentContainerStyle={{ padding: 16 }}>
+            <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 20 }}>
               {generateCalendarMonths().map((month, monthIdx) => (
                 <View key={monthIdx} style={{ marginBottom: 24 }}>
                   <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '800', marginBottom: 12 }}>

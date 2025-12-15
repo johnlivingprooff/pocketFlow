@@ -5,7 +5,8 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
 import { getById, updateTransaction } from '../../src/lib/db/transactions';
-import { getCategories, Category } from '../../src/lib/db/categories';
+import { Category } from '../../src/lib/db/categories';
+import { useCategories } from '../../src/lib/hooks/useCategoriesCache';
 import { Transaction } from '../../src/types/transaction';
 import { formatShortDate } from '../../src/utils/date';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
@@ -34,6 +35,8 @@ export default function EditTransaction() {
     message: string;
     buttons: Array<{ text: string; onPress?: () => void }>;
   }>({ visible: false, title: '', message: '', buttons: [] });
+
+  const { loadCategories } = useCategories(type);
 
   const load = useCallback(async () => {
     if (!id || Platform.OS === 'web') return;
@@ -66,7 +69,7 @@ export default function EditTransaction() {
     (async () => {
       if (Platform.OS === 'web') return;
       try {
-        const cats = await getCategories(type);
+        const cats = await loadCategories();
         setCategoryOptions(cats);
         // If current category no longer matches type, clear it
         if (category && !cats.find(c => c.name === category)) {
@@ -74,7 +77,7 @@ export default function EditTransaction() {
         }
       } catch {}
     })();
-  }, [type]);
+  }, [type, loadCategories]);
 
   const handleSave = async () => {
     const value = Number(amount);
@@ -277,7 +280,7 @@ export default function EditTransaction() {
             </View>
 
             {/* List */}
-            <ScrollView contentContainerStyle={{ padding: 16 }}>
+            <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 20 }}>
               {categoryOptions.length === 0 && (
                 <Text style={{ color: t.textSecondary, textAlign: 'center' }}>No categories found</Text>
               )}
@@ -335,7 +338,7 @@ export default function EditTransaction() {
             </View>
 
             {/* Calendar Grid */}
-            <ScrollView contentContainerStyle={{ padding: 16 }}>
+            <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 20 }}>
               {generateCalendarMonths().map((month, monthIdx) => (
                 <View key={monthIdx} style={{ marginBottom: 24 }}>
                   <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '800', marginBottom: 12 }}>

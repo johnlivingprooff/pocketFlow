@@ -707,7 +707,7 @@ export default function HistoryScreen() {
                 <Text style={{ fontSize: 28, color: t.textSecondary, lineHeight: 28 }}>×</Text>
               </TouchableOpacity>
             </View>
-            <ScrollView contentContainerStyle={{ padding: 16 }}>
+            <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 20 }}>
               {generateCalendarMonths().map((month, monthIdx) => (
                 <View key={monthIdx} style={{ marginBottom: 24 }}>
                   <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '800', marginBottom: 12 }}>

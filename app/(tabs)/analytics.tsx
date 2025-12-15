@@ -23,6 +23,7 @@ import {
   getCategorySpendingForPeriod,
   getTransactionsByCategory
 } from '../../src/lib/db/transactions';
+import { getCategories } from '../../src/lib/db/categories';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { formatShortDate } from '../../src/utils/date';
 import { Link } from 'expo-router';
@@ -71,6 +72,7 @@ export default function AnalyticsPage() {
   const [dailySpending, setDailySpending] = useState<Array<{ day: number; amount: number }>>([]);
   const [monthlyComparison, setMonthlyComparison] = useState<any>(null);
   const [categoryPieData, setCategoryPieData] = useState<Array<{ category: string; total: number }>>([]);
+  const [categoryColorMap, setCategoryColorMap] = useState<Record<string, string>>({});
 
   // Phase 3: Insights & Financial Health State
   const [spendingInsights, setSpendingInsights] = useState<SpendingInsight[]>([]);
@@ -137,6 +139,16 @@ export default function AnalyticsPage() {
 
       const pieData = await getCategorySpendingForPieChart();
       setCategoryPieData(pieData);
+
+      // Fetch category colors
+      const allCategories = await getCategories();
+      const colorMap: Record<string, string> = {};
+      allCategories.forEach(cat => {
+        if (cat.name && cat.color) {
+          colorMap[cat.name] = cat.color;
+        }
+      });
+      setCategoryColorMap(colorMap);
 
       // Phase 3: Generate insights and financial health score
       const insights = generateSpendingInsights({
@@ -206,14 +218,84 @@ export default function AnalyticsPage() {
   const handlePeriodChange = useCallback(async (period: TimePeriod) => {
     setSelectedPeriod(period);
     if (Platform.OS !== 'web') {
-      // Reload data for the selected period
-      const trendData = await getSpendingTrendForPeriod(period);
-      setSevenDayTrend(trendData);
-      
+      // Reload all analytics for the selected period (except 7-day trend which is fixed)
       const categoryData = await getCategorySpendingForPeriod(period);
       setCategoryPieData(categoryData);
+      
+      // Reload period-specific data
+      const month = await monthSpend();
+      const today = await todaySpend();
+      const breakdown = await categoryBreakdown();
+      
+      setMonthTotal(month);
+      setTodayTotal(today);
+      setCategories(breakdown);
+      
+      const daysInMonth = new Date().getDate();
+      setAvgDailySpend(month / daysInMonth);
+      const largest = Math.max(...breakdown.map(c => c.total), 0);
+      setLargestPurchase(largest);
+
+      const weekComp = await weekOverWeekComparison();
+      setWeekComparison(weekComp);
+
+      const incExpAnalysis = await incomeVsExpenseAnalysis(incomeExpensePeriod);
+      setIncomeExpense(incExpAnalysis);
+
+      const streak = await getSpendingStreak();
+      setSpendingStreak(streak);
+
+      const progress = await getMonthProgress();
+      setMonthProgress(progress);
+
+      const topDay = await getTopSpendingDay();
+      setTopSpendingDay(topDay);
+
+      const counts = await getTransactionCounts();
+      setTransactionCounts(counts);
+
+      const avgPurch = await getAveragePurchaseSize();
+      setAvgPurchase(avgPurch);
+
+      const daily = await getDailySpendingForMonth();
+      setDailySpending(daily);
+
+      const comparison = await getMonthlyComparison();
+      setMonthlyComparison(comparison);
+
+      // Regenerate insights with updated data
+      const insights = generateSpendingInsights({
+        monthlyComparison: comparison,
+        weekComparison: weekComp,
+        incomeExpense: incExpAnalysis,
+        spendingStreak: streak,
+        categories: breakdown,
+        avgDailySpend: month / daysInMonth
+      });
+      setSpendingInsights(insights);
+
+      const suggestions = generateSavingsSuggestions({
+        categories: breakdown,
+        avgDailySpend: month / daysInMonth,
+        incomeExpense: incExpAnalysis
+      });
+      setSavingsSuggestions(suggestions);
+
+      const detectedPatterns = detectSpendingPatterns({
+        dailySpending: daily,
+        categories: breakdown
+      });
+      setPatterns(detectedPatterns);
+
+      const healthScore = calculateFinancialHealthScore({
+        incomeExpense: incExpAnalysis,
+        spendingStreak: streak,
+        weekComparison: weekComp,
+        dailySpending: daily
+      });
+      setFinancialHealth(healthScore);
     }
-  }, []);
+  }, [incomeExpensePeriod]);
 
   // Phase 4: Handle category drill-down
   const handleCategoryClick = useCallback(async (category: string) => {
@@ -266,362 +348,279 @@ export default function AnalyticsPage() {
     percentage: total > 0 ? (cat.total / total) * 100 : 0
   }));
 
-  const colors = ['#C1A12F', '#84670B', '#B3B09E', '#6B6658', '#332D23', '#8B7355', '#A67C52', '#D4AF37'];
+  // Use actual category colors, fallback to theme colors
+  const fallbackColors = ['#C1A12F', '#84670B', '#B3B09E', '#6B6658', '#332D23', '#8B7355', '#A67C52', '#D4AF37'];
+  const colors = categoryPieData.map((cat, index) => 
+    categoryColorMap[cat.category] || fallbackColors[index % fallbackColors.length]
+  );
 
   return (
     <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
       <ScrollView 
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 0 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 80 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={t.primary} colors={[t.primary]} />}
       >
         {/* Header Section */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 20 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingTop: 20 }}>
           <View>
             <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>Analytics</Text>
-            <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Track your spending patterns</Text>
+            <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Your financial snapshot</Text>
           </View>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            {/* Phase 4: Export Button */}
             <TouchableOpacity 
               onPress={handleExport}
               style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, justifyContent: 'center', alignItems: 'center', ...shadows.sm }}
             >
               <Text style={{ color: t.textPrimary, fontSize: 18 }}>📤</Text>
             </TouchableOpacity>
-          <Link href="/profile" asChild>
-            <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', ...shadows.sm }}>
-              {userInfo?.profileImage ? (
-                <Image source={{ uri: userInfo.profileImage }} style={{ width: 48, height: 48, borderRadius: 24 }} />
-              ) : (
-                <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700' }}>
-                  {(userInfo?.name || 'U').charAt(0).toUpperCase()}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </Link>
+            <Link href="/profile" asChild>
+              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', ...shadows.sm }}>
+                {userInfo?.profileImage ? (
+                  <Image source={{ uri: userInfo.profileImage }} style={{ width: 48, height: 48, borderRadius: 24 }} />
+                ) : (
+                  <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700' }}>
+                    {(userInfo?.name || 'U').charAt(0).toUpperCase()}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </Link>
           </View>
         </View>
 
-        {/* Phase 4: Time Period Selector */}
-        <TimePeriodSelector
-          selectedPeriod={selectedPeriod}
-          onSelectPeriod={handlePeriodChange}
-          textColor={t.textPrimary}
-          backgroundColor={t.card}
-          primaryColor={t.primary}
-          borderColor={t.border}
-        />
+        {/* Time Period Selector */}
+        <View style={{ marginBottom: 20 }}>
+          <TimePeriodSelector
+            selectedPeriod={selectedPeriod}
+            onSelectPeriod={handlePeriodChange}
+            textColor={t.textPrimary}
+            backgroundColor={t.card}
+            primaryColor={t.primary}
+            borderColor={t.border}
+          />
+        </View>
 
-        {/* Insights Cards */}
+        {/* SECTION 1: KEY PERFORMANCE INDICATORS (KPIs) */}
         <View style={{ marginBottom: 24 }}>
-          <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Insights</Text>
+          <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Overview</Text>
           
-          {topCategory && (
-            <View style={{
-              backgroundColor: t.card,
-              borderWidth: 1,
-              borderColor: t.border,
-              borderRadius: 12,
-              padding: 16,
-              marginBottom: 12
-            }}>
-              <Text style={{ color: t.accent, fontSize: 14, fontWeight: '600', marginBottom: 4 }}>TOP CATEGORY</Text>
-              <Text style={{ color: t.textPrimary, fontSize: 16 }}>
-                Your highest spending category this month is <Text style={{ fontWeight: '700' }}>{topCategory.category}</Text>
-              </Text>
-            </View>
-          )}
-
-          <View style={{
-            backgroundColor: t.card,
-            borderWidth: 1,
-            borderColor: t.border,
-            borderRadius: 12,
-            padding: 16,
-            marginBottom: 12
-          }}>
-            <Text style={{ color: t.accent, fontSize: 14, fontWeight: '600', marginBottom: 4 }}>DAILY AVERAGE</Text>
-            <Text style={{ color: t.textPrimary, fontSize: 16 }}>
-              You're spending an average of <Text style={{ fontWeight: '700' }}>{formatCurrency(avgDailySpend, defaultCurrency)}</Text> per day
-            </Text>
-          </View>
-
-          {/* Phase 1: Week-over-Week Comparison */}
-          {weekComparison && (() => {
-            const changeDirection = weekComparison.change > 0 ? 'Up' : weekComparison.change < 0 ? 'Down' : 'Same';
-            const changeColor = weekComparison.change > 0 ? t.danger : weekComparison.change < 0 ? t.success : t.textPrimary;
-            
-            return (
+          {/* Total Balance + Net Flow */}
+          {incomeExpense && (
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
               <View style={{
+                flex: 1,
                 backgroundColor: t.card,
                 borderWidth: 1,
                 borderColor: t.border,
-                borderRadius: 12,
+                borderRadius: 14,
                 padding: 16,
-                marginBottom: 12
+                ...shadows.sm
               }}>
-                <Text style={{ color: t.accent, fontSize: 14, fontWeight: '600', marginBottom: 4 }}>WEEK-OVER-WEEK</Text>
-                <Text style={{ color: t.textPrimary, fontSize: 16 }}>
-                  {changeDirection} <Text style={{ fontWeight: '700', color: changeColor }}>{Math.abs(weekComparison.change).toFixed(1)}%</Text> from last week
+                <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Net Flow</Text>
+                <Text style={{ color: incomeExpense.netSavings >= 0 ? t.success : t.danger, fontSize: 22, fontWeight: '800' }}>
+                  {formatCurrency(incomeExpense.netSavings, defaultCurrency)}
                 </Text>
-                <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>
-                  This week: {formatCurrency(weekComparison.thisWeek, defaultCurrency)} • Last week: {formatCurrency(weekComparison.lastWeek, defaultCurrency)}
+                <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 4 }}>
+                  {incomeExpense.savingsRate.toFixed(1)}% savings rate
                 </Text>
               </View>
-            );
-          })()}
 
-          {/* Phase 1: Income vs Expense */}
-          {incomeExpense && incomeExpense.income > 0 && (
-            <View style={{
-              backgroundColor: t.card,
-              borderWidth: 1,
-              borderColor: t.border,
-              borderRadius: 12,
-              padding: 16,
-              marginBottom: 12
-            }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <Text style={{ color: t.accent, fontSize: 14, fontWeight: '600' }}>SAVINGS RATE</Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  {(['current', 'last'] as const).map((period) => {
-                    const label = period === 'current' ? 'This Month' : 'Last Month';
-                    const isSelected = incomeExpensePeriod === period;
-                    return (
-                      <TouchableOpacity
-                        key={period}
-                        onPress={() => handleIncomeExpensePeriodChange(period)}
-                        style={{
-                          paddingHorizontal: 10,
-                          paddingVertical: 6,
-                          borderRadius: 12,
-                          borderWidth: 1,
-                          borderColor: isSelected ? t.primary : t.border,
-                          backgroundColor: isSelected ? t.primary : t.background
-                        }}
-                      >
-                        <Text style={{ color: isSelected ? '#FFFFFF' : t.textPrimary, fontSize: 12, fontWeight: isSelected ? '700' : '600' }}>{label}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+              <View style={{
+                flex: 1,
+                backgroundColor: t.card,
+                borderWidth: 1,
+                borderColor: t.border,
+                borderRadius: 14,
+                padding: 16,
+                ...shadows.sm
+              }}>
+                <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Savings</Text>
+                <Text style={{ color: t.success, fontSize: 22, fontWeight: '800' }}>
+                  {formatCurrency(incomeExpense.income, defaultCurrency)}
+                </Text>
+                <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 4 }}>income this month</Text>
               </View>
-              <Text style={{ color: t.textPrimary, fontSize: 16 }}>
-                You're saving <Text style={{ fontWeight: '700', color: incomeExpense.savingsRate > 0 ? t.success : t.danger }}>{incomeExpense.savingsRate.toFixed(1)}%</Text> of your income
-              </Text>
-              <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>
-                Net: {formatCurrency(incomeExpense.netSavings, defaultCurrency)} ({formatCurrency(incomeExpense.income, defaultCurrency)} - {formatCurrency(incomeExpense.expense, defaultCurrency)})
-              </Text>
             </View>
           )}
 
-          {/* Phase 1: Spending Streak */}
-          {spendingStreak && spendingStreak.currentStreak > 0 && (
+          {/* Daily Spend + Largest Purchase */}
+          <View style={{ flexDirection: 'row', gap: 12 }}>
             <View style={{
+              flex: 1,
               backgroundColor: t.card,
               borderWidth: 1,
               borderColor: t.border,
-              borderRadius: 12,
+              borderRadius: 14,
               padding: 16,
-              marginBottom: 12
+              ...shadows.sm
             }}>
-              <Text style={{ color: t.accent, fontSize: 14, fontWeight: '600', marginBottom: 4 }}>SPENDING STREAK</Text>
-              <Text style={{ color: t.textPrimary, fontSize: 16 }}>
-                You've spent for <Text style={{ fontWeight: '700' }}>{spendingStreak.currentStreak} consecutive day{spendingStreak.currentStreak > 1 ? 's' : ''}</Text>
+              <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Avg Daily</Text>
+              <Text style={{ color: t.textPrimary, fontSize: 22, fontWeight: '800' }}>
+                {formatCurrency(avgDailySpend, defaultCurrency)}
               </Text>
-              <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>
-                Longest streak: {spendingStreak.longestStreak} day{spendingStreak.longestStreak > 1 ? 's' : ''}
-              </Text>
+              <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 4 }}>spending rate</Text>
             </View>
-          )}
+
+            <View style={{
+              flex: 1,
+              backgroundColor: t.card,
+              borderWidth: 1,
+              borderColor: t.border,
+              borderRadius: 14,
+              padding: 16,
+              ...shadows.sm
+            }}>
+              <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Top Spend</Text>
+              <Text style={{ color: t.textPrimary, fontSize: 22, fontWeight: '800' }}>
+                {formatCurrency(largestPurchase, defaultCurrency)}
+              </Text>
+              <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 4 }}>single purchase</Text>
+            </View>
+          </View>
         </View>
 
-        {/* Phase 3: Financial Health Score */}
-        {financialHealth && (
-          <View style={{ marginBottom: 24 }}>
-            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Financial Health</Text>
-            <FinancialHealthCard
-              healthScore={financialHealth}
-              textColor={t.textPrimary}
-              backgroundColor={t.card}
-              borderColor={t.border}
-              primaryColor={t.primary}
-            />
-          </View>
-        )}
-
-        {/* Phase 3: AI-Powered Spending Insights */}
-        <InsightsSection
-          insights={spendingInsights}
-          title="Smart Insights"
-          textColor={t.textPrimary}
-          backgroundColor={t.card}
-          borderColor={t.border}
-        />
-
-        {/* Phase 3: Savings Suggestions */}
-        <InsightsSection
-          insights={savingsSuggestions}
-          title="Savings Suggestions"
-          textColor={t.textPrimary}
-          backgroundColor={t.card}
-          borderColor={t.border}
-        />
-
-        {/* Phase 3: Spending Patterns */}
-        <InsightsSection
-          insights={patterns}
-          title="Spending Patterns"
-          textColor={t.textPrimary}
-          backgroundColor={t.card}
-          borderColor={t.border}
-        />
-
-        {/* Phase 1: Month Progress & Stats */}
+        {/* SECTION 2: MONTH PROGRESS */}
         {monthProgress && (
           <View style={{ marginBottom: 24 }}>
-            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Month Progress</Text>
+            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Month Progress</Text>
             
             <View style={{
               backgroundColor: t.card,
               borderWidth: 1,
               borderColor: t.border,
-              borderRadius: 12,
+              borderRadius: 14,
               padding: 16,
-              marginBottom: 12
+              ...shadows.sm
             }}>
               <AnimatedProgressBar
                 progress={monthProgress.progressPercentage}
-                label={`Day ${monthProgress.currentDay} of ${monthProgress.daysInMonth}`}
+                label={`Day ${monthProgress.currentDay}/${monthProgress.daysInMonth}`}
                 value={`${monthProgress.progressPercentage.toFixed(0)}%`}
                 color={t.primary}
                 backgroundColor={t.background}
                 textColor={t.textPrimary}
               />
               <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 8 }}>
-                {monthProgress.daysRemaining} day{monthProgress.daysRemaining !== 1 ? 's' : ''} remaining this month
+                {monthProgress.daysRemaining} day{monthProgress.daysRemaining !== 1 ? 's' : ''} remaining
               </Text>
             </View>
-
-            {/* Transaction Counts */}
-            {transactionCounts && transactionCounts.total > 0 && (
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <View style={{
-                  flex: 1,
-                  backgroundColor: t.card,
-                  borderWidth: 1,
-                  borderColor: t.border,
-                  borderRadius: 12,
-                  padding: 16
-                }}>
-                  <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 4 }}>Transactions</Text>
-                  <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>{transactionCounts.total}</Text>
-                  <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 4 }}>
-                    {transactionCounts.incomeCount} in • {transactionCounts.expenseCount} out
-                  </Text>
-                </View>
-
-                {avgPurchase && avgPurchase.count > 0 && (
-                  <View style={{
-                    flex: 1,
-                    backgroundColor: t.card,
-                    borderWidth: 1,
-                    borderColor: t.border,
-                    borderRadius: 12,
-                    padding: 16
-                  }}>
-                    <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 4 }}>Avg Purchase</Text>
-                    <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>
-                      {formatCurrency(avgPurchase.average, defaultCurrency)}
-                    </Text>
-                    <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 4 }}>
-                      {avgPurchase.count} expense{avgPurchase.count > 1 ? 's' : ''}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            )}
-
-            {/* Top Spending Day */}
-            {topSpendingDay && (
-              <View style={{
-                backgroundColor: t.card,
-                borderWidth: 1,
-                borderColor: t.border,
-                borderRadius: 12,
-                padding: 16,
-                marginTop: 12
-              }}>
-                <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 4 }}>Biggest Spending Day</Text>
-                <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800' }}>
-                  {formatCurrency(topSpendingDay.total, defaultCurrency)}
-                </Text>
-                <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>
-                  {formatShortDate(topSpendingDay.date)}
-                </Text>
-              </View>
-            )}
           </View>
         )}
 
-        {/* Trends Cards */}
-        <View style={{ marginBottom: 24 }}>
-          <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Trends</Text>
-          
-          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+        {/* SECTION 3: TRENDS (Income vs Expense Line Chart) */}
+        {monthlyComparison && (
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Monthly Trends</Text>
+            
             <View style={{
-              flex: 1,
               backgroundColor: t.card,
               borderWidth: 1,
               borderColor: t.border,
-              borderRadius: 12,
-              padding: 16
+              borderRadius: 14,
+              padding: 16,
+              ...shadows.sm
             }}>
-              <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 8 }}>Avg Daily Spend</Text>
-              <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800' }}>
-                {formatCurrency(avgDailySpend, defaultCurrency)}
-              </Text>
-            </View>
-
-            <View style={{
-              flex: 1,
-              backgroundColor: t.card,
-              borderWidth: 1,
-              borderColor: t.border,
-              borderRadius: 12,
-              padding: 16
-            }}>
-              <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 8 }}>Largest Purchase</Text>
-              <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800' }}>
-                {formatCurrency(largestPurchase, defaultCurrency)}
-              </Text>
+              {([
+                { label: 'This Month', data: monthlyComparison.thisMonth },
+                { label: 'Last Month', data: monthlyComparison.lastMonth }
+              ] as const).map(({ label, data }) => (
+                <View key={label} style={{ marginBottom: label === 'This Month' ? 16 : 0 }}>
+                  <IncomeExpenseChart
+                    data={[{ income: data.income, expense: data.expense, label }]}
+                    incomeColor={t.success}
+                    expenseColor={t.danger}
+                    textColor={t.textPrimary}
+                    backgroundColor={t.card}
+                    formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
+                  />
+                </View>
+              ))}
             </View>
           </View>
+        )}
 
+        {/* SECTION 4: CATEGORY BREAKDOWN (Pie Chart) */}
+        <View style={{ marginBottom: 24 }}>
+          <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Spending by Category</Text>
+          
           <View style={{
             backgroundColor: t.card,
             borderWidth: 1,
             borderColor: t.border,
-            borderRadius: 12,
-            padding: 16
+            borderRadius: 14,
+            padding: 16,
+            ...shadows.sm
           }}>
-            <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 8 }}>Total This Month</Text>
-            <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>
-              {formatCurrency(monthTotal, defaultCurrency)}
-            </Text>
+            <CategoryPieChart
+              data={categoryPieData.map(cat => ({
+                category: cat.category,
+                total: cat.total,
+                percentage: 0
+              }))}
+              colors={colors}
+              textColor={t.textPrimary}
+              formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
+            />
+          </View>
+
+          {/* Detailed Category List */}
+          <View style={{
+            backgroundColor: t.card,
+            borderWidth: 1,
+            borderColor: t.border,
+            borderRadius: 14,
+            padding: 16,
+            marginTop: 12,
+            ...shadows.sm
+          }}>
+            {chartData.map((item, index) => (
+              <TouchableOpacity 
+                key={item.category} 
+                style={{ marginBottom: index < chartData.length - 1 ? 14 : 0 }}
+                onPress={() => handleCategoryClick(item.category)}
+              >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                    <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: colors[index % colors.length] }} />
+                    <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600' }}>{item.category}</Text>
+                  </View>
+                  <Text style={{ color: t.textSecondary, fontSize: 13 }}>{item.percentage.toFixed(0)}%</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <AnimatedProgressBar
+                    progress={item.percentage}
+                    label=""
+                    value=""
+                    color={colors[index % colors.length]}
+                    backgroundColor={t.background}
+                    textColor={t.textPrimary}
+                  />
+                  <Text style={{ color: t.textSecondary, fontSize: 12, marginLeft: 8, minWidth: 90, textAlign: 'right' }}>
+                    {formatCurrency(item.total, defaultCurrency)}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+
+            {chartData.length === 0 && (
+              <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+                <Text style={{ fontSize: 40, marginBottom: 8 }}>📊</Text>
+                <Text style={{ color: t.textSecondary, fontSize: 14 }}>No spending data yet</Text>
+              </View>
+            )}
           </View>
         </View>
 
-        {/* Phase 2: 7-Day Spending Trend Chart */}
+        {/* SECTION 5: 7-DAY TREND */}
         <View style={{ marginBottom: 24 }}>
-          <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>7-Day Spending Trend</Text>
+          <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>7-Day Spending</Text>
           
           <View style={{
             backgroundColor: t.card,
             borderWidth: 1,
             borderColor: t.border,
-            borderRadius: 12,
-            padding: 16
+            borderRadius: 14,
+            padding: 16,
+            ...shadows.sm
           }}>
             <SevenDayTrendChart
               data={sevenDayTrend}
@@ -634,146 +633,46 @@ export default function AnalyticsPage() {
           </View>
         </View>
 
-        {/* Phase 2: Daily Spending Bar Chart */}
-        <View style={{ marginBottom: 24 }}>
-          <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Daily Spending This Month</Text>
-          
-          <View style={{
-            backgroundColor: t.card,
-            borderWidth: 1,
-            borderColor: t.border,
-            borderRadius: 12,
-            padding: 16
-          }}>
-            <MonthlyBarChart
-              data={dailySpending}
-              color={t.primary}
-              textColor={t.textPrimary}
-              gridColor={t.border}
-              formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
-            />
-          </View>
-        </View>
-
-        {/* Phase 2: Income vs Expense Comparison */}
-        {monthlyComparison && (
+        {/* SECTION 6: FINANCIAL HEALTH & INSIGHTS */}
+        {financialHealth && (
           <View style={{ marginBottom: 24 }}>
-            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Monthly Comparison</Text>
-            
-            <View style={{
-              backgroundColor: t.card,
-              borderWidth: 1,
-              borderColor: t.border,
-              borderRadius: 12,
-              padding: 16,
-              gap: 16
-            }}>
-              {([
-                { label: 'This Month', data: monthlyComparison.thisMonth },
-                { label: 'Last Month', data: monthlyComparison.lastMonth }
-              ] as const).map(({ label, data }) => (
-                <View key={label} style={{ gap: 12 }}>
-                  <IncomeExpenseChart
-                    data={[{ income: data.income, expense: data.expense, label }]}
-                    incomeColor={t.success}
-                    expenseColor={t.danger}
-                    textColor={t.textPrimary}
-                    backgroundColor={t.card}
-                    formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
-                  />
-                  <View style={{ padding: 12, borderWidth: 1, borderColor: t.border, borderRadius: 10, backgroundColor: t.background }}>
-                    <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '700', marginBottom: 8 }}>{label}</Text>
-                    <View style={{ gap: 6 }}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={{ color: t.textSecondary, fontWeight: '600' }}>Income</Text>
-                        <Text style={{ color: t.success, fontWeight: '800' }}>{formatCurrency(data.income, defaultCurrency)}</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={{ color: t.textSecondary, fontWeight: '600' }}>Expense</Text>
-                        <Text style={{ color: t.danger, fontWeight: '800' }}>{formatCurrency(data.expense, defaultCurrency)}</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={{ color: t.textSecondary, fontWeight: '600' }}>Net</Text>
-                        <Text style={{ color: data.net >= 0 ? t.success : t.danger, fontWeight: '800' }}>{formatCurrency(data.net, defaultCurrency)}</Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              ))}
-            </View>
+            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Financial Health</Text>
+            <FinancialHealthCard
+              healthScore={financialHealth}
+              textColor={t.textPrimary}
+              backgroundColor={t.card}
+              borderColor={t.border}
+              primaryColor={t.primary}
+            />
           </View>
         )}
 
-        {/* Phase 2: Category Pie Chart */}
-        <View style={{ marginBottom: 24 }}>
-          <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Category Distribution</Text>
-          
-          <View style={{
-            backgroundColor: t.card,
-            borderWidth: 1,
-            borderColor: t.border,
-            borderRadius: 12,
-            padding: 16
-          }}>
-            <CategoryPieChart
-              data={categoryPieData.map(cat => ({
-                category: cat.category,
-                total: cat.total,
-                percentage: 0 // Will be calculated in the component
-              }))}
-              colors={colors}
-              textColor={t.textPrimary}
-              formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
-            />
-          </View>
-        </View>
+        {/* SECTION 7: SMART INSIGHTS */}
+        <InsightsSection
+          insights={spendingInsights}
+          title="Smart Insights"
+          textColor={t.textPrimary}
+          backgroundColor={t.card}
+          borderColor={t.border}
+        />
 
-        {/* Category Breakdown (keeping the old bar-style version) */}
-        <View style={{ marginBottom: 24 }}>
-          <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Category Breakdown</Text>
-          
-          {/* Simple Bar Chart */}
-          <View style={{
-            backgroundColor: t.card,
-            borderWidth: 1,
-            borderColor: t.border,
-            borderRadius: 12,
-            padding: 16
-          }}>
-            {chartData.map((item, index) => (
-              <TouchableOpacity 
-                key={item.category} 
-                style={{ marginBottom: 16 }}
-                onPress={() => handleCategoryClick(item.category)}
-              >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600' }}>{item.category}</Text>
-                    <Text style={{ color: t.textSecondary, fontSize: 11, marginLeft: 6 }}>▸</Text>
-                  </View>
-                  <Text style={{ color: t.textSecondary, fontSize: 14 }}>
-                    {formatCurrency(item.total, defaultCurrency)} ({item.percentage.toFixed(0)}%)
-                  </Text>
-                </View>
-                <AnimatedProgressBar
-                  progress={item.percentage}
-                  label=""
-                  value=""
-                  color={colors[index % colors.length]}
-                  backgroundColor={t.background}
-                  textColor={t.textPrimary}
-                />
-              </TouchableOpacity>
-            ))}
+        {/* SECTION 8: SAVINGS SUGGESTIONS */}
+        <InsightsSection
+          insights={savingsSuggestions}
+          title="Savings Opportunities"
+          textColor={t.textPrimary}
+          backgroundColor={t.card}
+          borderColor={t.border}
+        />
 
-            {chartData.length === 0 && (
-              <View style={{ alignItems: 'center', paddingVertical: 32 }}>
-                <Text style={{ fontSize: 48, marginBottom: 8 }}>📊</Text>
-                <Text style={{ color: t.textSecondary, fontSize: 14 }}>No data available yet</Text>
-              </View>
-            )}
-          </View>
-        </View>
+        {/* SECTION 9: SPENDING PATTERNS */}
+        <InsightsSection
+          insights={patterns}
+          title="Spending Patterns"
+          textColor={t.textPrimary}
+          backgroundColor={t.card}
+          borderColor={t.border}
+        />
       </ScrollView>
 
       {/* Phase 4: Category Drill-Down Modal */}

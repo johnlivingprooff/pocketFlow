@@ -22,6 +22,7 @@ import {
   deleteCategory,
   getCategoriesHierarchy,
 } from '@/lib/db/categories';
+import { CATEGORY_ICONS, CategoryIconName } from '@/assets/icons/CategoryIcons';
 import { error as logError, log } from '@/utils/logger';
 
 type CategoryType = 'income' | 'expense';
@@ -29,6 +30,31 @@ type CategoryType = 'income' | 'expense';
 interface CategoryWithChildren extends Category {
   children?: Category[];
 }
+
+// Helper function to determine if a string is an emoji
+const isEmojiIcon = (iconValue: string): boolean => {
+  if (!iconValue) return false;
+  return /[\p{Emoji}]/u.test(iconValue);
+};
+
+// Helper function to render an icon (emoji or SVG)
+const renderCategoryIcon = (
+  iconValue: string | undefined,
+  categoryName: string,
+  categoryType: 'income' | 'expense' | 'both' | undefined,
+  fontSize: number = 20,
+  color: string = '#000'
+) => {
+  const icon = iconValue || '';
+  if (isEmojiIcon(icon)) {
+    return <Text style={{ fontSize }}>{icon}</Text>;
+  }
+
+  const iconKey = (icon || categoryName) as CategoryIconName;
+  const fallbackKey: CategoryIconName = (categoryType === 'income' ? 'moneyrecive' : 'moneysend') as CategoryIconName;
+  const IconComp = CATEGORY_ICONS[iconKey] || CATEGORY_ICONS[fallbackKey];
+  return IconComp ? <IconComp size={fontSize > 24 ? 24 : fontSize} color={color} /> : null;
+};
 
 export default function CategoryManageScreen() {
   const { themeMode } = useSettings();
@@ -160,7 +186,9 @@ export default function CategoryManageScreen() {
       {/* Parent Category */}
       <View style={[styles.categoryItem, { backgroundColor: colors.card }]}>
         <View style={styles.categoryContent}>
-          <Text style={[styles.categoryIcon, { fontSize: 20 }]}>{category.icon}</Text>
+          <View style={[styles.iconContainer, { backgroundColor: colors.primary }]}>
+            {renderCategoryIcon(category.icon, category.name, category.type, 20, '#FFFFFF')}
+          </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.categoryName, { color: colors.textPrimary }]}>
               {category.name}
@@ -192,9 +220,9 @@ export default function CategoryManageScreen() {
       {category.children && category.children.map((child) => (
         <View key={child.id} style={[styles.subcategoryItem, { backgroundColor: colors.card }]}>
           <View style={styles.categoryContent}>
-            <Text style={[styles.categoryIcon, { fontSize: 16, marginLeft: 24 }]}>
-              {child.icon || '→'}
-            </Text>
+            <View style={[styles.iconContainer, { backgroundColor: colors.primary, marginLeft: 24, width: 32, height: 32 }]}>
+              {renderCategoryIcon(child.icon, child.name, child.type, 16, '#FFFFFF')}
+            </View>
             <Text style={[styles.subcategoryName, { color: colors.textSecondary }]}>
               {child.name}
             </Text>
@@ -448,6 +476,14 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   categoryIcon: {
     marginRight: 12,

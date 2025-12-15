@@ -192,6 +192,15 @@ export async function ensureTables() {
     // Index may already exist
   }
 
+  // Create indexes on categories table for fast hierarchy queries
+  try {
+    await database.execAsync('CREATE INDEX IF NOT EXISTS idx_categories_type ON categories(type);');
+    await database.execAsync('CREATE INDEX IF NOT EXISTS idx_categories_parent_id ON categories(parent_category_id);');
+    await database.execAsync('CREATE INDEX IF NOT EXISTS idx_categories_type_parent ON categories(type, parent_category_id);');
+  } catch (e) {
+    // noop: indexes may already exist
+  }
+
   await database.execAsync(
     `CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

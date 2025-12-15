@@ -107,7 +107,7 @@ export default function WalletDetail() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
       <View style={{ flex: 1, backgroundColor: t.background }}>
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 20, paddingBottom: 32 }}>
       {/* Top Actions */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12, gap: 8 }}>
           {/* Add Transactions button on the left — show only when wallet has activity */}

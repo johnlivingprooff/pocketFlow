@@ -1,324 +1,184 @@
 /**
- * Comprehensive Category Taxonomy for Malawi Personal Finance
- * Based on local economic context and user needs
+ * Category Taxonomy - Universal Income and Expense Categories
  */
 
 export interface CategoryDefinition {
   name: string;
-  icon?: string; // Icon name for SVG or emoji (optional for now)
+  icon?: string;
   subcategories?: string[];
 }
 
 // ============================================================================
-// INCOME CATEGORIES
+// INCOME CATEGORIES (10 categories, 2 subcategories each)
 // ============================================================================
 
 export const INCOME_TAXONOMY: CategoryDefinition[] = [
   {
-    name: 'Salary & Employment',
+    name: 'Salary/Wages',
     icon: 'salary',
     subcategories: [
-      'Full-time Employment',
-      'Part-time Employment',
-      'Contract Work',
-      'Overtime Pay',
-      'Bonuses & Incentives',
+      'Primary Job',
+      'Overtime/Bonuses',
     ],
   },
   {
-    name: 'Business & Self-Employment',
+    name: 'Business Income',
     icon: 'business',
     subcategories: [
-      'Retail / Grocery (Kiosks, Hawkers)',
-      'Barbershop / Salon',
-      'Carpentry / Welding / Tailoring',
-      'Motorbike Taxi ("Kabaza") Income',
-      'Minibus Business',
-      'Restaurant / Food Stand',
-      'Farm Produce Trading',
-      'Consulting',
-      'Design & Creative Services',
-      'Repairs & Maintenance Services',
-      'Sole Proprietorship Revenue',
+      'Sales Revenue',
+      'Service Fees',
     ],
   },
   {
-    name: 'Agriculture & Livestock',
-    icon: 'agriculture',
+    name: 'Freelance/Gig Work',
+    icon: 'Freelance',
     subcategories: [
-      'Crop Sales (Maize, Tobacco, Groundnuts, Soya, etc.)',
-      'Livestock Sales (Goats, Chickens, Cattle)',
-      'Farm Produce Sales (Vegetables, Fruits)',
-      'Agricultural Subsidy Payments',
-      'Cooperative Dividends',
+      'Contract Projects',
+      'One-off Tasks',
     ],
   },
   {
     name: 'Investments',
-    icon: 'stock',
+    icon: 'investment',
     subcategories: [
-      'Malawi Stock Exchange (MSE) Dividends',
-      'MSE Capital Gains',
-      'Treasury Bills / Government Securities',
-      'Fixed Deposits / Interest Income',
-      'Forex Trading Profits',
-      'Crypto Trading Profits',
-      'Peer-to-Peer Lending Returns',
+      'Dividends/Interest',
+      'Capital Gains',
     ],
   },
   {
-    name: 'Property & Assets',
-    icon: 'home',
+    name: 'Rental Income',
+    icon: 'Property',
     subcategories: [
-      'Rental Income (Houses, Rooms, Shops)',
-      'Land Lease Income',
-      'Equipment / Tool Hire Income',
+      'Residential Property',
+      'Commercial Property',
     ],
   },
   {
-    name: 'Transport Income',
-    icon: 'kabaza',
+    name: 'Agriculture/Farming',
+    icon: 'Agriculture',
     subcategories: [
-      'Taxi / Ride Service',
-      'Truck / Delivery Income',
-      'Vehicle Hire',
+      'Crop Sales',
+      'Livestock Sales',
     ],
   },
   {
-    name: 'Digital Income',
-    icon: 'internet',
-    subcategories: [
-      'Online Freelancing',
-      'Content Creation (YouTube, TikTok, etc.)',
-      'Affiliate Income',
-      'App-based Microtasks',
-    ],
-  },
-  {
-    name: 'Transfers & Support',
-    icon: 'gift',
-    subcategories: [
-      'Local Remittances',
-      'International Remittances',
-      'Gifts Received',
-      'Family Support Received',
-      'Donations Received',
-    ],
-  },
-  {
-    name: 'Miscellaneous Income',
+    name: 'Online/Digital Income',
     icon: 'moneyrecive',
     subcategories: [
-      'Refunds',
-      'Lotto / Prize Wins',
-      'Insurance Payouts (Non-health)',
-      'One-off Items Sold',
+      'Content Creation',
+      'Online Services',
+    ],
+  },
+  {
+    name: 'Gifts & Support Received',
+    icon: 'gift',
+    subcategories: [
+      'Family Support',
+      'Donations/Gifts',
+    ],
+  },
+  {
+    name: 'Refunds & Rebates',
+    icon: 'moneyrecive',
+    subcategories: [
+      'Purchase Refunds',
+      'Tax/Fee Rebates',
+    ],
+  },
+  {
+    name: 'Other Income',
+    icon: 'moneyrecive',
+    subcategories: [
+      'Prizes/Winnings',
+      'Miscellaneous Income',
     ],
   },
 ];
 
 // ============================================================================
-// EXPENSE CATEGORIES
+// EXPENSE CATEGORIES (10 categories, 2 subcategories each)
 // ============================================================================
 
 export const EXPENSE_TAXONOMY: CategoryDefinition[] = [
   {
-    name: 'Housing & Utilities',
-    icon: 'home',
+    name: 'Housing',
+    icon: 'Housing',
     subcategories: [
-      'Rent',
-      'Mortgage',
-      'Electricity (ESCOM)',
-      'Water',
-      'Waste / Sanitation',
-      'Repairs & Maintenance',
-      'Security Services',
+      'Rent/Mortgage',
+      'Maintenance & Repairs',
     ],
   },
   {
     name: 'Food & Groceries',
-    icon: 'groceries',
+    icon: 'Food & Groceries',
     subcategories: [
-      'Groceries (Home Use)',
+      'Home Groceries',
       'Eating Out',
-      'Market Purchases (Local Produce)',
-      'Snacks & Beverages',
     ],
   },
   {
     name: 'Transport',
-    icon: 'fuel',
+    icon: 'Travel',
     subcategories: [
-      'Fuel',
-      'Public Transport',
-      'Kabaza Rides',
-      'Vehicle Maintenance',
-      'Insurance (Motor)',
-      'Parking & Tolls',
+      'Fuel/Fares',
+      'Maintenance',
+    ],
+  },
+  {
+    name: 'Utilities',
+    icon: 'Utilities',
+    subcategories: [
+      'Electricity & Water',
+      'Waste & Sanitation',
     ],
   },
   {
     name: 'Communication',
-    icon: 'phone',
+    icon: 'Communication',
     subcategories: [
-      'Mobile Airtime',
-      'Data Bundles',
-      'WiFi / ISP Services',
-      'Device Repairs',
+      'Airtime & Data',
+      'Internet Services',
     ],
   },
   {
     name: 'Health',
     icon: 'health',
     subcategories: [
-      'Hospital Visits',
+      'Medical Visits',
       'Medication',
-      'Health Insurance',
-      'Checkups & Diagnostics',
     ],
   },
   {
     name: 'Education',
-    icon: 'school',
+    icon: 'education',
     subcategories: [
       'Tuition Fees',
-      'School Supplies',
-      'Books & Learning Materials',
-      'Training Courses / Skills Development',
+      'Learning Materials',
     ],
   },
   {
-    name: 'Personal Care',
+    name: 'Personal & Lifestyle',
     icon: 'shopping',
     subcategories: [
-      'Haircut / Salon',
-      'Toiletries',
-      'Cosmetics',
-      'Clothing & Shoes',
+      'Clothing & Personal Care',
+      'Entertainment',
     ],
   },
   {
-    name: 'Family Obligations',
-    icon: 'church',
-    subcategories: [
-      'Church Giving (Tithes, Offerings)',
-      'Donations & Charitable Giving',
-      'Family Support Sent',
-      'Funeral Contributions',
-      'Community Contributions',
-    ],
-  },
-  {
-    name: 'Financial Services',
-    icon: 'bank',
-    subcategories: [
-      'Bank Fees',
-      'Mobile Money Fees',
-      'Loan Repayments',
-      'SACCO / Cooperative Contributions',
-    ],
-  },
-  {
-    name: 'Business Expenses',
-    icon: 'cart',
-    subcategories: [
-      'Inventory Purchases',
-      'Rent for Business Premises',
-      'Licenses & Permits',
-      'Employee Wages',
-      'Utilities (Business)',
-      'Equipment Purchases',
-      'Advertising & Marketing',
-      'Transport (Business-related)',
-    ],
-  },
-  {
-    name: 'Agriculture Expenses',
-    icon: 'agriculture',
-    subcategories: [
-      'Seeds & Inputs',
-      'Fertilizers',
-      'Pesticides',
-      'Labour',
-      'Livestock Feed',
-      'Vet Services',
-      'Farm Tools & Equipment',
-    ],
-  },
-  {
-    name: 'Investment Expenses',
-    icon: 'percentage',
-    subcategories: [
-      'MSE Brokerage Fees',
-      'Forex Trading Fees',
-      'Crypto Platform Fees',
-      'Advisory Fees',
-    ],
-  },
-  {
-    name: 'Entertainment & Leisure',
-    icon: 'tv',
-    subcategories: [
-      'TV Subscriptions',
-      'Events & Outings',
-      'Hobbies',
-      'Streaming Platforms',
-    ],
-  },
-  {
-    name: 'Household & Lifestyle',
-    icon: 'home',
-    subcategories: [
-      'Cleaning Supplies',
-      'Furniture',
-      'Home Appliances',
-      'Décor',
-    ],
-  },
-  {
-    name: 'Savings & Goals',
+    name: 'Savings & Investments',
     icon: 'savings',
     subcategories: [
-      'Emergency Fund',
-      'Long-term Savings',
       'Short-term Savings',
-      'Savings Group (Village Bank / Banki M\'tundu)',
+      'Long-term Investments',
     ],
   },
   {
-    name: 'Miscellaneous',
+    name: 'Other Expenses',
     icon: 'moneysend',
     subcategories: [
-      'Unexpected Expenses',
-      'Penalties & Fines',
-      'Misc Purchases',
+      'Emergency Costs',
+      'Miscellaneous Expenses',
     ],
   },
 ];
 
-/**
- * Get all categories (main + subcategories) as a flat list
- */
-export function getAllCategoriesFlat(type: 'income' | 'expense'): string[] {
-  const taxonomy = type === 'income' ? INCOME_TAXONOMY : EXPENSE_TAXONOMY;
-  const categories: string[] = [];
-  
-  taxonomy.forEach(mainCat => {
-    categories.push(mainCat.name);
-    if (mainCat.subcategories) {
-      mainCat.subcategories.forEach(subCat => {
-        categories.push(subCat); // subCat is already a string
-      });
-    }
-  });
-  
-  return categories;
-}
-
-/**
- * Get only main categories
- */
-export function getMainCategories(type: 'income' | 'expense'): string[] {
-  const taxonomy = type === 'income' ? INCOME_TAXONOMY : EXPENSE_TAXONOMY;
-  return taxonomy.map(cat => cat.name);
-}

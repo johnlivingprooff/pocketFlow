@@ -133,6 +133,44 @@ const styles = StyleSheet.create({
 - Add elevation/shadows using `shadows.sm`, `shadows.md` from theme
 - Follow responsive design principles (test on various screen sizes)
 
+### UI Spacing - Notification Bar Padding
+**IMPORTANT**: All pages must have consistent top spacing to account for the notification bar.
+
+**Pattern**: Use `paddingTop: 20` in one of two ways:
+1. **Via ScrollView contentContainerStyle** (preferred for pages with scrollable content):
+   ```tsx
+   <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 20 }}>
+     {/* content */}
+   </ScrollView>
+   ```
+
+2. **Via View wrapper** (for pages with custom layouts or no ScrollView):
+   ```tsx
+   <ScrollView>
+     <View style={{ padding: 16, paddingTop: 20 }}>
+       {/* content */}
+     </View>
+   </ScrollView>
+   ```
+
+3. **Via custom style property** (for pages using StyleSheet):
+   ```tsx
+   const styles = StyleSheet.create({
+     content: {
+       flex: 1,
+       padding: 16,
+       paddingTop: 20,
+     },
+   });
+   ```
+
+**Reference implementations**: Check these pages for proper spacing:
+- `app/categories/index.tsx` - ScrollView with contentContainerStyle
+- `app/(tabs)/index.tsx` - View wrapper with paddingTop
+- `app/settings/security.tsx` - ScrollView contentContainerStyle
+- `app/(tabs)/analytics.tsx` - View wrapper in header section
+- `app/wallets/[id].tsx` - ScrollView contentContainerStyle
+
 ### State Management
 - Use Zustand stores in `src/store/useStore.ts`
 - **Settings Store** (`useSettings`): Theme, currency, biometric settings, user info

@@ -184,7 +184,7 @@ export default function WalletsList() {
         wallets={wallets}
         balances={balances}
         onTransfer={handleTransfer}
-        mode={themeMode}
+        themeMode={themeMode}
       />
     </SafeAreaView>
   );

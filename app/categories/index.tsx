@@ -82,6 +82,7 @@ export default function CategoriesPage() {
 
   const filteredCategories = useMemo(() => {
     return categories
+      .filter(cat => !cat.parent_category_id) // Only show parent categories
       .filter(cat => (typeFilter === 'all' ? true : cat.type === typeFilter))
       .filter(cat => cat.name.toLowerCase().includes(searchQuery.toLowerCase()));
   }, [categories, typeFilter, searchQuery]);
@@ -93,10 +94,13 @@ export default function CategoriesPage() {
     const budgetPercentage = hasBudget ? Math.min((currentSpending / budget) * 100, 100) : 0;
     const isOverBudget = currentSpending > budget;
     
+    // Count subcategories
+    const subcategoryCount = categories.filter(cat => cat.parent_category_id === category.id).length;
+    
     return (
       <View style={{ marginBottom: 12 }}>
         <TouchableOpacity
-          onPress={() => router.push(`/transactions/history?category=${category.name}`)}
+          onPress={() => router.push(`/categories/${category.id}`)}
           style={{
             backgroundColor: t.card,
             borderWidth: 1,
@@ -120,7 +124,23 @@ export default function CategoriesPage() {
               {renderCategoryIcon(category.icon, category.name, category.type, 22, '#FFFFFF')}
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>{category.name}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>{category.name}</Text>
+                {subcategoryCount > 0 && (
+                  <View style={{ 
+                    backgroundColor: t.background, 
+                    paddingHorizontal: 8, 
+                    paddingVertical: 2, 
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: t.border
+                  }}>
+                    <Text style={{ color: t.textSecondary, fontSize: 11, fontWeight: '700' }}>
+                      {subcategoryCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
               
               {hasBudget ? (
                 <View style={{ marginTop: 6 }}>
@@ -150,53 +170,13 @@ export default function CategoriesPage() {
               ) : (
                 <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>
                   {category.type === 'income' ? 'Income' : 'Expense'} {category.is_preset ? '• Preset' : '• Custom'}
-                  {category.parent_category_id && ' • Subcategory'}
                 </Text>
               )}
             </View>
           </View>
           
-          {/* Action Buttons */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            {!category.parent_category_id && (
-              <TouchableOpacity
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleAddSubcategory(category);
-                }}
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                  backgroundColor: t.background,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  borderWidth: 1,
-                  borderColor: t.border
-                }}
-              >
-                <PlusIcon size={20} color={t.textPrimary} />
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              onPress={(e) => {
-                e.stopPropagation();
-                handleEditCategory(category);
-              }}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                backgroundColor: t.background,
-                justifyContent: 'center',
-                alignItems: 'center',
-                borderWidth: 1,
-                borderColor: t.border
-              }}
-            >
-              <EditIcon size={18} color={t.textPrimary} />
-            </TouchableOpacity>
-          </View>
+          {/* Arrow indicator */}
+          <Text style={{ color: t.textSecondary, fontSize: 20, marginLeft: 8 }}>›</Text>
         </TouchableOpacity>
       </View>
     );

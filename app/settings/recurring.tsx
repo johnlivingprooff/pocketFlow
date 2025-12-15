@@ -13,10 +13,11 @@ import {
 } from '../../src/lib/services/recurringTransactionService';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { getWallets } from '../../src/lib/db/wallets';
-import { getCategories, getCategoriesHierarchy } from '../../src/lib/db/categories';
+import { getCategoriesHierarchy } from '../../src/lib/db/categories';
 import { enqueueWrite } from '../../src/lib/db/writeQueue';
 import { CalendarModal } from '../../src/components/CalendarModal';
 import { SelectModal, SelectOption } from '../../src/components/SelectModal';
+import { CATEGORY_ICONS } from '../../src/assets/icons/CategoryIcons';
 
 export default function RecurringTransactionsScreen() {
   const router = useRouter();
@@ -54,43 +55,64 @@ export default function RecurringTransactionsScreen() {
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showToWalletModal, setShowToWalletModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [loadingCategories, setLoadingCategories] = useState(false);
 
   useEffect(() => {
     loadRecurringTransactions();
     loadWalletsAndCategories();
   }, []);
 
+  // Load categories when transaction type changes
+  useEffect(() => {
+    loadWalletsAndCategories();
+  }, [createType]);
+
   const loadWalletsAndCategories = async () => {
     try {
+      setLoadingCategories(true);
       const w = await getWallets();
       setWallets(w);
-      if (w.length > 0) {
+      if (w.length > 0 && !createWalletId) {
         setCreateWalletId(w[0].id!);
       }
 
-      // Load category hierarchy
-      const hierarchy = await getCategoriesHierarchy(createType as 'income' | 'expense');
-      setCategoryHierarchy(hierarchy);
-      
-      // Flatten for backwards compatibility
-      const flatCats: any[] = [];
-      hierarchy.forEach(h => {
-        flatCats.push(h.category);
-        flatCats.push(...h.children);
-      });
-      setCategories(flatCats);
-      
-      if (flatCats.length > 0) {
-        setCreateCategory(flatCats[0].name);
+      // Load categories based on current transaction type
+      if (createType !== 'transfer') {
+        try {
+          const hierarchy = await getCategoriesHierarchy(createType);
+          setCategoryHierarchy(hierarchy);
+          
+          // Flatten for backwards compatibility
+          const flatCats: any[] = [];
+          hierarchy.forEach(h => {
+            flatCats.push(h.category);
+            flatCats.push(...h.children);
+          });
+          setCategories(flatCats);
+          
+          // Set first category as default
+          if (flatCats.length > 0) {
+            setCreateCategory(flatCats[0].id?.toString() ?? '');
+          } else {
+            setCreateCategory('');
+          }
+        } catch (error) {
+          console.error('Error loading category hierarchy:', error);
+          setCategories([]);
+          setCategoryHierarchy([]);
+          setCreateCategory('');
+        }
+      } else {
+        // For transfers, no category needed
+        setCategories([]);
+        setCategoryHierarchy([]);
+        setCreateCategory('transfer');
       }
     } catch (error) {
       console.error('Error loading wallets and categories:', error);
-      // Fallback to flat categories
-      const cats = await getCategories();
-      setCategories(cats);
-      if (cats.length > 0) {
-        setCreateCategory(cats[0].name);
-      }
+      Alert.alert('Error', 'Failed to load wallets. Please try again.');
+    } finally {
+      setLoadingCategories(false);
     }
   };
 
@@ -277,6 +299,10 @@ export default function RecurringTransactionsScreen() {
           });
         } else {
           // Create single income/expense transaction
+          // Resolve category ID to name
+          const selectedCat = categories.find(c => c.id?.toString() === createCategory);
+          const categoryName = selectedCat?.name || 'Uncategorized';
+          
           await database.runAsync(
             `INSERT INTO transactions 
              (wallet_id, type, amount, category, date, notes, is_recurring, recurrence_frequency, recurrence_end_date, created_at)
@@ -285,7 +311,7 @@ export default function RecurringTransactionsScreen() {
               createWalletId,
               createType,
               createType === 'income' ? Math.abs(amount) : -Math.abs(amount),
-              createCategory,
+              categoryName,
               createDate.toISOString(),
               createNotes || null,
               1,
@@ -299,11 +325,15 @@ export default function RecurringTransactionsScreen() {
 
       // Reset form and reload
       setShowCreateModal(false);
+      setCreateType('expense');
       setCreateAmount('');
       setCreateNotes('');
       setCreateDate(new Date());
       setCreateFrequency('monthly');
       setCreateEndDate(null);
+      setCreateCategory('');
+      setCreateWalletId(wallets.length > 0 ? wallets[0].id! : 0);
+      setCreateToWalletId(0);
       await loadRecurringTransactions();
       Alert.alert('Success', 'Recurring transaction created successfully');
     } catch (error) {
@@ -737,35 +767,52 @@ export default function RecurringTransactionsScreen() {
               />
 
               {/* Category */}
-              <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>
-                CATEGORY
-              </Text>
-              <TouchableOpacity
-                onPress={() => setShowCategoryModal(true)}
-                style={{
-                  padding: 14,
-                  backgroundColor: t.background,
-                  borderWidth: 1,
-                  borderColor: t.border,
-                  borderRadius: 8,
-                  marginBottom: 20,
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <View style={{ flex: 1 }}>
-                  {(() => {
-                    const currentCat = categories.find(c => c.name === createCategory);
-                    return (
-                      <Text style={{ color: t.textPrimary, fontSize: 15, fontWeight: '600' }}>
-                        {currentCat ? `${currentCat.icon} ${currentCat.name}` : 'Select category'}
-                      </Text>
-                    );
-                  })()}
-                </View>
-                <Text style={{ color: t.textSecondary, fontSize: 16 }}>›</Text>
-              </TouchableOpacity>
+              {createType !== 'transfer' && (
+                <>
+                  <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>
+                    CATEGORY
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setShowCategoryModal(true)}
+                    disabled={loadingCategories || categories.length === 0}
+                    style={{
+                      padding: 14,
+                      backgroundColor: t.background,
+                      borderWidth: 1,
+                      borderColor: loadingCategories ? t.border + '60' : t.border,
+                      borderRadius: 8,
+                      marginBottom: 20,
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      opacity: loadingCategories || categories.length === 0 ? 0.6 : 1,
+                    }}
+                  >
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      {(() => {
+                        const currentCat = categories.find(c => c.id?.toString() === createCategory);
+                        const IconComponent = currentCat?.icon 
+                          ? CATEGORY_ICONS[currentCat.icon.toLowerCase() as keyof typeof CATEGORY_ICONS]
+                          : null;
+                        
+                        return (
+                          <>
+                            {IconComponent && (
+                              <View style={{ width: 24, height: 24 }}>
+                                {React.createElement(IconComponent, { size: 20, color: t.textPrimary })}
+                              </View>
+                            )}
+                            <Text style={{ color: t.textPrimary, fontSize: 15, fontWeight: '600', flex: 1 }}>
+                              {currentCat ? currentCat.name : loadingCategories ? 'Loading...' : 'Select category'}
+                            </Text>
+                          </>
+                        );
+                      })()}
+                    </View>
+                    {!loadingCategories && <Text style={{ color: t.textSecondary, fontSize: 16 }}>›</Text>}
+                  </TouchableOpacity>
+                </>
+              )}
 
               {/* Notes */}
               <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>
@@ -964,40 +1011,42 @@ export default function RecurringTransactionsScreen() {
       )}
 
       {/* Category Selection Modal */}
-      <SelectModal
-        visible={showCategoryModal}
-        onClose={() => setShowCategoryModal(false)}
-        onSelect={(option) => setCreateCategory(option.label)}
-        options={
-          createType === 'transfer' 
-            ? [{ id: 'transfer', label: 'Transfer', indent: 0 }]
-            : categoryHierarchy
-                .filter(item => {
-                  if (createType === 'income') return item.category.type === 'income' || item.category.type === 'both';
-                  return item.category.type === 'expense' || item.category.type === 'both';
-                })
-                .flatMap(item => [
-                  {
-                    id: item.category.id!,
-                    label: item.category.name,
-                    icon: item.category.icon,
-                    indent: 0,
-                    isParent: item.children.length > 0,
-                  } as SelectOption,
-                  ...(item.children.length > 0
-                    ? item.children.map(child => ({
-                        id: child.id!,
-                        label: child.name,
-                        icon: child.icon,
-                        indent: 1,
-                      } as SelectOption))
-                    : [])
-                ])
-        }
-        selectedId={createCategory}
-        title="Select Category"
-        hierarchical={createType !== 'transfer'}
-      />
+      {createType !== 'transfer' && (
+        <SelectModal
+          visible={showCategoryModal}
+          onClose={() => setShowCategoryModal(false)}
+          onSelect={(option) => setCreateCategory(option.id.toString())}
+          options={
+            categoryHierarchy && categoryHierarchy.length > 0
+              ? categoryHierarchy
+                  .filter(item => {
+                    if (createType === 'income') return item.category.type === 'income' || item.category.type === 'both';
+                    return item.category.type === 'expense' || item.category.type === 'both';
+                  })
+                  .flatMap(item => [
+                    {
+                      id: item.category.id!,
+                      label: item.category.name,
+                      icon: item.category.icon,
+                      indent: 0,
+                      isParent: item.children.length > 0,
+                    } as SelectOption,
+                    ...(item.children.length > 0
+                      ? item.children.map(child => ({
+                          id: child.id!,
+                          label: child.name,
+                          icon: child.icon,
+                          indent: 1,
+                        } as SelectOption))
+                      : [])
+                  ])
+              : []
+          }
+          selectedId={createCategory}
+          title="Select Category"
+          hierarchical={true}
+        />
+      )}
     </SafeAreaView>
   );
 }

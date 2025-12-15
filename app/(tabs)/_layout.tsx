@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, useColorScheme } from 'react-native';
+import { Pressable, useColorScheme, Alert } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeIcon } from '../../src/assets/icons/HomeIcon';
@@ -8,11 +8,13 @@ import { AnalyticsIcon } from '../../src/assets/icons/AnalyticsIcon';
 import { SettingsIcon } from '../../src/assets/icons/SettingsIcon';
 import { PlusIcon } from '../../src/assets/icons/PlusIcon';
 import { useSettings } from '../../src/store/useStore';
+import { useWallets } from '../../src/lib/hooks/useWallets';
 import { theme } from '../../src/theme/theme';
 
 export default function TabsLayout() {
   const router = useRouter();
   const { themeMode } = useSettings();
+  const { wallets } = useWallets();
   const systemColorScheme = useColorScheme();
   const t = theme(themeMode, systemColorScheme || 'light');
   const insets = useSafeAreaInsets();
@@ -63,7 +65,23 @@ export default function TabsLayout() {
           tabBarIcon: () => null,
           tabBarButton: (props) => (
             <Pressable
-              onPress={() => router.push('/transactions/add')}
+              onPress={() => {
+                if (wallets.length === 0) {
+                  Alert.alert(
+                    'No Wallet Created',
+                    'Please create a wallet first before adding a transaction.',
+                    [
+                      {
+                        text: 'Create Wallet',
+                        onPress: () => router.push('/wallets/create'),
+                      },
+                      { text: 'Cancel', style: 'cancel' },
+                    ]
+                  );
+                } else {
+                  router.push('/transactions/add');
+                }
+              }}
               style={({ pressed }) => ({
                 top: -20,
                 justifyContent: 'center',

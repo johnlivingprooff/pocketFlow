@@ -182,7 +182,7 @@ export default function CategoriesScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
       {/* Header */}
-      <View style={{ backgroundColor: t.background, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 }}>
+      <View style={{ backgroundColor: t.background, paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12 }}>
         <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: 16 }}>
           <Text style={{ color: t.primary, fontSize: 16, fontWeight: '600' }}>← Back</Text>
         </TouchableOpacity>
