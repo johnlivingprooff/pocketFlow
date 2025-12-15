@@ -42,29 +42,25 @@ export default function BudgetGoalsScreen() {
       setLoading(true);
       setRefreshing(true);
 
-      // Load all budgets and enrich with metrics
+      // Load all budgets and enrich with metrics in parallel for better performance
       const allBudgets = await getBudgets();
-      const budgetsWithMetrics: BudgetWithMetrics[] = [];
+      const budgetsWithMetrics = await Promise.all(
+        allBudgets.map(async (budget) => {
+          const budgetWithMetrics = await getBudgetWithMetrics(budget.id!);
+          return budgetWithMetrics;
+        })
+      );
+      setBudgets(budgetsWithMetrics.filter((b): b is BudgetWithMetrics => b !== null));
 
-      for (const budget of allBudgets) {
-        const budgetWithMetrics = await getBudgetWithMetrics(budget.id!);
-        if (budgetWithMetrics) {
-          budgetsWithMetrics.push(budgetWithMetrics);
-        }
-      }
-      setBudgets(budgetsWithMetrics);
-
-      // Load all goals and enrich with metrics
+      // Load all goals and enrich with metrics in parallel for better performance
       const allGoals = await getGoals();
-      const goalsWithMetrics: GoalWithMetrics[] = [];
-
-      for (const goal of allGoals) {
-        const goalWithMetrics = await getGoalWithMetrics(goal.id!);
-        if (goalWithMetrics) {
-          goalsWithMetrics.push(goalWithMetrics);
-        }
-      }
-      setGoals(goalsWithMetrics);
+      const goalsWithMetrics = await Promise.all(
+        allGoals.map(async (goal) => {
+          const goalWithMetrics = await getGoalWithMetrics(goal.id!);
+          return goalWithMetrics;
+        })
+      );
+      setGoals(goalsWithMetrics.filter((g): g is GoalWithMetrics => g !== null));
     } catch (err: any) {
       logError('Failed to load budgets/goals data:', { error: err });
       Alert.alert('Error', 'Failed to load budgets and goals');
@@ -243,10 +239,13 @@ export default function BudgetGoalsScreen() {
         </View>
       </View>
 
-      {item.daysRemaining && item.daysRemaining > 0 && (
-        <Text style={[styles.daysText, { color: colors.textSecondary }]}>
-          {item.daysRemaining} day{item.daysRemaining !== 1 ? 's' : ''} left in period
-        </Text>
+      {item.daysRemaining !== undefined && item.daysRemaining > 0 && (
+        <View style={[styles.paceIndicator, { backgroundColor: colors.background }]}>
+          <Text style={[styles.paceText, { color: colors.textSecondary }]}>
+            {item.daysRemaining} day{item.daysRemaining !== 1 ? 's' : ''} left • 
+            Daily avg: {formatCurrency(item.averageDailySpend, defaultCurrency)}
+          </Text>
+        </View>
       )}
       </Pressable>
     </View>
@@ -394,17 +393,61 @@ export default function BudgetGoalsScreen() {
                   <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
                     No budgets yet
                   </Text>
+                  <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                    Track your spending by setting category budgets
+                  </Text>
                   <Pressable
                     onPress={() => router.push('/budgets/create')}
                     style={[styles.createButton, { backgroundColor: colors.primary }]}
                   >
                     <Text style={[styles.createButtonText, { color: colors.background }]}>
-                      Create Budget
+                      Create Your First Budget
                     </Text>
                   </Pressable>
                 </View>
               ) : (
                 <>
+                  {/* Budget Dashboard Summary */}
+                  <View style={[styles.dashboardCard, { backgroundColor: colors.card }]}>
+                    <Text style={[styles.dashboardTitle, { color: colors.textPrimary }]}>
+                      Budget Overview
+                    </Text>
+                    <View style={styles.dashboardStats}>
+                      <View style={styles.dashboardStat}>
+                        <Text style={[styles.dashboardStatValue, { color: colors.textPrimary }]}>
+                          {budgets.length}
+                        </Text>
+                        <Text style={[styles.dashboardStatLabel, { color: colors.textSecondary }]}>
+                          Total
+                        </Text>
+                      </View>
+                      <View style={styles.dashboardStat}>
+                        <Text style={[styles.dashboardStatValue, { color: colors.danger }]}>
+                          {budgets.filter(b => b.isOverBudget).length}
+                        </Text>
+                        <Text style={[styles.dashboardStatLabel, { color: colors.textSecondary }]}>
+                          Over
+                        </Text>
+                      </View>
+                      <View style={styles.dashboardStat}>
+                        <Text style={[styles.dashboardStatValue, { color: colors.primary }]}>
+                          {budgets.filter(b => !b.isOverBudget && (b.percentageUsed || 0) > 75).length}
+                        </Text>
+                        <Text style={[styles.dashboardStatLabel, { color: colors.textSecondary }]}>
+                          Warning
+                        </Text>
+                      </View>
+                      <View style={styles.dashboardStat}>
+                        <Text style={[styles.dashboardStatValue, { color: colors.success }]}>
+                          {budgets.filter(b => !b.isOverBudget && (b.percentageUsed || 0) <= 75).length}
+                        </Text>
+                        <Text style={[styles.dashboardStatLabel, { color: colors.textSecondary }]}>
+                          On Track
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
                   {budgets.map(renderBudgetItem)}
                   <Pressable
                     onPress={() => router.push('/budgets/create')}
@@ -435,17 +478,61 @@ export default function BudgetGoalsScreen() {
                   <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
                     No goals yet
                   </Text>
+                  <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                    Set savings goals and track your progress
+                  </Text>
                   <Pressable
                     onPress={() => router.push('/goals/create')}
                     style={[styles.createButton, { backgroundColor: colors.primary }]}
                   >
                     <Text style={[styles.createButtonText, { color: colors.background }]}>
-                      Create Goal
+                      Create Your First Goal
                     </Text>
                   </Pressable>
                 </View>
               ) : (
                 <>
+                  {/* Goals Dashboard Summary */}
+                  <View style={[styles.dashboardCard, { backgroundColor: colors.card }]}>
+                    <Text style={[styles.dashboardTitle, { color: colors.textPrimary }]}>
+                      Goals Overview
+                    </Text>
+                    <View style={styles.dashboardStats}>
+                      <View style={styles.dashboardStat}>
+                        <Text style={[styles.dashboardStatValue, { color: colors.textPrimary }]}>
+                          {goals.length}
+                        </Text>
+                        <Text style={[styles.dashboardStatLabel, { color: colors.textSecondary }]}>
+                          Total
+                        </Text>
+                      </View>
+                      <View style={styles.dashboardStat}>
+                        <Text style={[styles.dashboardStatValue, { color: colors.success }]}>
+                          {goals.filter(g => (g.progressPercentage || 0) >= 100).length}
+                        </Text>
+                        <Text style={[styles.dashboardStatLabel, { color: colors.textSecondary }]}>
+                          Achieved
+                        </Text>
+                      </View>
+                      <View style={styles.dashboardStat}>
+                        <Text style={[styles.dashboardStatValue, { color: colors.success }]}>
+                          {goals.filter(g => g.onTrack && (g.progressPercentage || 0) < 100).length}
+                        </Text>
+                        <Text style={[styles.dashboardStatLabel, { color: colors.textSecondary }]}>
+                          On Track
+                        </Text>
+                      </View>
+                      <View style={styles.dashboardStat}>
+                        <Text style={[styles.dashboardStatValue, { color: colors.primary }]}>
+                          {goals.filter(g => !g.onTrack && (g.progressPercentage || 0) < 100).length}
+                        </Text>
+                        <Text style={[styles.dashboardStatLabel, { color: colors.textSecondary }]}>
+                          Behind
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
                   {goals.map(renderGoalItem)}
                   <Pressable
                     onPress={() => router.push('/goals/create')}
@@ -556,23 +643,73 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     marginTop: 4,
   },
+  paceIndicator: {
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+  },
+  paceText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
   emptyState: {
     alignItems: 'center',
     paddingVertical: 40,
+    paddingHorizontal: 16,
   },
   emptyText: {
-    fontSize: 14,
-    marginBottom: 16,
+    fontSize: 16,
+    marginBottom: 8,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 13,
+    marginBottom: 20,
+    textAlign: 'center',
+    opacity: 0.8,
   },
   createButton: {
     paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 6,
-    marginTop: 12,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 8,
   },
   createButtonText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  dashboardCard: {
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 12,
+  },
+  dashboardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  dashboardStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  dashboardStat: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  dashboardStatValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  dashboardStatLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   addButton: {
     marginTop: 8,
