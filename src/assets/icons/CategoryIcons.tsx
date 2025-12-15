@@ -577,121 +577,106 @@ export const BusinessIcon = MoneyReciveIcon;
 export const InvestmentIcon = ChartIcon;
 
 export const CATEGORY_ICONS = {
-  // Income
-  'Salary': MoneyReciveIcon,
-  'salary': MoneyReciveIcon,
-  'Employment': MoneyReciveIcon,
-  'Salary & Employment': MoneyReciveIcon,
-  'Business': MoneyIcon,
-  'business': MoneyIcon,
-  'Business & Self-Employment': MoneyIcon,
-  'Agriculture': AgricultureIcon,
-  'agriculture': AgricultureIcon,
-  'Agriculture & Livestock': AgricultureIcon,
-  'Livestock': LivestockIcon,
-  'livestock': LivestockIcon,
-  'Investments': InvestmentsIcon,
+  // Core Income Icons
+  'moneyrecive': MoneyReciveIcon,
+  'money': MoneyIcon,
   'investment': InvestmentIcon,
-  'investments': InvestmentsIcon,
-  'Property': PropertyIcon,
-  'property': PropertyIcon,
-  'Property & Assets': PropertyIcon,
-  'Transport Income': TransportIcon,
-  'Digital Income': InternetIcon,
-  'Freelance': InternetIcon,
-  'freelance': InternetIcon,
-  'Transfers': TransferIcon,
   'transfer': TransferIcon,
-  'Transfers & Support': TransferIcon,
-  'Gifts': GiftIcon,
-  'gifts': GiftIcon,
   'gift': GiftIcon,
-  'Cooperative': CooperativeIcon,
-  'cooperative': CooperativeIcon,
-  'Other Income': MoneyReciveIcon,
-  'Miscellaneous Income': MoneyReciveIcon,
-  'Offering': GiftIcon,
-  'offering': GiftIcon,
-  'Kabaza': KabazaIcon,
-  'Creative': CreativeIcon,
-  'creative': CreativeIcon,
-
-  // Expenses
-  'Housing': HomeIcon,
-  'Housing & Utilities': HomeIcon,
-  'Electricity': ElectricityIcon,
-  'Water': WaterIcon,
-  'Food & Groceries': FoodIcon,
-  'Groceries': GroceriesIcon,
-  'Fuel': FuelIcon,
-  'Communication': PhoneIcon,
-  'Insurance': MoneySendIcon,
-  'Giving': GivingIcon,
-  'Family': FamilyIcon,
-  'Family Obligations': FamilyIcon,
-  'Repairs': RepairsIcon,
-  'Personal Care': GymIcon,
-  'Bills': MoneySendIcon,
-  'bills': MoneySendIcon,
-  'Financial Services': MoneySendIcon,
-  'Rent': PropertyIcon,
-  'Utilities': ElectricityIcon,
-  'Travel': TransportIcon,
-  'Clothing': ShoppingIcon,
   
-  // Additional Icons
-  'airbnb': AirbnbIcon,
-  'airtel': AirtelIcon,
-  'baby-carriage': BabyCarriageIcon,
-  'bank': BankIcon,
-  'bill': BillIcon,
-  'bus': BusIcon,
-  'car': CarIcon,
-  'church': ChurchIcon,
-  'dining': DiningIcon,
-  'hdd': HddIcon,
-  'iphone': IphoneIcon,
-  'key': KeyIcon,
-  'pets': PetsIcon,
-  'pizza': PizzaIcon,
-  'safe': SafeIcon,
-  'school': SchoolIcon,
-  'cart': CartIcon,
-  'tv': TvIcon,
-  'wifi': WifiIcon,
-  'paintpalette': PaintPaletteIcon,
-  'pcdisplay': PcDisplayIcon,
-  'percentage': PercentageIcon,
-  'ruler': RulerIcon,
-  'savings': SavingsIcon,
-  'stationery': StationeryIcon,
-  'stock': StockIcon,
-  'truck': TruckIcon,
-  'vehiclebicycle': VehicleBicycleIcon,
-  'vehicleservices': VehicleServicesIcon,
-  'watch': WatchIcon,
-  'wheel': WheelIcon,
-  'wrenchandscrewdriver': WrenchAndScrewdriverIcon,
-  'wrench': WrenchIcon,
-
-  // Simple Keys for Picker & Migration
-  'wallet': WalletIcon,
-  'chart': ChartIcon,
-  'settings': SettingsIcon,
-  'plus': PlusIcon,
+  // Core Expense Icons
+  'moneysend': MoneySendIcon,
   'home': HomeIcon,
-  'receipt': ReceiptIcon,
-  'fingerprint': FingerprintIcon,
-  'csv': CsvIcon,
-  'backup': BackupIcon,
   'food': FoodIcon,
   'transport': TransportIcon,
   'shopping': ShoppingIcon,
   'health': HealthIcon,
   'entertainment': EntertainmentIcon,
   'education': EducationIcon,
-  'moneyrecive': MoneyReciveIcon,
-  'moneysend': MoneySendIcon,
+  'phone': PhoneIcon,
+  
+  // Specialized Income
+  'agriculture': AgricultureIcon,
+  'livestock': LivestockIcon,
+  'investments': InvestmentsIcon,
+  'property': PropertyIcon,
+  'cooperative': CooperativeIcon,
+  'kabaza': KabazaIcon,
+  'creative': CreativeIcon,
+  
+  // Utilities & Housing
+  'electricity': ElectricityIcon,
+  'water': WaterIcon,
+  'fuel': FuelIcon,
+  'repairs': RepairsIcon,
+  
+  // Lifestyle & Personal
+  'gym': GymIcon,
+  'groceries': GroceriesIcon,
+  'giving': GivingIcon,
+  'family': FamilyIcon,
+  
+  // Services & Digital
+  'airbnb': AirbnbIcon,
+  'airtel': AirtelIcon,
+  'bank': BankIcon,
+  'bill': BillIcon,
+  'internet': InternetIcon,
+  
+  // Transportation
+  'bus': BusIcon,
+  'car': CarIcon,
+  'truck': TruckIcon,
+  'vehiclebicycle': VehicleBicycleIcon,
+  'vehicleservices': VehicleServicesIcon,
+  'wheel': WheelIcon,
+  
+  // Places
+  'church': ChurchIcon,
+  'school': SchoolIcon,
+  'dining': DiningIcon,
+  
+  // Technology & Electronics
+  'hdd': HddIcon,
+  'iphone': IphoneIcon,
+  'pcdisplay': PcDisplayIcon,
+  'tv': TvIcon,
+  'wifi': WifiIcon,
+  
+  // Shopping & Food
+  'cart': CartIcon,
+  'pizza': PizzaIcon,
+  
+  // Personal & Household
+  'baby-carriage': BabyCarriageIcon,
+  'key': KeyIcon,
+  'pets': PetsIcon,
+  'safe': SafeIcon,
+  'watch': WatchIcon,
+  
+  // Tools & Maintenance
+  'wrench': WrenchIcon,
+  'wrenchandscrewdriver': WrenchAndScrewdriverIcon,
+  
+  // Creative & Hobbies
+  'paintpalette': PaintPaletteIcon,
+  'ruler': RulerIcon,
+  'stationery': StationeryIcon,
+  
+  // Financial
+  'percentage': PercentageIcon,
+  'savings': SavingsIcon,
+  'stock': StockIcon,
+  
+  // App Icons
+  'wallet': WalletIcon,
+  'chart': ChartIcon,
+  'settings': SettingsIcon,
+  'plus': PlusIcon,
+  'receipt': ReceiptIcon,
+  'fingerprint': FingerprintIcon,
+  'csv': CsvIcon,
+  'backup': BackupIcon,
 };
 
 export type CategoryIconName = keyof typeof CATEGORY_ICONS;
