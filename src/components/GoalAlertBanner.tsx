@@ -34,7 +34,7 @@ export function GoalAlertBanner({ goals, colors, defaultCurrency, formatCurrency
       <Pressable
         key={goal.id}
         onPress={() => router.push(`/goals/${goal.id}`)}
-        style={[styles.alertCard, { backgroundColor: `${alertColor}15`, borderColor: alertColor }]}
+        style={[styles.alertCard, { backgroundColor: `${alertColor}${ALERT_BACKGROUND_OPACITY}`, borderColor: alertColor }]}
       >
         <View style={styles.alertHeader}>
           <Text style={styles.alertIcon}>{icon}</Text>

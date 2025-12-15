@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   },
   progressBarContainer: {
     height: 8,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: 'rgba(0, 0, 0, 0.1)', // Will adapt to theme
     borderRadius: 4,
     marginVertical: 12,
     overflow: 'hidden',

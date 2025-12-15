@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import type { BudgetWithMetrics } from '@/types/goal';
 
+const ALERT_BACKGROUND_OPACITY = '15'; // Hex opacity for alert backgrounds
+
 interface BudgetAlertBannerProps {
   budgets: BudgetWithMetrics[];
   colors: any;
@@ -30,7 +32,7 @@ export function BudgetAlertBanner({ budgets, colors, defaultCurrency, formatCurr
       <Pressable
         key={budget.id}
         onPress={() => router.push(`/budgets/${budget.id}`)}
-        style={[styles.alertCard, { backgroundColor: `${alertColor}15`, borderColor: alertColor }]}
+        style={[styles.alertCard, { backgroundColor: `${alertColor}${ALERT_BACKGROUND_OPACITY}`, borderColor: alertColor }]}
       >
         <View style={styles.alertHeader}>
           <Text style={styles.alertIcon}>{icon}</Text>

@@ -21,6 +21,19 @@ type TabType = 'budget' | 'goals';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
 
+/**
+ * Returns an emoji badge for goal progress milestones
+ * @param progressPercentage - Goal progress percentage (0-100+)
+ * @returns Emoji badge or null if no milestone reached
+ */
+function getMilestoneBadge(progressPercentage: number): string | null {
+  if (progressPercentage >= 100) return '🎉'; // Goal achieved!
+  if (progressPercentage >= 75) return '🔥';  // Almost there!
+  if (progressPercentage >= 50) return '💪';  // Halfway milestone
+  if (progressPercentage >= 25) return '🌱';  // Early progress
+  return null; // No milestone yet
+}
+
 export default function BudgetGoalsScreen() {
   const router = useRouter();
   const { themeMode, defaultCurrency } = useSettings();
@@ -267,18 +280,10 @@ export default function BudgetGoalsScreen() {
             <Text style={[styles.categoryName, { color: colors.textPrimary }]}>
               {item.name}
             </Text>
-            {(item.progressPercentage || 0) >= 100 && (
-              <Text style={styles.milestoneBadge}>🎉</Text>
-            )}
-            {(item.progressPercentage || 0) >= 75 && (item.progressPercentage || 0) < 100 && (
-              <Text style={styles.milestoneBadge}>🔥</Text>
-            )}
-            {(item.progressPercentage || 0) >= 50 && (item.progressPercentage || 0) < 75 && (
-              <Text style={styles.milestoneBadge}>💪</Text>
-            )}
-            {(item.progressPercentage || 0) >= 25 && (item.progressPercentage || 0) < 50 && (
-              <Text style={styles.milestoneBadge}>🌱</Text>
-            )}
+            {(() => {
+              const badge = getMilestoneBadge(item.progressPercentage || 0);
+              return badge ? <Text style={styles.milestoneBadge}>{badge}</Text> : null;
+            })()}
           </View>
           <Text style={[styles.categorySubtext, { color: colors.textSecondary }]}>
             Target: {formatCurrency(item.targetAmount, defaultCurrency)}
