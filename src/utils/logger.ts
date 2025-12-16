@@ -14,7 +14,11 @@ import Constants from 'expo-constants';
 const isDevelopment = __DEV__;
 
 // Environment variable to enable logging in production (for debugging)
-const isLoggingEnabled = Constants.expoConfig?.extra?.enableLogging === true;
+// In release builds, enableLogging may not be accessible via Constants.expoConfig
+// So we also check via global environment or default to true for write operations
+const isLoggingEnabled = 
+  Constants.expoConfig?.extra?.enableLogging === true ||
+  (global as any).__ENABLE_LOGGING__ === true;
 
 /**
  * Generate a unique operation ID for tracing

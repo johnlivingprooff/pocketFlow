@@ -4,6 +4,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { useSettings } from '../src/store/useStore';
 import { ensureTables } from '../src/lib/db';
+import { flushWriteQueue } from '../src/lib/db/writeQueue';
 import { processRecurringTransactions } from '../src/lib/services/recurringTransactionService';
 import { theme, shadows } from '../src/theme/theme';
 import { authenticateWithBiometrics, shouldRequireAuth } from '../src/lib/services/biometricService';
@@ -87,6 +88,14 @@ export default function RootLayout() {
         }
       }
     } else if (nextAppState === 'background' || nextAppState === 'inactive') {
+      // ✅ FIX: Flush write queue before backgrounding to reduce mid-write kill loss
+      // This awaits all pending database operations before the app suspends
+      console.log('[App] App entering background state, flushing write queue...');
+      if (Platform.OS !== 'web') {
+        await flushWriteQueue();
+        console.log('[App] Write queue flushed before background');
+      }
+      
       // Force re-auth on next launch after the app is backgrounded/closed
       setLastAuthTime(null);
       setIsAuthenticated(false);

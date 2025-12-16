@@ -14,6 +14,34 @@ export async function getDb() {
     try {
       db = await SQLite.openDatabaseAsync('pocketflow.db');
       
+      // ✅ CRITICAL FIX: Check database integrity before doing anything else
+      // If database is corrupted, this prevents cascade failures
+      try {
+        const integrityCheck = await db.getAllAsync('PRAGMA integrity_check;');
+        const isCorrupt = integrityCheck.some((row: any) => row.integrity_check !== 'ok');
+        
+        if (isCorrupt) {
+          console.error('[DB] Database corruption detected! Attempting recovery...');
+          // Close corrupted database
+          await db.closeAsync();
+          db = null;
+          
+          // Delete and recreate database
+          await SQLite.deleteDatabaseAsync('pocketflow.db');
+          console.log('[DB] Corrupted database deleted, creating fresh database...');
+          
+          // Reopen fresh database
+          db = await SQLite.openDatabaseAsync('pocketflow.db');
+          console.log('[DB] Fresh database created successfully');
+        } else {
+          console.log('[DB] Database integrity check passed');
+        }
+      } catch (integrityError: any) {
+        // If integrity check fails, database is likely corrupted
+        console.error('[DB] Integrity check failed, database may be corrupted:', integrityError);
+        // Continue anyway - ensureTables will handle schema issues
+      }
+      
       // RELEASE-BUILD FIX: Enable WAL mode and busy timeout to prevent database lock errors
       // These PRAGMA commands are critical for the fix to work properly
       try {
@@ -164,25 +192,51 @@ export async function ensureTables() {
 
   // Migration: add recurring transaction columns if not present
   try {
+    console.log('[DB] Starting transaction table migration checks...');
     const txnCols = await database.getAllAsync<{ name: string }>('PRAGMA table_info(transactions);');
+    console.log('[DB] Transactions table columns:', txnCols.map(c => c.name).join(', '));
+    
+    // ✅ CRITICAL FIX: Ensure category column exists
+    // Some databases may have been created without this column
+    const hasCategory = txnCols.some(c => c.name === 'category');
+    if (!hasCategory) {
+      console.log('[DB] Adding missing category column...');
+      await database.execAsync('ALTER TABLE transactions ADD COLUMN category TEXT;');
+      console.log('[DB] Migration: Added category column to transactions table');
+    } else {
+      console.log('[DB] Category column already exists');
+    }
+    
     const hasIsRecurring = txnCols.some(c => c.name === 'is_recurring');
     if (!hasIsRecurring) {
+      console.log('[DB] Adding missing is_recurring column...');
       await database.execAsync('ALTER TABLE transactions ADD COLUMN is_recurring INTEGER DEFAULT 0;');
+      console.log('[DB] Migration: Added is_recurring column');
     }
     const hasRecurrenceFrequency = txnCols.some(c => c.name === 'recurrence_frequency');
     if (!hasRecurrenceFrequency) {
+      console.log('[DB] Adding missing recurrence_frequency column...');
       await database.execAsync('ALTER TABLE transactions ADD COLUMN recurrence_frequency TEXT;');
+      console.log('[DB] Migration: Added recurrence_frequency column');
     }
     const hasRecurrenceEndDate = txnCols.some(c => c.name === 'recurrence_end_date');
     if (!hasRecurrenceEndDate) {
+      console.log('[DB] Adding missing recurrence_end_date column...');
       await database.execAsync('ALTER TABLE transactions ADD COLUMN recurrence_end_date TEXT;');
+      console.log('[DB] Migration: Added recurrence_end_date column');
     }
     const hasParentTransactionId = txnCols.some(c => c.name === 'parent_transaction_id');
     if (!hasParentTransactionId) {
+      console.log('[DB] Adding missing parent_transaction_id column...');
       await database.execAsync('ALTER TABLE transactions ADD COLUMN parent_transaction_id INTEGER;');
+      console.log('[DB] Migration: Added parent_transaction_id column');
     }
-  } catch (e) {
-    // noop: best-effort migration
+    
+    console.log('[DB] Transaction table migrations completed successfully');
+  } catch (e: any) {
+    console.error('[DB] CRITICAL: Migration failed:', e);
+    console.error('[DB] Migration error details:', e.message, e.code);
+    // Log but don't throw - allow app to try to continue
   }
 
   // Create indexes for performance optimization
@@ -304,8 +358,9 @@ export async function ensureTables() {
       }
 
       // Normalize legacy 'other' icons to explicit money send/receive icons by type
-      await database.runAsync("UPDATE categories SET icon = 'moneyrecive' WHERE icon = 'other' AND type = 'income';");
-      await database.runAsync("UPDATE categories SET icon = 'moneysend' WHERE icon = 'other' AND type = 'expense';");
+      // ✅ FIX: Wrap in execRun (which uses enqueueWrite) to prevent lock collisions during startup
+      await execRun("UPDATE categories SET icon = 'moneyrecive' WHERE icon = 'other' AND type = 'income';");
+      await execRun("UPDATE categories SET icon = 'moneysend' WHERE icon = 'other' AND type = 'expense';");
     } catch (e) {
       // noop
     }
@@ -392,7 +447,8 @@ export async function ensureTables() {
 
     if (existingPresets.length > 0 && allowedList.length > 0) {
       const placeholders = allowedList.map(() => '?').join(', ');
-      await database.runAsync(
+      // ✅ FIX: Use execRun (which uses enqueueWrite) to prevent lock collisions during startup
+      await execRun(
         `DELETE FROM categories WHERE is_preset = 1 AND name NOT IN (${placeholders});`,
         allowedList
       );

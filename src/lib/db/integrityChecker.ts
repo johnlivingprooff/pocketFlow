@@ -15,6 +15,7 @@
 
 import { getDb } from './index';
 import { log, error as logError } from '../../utils/logger';
+import { enqueueWrite } from './writeQueue';
 
 export interface IntegrityIssue {
   issueType: 'null_display_order' | 'negative_display_order' | 'duplicate_display_order' | 'gap_in_sequence';
@@ -213,66 +214,94 @@ export async function repairDatabaseIntegrity(dryRun: boolean = true): Promise<R
     // ACTUAL REPAIR - Create backup and fix issues
     log('[Integrity Repair] Creating backup table...');
     
-    const backupTableName = `wallets_backup_integrity_repair_${Date.now()}`;
-    await database.execAsync(`
-      DROP TABLE IF EXISTS ${backupTableName};
-      CREATE TABLE ${backupTableName} AS SELECT * FROM wallets;
-    `);
-    
-    result.backupCreated = true;
-    log(`[Integrity Repair] ✓ Backup created: ${backupTableName}`);
-
-    // Perform repair in a transaction
-    await database.withTransactionAsync(async () => {
-      log('[Integrity Repair] Applying repairs...');
-
-      // Create temporary table with correct ordering
+    // ✅ FIX: Wrap entire repair operation in enqueueWrite to prevent concurrent access
+    // This serializes the repair with other writes and prevents lock errors
+    return await enqueueWrite(async () => {
+      const database = await getDb();
+      const backupTableName = `wallets_backup_integrity_repair_${Date.now()}`;
       await database.execAsync(`
-        CREATE TEMPORARY TABLE wallet_fix AS
-        SELECT 
-          id,
-          ROW_NUMBER() OVER (ORDER BY 
-            CASE 
-              WHEN display_order IS NULL THEN 9999
-              WHEN display_order < 0 THEN 9999
-              ELSE display_order
-            END ASC,
-            created_at ASC
-          ) - 1 as new_display_order
-        FROM wallets;
+        DROP TABLE IF EXISTS ${backupTableName};
+        CREATE TABLE ${backupTableName} AS SELECT * FROM wallets;
       `);
+      
+      result.backupCreated = true;
+      log(`[Integrity Repair] ✓ Backup created: ${backupTableName}`);
 
-      // Update all wallets with corrected display_order
-      const updateResult = await database.runAsync(`
-        UPDATE wallets
-        SET display_order = (
-          SELECT new_display_order 
-          FROM wallet_fix 
-          WHERE wallet_fix.id = wallets.id
-        );
-      `);
+      // Perform repair in a transaction
+      await database.withTransactionAsync(async () => {
+        log('[Integrity Repair] Applying repairs...');
 
-      result.issuesFixed = updateResult.changes;
+        // Create temporary table with correct ordering
+        await database.execAsync(`
+          CREATE TEMPORARY TABLE wallet_fix AS
+          SELECT 
+            id,
+            ROW_NUMBER() OVER (ORDER BY 
+              CASE 
+                WHEN display_order IS NULL THEN 9999
+                WHEN display_order < 0 THEN 9999
+                ELSE display_order
+              END ASC,
+              created_at ASC
+            ) - 1 as new_display_order
+          FROM wallets;
+        `);
 
-      // Clean up temporary table
-      await database.execAsync('DROP TABLE wallet_fix;');
+        // Update all wallets with corrected display_order
+        const updateResult = await database.runAsync(`
+          UPDATE wallets
+          SET display_order = (
+            SELECT new_display_order 
+            FROM wallet_fix 
+            WHERE wallet_fix.id = wallets.id
+          );
+        `);
 
-      log(`[Integrity Repair] ✓ Updated ${result.issuesFixed} wallet(s)`);
+        result.issuesFixed = updateResult.changes;
+
+        // Clean up temporary table
+        await database.execAsync('DROP TABLE wallet_fix;');
+
+        log(`[Integrity Repair] ✓ Updated ${result.issuesFixed} wallet(s)`);
+      });
+
+      // Verify the repair worked
+      const verificationIssues = await checkDatabaseIntegrity();
+      
+      if (verificationIssues.length === 0) {
+        log('[Integrity Repair] ✓ Verification passed - all issues resolved');
+        result.success = true;
+      } else {
+        logError('[Integrity Repair] ✗ Verification failed - some issues remain');
+        result.success = false;
+        result.errors.push(`${verificationIssues.length} issue(s) remain after repair`);
+      }
+
+      return result;
+    }, 'repair_database_integrity').catch(async (err: any) => {
+      logError('[Integrity Repair] Failed to repair database integrity:', err);
+      result.errors.push(err.message);
+      
+      // Attempt rollback if backup was created
+      if (result.backupCreated) {
+        try {
+          const database = await getDb();
+          log('[Integrity Repair] Attempting to restore from backup...');
+          await database.withTransactionAsync(async () => {
+            await database.execAsync(`
+              DELETE FROM wallets;
+              INSERT INTO wallets SELECT * FROM wallets_backup_integrity_repair;
+            `);
+          });
+          log('[Integrity Repair] ✓ Restored from backup');
+        } catch (rollbackErr: any) {
+          logError('[Integrity Repair] Failed to restore from backup:', rollbackErr);
+          result.errors.push(`Rollback failed: ${rollbackErr.message}`);
+        }
+      }
+      
+      return result;
     });
-
-    // Verify the repair worked
-    const verificationIssues = await checkDatabaseIntegrity();
-    
-    if (verificationIssues.length === 0) {
-      log('[Integrity Repair] ✓ Verification passed - all issues resolved');
-      result.success = true;
-    } else {
-      logError('[Integrity Repair] ✗ Verification failed - some issues remain');
-      result.success = false;
-      result.errors.push(`${verificationIssues.length} issue(s) remain after repair`);
-    }
-
-    return result;
   } catch (err: any) {
     logError('[Integrity Repair] Failed to repair database integrity:', err);
     result.errors.push(err.message);
@@ -280,6 +309,7 @@ export async function repairDatabaseIntegrity(dryRun: boolean = true): Promise<R
     // Attempt rollback if backup was created
     if (result.backupCreated) {
       try {
+        const database = await getDb();
         log('[Integrity Repair] Attempting to restore from backup...');
         await database.withTransactionAsync(async () => {
           await database.execAsync(`

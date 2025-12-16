@@ -176,8 +176,8 @@ export async function enqueueWrite<T>(
     // Intentionally swallow errors here to maintain queue chain continuity.
     // The original error is still propagated to the caller via operationPromise.
     // This empty handler is necessary for queue integrity.
-    return; // Explicit return for clarity
-  });
+    return undefined; // Return undefined to break the chain type to void
+  }) as Promise<void>;
   
   return operationPromise;
 }
@@ -193,8 +193,63 @@ export function getQueueStats() {
 }
 
 /**
+ * Flush the write queue - waits for all pending writes to complete
+ * This is essential to call on app background to reduce mid-write kill loss
+ * @returns Promise that resolves when queue is empty
+ */
+export async function flushWriteQueue(): Promise<void> {
+  try {
+    // CRITICAL: Use console.log directly for guaranteed visibility in release builds
+    console.log(`[WriteQueue] Flushing queue (depth: ${queueDepth}, max seen: ${maxQueueDepth})`);
+    const flushStartTime = Date.now();
+    
+    // Await the queue tail - this ensures all queued operations complete
+    await queueTail;
+    
+    const flushDuration = Date.now() - flushStartTime;
+    console.log(`[WriteQueue] Queue flushed successfully in ${flushDuration}ms`);
+    metrics.timing('db.write.flush.duration', flushDuration);
+    metrics.increment('db.write.flush.success');
+  } catch (error: any) {
+    const flushDuration = Date.now() - (Date.now()); // Close to zero since we're in catch
+    logError('[WriteQueue] Queue flush failed:', error);
+    metrics.increment('db.write.flush.error');
+    // Don't re-throw - we still want the app to background even if flush fails
+  }
+}
+
+/**
  * Reset queue statistics (for testing)
  */
 export function resetQueueStats() {
   maxQueueDepth = 0;
+}
+
+/**
+ * Get comprehensive write queue diagnostics for debugging
+ * Call this when investigating transaction loss or database lock issues
+ */
+export function getWriteQueueDiagnostics() {
+  return {
+    currentDepth: queueDepth,
+    maxDepthSeen: maxQueueDepth,
+    timestamp: new Date().toISOString(),
+    status: queueDepth === 0 ? 'idle' : 'processing',
+    message: queueDepth === 0 
+      ? 'Queue is empty - all writes completed'
+      : `Queue has ${queueDepth} pending operation(s), max seen: ${maxQueueDepth}`
+  };
+}
+
+/**
+ * Log comprehensive diagnostics (useful for debugging release builds)
+ */
+export function logWriteQueueDiagnostics() {
+  const diag = getWriteQueueDiagnostics();
+  log(
+    `[WriteQueue] Diagnostics: ${diag.status.toUpperCase()} | ` +
+    `depth=${diag.currentDepth} | max_seen=${diag.maxDepthSeen} | ` +
+    `time=${diag.timestamp}`
+  );
+  return diag;
 }

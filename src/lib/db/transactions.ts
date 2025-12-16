@@ -51,6 +51,8 @@ export async function addTransaction(t: Transaction) {
   ];
   // Ensure database write completes before invalidating caches
   const startTime = Date.now();
+  log(`[Transaction] Adding transaction: type=${t.type}, amount=${t.amount}, wallet=${t.wallet_id}, timestamp=${new Date().toISOString()}`);
+  
   await execRun(
     `INSERT INTO transactions 
      (wallet_id, type, amount, category, date, notes, receipt_uri, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id)
@@ -63,8 +65,10 @@ export async function addTransaction(t: Transaction) {
   // This ensures UI always sees fresh data after a transaction is added
   invalidateTransactionCaches();
   
-  // Log for debugging (especially useful in release builds)
-  log(`[DB] Transaction added in ${writeTime}ms, type: ${t.type}, amount: ${t.amount}, wallet: ${t.wallet_id}, timestamp: ${new Date().toISOString()}`);
+  // ✅ CRITICAL FIX: Enhanced logging for release builds to diagnose data loss
+  // Log immediately after successful write, before any async operations
+  // Use console.log directly for guaranteed visibility in release builds
+  console.log(`[Transaction] ✓ Transaction saved successfully in ${writeTime}ms, type: ${t.type}, amount: ${t.amount}, wallet: ${t.wallet_id}, timestamp: ${new Date().toISOString()}`);
   
   // Update goals and budgets AFTER the write completes (don't await to avoid blocking)
   // This runs asynchronously and won't block the transaction save

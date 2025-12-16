@@ -38,6 +38,9 @@ export async function processRecurringTransactions(): Promise<void> {
     let totalGenerated = 0;
     let cappedCount = 0; // ✅ Track how many templates hit the limit
 
+    // ✅ CRITICAL FIX: Batch all recurring instances per template in a single transaction
+    // This dramatically reduces queue entries and improves atomicity
+    // Instead of calling enqueueWrite once per instance, we enqueue once per template
     for (const template of recurringTransactions) {
       if (!template.id || !template.recurrence_frequency) continue;
 
@@ -74,8 +77,39 @@ export async function processRecurringTransactions(): Promise<void> {
       
       totalGenerated += instancesToGenerate.length;
 
-      for (const instanceDate of instancesToGenerate) {
-        await createRecurringInstance(template, instanceDate);
+      // ✅ FIX: Create all instances for this template in a single transaction within one enqueueWrite
+      // This reduces queue entries from N (one per instance) to 1 per template
+      // and improves atomicity
+      if (instancesToGenerate.length > 0) {
+        await enqueueWrite(async () => {
+          const database = await getDb();
+          
+          // Batch all instances for this template in a single transaction
+          await database.withTransactionAsync(async () => {
+            const statement = await database.prepareAsync(
+              `INSERT OR IGNORE INTO transactions 
+               (wallet_id, type, amount, category, date, notes, parent_transaction_id, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+            );
+            
+            try {
+              for (const instanceDate of instancesToGenerate) {
+                await statement.executeAsync([
+                  template.wallet_id,
+                  template.type,
+                  template.amount,
+                  template.category || null,
+                  instanceDate.toISOString(),
+                  template.notes || null,
+                  template.id,
+                  new Date().toISOString()
+                ]);
+              }
+            } finally {
+              await statement.finalizeAsync();
+            }
+          });
+        }, `recurring_template_${template.id}_batch_${instancesToGenerate.length}`);
       }
     }
     
