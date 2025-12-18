@@ -11,7 +11,7 @@ export function useTransactions(page = 0, pageSize = 20) {
   const loadTransactions = useCallback(async () => {
     setLoading(true);
     if (Platform.OS === 'web') {
-      // Skip SQLite-backed calls on web; return empty data
+      // Skip Nitro SQLite-backed calls on web; return empty data
       setTransactions([]);
       setLoading(false);
       return;

@@ -1,7 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { yyyyMmDd } from '../../utils/date';
 import { exec, getDb } from '../db';
-import { enqueueWrite } from '../db/writeQueue';
 import { Alert } from 'react-native';
 
 export interface BackupData {
@@ -25,9 +24,9 @@ export async function createBackup(): Promise<{ success: boolean; uri?: string; 
     }
 
     // Fetch all data
-    const wallets = await exec('SELECT * FROM wallets ORDER BY created_at DESC');
-    const transactions = await exec('SELECT * FROM transactions ORDER BY date DESC');
-    const categories = await exec('SELECT * FROM categories ORDER BY name ASC');
+    const wallets = exec('SELECT * FROM wallets ORDER BY created_at DESC');
+    const transactions = exec('SELECT * FROM transactions ORDER BY date DESC');
+    const categories = exec('SELECT * FROM categories ORDER BY name ASC');
 
     const backupData: BackupData = {
       version: '1.0',
@@ -73,7 +72,6 @@ export async function listBackups(): Promise<{ filename: string; uri: string; da
 
     const backupsDir = `${documentDir}backups`;
     
-    // Check if backups directory exists
     const dirInfo = await FileSystem.getInfoAsync(backupsDir);
     if (!dirInfo.exists) {
       return [];
@@ -102,8 +100,6 @@ export async function listBackups(): Promise<{ filename: string; uri: string; da
 
 /**
  * Restores data from a backup file
- * FIXED: Wrapped in enqueueWrite to serialize with other database writes,
- * and in database transaction for atomicity
  */
 export async function restoreFromBackup(backupUri: string): Promise<{ success: boolean; error?: string }> {
   try {
@@ -115,30 +111,25 @@ export async function restoreFromBackup(backupUri: string): Promise<{ success: b
     if (!backupData.data || !backupData.data.wallets || !backupData.data.transactions) {
       throw new Error('Invalid backup file format');
     }
-
-    // ✅ FIX: Wrap entire restore in enqueueWrite to serialize with other writes
-    // This prevents conflicts if user happens to add/edit data during restore
-    return await enqueueWrite(async () => {
-      const database = await getDb();
-      
-      await database.withTransactionAsync(async () => {
+    
+    const database = getDb();
+    
+    database.transaction(tx => {
       // Clear existing data
-      await database.execAsync('DELETE FROM transactions;');
-      await database.execAsync('DELETE FROM wallets;');
-      await database.execAsync('DELETE FROM categories;');
+      tx.execute('DELETE FROM transactions;');
+      tx.execute('DELETE FROM wallets;');
+      tx.execute('DELETE FROM categories;');
       
       // Reset autoincrement counters
-      await database.execAsync('DELETE FROM sqlite_sequence WHERE name IN ("transactions", "wallets", "categories");');
+      tx.execute('DELETE FROM sqlite_sequence WHERE name IN ("transactions", "wallets", "categories");'); // Nitro SQLite sequence reset
 
       // Restore categories
       if (backupData.data.categories && backupData.data.categories.length > 0) {
-        const catStmt = await database.prepareAsync(
-          `INSERT INTO categories (id, name, type, icon, color, is_preset, created_at) 
-           VALUES (?, ?, ?, ?, ?, ?, ?)`
-        );
-        try {
-          for (const cat of backupData.data.categories) {
-            await catStmt.executeAsync([
+        for (const cat of backupData.data.categories) {
+          tx.execute(
+            `INSERT INTO categories (id, name, type, icon, color, is_preset, created_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
               cat.id, 
               cat.name, 
               cat.type, 
@@ -146,21 +137,17 @@ export async function restoreFromBackup(backupUri: string): Promise<{ success: b
               cat.color || null, 
               cat.is_preset ?? 0, 
               cat.created_at || new Date().toISOString()
-            ]);
-          }
-        } finally {
-          await catStmt.finalizeAsync();
+            ]
+          );
         }
       }
 
       // Restore wallets
-      const walletStmt = await database.prepareAsync(
-        `INSERT INTO wallets (id, name, currency, initial_balance, type, description, color, is_primary, display_order, exchange_rate, created_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      );
-      try {
-        for (const wallet of backupData.data.wallets) {
-          await walletStmt.executeAsync([
+      for (const wallet of backupData.data.wallets) {
+        tx.execute(
+          `INSERT INTO wallets (id, name, currency, initial_balance, type, description, color, is_primary, display_order, exchange_rate, created_at) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
             wallet.id,
             wallet.name,
             wallet.currency,
@@ -172,20 +159,16 @@ export async function restoreFromBackup(backupUri: string): Promise<{ success: b
             wallet.display_order ?? 0,
             wallet.exchange_rate ?? 1.0,
             wallet.created_at || new Date().toISOString(),
-          ]);
-        }
-      } finally {
-        await walletStmt.finalizeAsync();
+          ]
+        );
       }
 
       // Restore transactions
-      const txnStmt = await database.prepareAsync(
-        `INSERT INTO transactions (id, wallet_id, type, amount, category, date, notes, receipt_uri, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id, created_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      );
-      try {
-        for (const txn of backupData.data.transactions) {
-          await txnStmt.executeAsync([
+      for (const txn of backupData.data.transactions) {
+        tx.execute(
+          `INSERT INTO transactions (id, wallet_id, type, amount, category, date, notes, receipt_uri, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id, created_at) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
             txn.id,
             txn.wallet_id,
             txn.type,
@@ -199,19 +182,15 @@ export async function restoreFromBackup(backupUri: string): Promise<{ success: b
             txn.recurrence_end_date || null,
             txn.parent_transaction_id || null,
             txn.created_at || new Date().toISOString(),
-          ]);
-        }
-      } finally {
-        await txnStmt.finalizeAsync();
+          ]
+        );
       }
-      });
+    });
 
-      // ✅ Invalidate caches only after successful restore
-      const { invalidateTransactionCaches } = await import('../cache/queryCache');
-      invalidateTransactionCaches();
+    const { invalidateTransactionCaches } = await import('../cache/queryCache');
+    invalidateTransactionCaches();
 
-      return { success: true };
-    }, 'restore_backup');
+    return { success: true };
   } catch (error) {
     console.error('Error restoring backup:', error);
     return { 

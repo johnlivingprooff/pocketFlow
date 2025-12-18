@@ -1,9 +1,8 @@
-import { exec, execRun, getDb } from './index';
+import { exec, getDb } from './index';
 import { Transaction } from '../../types/transaction';
 import { getWallet } from './wallets';
 import { analyticsCache, generateCacheKey, invalidateTransactionCaches } from '../cache/queryCache';
 import { log } from '../../utils/logger';
-import { enqueueWrite } from './writeQueue';
 import { recalculateGoalProgress, getGoalsByWallet } from './goals';
 import { recalculateBudgetSpending, getBudgetsByWallet } from './budgets';
 
@@ -13,6 +12,7 @@ import { recalculateBudgetSpending, getBudgetsByWallet } from './budgets';
  * @param walletId - Wallet ID to update goals and budgets for
  */
 async function updateGoalsAndBudgets(walletId: number): Promise<void> {
+
   try {
     // Update all goals linked to this wallet
     const goals = await getGoalsByWallet(walletId);
@@ -21,7 +21,6 @@ async function updateGoalsAndBudgets(walletId: number): Promise<void> {
         await recalculateGoalProgress(goal.id);
       }
     }
-
     // Update all budgets linked to this wallet
     const budgets = await getBudgetsByWallet(walletId);
     for (const budget of budgets) {
@@ -35,7 +34,15 @@ async function updateGoalsAndBudgets(walletId: number): Promise<void> {
   }
 }
 
-export async function addTransaction(t: Transaction) {
+// --- Utility: Get transaction by ID (must be above update/delete for use) ---
+export function getById(id: number): Transaction | null {
+  const database = getDb();
+  const results = database.execute('SELECT * FROM transactions WHERE id = ?;', [id]).rows?._array ?? [];
+  return results.length > 0 ? (results[0] as unknown as Transaction) : null;
+}
+
+export function addTransaction(t: Transaction) {
+  const database = getDb();
   const params = [
     t.wallet_id,
     t.type,
@@ -49,245 +56,151 @@ export async function addTransaction(t: Transaction) {
     t.recurrence_end_date ?? null,
     t.parent_transaction_id ?? null,
   ];
-  // Ensure database write completes before invalidating caches
   const startTime = Date.now();
   log(`[Transaction] Adding transaction: type=${t.type}, amount=${t.amount}, wallet=${t.wallet_id}, timestamp=${new Date().toISOString()}`);
-  
-  await execRun(
-    `INSERT INTO transactions 
-     (wallet_id, type, amount, category, date, notes, receipt_uri, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+  database.execute(
+    'INSERT INTO transactions (wallet_id, type, amount, category, date, notes, receipt_uri, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
     params
   );
   const writeTime = Date.now() - startTime;
-  
-  // Invalidate caches synchronously after write completes
-  // This ensures UI always sees fresh data after a transaction is added
   invalidateTransactionCaches();
-  
-  // ✅ CRITICAL FIX: Enhanced logging for release builds to diagnose data loss
-  // Log immediately after successful write, before any async operations
-  // Use console.log directly for guaranteed visibility in release builds
   console.log(`[Transaction] ✓ Transaction saved successfully in ${writeTime}ms, type: ${t.type}, amount: ${t.amount}, wallet: ${t.wallet_id}, timestamp: ${new Date().toISOString()}`);
-  
-  // Update goals and budgets AFTER the write completes (don't await to avoid blocking)
-  // This runs asynchronously and won't block the transaction save
-  updateGoalsAndBudgets(t.wallet_id).catch(err => 
-    console.error('Failed to update goals/budgets after transaction:', err)
-  );
+  try {
+    updateGoalsAndBudgets(t.wallet_id);
+  } catch (err) {
+    console.error('Failed to update goals/budgets after transaction:', err);
+  }
 }
 
-/**
- * Add multiple transactions in a single database transaction for better performance
- * Use this when importing data or creating multiple transactions at once
- * @param transactions - Array of transactions to add
- */
-export async function addTransactionsBatch(transactions: Transaction[]): Promise<void> {
+export function addTransactionsBatch(transactions: Transaction[]): void {
   if (transactions.length === 0) return;
-  
-  // RELEASE-BUILD FIX: Wrap batch transaction in write queue to prevent concurrent writes
-  return enqueueWrite(async () => {
-    const database = await getDb();
-    
-    await database.withTransactionAsync(async () => {
-      const statement = await database.prepareAsync(
-        `INSERT INTO transactions 
-         (wallet_id, type, amount, category, date, notes, receipt_uri, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
-      );
-      
-      try {
-        for (const t of transactions) {
-          await statement.executeAsync([
-            t.wallet_id,
-            t.type,
-            t.amount,
-            t.category ?? null,
-            t.date,
-            t.notes ?? null,
-            t.receipt_uri ?? null,
-            t.is_recurring ? 1 : 0,
-            t.recurrence_frequency ?? null,
-            t.recurrence_end_date ?? null,
-            t.parent_transaction_id ?? null,
-          ]);
-        }
-      } finally {
-        await statement.finalizeAsync();
-      }
-    });
-    
-    // Invalidate caches after batch insert
-    invalidateTransactionCaches();
-    
-    // Update goals and budgets for all affected wallets AFTER the write completes
-    // Run asynchronously to avoid blocking
-    const affectedWallets = new Set(transactions.map(t => t.wallet_id));
-    Promise.all(
-      Array.from(affectedWallets).map(walletId => 
-        updateGoalsAndBudgets(walletId).catch(err => 
-          console.error(`Failed to update goals/budgets for wallet ${walletId}:`, err)
-        )
-      )
-    ).catch(() => {}); // Swallow errors - already logged
-  }, `batch_transactions_${transactions.length}`);
+  const database = getDb();
+  database.execute('BEGIN TRANSACTION;');
+  try {
+    for (const t of transactions) {
+      addTransaction(t);
+    }
+    database.execute('COMMIT;');
+  } catch (err) {
+    database.execute('ROLLBACK;');
+    throw err;
+  }
 }
 
 /**
- * Transfer money between two wallets by creating paired transactions
- * Handles currency conversion using wallet exchange rates
+ * Transfer funds between two wallets (creates paired transactions)
  * @param fromWalletId - Source wallet ID
  * @param toWalletId - Destination wallet ID
- * @param amount - Amount to transfer in source wallet's currency (positive number)
- * @param notes - Optional notes for the transfer
+ * @param amount - Amount to transfer (in source wallet currency)
+ * @param note - Optional note
  */
-export async function transferBetweenWallets(
-  fromWalletId: number,
-  toWalletId: number,
-  amount: number,
-  notes?: string
-) {
+export function transferBetweenWallets(fromWalletId: number, toWalletId: number, amount: number, note?: string): void {
+  const database = getDb();
+  const fromWallet = getWallet(fromWalletId)[0];
+  const toWallet = getWallet(toWalletId)[0];
+  let convertedAmount = amount;
+  if (
+    fromWallet &&
+    toWallet &&
+    fromWallet.currency &&
+    toWallet.currency &&
+    fromWallet.currency !== toWallet.currency &&
+    toWallet.exchange_rate &&
+    fromWallet.exchange_rate
+  ) {
+    convertedAmount = amount * (fromWallet.exchange_rate / toWallet.exchange_rate);
+  }
+  // Create paired transactions
   const now = new Date().toISOString();
-  const transferNote = notes ? `Transfer: ${notes}` : 'Transfer between wallets';
-  
-  // Get wallet details to check currencies and exchange rates
-  const fromWalletResult = await getWallet(fromWalletId);
-  const toWalletResult = await getWallet(toWalletId);
-  
-  if (!fromWalletResult[0] || !toWalletResult[0]) {
-    throw new Error('Wallet not found');
-  }
-  
-  const fromWallet = fromWalletResult[0];
-  const toWallet = toWalletResult[0];
-  
-  // Calculate converted amount if currencies differ
-  let receivedAmount = amount;
-  if (fromWallet.currency !== toWallet.currency) {
-    const fromRate = fromWallet.exchange_rate ?? 1.0;
-    const toRate = toWallet.exchange_rate ?? 1.0;
-    receivedAmount = amount * fromRate / toRate;
-  }
-  
-  // Use batch insert to create both transactions atomically
-  await addTransactionsBatch([
-    {
-      wallet_id: fromWalletId,
-      type: 'expense',
-      amount: -Math.abs(amount),
-      category: 'Transfer',
-      date: now,
-      // Include destination wallet name so UI can show "Transfer to <wallet>"
-      notes: `${transferNote} to ${toWallet.name} (sent ${fromWallet.currency} ${amount.toFixed(2)})`,
-    },
-    {
-      wallet_id: toWalletId,
-      type: 'income',
-      amount: Math.abs(receivedAmount),
-      category: 'Transfer',
-      date: now,
-      // Include source wallet name so UI can show "Transfer from <wallet>"
-      notes: `${transferNote} from ${fromWallet.name} (received ${toWallet.currency} ${receivedAmount.toFixed(2)})`,
-    }
-  ]);
-}
-
-export async function updateTransaction(id: number, t: Partial<Transaction>) {
-  const fields: string[] = [];
-  const params: any[] = [];
-  const set = (k: string, v: any) => {
-    fields.push(`${k} = ?`);
-    params.push(v);
+  const outTx: Transaction = {
+    wallet_id: fromWalletId,
+    type: 'expense',
+    amount: -Math.abs(amount),
+    category: 'Transfer',
+    date: now,
+    notes: note ?? undefined,
+    receipt_uri: undefined,
+    is_recurring: undefined,
+    recurrence_frequency: undefined,
+    recurrence_end_date: undefined,
+    parent_transaction_id: undefined,
   };
-  if (t.wallet_id !== undefined) set('wallet_id', t.wallet_id);
-  if (t.type !== undefined) set('type', t.type);
-  if (t.amount !== undefined) set('amount', t.amount);
-  if (t.category !== undefined) set('category', t.category);
-  if (t.date !== undefined) set('date', t.date);
-  if (t.notes !== undefined) set('notes', t.notes);
-  if (t.receipt_uri !== undefined) set('receipt_uri', t.receipt_uri);
-  params.push(id);
-  // Ensure database write completes before invalidating caches
-  const startTime = Date.now();
-  await execRun(`UPDATE transactions SET ${fields.join(', ')} WHERE id = ?;`, params);
-  const writeTime = Date.now() - startTime;
-  
-  // Invalidate caches synchronously after update completes
+  const inTx: Transaction = {
+    wallet_id: toWalletId,
+    type: 'income',
+    amount: Math.abs(convertedAmount),
+    category: 'Transfer',
+    date: now,
+    notes: note ?? undefined,
+    receipt_uri: undefined,
+    is_recurring: undefined,
+    recurrence_frequency: undefined,
+    recurrence_end_date: undefined,
+    parent_transaction_id: undefined,
+  };
+  // Insert both transactions in a transaction
+  database.execute('BEGIN TRANSACTION;');
+  try {
+    addTransaction(outTx);
+    addTransaction(inTx);
+    database.execute('COMMIT;');
+  } catch (err) {
+    database.execute('ROLLBACK;');
+    throw err;
+  }
   invalidateTransactionCaches();
-  
-  // Log for debugging
-  log(`[DB] Transaction ${id} updated in ${writeTime}ms, fields: ${fields.length}, timestamp: ${new Date().toISOString()}`);
-  
-  // Update goals and budgets AFTER the write completes (don't await to avoid blocking)
-  if (t.wallet_id !== undefined) {
-    updateGoalsAndBudgets(t.wallet_id).catch(err => 
-      console.error('Failed to update goals/budgets after transaction update:', err)
-    );
-  } else {
-    // If wallet wasn't updated, fetch the transaction to get wallet_id
-    getById(id).then(transaction => {
-      if (transaction) {
-        updateGoalsAndBudgets(transaction.wallet_id).catch(err => 
-          console.error('Failed to update goals/budgets after transaction update:', err)
-        );
-      }
-    }).catch(err => console.error('Failed to get transaction for goal/budget update:', err));
+  try {
+    updateGoalsAndBudgets(fromWalletId);
+    updateGoalsAndBudgets(toWalletId);
+  } catch (err) {
+    console.error('Failed to update goals/budgets after transfer:', err);
   }
 }
 
-export async function deleteTransaction(id: number) {
+export function deleteTransaction(id: number): void {
+  const database = getDb();
   // Get transaction wallet_id before deleting
-  const transaction = await getById(id);
-  const walletId = transaction?.wallet_id;
-  
-  // Ensure database write completes before invalidating caches
+  const transaction = getById(id);
+  const walletId = transaction && transaction.wallet_id !== undefined ? transaction.wallet_id : undefined;
   const startTime = Date.now();
-  await execRun('DELETE FROM transactions WHERE id = ?;', [id]);
+  database.execute('DELETE FROM transactions WHERE id = ?;', [id]);
   const writeTime = Date.now() - startTime;
-  
-  // Invalidate caches synchronously after delete completes
   invalidateTransactionCaches();
-  
-  // Log for debugging
   log(`[DB] Transaction ${id} deleted in ${writeTime}ms, timestamp: ${new Date().toISOString()}`);
-  
-  // Update goals and budgets AFTER the write completes (don't await to avoid blocking)
-  if (walletId) {
-    updateGoalsAndBudgets(walletId).catch(err => 
-      console.error('Failed to update goals/budgets after transaction delete:', err)
-    );
+  try {
+    if (walletId !== undefined) {
+      updateGoalsAndBudgets(walletId);
+    }
+  } catch (err) {
+    console.error('Failed to update goals/budgets after transaction delete:', err);
   }
 }
 
-export async function getTransactions(page = 0, pageSize = 20) {
+export function getTransactions(page = 0, pageSize = 20): Transaction[] {
+  const database = getDb();
   const offset = page * pageSize;
-  return exec<Transaction>(
-    `SELECT * FROM transactions ORDER BY date DESC, id DESC LIMIT ? OFFSET ?;`,
+  const results = database.execute(
+    'SELECT * FROM transactions ORDER BY date DESC, id DESC LIMIT ? OFFSET ?;',
     [pageSize, offset]
-  );
+  ).rows?._array ?? [];
+  return results.map(row => row as unknown as Transaction);
+// ...existing code...
 }
-
 /**
  * Get all transactions for a specific date range (for analytics/charting)
  * @param startDate - Start date (inclusive)
  * @param endDate - End date (inclusive)
  * @returns All transactions within the date range, ordered by date DESC
  */
-export async function getTransactionsForPeriod(startDate: Date, endDate: Date) {
+export function getTransactionsForPeriod(startDate: Date, endDate: Date): Transaction[] {
+  const database = getDb();
   const start = startDate.toISOString();
   const end = endDate.toISOString();
-  return exec<Transaction>(
-    `SELECT * FROM transactions WHERE date BETWEEN ? AND ? ORDER BY date DESC, id DESC;`,
+  const results = database.execute(
+    'SELECT * FROM transactions WHERE date BETWEEN ? AND ? ORDER BY date DESC, id DESC;',
     [start, end]
-  );
-}
-
-export async function getById(id: number) {
-  const results = await exec<Transaction>(
-    `SELECT * FROM transactions WHERE id = ?;`,
-    [id]
-  );
-  return results[0] || null;
+  ).rows?._array ?? [];
+  return results.map(row => row as unknown as Transaction);
 }
 
 /**
@@ -302,8 +215,7 @@ export async function getWalletsOrderedByRecentActivity(): Promise<number[]> {
   );
   return rows.map(r => r.wallet_id);
 }
-
-export async function filterTransactions(options: {
+export function filterTransactions(options: {
   startDate?: string;
   endDate?: string;
   walletId?: number;
@@ -312,7 +224,8 @@ export async function filterTransactions(options: {
   search?: string;
   page?: number;
   pageSize?: number;
-}) {
+}): Transaction[] {
+  const database = getDb();
   const where: string[] = [];
   const params: any[] = [];
   const {
@@ -353,9 +266,9 @@ export async function filterTransactions(options: {
   const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
   const sql = `SELECT * FROM transactions ${whereClause} ORDER BY date DESC, id DESC LIMIT ? OFFSET ?;`;
   params.push(pageSize, offset);
-  return exec<Transaction>(sql, params);
+  const results = database.execute(sql, params).rows?._array ?? [];
+  return results.map(row => row as unknown as Transaction);
 }
-
 export async function analyticsTotalsByMonth(year: number, month: number) {
   const start = new Date(year, month - 1, 1).toISOString();
   const end = new Date(year, month, 0, 23, 59, 59).toISOString();
@@ -375,7 +288,6 @@ export async function analyticsTotalsByMonth(year: number, month: number) {
   );
   return { income: income[0]?.total ?? 0, expense: expense[0]?.total ?? 0 };
 }
-
 export async function analyticsCategoryBreakdown(year: number, month: number) {
   const start = new Date(year, month - 1, 1).toISOString();
   const end = new Date(year, month, 0, 23, 59, 59).toISOString();
@@ -388,7 +300,6 @@ export async function analyticsCategoryBreakdown(year: number, month: number) {
     [start, end]
   );
 }
-
 export async function totalAvailableAcrossWallets() {
   const cacheKey = generateCacheKey('totalAvailableAcrossWallets');
   
@@ -410,7 +321,6 @@ export async function totalAvailableAcrossWallets() {
     return result[0]?.total ?? 0;
   });
 }
-
 export async function monthSpend() {
   const now = new Date();
   const cacheKey = generateCacheKey('monthSpend', now.getFullYear(), now.getMonth());
@@ -428,7 +338,6 @@ export async function monthSpend() {
     return result[0]?.total ?? 0;
   });
 }
-
 export async function todaySpend() {
   const today = new Date();
   const cacheKey = generateCacheKey('todaySpend', today.toISOString().split('T')[0]);
@@ -446,7 +355,6 @@ export async function todaySpend() {
     return result[0]?.total ?? 0;
   });
 }
-
 /**
  * Get income and expense totals for a custom date range
  * @param startDate - Start date (inclusive)
@@ -481,7 +389,6 @@ export async function getIncomeExpenseForPeriod(startDate: Date, endDate: Date) 
     net: incomeTotal - expenseTotal 
   };
 }
-
 export async function categoryBreakdown() {
   const now = new Date();
   const cacheKey = generateCacheKey('categoryBreakdown', now.getFullYear(), now.getMonth());
@@ -499,7 +406,6 @@ export async function categoryBreakdown() {
     );
   });
 }
-
 // Phase 1 Analytics: Enhanced calculations
 
 // Helper constant for date calculations
@@ -539,7 +445,6 @@ export async function weekOverWeekComparison() {
   
   return { thisWeek, lastWeek, change };
 }
-
 export async function incomeVsExpenseAnalysis(period: 'current' | 'last' = 'current') {
   const now = new Date();
   const startDate = period === 'last'
@@ -573,7 +478,6 @@ export async function incomeVsExpenseAnalysis(period: 'current' | 'last' = 'curr
   
   return { income: incomeTotal, expense: expenseTotal, netSavings, savingsRate };
 }
-
 export async function getSpendingStreak() {
   const transactions = await exec<{ date: string }>(
     `SELECT DISTINCT date FROM transactions WHERE type = 'expense' AND (category IS NULL OR category <> 'Transfer') ORDER BY date DESC;`
@@ -629,7 +533,6 @@ export async function getSpendingStreak() {
   
   return { currentStreak, longestStreak, lastSpendDate: transactions[0].date };
 }
-
 export async function getMonthProgress() {
   const now = new Date();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -638,7 +541,6 @@ export async function getMonthProgress() {
   
   return { currentDay, daysInMonth, progressPercentage, daysRemaining: daysInMonth - currentDay };
 }
-
 export async function getTopSpendingDay() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -657,7 +559,6 @@ export async function getTopSpendingDay() {
   
   return result[0] ? { date: result[0].date, total: result[0].total } : null;
 }
-
 export async function getTransactionCounts() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -674,7 +575,6 @@ export async function getTransactionCounts() {
   
   return { incomeCount: income[0]?.count ?? 0, expenseCount: expense[0]?.count ?? 0, total: (income[0]?.count ?? 0) + (expense[0]?.count ?? 0) };
 }
-
 export async function getAveragePurchaseSize() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -690,7 +590,6 @@ export async function getAveragePurchaseSize() {
   
   return { average: result[0]?.avg ?? 0, count: result[0]?.count ?? 0 };
 }
-
 // Phase 2: Chart Data Functions
 
 export async function getSevenDaySpendingTrend() {
@@ -734,7 +633,6 @@ export async function getSevenDaySpendingTrend() {
   
   return data;
 }
-
 export async function getDailySpendingForMonth() {
   const now = new Date();
   const year = now.getFullYear();
@@ -774,7 +672,6 @@ export async function getDailySpendingForMonth() {
   
   return data;
 }
-
 export async function getMonthlyComparison() {
   const now = new Date();
   
@@ -832,13 +729,12 @@ export async function getMonthlyComparison() {
     }
   };
 }
-
 export async function getCategorySpendingForPieChart() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
   
-  const result = await exec<{ category: string; total: number }>(
+  return await exec<{ category: string; total: number }>(
     `SELECT t.category, COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
      FROM transactions t
      LEFT JOIN wallets w ON t.wallet_id = w.id 
@@ -847,10 +743,7 @@ export async function getCategorySpendingForPieChart() {
      ORDER BY total DESC;`,
     [start, end]
   );
-  
-  return result;
 }
-
 // Phase 4: Time Period Filtering Functions
 
 export async function getSpendingTrendForPeriod(period: 'week' | 'month' | 'quarter' | 'year') {
@@ -963,42 +856,7 @@ export async function getSpendingTrendForPeriod(period: 'week' | 'month' | 'quar
     
     return dataPoints;
   }
-  
-  return [];
 }
-
-export async function getCategorySpendingForPeriod(period: 'week' | 'month' | 'quarter' | 'year') {
-  const now = new Date();
-  let startDate: Date;
-  
-  if (period === 'week') {
-    startDate = new Date(now);
-    startDate.setDate(now.getDate() - 7);
-  } else if (period === 'month') {
-    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-  } else if (period === 'quarter') {
-    startDate = new Date(now);
-    startDate.setMonth(now.getMonth() - 3);
-  } else {
-    startDate = new Date(now.getFullYear(), 0, 1);
-  }
-  
-  const start = startDate.toISOString();
-  const end = now.toISOString();
-  
-  const result = await exec<{ category: string; total: number }>(
-    `SELECT t.category, COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
-     FROM transactions t 
-     LEFT JOIN wallets w ON t.wallet_id = w.id
-     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND t.category IS NOT NULL AND t.category <> 'Transfer'
-     GROUP BY t.category 
-     ORDER BY total DESC;`,
-    [start, end]
-  );
-  
-  return result;
-}
-
 export async function getTransactionsByCategory(category: string, period: 'week' | 'month' | 'quarter' | 'year' = 'month') {
   const now = new Date();
   let startDate: Date;
@@ -1026,6 +884,10 @@ export async function getTransactionsByCategory(category: string, period: 'week'
      ORDER BY t.date DESC;`,
     [category, start, end]
   );
-  
-  return result;
+  return result.map(row => ({
+    id: row.id,
+    amount: row.amount,
+    date: row.date,
+    notes: row.notes,
+  }));
 }

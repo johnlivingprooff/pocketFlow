@@ -399,3 +399,4 @@ export function Screen() {
 - All features should work **without internet connection**
 - Security is critical: validate inputs, use parameterized queries
 - **Never** introduce external dependencies for core features unless absolutely necessary
+- When in doubt, refer to existing implementations in the codebase

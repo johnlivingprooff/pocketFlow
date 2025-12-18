@@ -180,7 +180,9 @@ export default function CreateWallet() {
       </TouchableOpacity>
 
       <Text style={{ color: t.textSecondary, fontSize: 14, fontWeight: '600', marginBottom: 6 }}>Type</Text>
-      <TouchableOpacity 
+          // Use Nitro SQLite write queue pattern for wallet creation
+          await createWallet(walletData);
+          router.back();
         onPress={() => setShowTypePicker(true)}
         style={{ 
           backgroundColor: t.card,

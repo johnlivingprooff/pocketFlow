@@ -135,24 +135,8 @@ export default function CreateBudgetScreen() {
 
   const handleCreate = async () => {
     if (!validateForm()) return;
-
     try {
-      setSaving(true);
-      
-      // Close any open modals before navigating
-      setShowStartPicker(false);
-      setShowEndPicker(false);
-
-      console.log('[Budget Create] Starting creation with data:', {
-        name: name.trim(),
-        categoryId: selectedCategory,
-        limitAmount: parseFloat(limitAmount),
-        periodType,
-        startDate,
-        endDate,
-        linkedWalletId: selectedWallet,
-      });
-
+      // Use Nitro SQLite write queue pattern for budget creation
       await createBudget({
         name: name.trim(),
         categoryId: selectedCategory!,
@@ -161,23 +145,12 @@ export default function CreateBudgetScreen() {
         startDate,
         endDate,
         linkedWalletId: selectedWallet!,
-          notes: notes.trim() || undefined,
+        notes: notes.trim() || undefined,
       });
-
-      console.log('[Budget Create] Budget created successfully');
-      // Invalidate caches so budget page will reload with new data
-      const { invalidateTransactionCaches } = await import('@/lib/cache/queryCache');
-      invalidateTransactionCaches();
-      Alert.alert('Success', 'Budget created successfully', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]);
-    } catch (err: any) {
-      console.error('[Budget Create] Error creating budget:', err);
-      logError('Failed to create budget:', { error: err });
-      Alert.alert('Error', `Failed to create budget: ${err.message || 'Unknown error'}`);
+      router.back();
+    } catch (e) {
+      Alert.alert('Error', 'Failed to create budget');
+    }
     } finally {
       setSaving(false);
     }

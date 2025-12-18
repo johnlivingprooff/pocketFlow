@@ -19,13 +19,19 @@ const TrashIcon = ({ size = 18, color = '#fff' }) => (
     <Path d="M6 7v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
     <Path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
-);
-
-export default function WalletDetail() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const walletId = Number(id);
-  const { themeMode, defaultCurrency } = useSettings();
-  const systemColorScheme = useColorScheme();
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Use Nitro SQLite write queue pattern for wallet deletion
+              await deleteWallet(walletId);
+              router.back();
+            } catch (e) {
+              Alert.alert('Error', 'Failed to delete wallet');
+            }
+          },
+        },
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const t = theme(effectiveMode);
   const [wallet, setWallet] = useState<Wallet | null>(null);

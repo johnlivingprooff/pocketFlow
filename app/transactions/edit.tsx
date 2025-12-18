@@ -91,7 +91,9 @@ export default function EditTransaction() {
       return;
     }
     try {
-      await updateTransaction(Number(id), {
+      // Use Nitro SQLite write queue pattern for transaction update
+      await updateTransaction({
+        id: Number(id),
         type,
         amount: type === 'expense' ? -Math.abs(value) : Math.abs(value),
         category: category || null,

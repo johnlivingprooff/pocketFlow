@@ -4,7 +4,9 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { useSettings } from '../src/store/useStore';
 import { ensureTables } from '../src/lib/db';
-import { flushWriteQueue } from '../src/lib/db/writeQueue';
+import { startDatabaseHealthCheck, stopDatabaseHealthCheck } from '../src/lib/db/healthCheck';
+import { on as onEvent, off as offEvent } from '../src/lib/events/eventBus';
+import { warn as logWarn } from '../src/utils/logger';
 import { processRecurringTransactions } from '../src/lib/services/recurringTransactionService';
 import { theme, shadows } from '../src/theme/theme';
 import { authenticateWithBiometrics, shouldRequireAuth } from '../src/lib/services/biometricService';
@@ -40,11 +42,22 @@ export default function RootLayout() {
           await processRecurringTransactions();
           await maybeRunAutoBackup();
           setDbReady(true);
+          // Start passive DB health monitoring (logs only)
+          startDatabaseHealthCheck(60000);
         })
         .catch(err => {
           console.error('Failed to initialize database:', err);
           setDbReady(true); // Still show app even if DB fails
         });
+      // Subscribe to fatal DB signals and log (no UI impact)
+      const unsubscribe = onEvent('db:fatal', (payload) => {
+        logWarn('[App] DB fatal signal received', payload as any);
+      });
+      return () => {
+        // Cleanup on unmount
+        try { stopDatabaseHealthCheck(); } catch {}
+        unsubscribe?.();
+      };
     }
   }, []);
 
@@ -61,13 +74,19 @@ export default function RootLayout() {
     }
   }, [biometricEnabled, biometricSetupComplete, dbReady]);
 
+
   useEffect(() => {
     // Handle app state changes (background/foreground)
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription.remove();
   }, [biometricEnabled, biometricSetupComplete, lastAuthTime]);
 
-  const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+  // FIX: Make the event handler synchronous, and call async logic separately
+  const handleAppStateChange = (nextAppState: AppStateStatus) => {
+    handleAppStateChangeAsync(nextAppState);
+  };
+
+  const handleAppStateChangeAsync = async (nextAppState: AppStateStatus) => {
     if (nextAppState === 'active') {
       // App came to foreground, process recurring transactions
       if (Platform.OS !== 'web') {
@@ -75,11 +94,9 @@ export default function RootLayout() {
         // This prevents stale cached data from being displayed after app resume
         const { invalidateTransactionCaches } = await import('../src/lib/cache/queryCache');
         invalidateTransactionCaches();
-        
         await processRecurringTransactions();
         await maybeRunAutoBackup();
       }
-      
       if (biometricEnabled && biometricSetupComplete) {
         // Check if auth is needed
         if (shouldRequireAuth(lastAuthTime)) {
@@ -95,7 +112,6 @@ export default function RootLayout() {
         await flushWriteQueue();
         console.log('[App] Write queue flushed before background');
       }
-      
       // Force re-auth on next launch after the app is backgrounded/closed
       setLastAuthTime(null);
       setIsAuthenticated(false);

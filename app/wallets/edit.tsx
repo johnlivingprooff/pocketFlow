@@ -84,15 +84,14 @@ export default function EditWallet() {
     }
 
     try {
+      // Use Nitro SQLite write queue pattern for updates
       const updateData: any = {
-        name,
+        name: name.trim(),
         currency,
         exchange_rate: rate,
         color,
         is_primary: isPrimary,
       };
-
-      // Add conditional fields based on wallet type
       if (wallet?.type === 'Bank Account') {
         updateData.accountType = accountType;
         updateData.accountNumber = accountNumber.trim();
@@ -100,12 +99,9 @@ export default function EditWallet() {
         updateData.phoneNumber = phoneNumber.trim();
         updateData.serviceProvider = serviceProvider;
       }
-
       await updateWallet(walletId, updateData);
-      Alert.alert('Success', 'Wallet updated');
       router.back();
     } catch (e) {
-      console.error(e);
       Alert.alert('Error', 'Failed to update wallet');
     }
   };

@@ -4,25 +4,17 @@
  */
 
 import { Budget, BudgetWithMetrics, BudgetInput } from '@/types/goal';
-import { enqueueWrite } from './writeQueue';
-import { execRun, exec } from '.';
+import { exec, execRun } from '.';
 
 /**
  * Create a new budget
  * @param budget Budget data to create
  * @returns Created budget with ID
  */
-export async function createBudget(budget: BudgetInput): Promise<Budget> {
+export function createBudget(budget: BudgetInput): Budget {
   const now = new Date().toISOString();
-  const createdBudget: Budget = {
-    ...budget,
-    currentSpending: 0,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  // execRun already uses enqueueWrite internally, so don't double-wrap
-  await execRun(
+  
+  const result = execRun(
     `INSERT INTO budgets (name, category_id, subcategory_id, limit_amount, current_spending,
                           period_type, start_date, end_date, notes, linked_wallet_id,
                           created_at, updated_at)
@@ -43,16 +35,22 @@ export async function createBudget(budget: BudgetInput): Promise<Budget> {
     ]
   );
 
-  return createdBudget;
+  return {
+    ...budget,
+    id: result.lastInsertRowId,
+    currentSpending: 0,
+    createdAt: now,
+    updatedAt: now,
+  };
 }
 
 /**
  * Get all budgets
  * @returns Array of budgets
  */
-export async function getBudgets(): Promise<Budget[]> {
+export function getBudgets(): Budget[] {
   try {
-    const budgets = await exec<Budget>(
+    const budgets = exec<Budget>(
       `SELECT id, name, category_id as categoryId, subcategory_id as subcategoryId,
               limit_amount as limitAmount, current_spending as currentSpending,
               period_type as periodType, start_date as startDate, end_date as endDate,
@@ -72,10 +70,10 @@ export async function getBudgets(): Promise<Budget[]> {
  * Get active budgets (within current period)
  * @returns Array of active budgets
  */
-export async function getActiveBudgets(): Promise<Budget[]> {
+export function getActiveBudgets(): Budget[] {
   try {
     const today = new Date().toISOString();
-    const budgets = await exec<Budget>(
+    const budgets = exec<Budget>(
       `SELECT id, name, category_id as categoryId, subcategory_id as subcategoryId,
               limit_amount as limitAmount, current_spending as currentSpending,
               period_type as periodType, start_date as startDate, end_date as endDate,
@@ -98,9 +96,9 @@ export async function getActiveBudgets(): Promise<Budget[]> {
  * @param id Budget ID
  * @returns Budget or null if not found
  */
-export async function getBudgetById(id: number): Promise<Budget | null> {
+export function getBudgetById(id: number): Budget | null {
   try {
-    const result = await exec<Budget>(
+    const result = exec<Budget>(
       `SELECT id, name, category_id as categoryId, subcategory_id as subcategoryId,
               limit_amount as limitAmount, current_spending as currentSpending,
               period_type as periodType, start_date as startDate, end_date as endDate,
@@ -122,8 +120,8 @@ export async function getBudgetById(id: number): Promise<Budget | null> {
  * @param id Budget ID
  * @returns Budget with metrics or null
  */
-export async function getBudgetWithMetrics(id: number): Promise<BudgetWithMetrics | null> {
-  const budget = await getBudgetById(id);
+export function getBudgetWithMetrics(id: number): BudgetWithMetrics | null {
+  const budget = getBudgetById(id);
   if (!budget) return null;
 
   return calculateBudgetMetrics(budget);
@@ -134,7 +132,7 @@ export async function getBudgetWithMetrics(id: number): Promise<BudgetWithMetric
  * @param id Budget ID
  * @param updates Partial budget data to update
  */
-export async function updateBudget(id: number, updates: Partial<BudgetInput>): Promise<void> {
+export function updateBudget(id: number, updates: Partial<BudgetInput>): void {
   const now = new Date().toISOString();
 
   // Build dynamic update query
@@ -177,7 +175,7 @@ export async function updateBudget(id: number, updates: Partial<BudgetInput>): P
     fields.push('linked_wallet_id = ?');
     values.push(updates.linkedWalletId);
     // If wallet changed, recalculate spending
-    const budget = await getBudgetById(id);
+    const budget = getBudgetById(id);
     if (budget && budget.linkedWalletId !== updates.linkedWalletId) {
       fields.push('current_spending = ?');
       values.push(0);
@@ -190,8 +188,7 @@ export async function updateBudget(id: number, updates: Partial<BudgetInput>): P
   values.push(now);
   values.push(id);
 
-  // execRun already serializes via the write queue; do not double-wrap
-  await execRun(
+  execRun(
     `UPDATE budgets SET ${fields.join(', ')} WHERE id = ?`,
     values
   );
@@ -201,9 +198,8 @@ export async function updateBudget(id: number, updates: Partial<BudgetInput>): P
  * Delete a budget
  * @param id Budget ID
  */
-export async function deleteBudget(id: number): Promise<void> {
-  // execRun already serializes via the write queue
-  await execRun('DELETE FROM budgets WHERE id = ?', [id]);
+export function deleteBudget(id: number): void {
+  execRun('DELETE FROM budgets WHERE id = ?', [id]);
 }
 
 /**
@@ -211,8 +207,8 @@ export async function deleteBudget(id: number): Promise<void> {
  * Call this after creating/updating/deleting transactions
  * @param budgetId Budget ID
  */
-export async function recalculateBudgetSpending(budgetId: number): Promise<void> {
-  const budget = await getBudgetById(budgetId);
+export function recalculateBudgetSpending(budgetId: number): void {
+  const budget = getBudgetById(budgetId);
   if (!budget) return;
 
   try {
@@ -221,7 +217,7 @@ export async function recalculateBudgetSpending(budgetId: number): Promise<void>
     
     if (budget.categoryId) {
       // Get the category and all its subcategories
-      const categoryResult = await exec<{ name: string }>(
+      const categoryResult = exec<{ name: string }>(
         'SELECT name FROM categories WHERE id = ?',
         [budget.categoryId]
       );
@@ -229,7 +225,7 @@ export async function recalculateBudgetSpending(budgetId: number): Promise<void>
         categoryNames.push(categoryResult[0].name);
         
         // Also get subcategories
-        const subcategories = await exec<{ name: string }>(
+        const subcategories = exec<{ name: string }>(
           'SELECT name FROM categories WHERE parent_category_id = ?',
           [budget.categoryId]
         );
@@ -237,7 +233,7 @@ export async function recalculateBudgetSpending(budgetId: number): Promise<void>
       }
     } else if (budget.subcategoryId) {
       // Just get the specific subcategory
-      const subcategoryResult = await exec<{ name: string }>(
+      const subcategoryResult = exec<{ name: string }>(
         'SELECT name FROM categories WHERE id = ?',
         [budget.subcategoryId]
       );
@@ -263,11 +259,10 @@ export async function recalculateBudgetSpending(budgetId: number): Promise<void>
       params.push(...categoryNames);
     }
 
-    const result = await exec<{ total: number }>(query, params);
+    const result = exec<{ total: number }>(query, params);
     const totalSpending = result[0]?.total || 0;
 
-    // execRun already serializes via the write queue
-    await execRun(
+    execRun(
       `UPDATE budgets SET current_spending = ?, updated_at = ? WHERE id = ?`,
       [totalSpending, new Date().toISOString(), budgetId]
     );
@@ -281,9 +276,9 @@ export async function recalculateBudgetSpending(budgetId: number): Promise<void>
  * @param walletId Wallet ID
  * @returns Array of budgets linked to wallet
  */
-export async function getBudgetsByWallet(walletId: number): Promise<Budget[]> {
+export function getBudgetsByWallet(walletId: number): Budget[] {
   try {
-    const budgets = await exec<Budget>(
+    const budgets = exec<Budget>(
       `SELECT id, name, category_id as categoryId, subcategory_id as subcategoryId,
               limit_amount as limitAmount, current_spending as currentSpending,
               period_type as periodType, start_date as startDate, end_date as endDate,
@@ -306,9 +301,9 @@ export async function getBudgetsByWallet(walletId: number): Promise<Budget[]> {
  * @param categoryId Category ID
  * @returns Array of budgets for category
  */
-export async function getBudgetsByCategory(categoryId: number): Promise<Budget[]> {
+export function getBudgetsByCategory(categoryId: number): Budget[] {
   try {
-    const budgets = await exec<Budget>(
+    const budgets = exec<Budget>(
       `SELECT id, name, category_id as categoryId, subcategory_id as subcategoryId,
               limit_amount as limitAmount, current_spending as currentSpending,
               period_type as periodType, start_date as startDate, end_date as endDate,
@@ -358,9 +353,9 @@ export function calculateBudgetMetrics(budget: Budget): BudgetWithMetrics {
  * Get budgets that are over limit
  * @returns Array of over-budget budgets
  */
-export async function getOverBudgets(): Promise<BudgetWithMetrics[]> {
+export function getOverBudgets(): BudgetWithMetrics[] {
   try {
-    const budgets = await getActiveBudgets();
+    const budgets = getActiveBudgets();
     return budgets
       .map(calculateBudgetMetrics)
       .filter((b) => b.isOverBudget)
@@ -375,9 +370,9 @@ export async function getOverBudgets(): Promise<BudgetWithMetrics[]> {
  * Get budgets approaching limit (>75%)
  * @returns Array of approaching-limit budgets
  */
-export async function getApproachingLimitBudgets(): Promise<BudgetWithMetrics[]> {
+export function getApproachingLimitBudgets(): BudgetWithMetrics[] {
   try {
-    const budgets = await getActiveBudgets();
+    const budgets = getActiveBudgets();
     return budgets
       .map(calculateBudgetMetrics)
       .filter((b) => !b.isOverBudget && b.percentageUsed >= 75)

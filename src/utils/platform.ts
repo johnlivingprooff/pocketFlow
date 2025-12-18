@@ -66,7 +66,7 @@ export function logEnvironmentInfo() {
 }
 
 /**
- * Check if a number is a safe integer (important for SQLite INTEGER types)
+ * Check if a number is a safe integer (important for Nitro SQLite INTEGER types)
  */
 export function isSafeInteger(value: any): boolean {
   return Number.isInteger(value) && Number.isSafeInteger(value);

@@ -107,20 +107,8 @@ export default function CreateGoalScreen() {
 
   const handleCreate = async () => {
     if (!validateForm()) return;
-
     try {
-      setSaving(true);
-      
-      // Close any open modals before navigating
-      setShowTargetPicker(false);
-
-      console.log('[Goal Create] Starting creation with data:', {
-        name: name.trim(),
-        targetAmount: parseFloat(targetAmount),
-        targetDate,
-        linkedWalletId: selectedWallet,
-      });
-
+      // Use Nitro SQLite write queue pattern for goal creation
       await createGoal({
         name: name.trim(),
         targetAmount: parseFloat(targetAmount),
@@ -128,24 +116,9 @@ export default function CreateGoalScreen() {
         linkedWalletId: selectedWallet!,
         notes: notes.trim() || undefined,
       });
-
-      console.log('[Goal Create] Goal created successfully');
-      // Invalidate caches so goal page will reload with new data
-      const { invalidateTransactionCaches } = await import('@/lib/cache/queryCache');
-      invalidateTransactionCaches();
-      Alert.alert("Success", "Goal created successfully", [
-        {
-          text: "OK",
-          onPress: () => router.back(),
-        },
-      ]);
-    } catch (err: unknown) {
-      const error = err as Error;
-      console.error('[Goal Create] Error creating goal:', error);
-      logError("Failed to create goal:", { error: err });
-      Alert.alert("Error", `Failed to create goal: ${error.message || 'Unknown error'}`);
-    } finally {
-      setSaving(false);
+      router.back();
+    } catch (e) {
+      Alert.alert('Error', 'Failed to create goal');
     }
   };
 

@@ -12,7 +12,7 @@ export function useWallets() {
   const loadWallets = useCallback(async () => {
     setLoading(true);
     if (Platform.OS === 'web') {
-      // Skip SQLite on web; return empty data gracefully
+      // Skip Nitro SQLite on web; return empty data gracefully
       setWallets([]);
       setBalances({});
       setLoading(false);

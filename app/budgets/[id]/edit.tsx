@@ -162,11 +162,10 @@ export default function EditBudgetScreen() {
 
   const handleUpdate = async () => {
     if (!validateForm() || !budgetId) return;
-
     try {
-      setSaving(true);
-
-      await updateBudget(budgetId, {
+      // Use Nitro SQLite write queue pattern for budget update
+      await updateBudget({
+        id: budgetId,
         name: name.trim(),
         categoryId: selectedCategory!,
         limitAmount: parseFloat(limitAmount),
@@ -174,10 +173,12 @@ export default function EditBudgetScreen() {
         startDate,
         endDate,
         linkedWalletId: selectedWallet!,
-          notes: notes.trim() || undefined,
+        notes: notes.trim() || undefined,
       });
-
-      Alert.alert('Success', 'Budget updated successfully', [
+      router.back();
+    } catch (e) {
+      Alert.alert('Error', 'Failed to update budget');
+    }
         {
           text: 'OK',
           onPress: () => router.back(),

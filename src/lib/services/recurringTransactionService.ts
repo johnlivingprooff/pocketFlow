@@ -1,5 +1,4 @@
-import { exec, execRun, getDb } from '../db';
-import { enqueueWrite } from '../db/writeQueue';
+import { exec, getDb } from '../db';
 import { Transaction, RecurrenceFrequency } from '../../types/transaction';
 
 // Maximum number of recurring instances to generate per processing run
@@ -12,10 +11,8 @@ let processingRecurring = false;
 /**
  * Processes all recurring transactions and generates new instances if needed.
  * Should be called on app startup or when returning to foreground.
- * FIXED: Added in-memory lock to prevent concurrent processing
  */
-export async function processRecurringTransactions(): Promise<void> {
-  // ✅ FIX: Check if already processing
+export function processRecurringTransactions(): void {
   if (processingRecurring) {
     console.log('[Recurring] Already processing, skipping duplicate call');
     return;
@@ -25,8 +22,7 @@ export async function processRecurringTransactions(): Promise<void> {
   const startTime = Date.now();
   
   try {
-    // Get all recurring transactions (templates)
-    const recurringTransactions = await exec<Transaction>(
+    const recurringTransactions = exec<Transaction>(
       `SELECT * FROM transactions 
        WHERE is_recurring = 1 
        AND (recurrence_end_date IS NULL OR recurrence_end_date >= date('now'))`
@@ -36,29 +32,23 @@ export async function processRecurringTransactions(): Promise<void> {
     now.setHours(0, 0, 0, 0); // Start of today
     
     let totalGenerated = 0;
-    let cappedCount = 0; // ✅ Track how many templates hit the limit
+    let cappedCount = 0;
 
-    // ✅ CRITICAL FIX: Batch all recurring instances per template in a single transaction
-    // This dramatically reduces queue entries and improves atomicity
-    // Instead of calling enqueueWrite once per instance, we enqueue once per template
     for (const template of recurringTransactions) {
       if (!template.id || !template.recurrence_frequency) continue;
 
-      // Find the last generated instance for this template
-      const lastGenerated = await exec<{ date: string }>(
+      const lastGenerated = exec<{ date: string }>(
         `SELECT date FROM transactions 
          WHERE parent_transaction_id = ? 
          ORDER BY date DESC LIMIT 1`,
         [template.id]
       );
 
-      // Determine the start date for generation
       let startDate = new Date(template.date);
       if (lastGenerated.length > 0) {
         startDate = new Date(lastGenerated[0].date);
       }
 
-      // Generate missing instances up to today
       const instancesToGenerate = calculateMissingInstances(
         startDate,
         now,
@@ -66,7 +56,6 @@ export async function processRecurringTransactions(): Promise<void> {
         template.recurrence_end_date
       );
       
-      // ✅ Check if generation was capped
       if (instancesToGenerate.length === MAX_INSTANCES_PER_BATCH) {
         cappedCount++;
         console.log(
@@ -77,39 +66,27 @@ export async function processRecurringTransactions(): Promise<void> {
       
       totalGenerated += instancesToGenerate.length;
 
-      // ✅ FIX: Create all instances for this template in a single transaction within one enqueueWrite
-      // This reduces queue entries from N (one per instance) to 1 per template
-      // and improves atomicity
       if (instancesToGenerate.length > 0) {
-        await enqueueWrite(async () => {
-          const database = await getDb();
-          
-          // Batch all instances for this template in a single transaction
-          await database.withTransactionAsync(async () => {
-            const statement = await database.prepareAsync(
+        const db = getDb();
+        db.transaction(tx => {
+          for (const instanceDate of instancesToGenerate) {
+            tx.execute(
               `INSERT OR IGNORE INTO transactions 
                (wallet_id, type, amount, category, date, notes, parent_transaction_id, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                template.wallet_id,
+                template.type,
+                template.amount,
+                template.category || null,
+                instanceDate.toISOString(),
+                template.notes || null,
+                template.id,
+                new Date().toISOString()
+              ]
             );
-            
-            try {
-              for (const instanceDate of instancesToGenerate) {
-                await statement.executeAsync([
-                  template.wallet_id,
-                  template.type,
-                  template.amount,
-                  template.category || null,
-                  instanceDate.toISOString(),
-                  template.notes || null,
-                  template.id,
-                  new Date().toISOString()
-                ]);
-              }
-            } finally {
-              await statement.finalizeAsync();
-            }
-          });
-        }, `recurring_template_${template.id}_batch_${instancesToGenerate.length}`);
+          }
+        });
       }
     }
     
@@ -119,7 +96,6 @@ export async function processRecurringTransactions(): Promise<void> {
       `generated ${totalGenerated} instances in ${duration}ms`
     );
     
-    // ✅ Log summary if any templates were capped
     if (cappedCount > 0) {
       console.log(
         `[Recurring] ${cappedCount} template(s) reached the ${MAX_INSTANCES_PER_BATCH} instance limit. ` +
@@ -135,7 +111,6 @@ export async function processRecurringTransactions(): Promise<void> {
 
 /**
  * Calculate which dates need transaction instances generated
- * FIXED: Added maxInstances parameter to prevent unbounded generation
  */
 function calculateMissingInstances(
   startDate: Date,
@@ -149,12 +124,9 @@ function calculateMissingInstances(
   const end = new Date(endDate);
   const recurEnd = recurrenceEndDate ? new Date(recurrenceEndDate) : null;
 
-  // Start from the next occurrence after startDate
   advanceDate(current, frequency);
 
-  // ✅ FIX: Add maxInstances limit to while condition
   while (current <= end && instances.length < maxInstances) {
-    // Check if we've passed the recurrence end date
     if (recurEnd && current > recurEnd) break;
 
     instances.push(new Date(current));
@@ -164,9 +136,6 @@ function calculateMissingInstances(
   return instances;
 }
 
-/**
- * Advance a date by one recurrence period
- */
 function advanceDate(date: Date, frequency: RecurrenceFrequency): void {
   switch (frequency) {
     case 'daily':
@@ -184,82 +153,32 @@ function advanceDate(date: Date, frequency: RecurrenceFrequency): void {
   }
 }
 
-/**
- * Create a new transaction instance from a recurring template
- * FIXED: Uses INSERT OR IGNORE to prevent duplicates and enqueueWrite for serialization
- */
-async function createRecurringInstance(
-  template: Transaction,
-  instanceDate: Date
-): Promise<void> {
-  const dateStr = instanceDate.toISOString();
-
-  // ✅ FIX: Wrap in enqueueWrite to serialize with other writes
-  await enqueueWrite(async () => {
-    // ✅ FIX: Use INSERT OR IGNORE to prevent duplicate instances
-    // This makes the operation idempotent
-    const database = await getDb();
-    await database.runAsync(
-      `INSERT OR IGNORE INTO transactions 
-       (wallet_id, type, amount, category, date, notes, parent_transaction_id, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        template.wallet_id,
-        template.type,
-        template.amount,
-        template.category || null,
-        dateStr,
-        template.notes || null,
-        template.id,
-        new Date().toISOString()
-      ]
-    );
-  }, `recurring_instance_${template.id}_${dateStr}`);
-}
-
-/**
- * Get all recurring transaction templates (not the generated instances)
- */
-export async function getRecurringTemplates(): Promise<Transaction[]> {
-  return await exec<Transaction>(
+export function getRecurringTemplates(): Transaction[] {
+  return exec<Transaction>(
     `SELECT * FROM transactions 
      WHERE is_recurring = 1 
      ORDER BY date DESC`
   );
 }
 
-/**
- * Cancel a recurring transaction (stops future generations)
- */
-export async function cancelRecurringTransaction(templateId: number): Promise<void> {
-  // ✅ FIX: Wrap in enqueueWrite for proper serialization
-  await enqueueWrite(async () => {
-    const database = await getDb();
-    await database.runAsync(
-      `UPDATE transactions 
-       SET is_recurring = 0, recurrence_end_date = date('now') 
-       WHERE id = ?`,
-      [templateId]
-    );
-  }, `cancel_recurring_${templateId}`);
+export function cancelRecurringTransaction(templateId: number): void {
+  exec(
+    `UPDATE transactions 
+     SET is_recurring = 0, recurrence_end_date = date('now') 
+     WHERE id = ?`,
+    [templateId]
+  );
 }
 
-/**
- * Update recurring transaction settings
- */
-export async function updateRecurringTransaction(
+export function updateRecurringTransaction(
   templateId: number,
   frequency: RecurrenceFrequency,
   endDate?: string
-): Promise<void> {
-  // ✅ FIX: Wrap in enqueueWrite for proper serialization
-  await enqueueWrite(async () => {
-    const database = await getDb();
-    await database.runAsync(
-      `UPDATE transactions 
-       SET recurrence_frequency = ?, recurrence_end_date = ? 
-       WHERE id = ?`,
-      [frequency, endDate || null, templateId]
-    );
-  }, `update_recurring_${templateId}`);
+): void {
+  exec(
+    `UPDATE transactions 
+     SET recurrence_frequency = ?, recurrence_end_date = ? 
+     WHERE id = ?`,
+    [frequency, endDate || null, templateId]
+  );
 }

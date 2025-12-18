@@ -2,7 +2,7 @@
   "expo": {
     "name": "pocketFlow",
     "slug": "pocketflow",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/app_icon.png",
     "userInterfaceStyle": "automatic",
@@ -35,13 +35,13 @@
     "scheme": "pocketflow",
     "plugins": [
       "expo-router",
-      "expo-sqlite",
       [
         "expo-local-authentication",
         {
           "faceIDPermission": "Allow pocketFlow to use Face ID."
         }
-      ]
+      ],
+      "./plugins/fixAndroid"
     ],
     "extra": {
       "router": {},

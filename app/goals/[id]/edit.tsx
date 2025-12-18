@@ -107,7 +107,22 @@ export default function EditGoalScreen() {
       Alert.alert('Error', 'Please enter a goal name');
       return false;
     }
-
+    const handleUpdate = async () => {
+      try {
+        // Use Nitro SQLite write queue pattern for goal update
+        await updateGoal({
+          id: goalId,
+          name,
+          targetAmount: parseFloat(targetAmount),
+          targetDate,
+          selectedWallet,
+          notes,
+        });
+        router.back();
+      } catch (e) {
+        Alert.alert('Error', 'Failed to update goal');
+      }
+    };
     if (!targetAmount.trim() || isNaN(Number(targetAmount)) || Number(targetAmount) <= 0) {
       Alert.alert('Error', 'Please enter a valid target amount');
       return false;

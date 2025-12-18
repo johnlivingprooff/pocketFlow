@@ -32,7 +32,7 @@ npx expo start
 ## Tech (kept light)
 - React Native + Expo Router
 - TypeScript (strict), Zustand for state
-- SQLite (async `openDatabaseAsync`) with file-based receipts
+- SQLite (Nitro SQLite) with file-based receipts
 - Reanimated + Gesture Handler for smooth interactions
 
 ## File layout (brief)
