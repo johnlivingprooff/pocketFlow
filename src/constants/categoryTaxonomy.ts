@@ -86,3 +86,40 @@ export const EXPENSE_TAXONOMY: CategoryDefinition[] = [
   },
 ];
 
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Get all categories flattened into a single array
+ */
+export function getAllCategoriesFlat(): string[] {
+  const allCategories: string[] = [];
+  
+  // Add income categories
+  INCOME_TAXONOMY.forEach(cat => {
+    allCategories.push(cat.name);
+    if (cat.subcategories) {
+      allCategories.push(...cat.subcategories);
+    }
+  });
+  
+  // Add expense categories
+  EXPENSE_TAXONOMY.forEach(cat => {
+    allCategories.push(cat.name);
+    if (cat.subcategories) {
+      allCategories.push(...cat.subcategories);
+    }
+  });
+  
+  return allCategories;
+}
+
+/**
+ * Get main categories for a specific type
+ */
+export function getMainCategories(type: 'income' | 'expense'): string[] {
+  const taxonomy = type === 'income' ? INCOME_TAXONOMY : EXPENSE_TAXONOMY;
+  return taxonomy.map(cat => cat.name);
+}
+

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, useColorScheme, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, useColorScheme, Dimensions, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -144,6 +144,14 @@ export default function BudgetGoalsScreen() {
 
   const pan = Gesture.Pan()
     .onUpdate((e) => {
+      // Only allow horizontal swiping if the gesture is predominantly horizontal
+      // This prevents conflicts with vertical scrolling/pull-to-refresh
+      const isHorizontalGesture = Math.abs(e.translationX) > Math.abs(e.translationY) && Math.abs(e.translationX) > 20;
+      
+      if (!isHorizontalGesture) {
+        return; // Let vertical gestures (like pull-to-refresh) pass through
+      }
+
       // Calculate target position based on current tab
       const baseOffset = activeTab === 'budget' ? 0 : -SCREEN_WIDTH;
       translateX.value = baseOffset + e.translationX;
@@ -156,6 +164,13 @@ export default function BudgetGoalsScreen() {
       }
     })
     .onEnd((e) => {
+      // Only process horizontal swipe if it was a horizontal gesture
+      const isHorizontalGesture = Math.abs(e.translationX) > Math.abs(e.translationY) && Math.abs(e.translationX) > 20;
+      
+      if (!isHorizontalGesture) {
+        return; // Don't interfere with vertical gestures
+      }
+
       const currentOffset = activeTab === 'budget' ? 0 : -SCREEN_WIDTH;
       const finalPosition = currentOffset + e.translationX;
       
@@ -405,6 +420,14 @@ export default function BudgetGoalsScreen() {
               style={styles.content}
               scrollEventThrottle={400}
               showsVerticalScrollIndicator={true}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={loadData}
+                  colors={[colors.primary]}
+                  tintColor={colors.primary}
+                />
+              }
             >
               {loading ? (
                 <View style={styles.emptyState}>
@@ -508,6 +531,14 @@ export default function BudgetGoalsScreen() {
               style={styles.content}
               scrollEventThrottle={400}
               showsVerticalScrollIndicator={true}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={loadData}
+                  colors={[colors.primary]}
+                  tintColor={colors.primary}
+                />
+              }
             >
               {loading ? (
                 <View style={styles.emptyState}>

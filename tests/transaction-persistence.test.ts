@@ -96,16 +96,17 @@ describe('Transaction Persistence Test Suite', () => {
 
       // Get the created wallet ID
       const db = await getTestDb();
-      const walletResult = await db.getAllAsync<{ id: number }>(
+      const walletResult = await db.executeAsync(
         'SELECT id FROM wallets WHERE name = ?;',
         ['Test Wallet']
       );
+      const walletRows = walletResult.rows?._array as { id: number }[];
 
-      if (walletResult.length === 0) {
+      if (walletRows.length === 0) {
         throw new Error('Failed to create test wallet');
       }
 
-      const walletId = walletResult[0].id;
+      const walletId = walletRows[0].id;
 
       // Step 2: Add a transaction
       const testTransaction: Transaction = {
@@ -115,7 +116,7 @@ describe('Transaction Persistence Test Suite', () => {
         category: 'Food',
         date: new Date().toISOString(),
         notes: 'Test transaction for persistence',
-        receipt_uri: undefined,
+        receipt_path: undefined,
         is_recurring: 0,
         recurrence_frequency: undefined,
         recurrence_end_date: undefined,
@@ -155,10 +156,11 @@ describe('Transaction Persistence Test Suite', () => {
       const reopenDb = await getTestDb();
 
       // Step 6: Verify transaction still exists after "kill" and restart
-      const transactionsAfterKill = await reopenDb.getAllAsync<Transaction>(
+      const transactionsAfterKillResult = await reopenDb.executeAsync(
         'SELECT * FROM transactions WHERE id = ?;',
         [transactionId]
       );
+      const transactionsAfterKill = transactionsAfterKillResult.rows?._array as Transaction[];
 
       if (transactionsAfterKill.length === 0) {
         throw new Error(
@@ -206,12 +208,13 @@ describe('Transaction Persistence Test Suite', () => {
       await createWallet(testWallet);
 
       const db = await getTestDb();
-      const walletResult = await db.getAllAsync<{ id: number }>(
+      const walletResult = await db.executeAsync(
         'SELECT id FROM wallets WHERE name = ?;',
         ['Multi-Transaction Wallet']
       );
+      const walletRows = walletResult.rows?._array as { id: number }[];
 
-      const walletId = walletResult[0].id;
+      const walletId = walletRows[0].id;
 
       // Step 2: Add multiple transactions
       const transactionIds: number[] = [];
@@ -224,7 +227,7 @@ describe('Transaction Persistence Test Suite', () => {
           category: i % 2 === 0 ? 'Food' : 'Salary',
           date: new Date(Date.now() - i * 86400000).toISOString(), // Each day before today
           notes: `Transaction ${i}`,
-          receipt_uri: undefined,
+          receipt_path: undefined,
           is_recurring: 0,
           recurrence_frequency: undefined,
           recurrence_end_date: undefined,
@@ -252,10 +255,11 @@ describe('Transaction Persistence Test Suite', () => {
       // Step 4: Reopen and verify all transactions persist
       const reopenDb = await getTestDb();
 
-      const persistedCount = await reopenDb.getAllAsync<{ count: number }>(
+      const persistedCountResult = await reopenDb.executeAsync(
         `SELECT COUNT(*) as count FROM transactions WHERE wallet_id = ?;`,
         [walletId]
       );
+      const persistedCount = persistedCountResult.rows?._array as { count: number }[];
 
       const count = persistedCount[0]?.count || 0;
 
@@ -267,12 +271,13 @@ describe('Transaction Persistence Test Suite', () => {
 
       // Verify each transaction individually
       for (const txnId of transactionIds) {
-        const result = await reopenDb.getAllAsync<Transaction>(
+        const result = await reopenDb.executeAsync(
           'SELECT * FROM transactions WHERE id = ?;',
           [txnId]
         );
+        const transactions = result.rows?._array as Transaction[];
 
-        if (result.length === 0) {
+        if (transactions.length === 0) {
           throw new Error(`Transaction ${txnId} not found after app kill`);
         }
       }
@@ -308,10 +313,11 @@ describe('Transaction Persistence Test Suite', () => {
       await createWallet(testWallet);
 
       const db = await getTestDb();
-      const walletResult = await db.getAllAsync<{ id: number }>(
+      const walletResult = await db.executeAsync(
         'SELECT id FROM wallets WHERE name = ?;',
         ['Queue Drain Test Wallet']
       );
+      const walletRows = walletResult.rows?._array as { id: number }[];
 
       const walletId = walletResult[0].id;
 
@@ -323,7 +329,7 @@ describe('Transaction Persistence Test Suite', () => {
         category: 'Transport',
         date: new Date().toISOString(),
         notes: 'Queue drain test',
-        receipt_uri: undefined,
+        receipt_path: undefined,
         is_recurring: 0,
         recurrence_frequency: undefined,
         recurrence_end_date: undefined,
@@ -347,10 +353,11 @@ describe('Transaction Persistence Test Suite', () => {
       console.log('[Test] Queue flushed successfully');
 
       // Verify transaction was written
-      const stored = await db.getAllAsync<Transaction>(
+      const storedResult = await db.executeAsync(
         'SELECT * FROM transactions WHERE category = ? AND wallet_id = ?;',
         ['Transport', walletId]
       );
+      const stored = storedResult.rows?._array as Transaction[];
 
       if (stored.length === 0) {
         throw new Error('Transaction not found after queue flush');

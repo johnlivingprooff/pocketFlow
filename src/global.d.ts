@@ -3,6 +3,9 @@
  * Provides Animated.SharedValue<T> and extended gesture handler types
  */
 
+// React Native globals
+declare const __DEV__: boolean;
+
 // Support Animated.SharedValue<T> type annotation pattern
 declare global {
   namespace Animated {

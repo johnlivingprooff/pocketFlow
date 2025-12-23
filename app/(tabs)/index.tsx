@@ -508,7 +508,7 @@ export default function Home() {
       <ScrollView style={{ flex: 1, backgroundColor: t.background }} contentContainerStyle={{ padding: 16, alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ color: t.textPrimary, fontSize: 28, fontWeight: '800', marginBottom: 16, textAlign: 'center' }}>pocketFlow</Text>
         <Text style={{ color: t.textSecondary, fontSize: 16, textAlign: 'center', maxWidth: 400 }}>
-          This app uses SQLite for offline storage and is designed for iOS and Android.
+          This app uses Nitro SQLite for offline storage and is designed for iOS and Android.
         </Text>
         <Text style={{ color: t.textSecondary, fontSize: 16, textAlign: 'center', maxWidth: 400, marginTop: 16 }}>
           Please run the app on a mobile device or simulator using:

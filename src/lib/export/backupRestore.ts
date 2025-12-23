@@ -1,6 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { yyyyMmDd } from '../../utils/date';
-import { exec, getDb } from '../db';
+import { exec, getDbAsync } from '../db';
 import { enqueueWrite } from '../db/writeQueue';
 import { Alert } from 'react-native';
 
@@ -119,91 +119,45 @@ export async function restoreFromBackup(backupUri: string): Promise<{ success: b
     // ✅ FIX: Wrap entire restore in enqueueWrite to serialize with other writes
     // This prevents conflicts if user happens to add/edit data during restore
     return await enqueueWrite(async () => {
-      const database = await getDb();
+      const database = await getDbAsync();
       
-      await database.withTransactionAsync(async () => {
-      // Clear existing data
-      await database.execAsync('DELETE FROM transactions;');
-      await database.execAsync('DELETE FROM wallets;');
-      await database.execAsync('DELETE FROM categories;');
-      
-      // Reset autoincrement counters
-      await database.execAsync('DELETE FROM sqlite_sequence WHERE name IN ("transactions", "wallets", "categories");');
+      await database.transaction(async (tx) => {
+        // Clear existing data
+        await tx.executeAsync('DELETE FROM transactions;');
+        await tx.executeAsync('DELETE FROM wallets;');
+        await tx.executeAsync('DELETE FROM categories;');
+        
+        // Reset autoincrement counters
+        await tx.executeAsync('DELETE FROM sqlite_sequence WHERE name IN ("transactions", "wallets", "categories");');
 
-      // Restore categories
-      if (backupData.data.categories && backupData.data.categories.length > 0) {
-        const catStmt = await database.prepareAsync(
-          `INSERT INTO categories (id, name, type, icon, color, is_preset, created_at) 
-           VALUES (?, ?, ?, ?, ?, ?, ?)`
-        );
-        try {
+        // Restore categories
+        if (backupData.data.categories && backupData.data.categories.length > 0) {
           for (const cat of backupData.data.categories) {
-            await catStmt.executeAsync([
-              cat.id, 
-              cat.name, 
-              cat.type, 
-              cat.icon || null, 
-              cat.color || null, 
-              cat.is_preset ?? 0, 
-              cat.created_at || new Date().toISOString()
-            ]);
+            await tx.executeAsync(
+              `INSERT INTO categories (id, name, type, icon, color, is_preset, created_at) 
+               VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              [cat.id, cat.name, cat.type, cat.icon || null, cat.color || null, cat.is_preset ?? 0, cat.created_at || new Date().toISOString()]
+            );
           }
-        } finally {
-          await catStmt.finalizeAsync();
         }
-      }
 
-      // Restore wallets
-      const walletStmt = await database.prepareAsync(
-        `INSERT INTO wallets (id, name, currency, initial_balance, type, description, color, is_primary, display_order, exchange_rate, created_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      );
-      try {
+        // Restore wallets
         for (const wallet of backupData.data.wallets) {
-          await walletStmt.executeAsync([
-            wallet.id,
-            wallet.name,
-            wallet.currency,
-            wallet.initial_balance ?? 0,
-            wallet.type || null,
-            wallet.description || null,
-            wallet.color || null,
-            wallet.is_primary ?? 0,
-            wallet.display_order ?? 0,
-            wallet.exchange_rate ?? 1.0,
-            wallet.created_at || new Date().toISOString(),
-          ]);
+          await tx.executeAsync(
+            `INSERT INTO wallets (id, name, currency, initial_balance, type, description, color, is_primary, display_order, exchange_rate, created_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [wallet.id, wallet.name, wallet.currency, wallet.initial_balance ?? 0, wallet.type || null, wallet.description || null, wallet.color || null, wallet.is_primary ?? 0, wallet.display_order ?? 0, wallet.exchange_rate ?? 1.0, wallet.created_at || new Date().toISOString()]
+          );
         }
-      } finally {
-        await walletStmt.finalizeAsync();
-      }
 
-      // Restore transactions
-      const txnStmt = await database.prepareAsync(
-        `INSERT INTO transactions (id, wallet_id, type, amount, category, date, notes, receipt_uri, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id, created_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      );
-      try {
+        // Restore transactions
         for (const txn of backupData.data.transactions) {
-          await txnStmt.executeAsync([
-            txn.id,
-            txn.wallet_id,
-            txn.type,
-            txn.amount,
-            txn.category || null,
-            txn.date,
-            txn.notes || null,
-            txn.receipt_uri || null,
-            txn.is_recurring ?? 0,
-            txn.recurrence_frequency || null,
-            txn.recurrence_end_date || null,
-            txn.parent_transaction_id || null,
-            txn.created_at || new Date().toISOString(),
-          ]);
+          await tx.executeAsync(
+            `INSERT INTO transactions (id, wallet_id, type, amount, category, date, notes, receipt_path, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id, created_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [txn.id, txn.wallet_id, txn.type, txn.amount, txn.category || null, txn.date, txn.notes || null, txn.receipt_path || null, txn.is_recurring ?? 0, txn.recurrence_frequency || null, txn.recurrence_end_date || null, txn.parent_transaction_id || null, txn.created_at || new Date().toISOString()]
+          );
         }
-      } finally {
-        await txnStmt.finalizeAsync();
-      }
       });
 
       // ✅ Invalidate caches only after successful restore

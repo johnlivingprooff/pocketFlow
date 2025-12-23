@@ -6,6 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as CategoryIcons from '../../src/assets/icons/CategoryIcons';
 import { CATEGORY_ICONS, CategoryIconName } from '../../src/assets/icons/CategoryIcons';
 import { createCategory, getCategories, Category } from '../../src/lib/db/categories';
+import { invalidateCategoriesCache } from '../../src/lib/hooks/useCategoriesCache';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
 import { EmojiPicker } from '../../src/components/EmojiPicker';
 import { INCOME_TAXONOMY, EXPENSE_TAXONOMY } from '../../src/constants/categoryTaxonomy';
@@ -123,6 +124,10 @@ export default function CreateCategory() {
         budget: budgetValue,
         parent_category_id: isSubcategory ? selectedParentId : null,
       });
+      
+      // Invalidate categories cache to ensure new category appears immediately
+      invalidateCategoriesCache();
+      
       setAlertConfig({
         visible: true,
         title: 'Success',

@@ -6,6 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as CategoryIcons from '../../src/assets/icons/CategoryIcons';
 import { CATEGORY_ICONS, CategoryIconName } from '../../src/assets/icons/CategoryIcons';
 import { updateCategory, getCategoryById, getCategories, Category } from '../../src/lib/db/categories';
+import { invalidateCategoriesCache } from '../../src/lib/hooks/useCategoriesCache';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
 import { EmojiPicker } from '../../src/components/EmojiPicker';
 import { INCOME_TAXONOMY, EXPENSE_TAXONOMY } from '../../src/constants/categoryTaxonomy';
@@ -67,14 +68,18 @@ export default function EditCategory() {
   useEffect(() => {
     if (!loading) {
       loadParentCategories();
-      // Update color options when category type changes
-      const recommendedColors = getRecommendedColors(categoryType);
-      setColorOptions(recommendedColors);
     }
-  }, [categoryType, loading]);
+  }, [loading]);
+
+  useEffect(() => {
+    // Update color options when category type changes
+    const recommendedColors = getRecommendedColors(categoryType);
+    setColorOptions(recommendedColors);
+  }, [categoryType]);
 
   const loadCategory = async () => {
     if (!categoryId) {
+      setLoading(false); // Set loading to false even if categoryId is null
       router.back();
       return;
     }
@@ -88,6 +93,7 @@ export default function EditCategory() {
           message: 'Category not found',
           buttons: [{ text: 'OK', onPress: () => router.back() }]
         });
+        setLoading(false); // Set loading to false when category not found
         return;
       }
 
@@ -123,6 +129,7 @@ export default function EditCategory() {
         message: 'Failed to load category',
         buttons: [{ text: 'OK', onPress: () => router.back() }]
       });
+      setLoading(false); // Set loading to false on error
     }
   };
 
@@ -172,6 +179,10 @@ export default function EditCategory() {
         budget: budgetValue,
         parent_category_id: isSubcategory ? selectedParentId : null,
       });
+      
+      // Invalidate categories cache to ensure updated category appears immediately
+      invalidateCategoriesCache();
+      
       setAlertConfig({
         visible: true,
         title: 'Success',

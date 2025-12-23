@@ -1,4 +1,4 @@
-import { exec, execRun, getDb } from './index';
+import { exec, execRun, getDbAsync } from './index';
 import { Transaction } from '../../types/transaction';
 import { getWallet } from './wallets';
 import { analyticsCache, generateCacheKey, invalidateTransactionCaches } from '../cache/queryCache';
@@ -43,7 +43,7 @@ export async function addTransaction(t: Transaction) {
     t.category ?? null,
     t.date,
     t.notes ?? null,
-    t.receipt_uri ?? null,
+    t.receipt_path ?? null,
     t.is_recurring ? 1 : 0,
     t.recurrence_frequency ?? null,
     t.recurrence_end_date ?? null,
@@ -55,7 +55,7 @@ export async function addTransaction(t: Transaction) {
   
   await execRun(
     `INSERT INTO transactions 
-     (wallet_id, type, amount, category, date, notes, receipt_uri, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id)
+     (wallet_id, type, amount, category, date, notes, receipt_path, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
     params
   );
@@ -87,33 +87,16 @@ export async function addTransactionsBatch(transactions: Transaction[]): Promise
   
   // RELEASE-BUILD FIX: Wrap batch transaction in write queue to prevent concurrent writes
   return enqueueWrite(async () => {
-    const database = await getDb();
+    const database = await getDbAsync();
     
-    await database.withTransactionAsync(async () => {
-      const statement = await database.prepareAsync(
-        `INSERT INTO transactions 
-         (wallet_id, type, amount, category, date, notes, receipt_uri, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
-      );
-      
-      try {
-        for (const t of transactions) {
-          await statement.executeAsync([
-            t.wallet_id,
-            t.type,
-            t.amount,
-            t.category ?? null,
-            t.date,
-            t.notes ?? null,
-            t.receipt_uri ?? null,
-            t.is_recurring ? 1 : 0,
-            t.recurrence_frequency ?? null,
-            t.recurrence_end_date ?? null,
-            t.parent_transaction_id ?? null,
-          ]);
-        }
-      } finally {
-        await statement.finalizeAsync();
+    await database.transaction(async (tx) => {
+      for (const t of transactions) {
+        await tx.executeAsync(
+          `INSERT INTO transactions 
+           (wallet_id, type, amount, category, date, notes, receipt_path, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+          [t.wallet_id, t.type, t.amount, t.category ?? null, t.date, t.notes ?? null, t.receipt_path ?? null, t.is_recurring ? 1 : 0, t.recurrence_frequency ?? null, t.recurrence_end_date ?? null, t.parent_transaction_id ?? null]
+        );
       }
     });
     
@@ -205,7 +188,7 @@ export async function updateTransaction(id: number, t: Partial<Transaction>) {
   if (t.category !== undefined) set('category', t.category);
   if (t.date !== undefined) set('date', t.date);
   if (t.notes !== undefined) set('notes', t.notes);
-  if (t.receipt_uri !== undefined) set('receipt_uri', t.receipt_uri);
+  if (t.receipt_path !== undefined) set('receipt_path', t.receipt_path);
   params.push(id);
   // Ensure database write completes before invalidating caches
   const startTime = Date.now();

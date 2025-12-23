@@ -100,7 +100,7 @@ export async function getCategoryByName(name: string, type?: 'income' | 'expense
  * Get all subcategories for a given parent category
  */
 export async function getSubcategories(parentId: number): Promise<Category[]> {
-  return exec<Category>(
+  return await exec<Category>(
     'SELECT * FROM categories WHERE parent_category_id = ? ORDER BY name ASC;',
     [parentId]
   );

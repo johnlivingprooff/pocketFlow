@@ -3,9 +3,7 @@
  * Handles all CRUD operations and progress tracking for financial goals
  */
 
-import { SQLiteDatabase } from 'expo-sqlite';
 import { Goal, GoalWithMetrics, GoalInput } from '@/types/goal';
-import { enqueueWrite } from './writeQueue';
 import { execRun, exec } from '.';
 
 /**
@@ -22,7 +20,6 @@ export async function createGoal(goal: GoalInput): Promise<Goal> {
     updatedAt: now,
   };
 
-  // execRun already uses enqueueWrite internally, so don't double-wrap
   await execRun(
     `INSERT INTO goals (name, target_amount, current_progress, target_date, notes, linked_wallet_id, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -127,7 +124,7 @@ export async function updateGoal(id: number, updates: Partial<GoalInput>): Promi
     fields.push('linked_wallet_id = ?');
     values.push(updates.linkedWalletId);
     // If wallet changed, recalculate progress
-    const goal = await getGoalById(id);
+    const goal = getGoalById(id);
     if (goal && goal.linkedWalletId !== updates.linkedWalletId) {
       fields.push('current_progress = ?');
       values.push(0);
@@ -140,7 +137,6 @@ export async function updateGoal(id: number, updates: Partial<GoalInput>): Promi
   values.push(now);
   values.push(id);
 
-  // execRun already serializes via the write queue; avoid double-wrapping
   await execRun(
     `UPDATE goals SET ${fields.join(', ')} WHERE id = ?`,
     values
@@ -152,7 +148,6 @@ export async function updateGoal(id: number, updates: Partial<GoalInput>): Promi
  * @param id Goal ID
  */
 export async function deleteGoal(id: number): Promise<void> {
-  // execRun already serializes via the write queue
   await execRun('DELETE FROM goals WHERE id = ?', [id]);
 }
 
@@ -176,7 +171,6 @@ export async function recalculateGoalProgress(goalId: number): Promise<void> {
 
     const totalIncome = result[0]?.total || 0;
 
-    // execRun already serializes via the write queue
     await execRun(
       `UPDATE goals SET current_progress = ?, updated_at = ? WHERE id = ?`,
       [totalIncome, new Date().toISOString(), goalId]
@@ -241,9 +235,9 @@ export function calculateGoalMetrics(goal: Goal): GoalWithMetrics {
  * Get goals approaching deadline (within 30 days)
  * @returns Array of upcoming goals
  */
-export async function getUpcomingGoals(): Promise<GoalWithMetrics[]> {
+export function getUpcomingGoals(): GoalWithMetrics[] {
   try {
-    const goals = await getGoals();
+    const goals = getGoals();
     const today = new Date();
     const thirtyDaysLater = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
 

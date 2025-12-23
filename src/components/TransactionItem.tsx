@@ -44,7 +44,7 @@ export function TransactionItem({ item, currency, mode = 'light' }: Props) {
       </View>
       <View style={{ alignItems: 'flex-end' }}>
         <Text style={{ color, fontWeight: '700' }}>{formatCurrency(item.amount, currency)}</Text>
-        {item.receipt_uri ? <Image source={{ uri: item.receipt_uri }} style={{ width: 24, height: 24, marginTop: 6, borderRadius: 4 }} /> : null}
+        {item.receipt_path ? <Image source={{ uri: item.receipt_path }} style={{ width: 24, height: 24, marginTop: 6, borderRadius: 4 }} /> : null}
       </View>
     </View>
   );

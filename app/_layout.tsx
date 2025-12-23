@@ -3,8 +3,8 @@ import { Platform, View, ActivityIndicator, useColorScheme, AppState, AppStateSt
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { useSettings } from '../src/store/useStore';
-import { ensureTables } from '../src/lib/db';
-import { flushWriteQueue } from '../src/lib/db/writeQueue';
+import { ensureTables, initDb } from '../src/lib/db';
+// Removed legacy write queue import (migrated to Nitro SQLite)
 import { processRecurringTransactions } from '../src/lib/services/recurringTransactionService';
 import { theme, shadows } from '../src/theme/theme';
 import { authenticateWithBiometrics, shouldRequireAuth } from '../src/lib/services/biometricService';
@@ -34,17 +34,19 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (Platform.OS !== 'web') {
-      ensureTables()
-        .then(async () => {
+      (async () => {
+        try {
+          await initDb();
+          await ensureTables();
           // Process recurring transactions after DB is ready
           await processRecurringTransactions();
           await maybeRunAutoBackup();
           setDbReady(true);
-        })
-        .catch(err => {
+        } catch (err: unknown) {
           console.error('Failed to initialize database:', err);
           setDbReady(true); // Still show app even if DB fails
-        });
+        }
+      })();
     }
   }, []);
 
@@ -88,13 +90,8 @@ export default function RootLayout() {
         }
       }
     } else if (nextAppState === 'background' || nextAppState === 'inactive') {
-      // ✅ FIX: Flush write queue before backgrounding to reduce mid-write kill loss
-      // This awaits all pending database operations before the app suspends
-      console.log('[App] App entering background state, flushing write queue...');
-      if (Platform.OS !== 'web') {
-        await flushWriteQueue();
-        console.log('[App] Write queue flushed before background');
-      }
+      // No write queue flush needed with Nitro SQLite (atomic writes)
+      // [App] App entering background state, Nitro SQLite handles atomicity.
       
       // Force re-auth on next launch after the app is backgrounded/closed
       setLastAuthTime(null);

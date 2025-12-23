@@ -4,7 +4,6 @@
  */
 
 import { Budget, BudgetWithMetrics, BudgetInput } from '@/types/goal';
-import { enqueueWrite } from './writeQueue';
 import { execRun, exec } from '.';
 
 /**
@@ -21,7 +20,6 @@ export async function createBudget(budget: BudgetInput): Promise<Budget> {
     updatedAt: now,
   };
 
-  // execRun already uses enqueueWrite internally, so don't double-wrap
   await execRun(
     `INSERT INTO budgets (name, category_id, subcategory_id, limit_amount, current_spending,
                           period_type, start_date, end_date, notes, linked_wallet_id,
@@ -177,7 +175,7 @@ export async function updateBudget(id: number, updates: Partial<BudgetInput>): P
     fields.push('linked_wallet_id = ?');
     values.push(updates.linkedWalletId);
     // If wallet changed, recalculate spending
-    const budget = await getBudgetById(id);
+    const budget = getBudgetById(id);
     if (budget && budget.linkedWalletId !== updates.linkedWalletId) {
       fields.push('current_spending = ?');
       values.push(0);
@@ -190,7 +188,6 @@ export async function updateBudget(id: number, updates: Partial<BudgetInput>): P
   values.push(now);
   values.push(id);
 
-  // execRun already serializes via the write queue; do not double-wrap
   await execRun(
     `UPDATE budgets SET ${fields.join(', ')} WHERE id = ?`,
     values
@@ -202,7 +199,6 @@ export async function updateBudget(id: number, updates: Partial<BudgetInput>): P
  * @param id Budget ID
  */
 export async function deleteBudget(id: number): Promise<void> {
-  // execRun already serializes via the write queue
   await execRun('DELETE FROM budgets WHERE id = ?', [id]);
 }
 
@@ -216,6 +212,13 @@ export async function recalculateBudgetSpending(budgetId: number): Promise<void>
   if (!budget) return;
 
   try {
+    // Get wallet exchange rate for currency conversion
+    const walletResult = await exec<{ exchange_rate: number }>(
+      'SELECT exchange_rate FROM wallets WHERE id = ?',
+      [budget.linkedWalletId]
+    );
+    const exchangeRate = walletResult[0]?.exchange_rate || 1.0;
+
     // Get category name(s) to filter transactions
     let categoryNames: string[] = [];
     
@@ -247,14 +250,15 @@ export async function recalculateBudgetSpending(budgetId: number): Promise<void>
     }
     
     // Sum all expense transactions matching category, wallet, and period
-    let query = `SELECT COALESCE(SUM(ABS(amount)), 0) as total
+    // Convert amounts to default currency using wallet's exchange rate
+    let query = `SELECT COALESCE(SUM(ABS(amount) * ?), 0) as total
                  FROM transactions
                  WHERE type = 'expense'
                  AND wallet_id = ?
                  AND date BETWEEN ? AND ?
                  AND category != 'Transfer'`;
 
-    const params: any[] = [budget.linkedWalletId, budget.startDate, budget.endDate];
+    const params: any[] = [exchangeRate, budget.linkedWalletId, budget.startDate, budget.endDate];
 
     // Add category filter if we have category names
     if (categoryNames.length > 0) {
@@ -266,7 +270,6 @@ export async function recalculateBudgetSpending(budgetId: number): Promise<void>
     const result = await exec<{ total: number }>(query, params);
     const totalSpending = result[0]?.total || 0;
 
-    // execRun already serializes via the write queue
     await execRun(
       `UPDATE budgets SET current_spending = ?, updated_at = ? WHERE id = ?`,
       [totalSpending, new Date().toISOString(), budgetId]

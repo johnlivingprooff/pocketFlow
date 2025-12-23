@@ -1,4 +1,4 @@
-import { exec, execRun, getDb } from './index';
+import { exec, execRun, getDbAsync } from './index';
 import { Wallet } from '../../types/wallet';
 import { invalidateWalletCaches } from '../cache/queryCache';
 import { error as logError, log, generateOperationId, metrics, warn } from '../../utils/logger';
@@ -201,99 +201,67 @@ export async function updateWalletsOrder(orderUpdates: Array<{ id: number; displ
     return; // Skip duplicate operation
   }
   
-  // RELEASE-BUILD FIX: Wrap entire transaction in write queue to prevent concurrent writes
-  // This ensures atomic reorder operations don't conflict with other database writes
-  // Note: Database connection is obtained inside the queue callback to ensure it's ready
-  // when the operation executes. The connection is cached globally, so this is efficient.
-  return enqueueWrite(async () => {
-    const database = await getDb();
-    
-    try {
-      log('[DB] Updating wallet order', { 
-        walletCount: orderUpdates.length, 
-        operationId 
-      }, operationId);
-      
-      metrics.increment('db.wallet.reorder.total');
-      
-      // Use a transaction to batch all updates for better performance
-      // This ensures atomic updates and prevents partial state
-      await database.withTransactionAsync(async () => {
-        const statement = await database.prepareAsync('UPDATE wallets SET display_order = ? WHERE id = ?;');
-        
-        try {
-          // Ensure sequential ordering: index 0 gets display_order=0, index 1 gets display_order=1, etc.
-          // This guarantees that getWallets() will always return wallets in the intended order
-          // RELEASE-BUILD FIX: Explicitly convert index to safe integer for Hermes compatibility
-          for (let i = 0; i < orderUpdates.length; i++) {
-            const walletId = toSafeInteger(orderUpdates[i].id);
-            const displayOrder = toSafeInteger(i); // Force sequential integer values
-            
-            // RELEASE DEBUG: Log each update in release builds
-            if (!__DEV__ && i < 3) { // Log first 3 to avoid spam
-              console.log('[RELEASE_DEBUG] Updating wallet:', {
-                walletId,
-                displayOrder,
-                isIdInteger: Number.isInteger(walletId),
-                isOrderInteger: Number.isInteger(displayOrder),
-              });
-            }
-            
-            await statement.executeAsync([displayOrder, walletId]);
-          }
-        } finally {
-          await statement.finalizeAsync();
+  // Nitro SQLite: Direct atomic reorder (no write queue needed)
+  const database = await getDbAsync();
+  try {
+    log('[DB] Updating wallet order', { 
+      walletCount: orderUpdates.length, 
+      operationId 
+    }, operationId);
+    metrics.increment('db.wallet.reorder.total');
+    await database.transaction(async (tx) => {
+      for (let i = 0; i < orderUpdates.length; i++) {
+        const walletId = toSafeInteger(orderUpdates[i].id);
+        const displayOrder = toSafeInteger(i);
+        if (!__DEV__ && i < 3) {
+          console.log('[RELEASE_DEBUG] Updating wallet:', {
+            walletId,
+            displayOrder,
+            isIdInteger: Number.isInteger(walletId),
+            isOrderInteger: Number.isInteger(displayOrder),
+          });
         }
+        await tx.executeAsync('UPDATE wallets SET display_order = ? WHERE id = ?;', [displayOrder, walletId]);
+      }
+    });
+    const duration = Date.now() - startTime;
+    log('[DB] Wallet order updated successfully', { 
+      walletCount: orderUpdates.length, 
+      duration,
+      operationId 
+    }, operationId);
+    if (!__DEV__) {
+      const finalWallets = await exec<{ id: number; display_order: number }>(
+        'SELECT id, display_order FROM wallets ORDER BY display_order ASC LIMIT 5;'
+      );
+      console.log('[RELEASE_DEBUG] Post-reorder wallet state:', {
+        first5Wallets: finalWallets,
+        operationId,
       });
-      
-      const duration = Date.now() - startTime;
-      log('[DB] Wallet order updated successfully', { 
-        walletCount: orderUpdates.length, 
-        duration,
-        operationId 
-      }, operationId);
-      
-      // RELEASE DEBUG: Verify final state after reorder
-      if (!__DEV__) {
-        const finalWallets = await exec<{ id: number; display_order: number }>(
-          'SELECT id, display_order FROM wallets ORDER BY display_order ASC LIMIT 5;'
-        );
-        console.log('[RELEASE_DEBUG] Post-reorder wallet state:', {
-          first5Wallets: finalWallets,
-          operationId,
-        });
-      }
-      
-      metrics.increment('db.wallet.reorder.success');
-      
-      // Invalidate caches after successful reorder
-      invalidateWalletCaches();
-    } catch (err: any) {
-      const duration = Date.now() - startTime;
-      
-      // RELEASE DEBUG: Log full error details in release builds
-      if (!__DEV__) {
-        console.error('[RELEASE_DEBUG] Reorder error details:', {
-          error: err.message,
-          stack: err.stack,
-          errorCode: err.code,
-          walletCount: orderUpdates.length,
-          operationId,
-          jsEngine: detectJSEngine(),
-        });
-      }
-      
-      logError('[DB] Failed to update wallet order', { 
-        error: err.message, 
-        walletCount: orderUpdates.length,
-        duration,
-        operationId 
-      }, operationId);
-      
-      metrics.increment('db.wallet.reorder.error');
-      throw err;
     }
-  }, `wallet_reorder_${operationId}`);
+    metrics.increment('db.wallet.reorder.success');
+    invalidateWalletCaches();
+  } catch (err: any) {
+    const duration = Date.now() - startTime;
+    if (!__DEV__) {
+      console.error('[RELEASE_DEBUG] Reorder error details:', {
+        error: err.message,
+        stack: err.stack,
+        errorCode: err.code,
+        walletCount: orderUpdates.length,
+        operationId,
+        jsEngine: detectJSEngine(),
+      });
+    }
+    logError('[DB] Failed to update wallet order', { 
+      error: err.message, 
+      walletCount: orderUpdates.length,
+      duration,
+      operationId 
+    }, operationId);
+    metrics.increment('db.wallet.reorder.error');
+    throw err;
+  }
 }
 
 export async function getWallet(id: number): Promise<Wallet[]> {
@@ -304,11 +272,11 @@ export async function setPrimaryWallet(id: number) {
   // ✅ FIX: Wrap in enqueueWrite and transaction to ensure atomic operation
   // Prevents case where app crashes between the two UPDATEs, leaving both wallets non-primary
   return enqueueWrite(async () => {
-    const database = await getDb();
+    const database = await getDbAsync();
     
-    await database.withTransactionAsync(async () => {
-      await database.runAsync('UPDATE wallets SET is_primary = 0;');
-      await database.runAsync('UPDATE wallets SET is_primary = 1 WHERE id = ?;', [id]);
+    await database.transaction(async (tx) => {
+      await tx.executeAsync('UPDATE wallets SET is_primary = 0;');
+      await tx.executeAsync('UPDATE wallets SET is_primary = 1 WHERE id = ?;', [id]);
     });
     
     invalidateWalletCaches();
@@ -341,25 +309,27 @@ export async function getWalletBalances(walletIds: number[]): Promise<Record<num
     return {};
   }
 
-  const database = await getDb();
+  const database = await getDbAsync();
   
   // Get all wallet initial balances
   // Note: We're using string interpolation for placeholders, but the actual values
   // come from the walletIds parameter array, making this safe from SQL injection
   const placeholders = walletIds.map(() => '?').join(',');
-  const wallets = await database.getAllAsync<{ id: number; initial_balance: number }>(
+  const walletsResult = await database.executeAsync(
     `SELECT id, initial_balance FROM wallets WHERE id IN (${placeholders});`,
     walletIds
   );
+  const wallets = walletsResult.rows?._array || [];
   
   // Get all transaction sums grouped by wallet_id and type in a single query
-  const transactionSums = await database.getAllAsync<{ wallet_id: number; type: string; total: number }>(
+  const transactionSumsResult = await database.executeAsync(
     `SELECT wallet_id, type, COALESCE(SUM(amount), 0) as total 
      FROM transactions 
      WHERE wallet_id IN (${placeholders})
      GROUP BY wallet_id, type;`,
     walletIds
   );
+  const transactionSums = transactionSumsResult.rows?._array || [];
   
   // Build the result map
   const balances: Record<number, number> = {};

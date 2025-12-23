@@ -6,7 +6,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { theme } from '../../src/theme/theme';
 import { useSettings } from '../../src/store/useStore';
 import { Transaction, RecurrenceFrequency, TransactionType } from '../../src/types/transaction';
-import { exec, getDb } from '../../src/lib/db';
+import { getDbAsync } from '../../src/lib/db';
 import { 
   cancelRecurringTransaction, 
   updateRecurringTransaction 
@@ -119,12 +119,14 @@ export default function RecurringTransactionsScreen() {
   const loadRecurringTransactions = async () => {
     try {
       setLoading(true);
-      const transactions = await exec<Transaction & { walletCurrency: string }>(
+      const database = await getDbAsync();
+      const result = await database.execute(
         `SELECT t.*, w.currency as walletCurrency FROM transactions t
          LEFT JOIN wallets w ON t.wallet_id = w.id
          WHERE t.is_recurring = 1 
          ORDER BY t.date DESC`
       );
+      const transactions = result.rows?._array as unknown as (Transaction & { walletCurrency: string })[];
       setRecurringTransactions(transactions);
     } catch (error) {
       console.error('Error loading recurring transactions:', error);
@@ -240,7 +242,7 @@ export default function RecurringTransactionsScreen() {
 
     try {
       await enqueueWrite(async () => {
-        const database = await getDb();
+        const database = await getDbAsync();
         
         if (createType === 'transfer') {
           // Create paired transfer transactions
@@ -258,16 +260,13 @@ export default function RecurringTransactionsScreen() {
           }
 
           // Create both transactions in a single batch
-          await database.withTransactionAsync(async () => {
-            const stmt = await database.prepareAsync(
-              `INSERT INTO transactions 
+          await database.transaction(async (tx) => {
+            // Outgoing transfer
+            await tx.executeAsync(
+              `INSERT INTO transactions
                (wallet_id, type, amount, category, date, notes, is_recurring, recurrence_frequency, recurrence_end_date, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-            );
-            
-            try {
-              // Outgoing transfer
-              await stmt.executeAsync([
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
                 createWalletId,
                 'expense',
                 -Math.abs(amount),
@@ -278,10 +277,15 @@ export default function RecurringTransactionsScreen() {
                 createFrequency,
                 createEndDate ? createEndDate.toISOString().split('T')[0] : null,
                 new Date().toISOString(),
-              ]);
+              ]
+            );
 
-              // Incoming transfer
-              await stmt.executeAsync([
+            // Incoming transfer
+            await tx.executeAsync(
+              `INSERT INTO transactions
+               (wallet_id, type, amount, category, date, notes, is_recurring, recurrence_frequency, recurrence_end_date, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
                 createToWalletId,
                 'income',
                 Math.abs(receivedAmount),
@@ -292,34 +296,34 @@ export default function RecurringTransactionsScreen() {
                 createFrequency,
                 createEndDate ? createEndDate.toISOString().split('T')[0] : null,
                 new Date().toISOString(),
-              ]);
-            } finally {
-              await stmt.finalizeAsync();
-            }
+              ]
+            );
           });
         } else {
           // Create single income/expense transaction
           // Resolve category ID to name
           const selectedCat = categories.find(c => c.id?.toString() === createCategory);
           const categoryName = selectedCat?.name || 'Uncategorized';
-          
-          await database.runAsync(
-            `INSERT INTO transactions 
-             (wallet_id, type, amount, category, date, notes, is_recurring, recurrence_frequency, recurrence_end_date, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              createWalletId,
-              createType,
-              createType === 'income' ? Math.abs(amount) : -Math.abs(amount),
-              categoryName,
-              createDate.toISOString(),
-              createNotes || null,
-              1,
-              createFrequency,
-              createEndDate ? createEndDate.toISOString().split('T')[0] : null,
-              new Date().toISOString(),
-            ]
-          );
+
+          await database.transaction(async (tx) => {
+            await tx.executeAsync(
+              `INSERT INTO transactions
+               (wallet_id, type, amount, category, date, notes, is_recurring, recurrence_frequency, recurrence_end_date, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                createWalletId,
+                createType,
+                createType === 'income' ? Math.abs(amount) : -Math.abs(amount),
+                categoryName,
+                createDate.toISOString(),
+                createNotes || null,
+                1,
+                createFrequency,
+                createEndDate ? createEndDate.toISOString().split('T')[0] : null,
+                new Date().toISOString(),
+              ]
+            );
+          });
         }
       }, 'create_recurring_transaction');
 

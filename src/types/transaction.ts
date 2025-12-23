@@ -1,4 +1,4 @@
-export type TransactionType = 'income' | 'expense';
+export type TransactionType = 'income' | 'expense' | 'transfer';
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 export interface Transaction {
@@ -9,7 +9,7 @@ export interface Transaction {
   category?: string;
   date: string; // ISO string
   notes?: string;
-  receipt_uri?: string;
+  receipt_path?: string;
   created_at?: string;
   is_recurring?: boolean;
   recurrence_frequency?: RecurrenceFrequency;

@@ -331,7 +331,7 @@ export default function AddTransactionScreen() {
           category,
           date: date.toISOString(),
           notes,
-          receipt_uri: receiptUri,
+          receipt_path: receiptUri,
           is_recurring: isRecurring,
           recurrence_frequency: isRecurring ? recurrenceFrequency : undefined,
           recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate.toISOString() : undefined
