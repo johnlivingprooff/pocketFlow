@@ -298,9 +298,6 @@ export default function AnalyticsPage() {
 
   // Use actual category colors, fallback to theme colors
   const fallbackColors = ['#C1A12F', '#84670B', '#B3B09E', '#6B6658', '#332D23', '#8B7355', '#A67C52', '#D4AF37'];
-  const colors = categoryPieData.map((cat, index) => 
-    categoryColorMap[cat.category] || fallbackColors[index % fallbackColors.length]
-  );
 
   return (
     <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
@@ -529,77 +526,47 @@ export default function AnalyticsPage() {
         )}
 
         {/* SECTION 4: CATEGORY BREAKDOWN (Horizontal Bar Chart) */}
-        <View style={{ marginBottom: 24 }}>
-          <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Spending by Category</Text>
-          
-          <View style={{
-            backgroundColor: t.card,
-            borderWidth: 1,
-            borderColor: t.border,
-            borderRadius: 14,
-            padding: 16,
-            ...shadows.sm
-          }}>
-            <HorizontalBarChart
-              data={chartData.map((cat, index) => ({
-                category: cat.category,
-                total: cat.total,
-                percentage: cat.percentage,
-                color: colors[index % colors.length]
-              }))}
-              textColor={t.textPrimary}
-              backgroundColor={t.card}
-              formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
-            />
+        {chartData.length > 0 ? (
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Spending by Category</Text>
+            
+            <View style={{
+              backgroundColor: t.card,
+              borderWidth: 1,
+              borderColor: t.border,
+              borderRadius: 14,
+              padding: 16,
+              ...shadows.sm
+            }}>
+              {/* <HorizontalBarChart
+                data={
+                  chartData.map((cat, index) => ({
+                    category: cat.category,
+                    total: cat.total,
+                    percentage: cat.percentage,
+                    color: fallbackColors[index % fallbackColors.length]
+                  }))
+                }
+                textColor={t.textPrimary}
+                backgroundColor={t.card}
+                formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
+              /> */}
+              <HorizontalBarChart
+                data={
+                  chartData.map((cat, index) => ({
+                    category: cat.category,
+                    total: cat.total,
+                    percentage: cat.percentage,
+                    color: fallbackColors[index % fallbackColors.length]
+                  }))
+                }
+                textColor={t.textPrimary}
+                backgroundColor={t.card}
+                formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
+              />
+            </View>
           </View>
-
-          {/* Detailed Category List */}
-          <View style={{
-            backgroundColor: t.card,
-            borderWidth: 1,
-            borderColor: t.border,
-            borderRadius: 14,
-            padding: 16,
-            marginTop: 12,
-            ...shadows.sm
-          }}>
-            {chartData.map((item, index) => (
-              <TouchableOpacity 
-                key={item.category} 
-                style={{ marginBottom: index < chartData.length - 1 ? 14 : 0 }}
-                onPress={() => handleCategoryClick(item.category)}
-              >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-                    <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: colors[index % colors.length] }} />
-                    <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600' }}>{item.category}</Text>
-                  </View>
-                  <Text style={{ color: t.textSecondary, fontSize: 13 }}>{item.percentage.toFixed(0)}%</Text>
-                </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <AnimatedProgressBar
-                    progress={item.percentage}
-                    label=""
-                    value=""
-                    color={colors[index % colors.length]}
-                    backgroundColor={t.background}
-                    textColor={t.textPrimary}
-                  />
-                  <Text style={{ color: t.textSecondary, fontSize: 12, marginLeft: 8, minWidth: 90, textAlign: 'right' }}>
-                    {formatCurrency(item.total, defaultCurrency)}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-
-            {chartData.length === 0 && (
-              <View style={{ alignItems: 'center', paddingVertical: 24 }}>
-                <Text style={{ fontSize: 40, marginBottom: 8 }}>📊</Text>
-                <Text style={{ color: t.textSecondary, fontSize: 14 }}>No spending data yet</Text>
-              </View>
-            )}
-          </View>
-        </View>
+        ) : null}
 
         {/* SECTION 5: 7-DAY TREND */}
         <View style={{ marginBottom: 24 }}>
