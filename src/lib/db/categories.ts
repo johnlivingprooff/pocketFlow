@@ -1,5 +1,6 @@
 import { exec, execRun } from './index';
 import { error as logError, log } from '../../utils/logger';
+import { enqueueWrite } from './writeQueue';
 
 export type Category = {
   id?: number;
@@ -16,19 +17,21 @@ export type Category = {
 export async function createCategory(category: Category): Promise<number> {
   const startTime = Date.now();
   try {
-    const result = await execRun(
-      `INSERT INTO categories (name, type, icon, color, is_preset, budget, parent_category_id, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'));`,
-      [
-        category.name,
-        category.type,
-        category.icon ?? null,
-        category.color ?? null,
-        category.is_preset ?? 0,
-        category.budget ?? null,
-        category.parent_category_id ?? null,
-      ]
-    );
+    const result = await enqueueWrite(async () => {
+      return await execRun(
+        `INSERT INTO categories (name, type, icon, color, is_preset, budget, parent_category_id, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'));`,
+        [
+          category.name,
+          category.type,
+          category.icon ?? null,
+          category.color ?? null,
+          category.is_preset ?? 0,
+          category.budget ?? null,
+          category.parent_category_id ?? null,
+        ]
+      );
+    }, 'createCategory');
     
     const writeTime = Date.now() - startTime;
     log(`[DB] Category created in ${writeTime}ms, name: ${category.name}, type: ${category.type}, timestamp: ${new Date().toISOString()}`);
@@ -53,11 +56,15 @@ export async function updateCategory(id: number, category: Partial<Category>): P
   if (category.parent_category_id !== undefined) { fields.push('parent_category_id = ?'); params.push(category.parent_category_id); }
   
   params.push(id);
-  await execRun(`UPDATE categories SET ${fields.join(', ')} WHERE id = ?;`, params);
+  await enqueueWrite(async () => {
+    await execRun(`UPDATE categories SET ${fields.join(', ')} WHERE id = ?;`, params);
+  }, 'updateCategory');
 }
 
 export async function deleteCategory(id: number): Promise<void> {
-  await execRun('DELETE FROM categories WHERE id = ?;', [id]);
+  await enqueueWrite(async () => {
+    await execRun('DELETE FROM categories WHERE id = ?;', [id]);
+  }, 'deleteCategory');
 }
 
 export async function getCategories(type?: 'income' | 'expense'): Promise<Category[]> {

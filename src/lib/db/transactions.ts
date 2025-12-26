@@ -53,12 +53,14 @@ export async function addTransaction(t: Transaction) {
   const startTime = Date.now();
   log(`[Transaction] Adding transaction: type=${t.type}, amount=${t.amount}, wallet=${t.wallet_id}, timestamp=${new Date().toISOString()}`);
   
-  await execRun(
-    `INSERT INTO transactions 
-     (wallet_id, type, amount, category, date, notes, receipt_path, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-    params
-  );
+  await enqueueWrite(async () => {
+    await execRun(
+      `INSERT INTO transactions 
+       (wallet_id, type, amount, category, date, notes, receipt_path, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      params
+    );
+  }, 'addTransaction');
   const writeTime = Date.now() - startTime;
   
   // Invalidate caches synchronously after write completes
@@ -192,7 +194,9 @@ export async function updateTransaction(id: number, t: Partial<Transaction>) {
   params.push(id);
   // Ensure database write completes before invalidating caches
   const startTime = Date.now();
-  await execRun(`UPDATE transactions SET ${fields.join(', ')} WHERE id = ?;`, params);
+  await enqueueWrite(async () => {
+    await execRun(`UPDATE transactions SET ${fields.join(', ')} WHERE id = ?;`, params);
+  }, 'updateTransaction');
   const writeTime = Date.now() - startTime;
   
   // Invalidate caches synchronously after update completes
@@ -225,7 +229,9 @@ export async function deleteTransaction(id: number) {
   
   // Ensure database write completes before invalidating caches
   const startTime = Date.now();
-  await execRun('DELETE FROM transactions WHERE id = ?;', [id]);
+  await enqueueWrite(async () => {
+    await execRun('DELETE FROM transactions WHERE id = ?;', [id]);
+  }, 'deleteTransaction');
   const writeTime = Date.now() - startTime;
   
   // Invalidate caches synchronously after delete completes

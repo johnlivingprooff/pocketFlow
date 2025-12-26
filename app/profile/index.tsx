@@ -10,7 +10,7 @@ export default function ProfilePage() {
   const systemColorScheme = useColorScheme();
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const t = theme(effectiveMode);
-  const safeUser = userInfo ?? { name: 'User', email: '', phone: '', profileImage: null };
+  const safeUser = userInfo ?? { name: 'pFlowr', email: '', phone: '', profileImage: null };
   const [name, setName] = useState(safeUser.name);
   const [email, setEmail] = useState(safeUser.email);
   const [phone, setPhone] = useState(safeUser.phone);

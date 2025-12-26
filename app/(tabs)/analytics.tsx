@@ -24,7 +24,7 @@ import {
   getTransactionsByCategory
 } from '../../src/lib/db/transactions';
 import { getCategories } from '../../src/lib/db/categories';
-import { formatCurrency } from '../../src/utils/formatCurrency';
+import { formatCurrency, formatLargeNumber } from '../../src/utils/formatCurrency';
 import { formatShortDate } from '../../src/utils/date';
 import { Link } from 'expo-router';
 import { invalidateTransactionCaches, invalidateWalletCaches } from '../../src/lib/cache/queryCache';
@@ -32,17 +32,15 @@ import SevenDayTrendChart from '../../src/components/charts/SevenDayTrendChart';
 import MonthlyBarChart from '../../src/components/charts/MonthlyBarChart';
 import IncomeExpenseChart from '../../src/components/charts/IncomeExpenseChart';
 import CategoryPieChart from '../../src/components/charts/CategoryPieChart';
+import CandlestickChart from '../../src/components/charts/CandlestickChart';
+import HorizontalBarChart from '../../src/components/charts/HorizontalBarChart';
 import AnimatedProgressBar from '../../src/components/charts/AnimatedProgressBar';
-import InsightsSection from '../../src/components/InsightsSection';
-import FinancialHealthCard from '../../src/components/FinancialHealthCard';
 import TimePeriodSelector, { TimePeriod } from '../../src/components/TimePeriodSelector';
 import CategoryDrillDown from '../../src/components/CategoryDrillDown';
+import HelpIcon from '../../src/components/HelpIcon';
+import FinancialHealthRing from '../../src/components/FinancialHealthRing';
 import {
-  generateSpendingInsights,
-  generateSavingsSuggestions,
-  detectSpendingPatterns,
   calculateFinancialHealthScore,
-  SpendingInsight,
   FinancialHealthScore
 } from '../../src/lib/insights/analyticsInsights';
 import { exportAnalyticsReport, AnalyticsReportData } from '../../src/lib/export/exportReport';
@@ -75,9 +73,6 @@ export default function AnalyticsPage() {
   const [categoryColorMap, setCategoryColorMap] = useState<Record<string, string>>({});
 
   // Phase 3: Insights & Financial Health State
-  const [spendingInsights, setSpendingInsights] = useState<SpendingInsight[]>([]);
-  const [savingsSuggestions, setSavingsSuggestions] = useState<SpendingInsight[]>([]);
-  const [patterns, setPatterns] = useState<SpendingInsight[]>([]);
   const [financialHealth, setFinancialHealth] = useState<FinancialHealthScore | null>(null);
 
   // Phase 4: Interactivity & Customization State
@@ -151,29 +146,6 @@ export default function AnalyticsPage() {
       setCategoryColorMap(colorMap);
 
       // Phase 3: Generate insights and financial health score
-      const insights = generateSpendingInsights({
-        monthlyComparison: comparison,
-        weekComparison: weekComp,
-        incomeExpense: incExpAnalysis,
-        spendingStreak: streak,
-        categories: breakdown,
-        avgDailySpend: month / daysInMonth
-      });
-      setSpendingInsights(insights);
-
-      const suggestions = generateSavingsSuggestions({
-        categories: breakdown,
-        avgDailySpend: month / daysInMonth,
-        incomeExpense: incExpAnalysis
-      });
-      setSavingsSuggestions(suggestions);
-
-      const detectedPatterns = detectSpendingPatterns({
-        dailySpending: daily,
-        categories: breakdown
-      });
-      setPatterns(detectedPatterns);
-
       const healthScore = calculateFinancialHealthScore({
         incomeExpense: incExpAnalysis,
         spendingStreak: streak,
@@ -264,29 +236,6 @@ export default function AnalyticsPage() {
       setMonthlyComparison(comparison);
 
       // Regenerate insights with updated data
-      const insights = generateSpendingInsights({
-        monthlyComparison: comparison,
-        weekComparison: weekComp,
-        incomeExpense: incExpAnalysis,
-        spendingStreak: streak,
-        categories: breakdown,
-        avgDailySpend: month / daysInMonth
-      });
-      setSpendingInsights(insights);
-
-      const suggestions = generateSavingsSuggestions({
-        categories: breakdown,
-        avgDailySpend: month / daysInMonth,
-        incomeExpense: incExpAnalysis
-      });
-      setSavingsSuggestions(suggestions);
-
-      const detectedPatterns = detectSpendingPatterns({
-        dailySpending: daily,
-        categories: breakdown
-      });
-      setPatterns(detectedPatterns);
-
       const healthScore = calculateFinancialHealthScore({
         incomeExpense: incExpAnalysis,
         spendingStreak: streak,
@@ -324,7 +273,6 @@ export default function AnalyticsPage() {
         total: cat.total,
         percentage: (cat.total / categoryPieData.reduce((sum, c) => sum + c.total, 0)) * 100,
       })),
-      insights: [...spendingInsights, ...savingsSuggestions, ...patterns],
       financialHealth: financialHealth ? {
         score: financialHealth.score,
         rating: financialHealth.rating,
@@ -335,7 +283,7 @@ export default function AnalyticsPage() {
     if (!result.success && result.error) {
       Alert.alert('Export Failed', result.error);
     }
-  }, [selectedPeriod, incomeExpense, categoryPieData, spendingInsights, savingsSuggestions, patterns, financialHealth]);
+  }, [selectedPeriod, incomeExpense, categoryPieData, financialHealth]);
 
   const topCategory = categories.length > 0 ? categories[0] : null;
   const screenWidth = Dimensions.get('window').width;
@@ -415,9 +363,18 @@ export default function AnalyticsPage() {
                 padding: 16,
                 ...shadows.sm
               }}>
-                <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Net Flow</Text>
-                <Text style={{ color: incomeExpense.netSavings >= 0 ? t.success : t.danger, fontSize: 22, fontWeight: '800' }}>
-                  {formatCurrency(incomeExpense.netSavings, defaultCurrency)}
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>Net Flow [{defaultCurrency}]</Text>
+                  <HelpIcon
+                    onPress={() => Alert.alert(
+                      'Net Flow',
+                      'Your net savings for the month (income minus expenses). Positive values show you\'re saving money, while negative values indicate you\'re spending more than you earn.'
+                    )}
+                    color={t.textSecondary}
+                  />
+                </View>
+                <Text style={{ color: incomeExpense.netSavings >= 0 ? t.success : t.danger, fontSize: 20, fontWeight: '800' }}>
+                  {formatLargeNumber(incomeExpense.netSavings)}
                 </Text>
                 <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 4 }}>
                   {incomeExpense.savingsRate.toFixed(1)}% savings rate
@@ -433,9 +390,18 @@ export default function AnalyticsPage() {
                 padding: 16,
                 ...shadows.sm
               }}>
-                <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Savings</Text>
-                <Text style={{ color: t.success, fontSize: 22, fontWeight: '800' }}>
-                  {formatCurrency(incomeExpense.income, defaultCurrency)}
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>Savings [{defaultCurrency}]</Text>
+                  <HelpIcon
+                    onPress={() => Alert.alert(
+                      'Savings (Income)',
+                      'Total income received this month from all sources (salary, freelance, business, investments, gifts, etc.). This represents money coming into your accounts.'
+                    )}
+                    color={t.textSecondary}
+                  />
+                </View>
+                <Text style={{ color: t.success, fontSize: 20, fontWeight: '800' }}>
+                  {formatLargeNumber(incomeExpense.income)}
                 </Text>
                 <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 4 }}>income this month</Text>
               </View>
@@ -453,9 +419,18 @@ export default function AnalyticsPage() {
               padding: 16,
               ...shadows.sm
             }}>
-              <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Avg Daily</Text>
-              <Text style={{ color: t.textPrimary, fontSize: 22, fontWeight: '800' }}>
-                {formatCurrency(avgDailySpend, defaultCurrency)}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>Avg Daily [{defaultCurrency}]</Text>
+                <HelpIcon
+                  onPress={() => Alert.alert(
+                    'Average Daily Spending',
+                    'Your average daily spending rate. Calculated by dividing total monthly expenses by the number of days in the current month. Helps you understand your typical spending pace.'
+                  )}
+                  color={t.textSecondary}
+                />
+              </View>
+              <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800' }}>
+                {formatLargeNumber(avgDailySpend)}
               </Text>
               <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 4 }}>spending rate</Text>
             </View>
@@ -469,9 +444,18 @@ export default function AnalyticsPage() {
               padding: 16,
               ...shadows.sm
             }}>
-              <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Top Spend</Text>
-              <Text style={{ color: t.textPrimary, fontSize: 22, fontWeight: '800' }}>
-                {formatCurrency(largestPurchase, defaultCurrency)}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>Top Spend [{defaultCurrency}]</Text>
+                <HelpIcon
+                  onPress={() => Alert.alert(
+                    'Top Spend',
+                    'The highest amount spent on a single transaction this month. Shows your largest purchase and helps identify major spending events.'
+                  )}
+                  color={t.textSecondary}
+                />
+              </View>
+              <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800' }}>
+                {formatLargeNumber(largestPurchase)}
               </Text>
               <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 4 }}>single purchase</Text>
             </View>
@@ -506,7 +490,7 @@ export default function AnalyticsPage() {
           </View>
         )}
 
-        {/* SECTION 3: TRENDS (Income vs Expense Line Chart) */}
+        {/* SECTION 3: TRENDS (Forex-style Candlestick Chart) */}
         {monthlyComparison && (
           <View style={{ marginBottom: 24 }}>
             <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Monthly Trends</Text>
@@ -519,26 +503,32 @@ export default function AnalyticsPage() {
               padding: 16,
               ...shadows.sm
             }}>
-              {([
-                { label: 'This Month', data: monthlyComparison.thisMonth },
-                { label: 'Last Month', data: monthlyComparison.lastMonth }
-              ] as const).map(({ label, data }) => (
-                <View key={label} style={{ marginBottom: label === 'This Month' ? 16 : 0 }}>
-                  <IncomeExpenseChart
-                    data={[{ income: data.income, expense: data.expense, label }]}
-                    incomeColor={t.success}
-                    expenseColor={t.danger}
-                    textColor={t.textPrimary}
-                    backgroundColor={t.card}
-                    formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
-                  />
-                </View>
-              ))}
+              <CandlestickChart
+                data={[
+                  {
+                    label: 'Last Month',
+                    income: monthlyComparison.lastMonth.income,
+                    expense: monthlyComparison.lastMonth.expense,
+                    net: monthlyComparison.lastMonth.net
+                  },
+                  {
+                    label: 'This Month',
+                    income: monthlyComparison.thisMonth.income,
+                    expense: monthlyComparison.thisMonth.expense,
+                    net: monthlyComparison.thisMonth.net
+                  }
+                ]}
+                positiveColor={t.success}
+                negativeColor={t.danger}
+                textColor={t.textPrimary}
+                backgroundColor={t.card}
+                formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
+              />
             </View>
           </View>
         )}
 
-        {/* SECTION 4: CATEGORY BREAKDOWN (Pie Chart) */}
+        {/* SECTION 4: CATEGORY BREAKDOWN (Horizontal Bar Chart) */}
         <View style={{ marginBottom: 24 }}>
           <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Spending by Category</Text>
           
@@ -550,14 +540,15 @@ export default function AnalyticsPage() {
             padding: 16,
             ...shadows.sm
           }}>
-            <CategoryPieChart
-              data={categoryPieData.map(cat => ({
+            <HorizontalBarChart
+              data={chartData.map((cat, index) => ({
                 category: cat.category,
                 total: cat.total,
-                percentage: 0
+                percentage: cat.percentage,
+                color: colors[index % colors.length]
               }))}
-              colors={colors}
               textColor={t.textPrimary}
+              backgroundColor={t.card}
               formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
             />
           </View>
@@ -636,43 +627,14 @@ export default function AnalyticsPage() {
         {/* SECTION 6: FINANCIAL HEALTH & INSIGHTS */}
         {financialHealth && (
           <View style={{ marginBottom: 24 }}>
-            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Financial Health</Text>
-            <FinancialHealthCard
+            <FinancialHealthRing
               healthScore={financialHealth}
               textColor={t.textPrimary}
               backgroundColor={t.card}
-              borderColor={t.border}
               primaryColor={t.primary}
             />
           </View>
         )}
-
-        {/* SECTION 7: SMART INSIGHTS */}
-        <InsightsSection
-          insights={spendingInsights}
-          title="Smart Insights"
-          textColor={t.textPrimary}
-          backgroundColor={t.card}
-          borderColor={t.border}
-        />
-
-        {/* SECTION 8: SAVINGS SUGGESTIONS */}
-        <InsightsSection
-          insights={savingsSuggestions}
-          title="Savings Opportunities"
-          textColor={t.textPrimary}
-          backgroundColor={t.card}
-          borderColor={t.border}
-        />
-
-        {/* SECTION 9: SPENDING PATTERNS */}
-        <InsightsSection
-          insights={patterns}
-          title="Spending Patterns"
-          textColor={t.textPrimary}
-          backgroundColor={t.card}
-          borderColor={t.border}
-        />
       </ScrollView>
 
       {/* Phase 4: Category Drill-Down Modal */}

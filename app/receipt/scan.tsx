@@ -4,17 +4,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useSettings } from '../../src/store/useStore';
+import { useUI } from '../../src/store/useStore';
 import { theme } from '../../src/theme/theme';
 import { saveReceiptImage } from '../../src/lib/services/fileService';
 
 export default function ReceiptScan() {
   const { themeMode } = useSettings();
+  const { setIsPickingImage } = useUI();
   const t = theme(themeMode);
   const [localUri, setLocalUri] = useState<string | undefined>();
   const [savedUri, setSavedUri] = useState<string | undefined>();
 
   const pickOrCapture = async () => {
     try {
+      setIsPickingImage(true);
       const res = await ImagePicker.launchCameraAsync({ base64: true, quality: 0.7 });
       if (!res.canceled && res.assets?.[0]) {
         const asset = res.assets[0];
@@ -31,6 +34,8 @@ export default function ReceiptScan() {
     } catch (error) {
       console.error('Error in receipt scan:', error);
       Alert.alert('Error', 'Failed to save receipt. Please try again.');
+    } finally {
+      setIsPickingImage(false);
     }
   };
 

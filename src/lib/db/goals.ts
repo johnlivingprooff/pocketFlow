@@ -5,6 +5,7 @@
 
 import { Goal, GoalWithMetrics, GoalInput } from '@/types/goal';
 import { execRun, exec } from '.';
+import { enqueueWrite } from './writeQueue';
 
 /**
  * Create a new goal
@@ -20,20 +21,22 @@ export async function createGoal(goal: GoalInput): Promise<Goal> {
     updatedAt: now,
   };
 
-  await execRun(
-    `INSERT INTO goals (name, target_amount, current_progress, target_date, notes, linked_wallet_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      goal.name,
-      goal.targetAmount,
-      0,
-      goal.targetDate,
-      goal.notes || null,
-      goal.linkedWalletId,
-      now,
-      now,
-    ]
-  );
+  await enqueueWrite(async () => {
+    await execRun(
+      `INSERT INTO goals (name, target_amount, current_progress, target_date, notes, linked_wallet_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        goal.name,
+        goal.targetAmount,
+        0,
+        goal.targetDate,
+        goal.notes || null,
+        goal.linkedWalletId,
+        now,
+        now,
+      ]
+    );
+  }, 'createGoal');
 
   return createdGoal;
 }
@@ -124,7 +127,7 @@ export async function updateGoal(id: number, updates: Partial<GoalInput>): Promi
     fields.push('linked_wallet_id = ?');
     values.push(updates.linkedWalletId);
     // If wallet changed, recalculate progress
-    const goal = getGoalById(id);
+    const goal = await getGoalById(id);
     if (goal && goal.linkedWalletId !== updates.linkedWalletId) {
       fields.push('current_progress = ?');
       values.push(0);
@@ -137,10 +140,12 @@ export async function updateGoal(id: number, updates: Partial<GoalInput>): Promi
   values.push(now);
   values.push(id);
 
-  await execRun(
-    `UPDATE goals SET ${fields.join(', ')} WHERE id = ?`,
-    values
-  );
+  await enqueueWrite(async () => {
+    await execRun(
+      `UPDATE goals SET ${fields.join(', ')} WHERE id = ?`,
+      values
+    );
+  }, 'updateGoal');
 }
 
 /**
@@ -148,7 +153,9 @@ export async function updateGoal(id: number, updates: Partial<GoalInput>): Promi
  * @param id Goal ID
  */
 export async function deleteGoal(id: number): Promise<void> {
-  await execRun('DELETE FROM goals WHERE id = ?', [id]);
+  await enqueueWrite(async () => {
+    await execRun('DELETE FROM goals WHERE id = ?', [id]);
+  }, 'deleteGoal');
 }
 
 /**
@@ -171,10 +178,12 @@ export async function recalculateGoalProgress(goalId: number): Promise<void> {
 
     const totalIncome = result[0]?.total || 0;
 
-    await execRun(
-      `UPDATE goals SET current_progress = ?, updated_at = ? WHERE id = ?`,
-      [totalIncome, new Date().toISOString(), goalId]
-    );
+    await enqueueWrite(async () => {
+      await execRun(
+        `UPDATE goals SET current_progress = ?, updated_at = ? WHERE id = ?`,
+        [totalIncome, new Date().toISOString(), goalId]
+      );
+    }, 'recalculateGoalProgress');
   } catch (error) {
     console.error('Failed to recalculate goal progress:', error);
   }
@@ -235,9 +244,9 @@ export function calculateGoalMetrics(goal: Goal): GoalWithMetrics {
  * Get goals approaching deadline (within 30 days)
  * @returns Array of upcoming goals
  */
-export function getUpcomingGoals(): GoalWithMetrics[] {
+export async function getUpcomingGoals(): Promise<GoalWithMetrics[]> {
   try {
-    const goals = getGoals();
+    const goals = await getGoals();
     const today = new Date();
     const thirtyDaysLater = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
 

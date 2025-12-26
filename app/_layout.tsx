@@ -3,6 +3,7 @@ import { Platform, View, ActivityIndicator, useColorScheme, AppState, AppStateSt
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { useSettings } from '../src/store/useStore';
+import { useUI } from '../src/store/useStore';
 import { ensureTables, initDb } from '../src/lib/db';
 // Removed legacy write queue import (migrated to Nitro SQLite)
 import { processRecurringTransactions } from '../src/lib/services/recurringTransactionService';
@@ -21,6 +22,7 @@ export default function RootLayout() {
     setLastAuthTime,
     setLastBackupAt,
   } = useSettings();
+  const { isPickingImage } = useUI();
   const systemColorScheme = useColorScheme();
   const [dbReady, setDbReady] = useState(Platform.OS === 'web');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -83,8 +85,8 @@ export default function RootLayout() {
       }
       
       if (biometricEnabled && biometricSetupComplete) {
-        // Check if auth is needed
-        if (shouldRequireAuth(lastAuthTime)) {
+        // Check if auth is needed, but skip if user is picking an image
+        if (!isPickingImage && shouldRequireAuth(lastAuthTime)) {
           setIsAuthenticated(false);
           performBiometricAuth();
         }

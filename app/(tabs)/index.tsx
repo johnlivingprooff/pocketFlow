@@ -20,6 +20,7 @@ import { Transaction } from '../../src/types/transaction';
 import { log } from '../../src/utils/logger';
 import { invalidateTransactionCaches, invalidateWalletCaches } from '../../src/lib/cache/queryCache';
 import { EyeOffIcon } from '../../src/assets/icons/EyeOffIcon';
+import { WalletIcon, PlusIcon } from '../../src/assets/icons/CategoryIcons';
 
 type TimePeriod = 'all' | 'today' | 'week' | 'month' | 'lastMonth' | 'custom';
 
@@ -72,7 +73,7 @@ export default function Home() {
   const [monthTotal, setMonthTotal] = useState(0);
   const [todayTotal, setTodayTotal] = useState(0);
   // Derive display name from persisted settings
-  const displayName = (userInfo?.name && userInfo.name.trim().length > 0) ? userInfo.name : 'User';
+  const displayName = (userInfo?.name && userInfo.name.trim().length > 0) ? userInfo.name : 'pFlowr';
   const greeting = getGreeting();
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('today');
   const [income, setIncome] = useState(0);
@@ -848,28 +849,24 @@ export default function Home() {
           />
         </View>
 
-        {/* Insights Preview Strip */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, marginBottom: 24 }}>
-          <Link href="/analytics" asChild>
-            <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 12, minWidth: 220, ...shadows.sm }}>
-              {weekComparison ? (
-                <>
-                  <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '700' }}>
-                    {weekComparison.percentChange < 0 ? 'Spending is lower this week' : 'Spending is higher this week'}
-                  </Text>
-                  <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>
-                    {Math.abs(weekComparison.percentChange)}% {weekComparison.percentChange < 0 ? 'lower' : 'higher'} than last week
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '700' }}>No spending data</Text>
-                  <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>Start tracking transactions</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </Link>
-        </ScrollView>
+        {/* Quick Actions */}
+        <View style={{ marginBottom: 24 }}>
+          <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Quick Actions</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+            <Link href="/categories/create" asChild>
+              <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 16, minWidth: 140, alignItems: 'center', ...shadows.sm }}>
+                <PlusIcon size={24} color={t.primary} />
+                <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600', marginTop: 8 }}>Add Category</Text>
+              </TouchableOpacity>
+            </Link>
+            <Link href="/wallets/create" asChild>
+              <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 16, minWidth: 140, alignItems: 'center', ...shadows.sm }}>
+                <WalletIcon size={24} color={t.primary} />
+                <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600', marginTop: 8 }}>Add Wallet</Text>
+              </TouchableOpacity>
+            </Link>
+          </ScrollView>
+        </View>
       </ScrollView>
 
       {/* Custom Date Range Picker Modal */}

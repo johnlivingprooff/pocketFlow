@@ -2,12 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Platform, Modal, useColorScheme, KeyboardAvoidingView, Switch, Alert } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useSettings } from '../../src/store/useStore';
+import { useUI } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
-import { addTransaction, transferBetweenWallets } from '../../src/lib/db/transactions';
+import { addTransaction, transferBetweenWallets, updateTransaction, getById } from '../../src/lib/db/transactions';
 import { CalendarModal } from '@/components/CalendarModal';
 import { formatShortDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
@@ -24,10 +25,16 @@ import { error as logError } from '../../src/utils/logger';
 export default function AddTransactionScreen() {
   const router = useRouter();
   const { themeMode, defaultCurrency } = useSettings();
+  const { setIsPickingImage } = useUI();
   const systemColorScheme = useColorScheme();
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const t = theme(effectiveMode);
   const { wallets, balances } = useWallets();
+  const { id } = useLocalSearchParams();
+
+  // Check if we're in edit mode
+  const isEditMode = !!id;
+  const [loading, setLoading] = useState(isEditMode);
 
   const [type, setType] = useState<'income' | 'expense' | 'transfer'>('expense');
   const [amount, setAmount] = useState('');
@@ -80,6 +87,46 @@ export default function AddTransactionScreen() {
     loadCategories(type);
   }, [type, walletId, wallets]);
 
+  // Load transaction data for editing
+  useEffect(() => {
+    const loadTransactionForEdit = async () => {
+      if (!isEditMode || !id || Platform.OS === 'web') return;
+
+      try {
+        const transaction = await getById(Number(id));
+        if (transaction) {
+          if (transaction.type === 'transfer') {
+            Alert.alert('Cannot Edit Transfer', 'Transfer transactions cannot be edited directly. Please delete and create a new transfer if needed.');
+            router.back();
+            return;
+          }
+          setType(transaction.amount < 0 ? 'expense' : 'income');
+          setAmount(String(Math.abs(transaction.amount)));
+          setCategory(transaction.category || '');
+          setDate(new Date(transaction.date));
+          setNotes(transaction.notes || '');
+          setWalletId(transaction.wallet_id);
+          setIsRecurring(transaction.is_recurring || false);
+          setRecurrenceFrequency(transaction.recurrence_frequency || 'monthly');
+          setRecurrenceEndDate(transaction.recurrence_end_date ? new Date(transaction.recurrence_end_date) : null);
+
+          // Load receipt image if exists
+          if (transaction.receipt_path) {
+            setLocalUri(transaction.receipt_path);
+          }
+        }
+      } catch (error) {
+        logError('Failed to load transaction for editing:', { error });
+        Alert.alert('Error', 'Failed to load transaction for editing');
+        router.back();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTransactionForEdit();
+  }, [isEditMode, id]);
+
   const loadCategories = async (selectedType: 'income' | 'expense') => {
     try {
       const hierarchy = await loadCategoriesHierarchy();
@@ -102,6 +149,7 @@ export default function AddTransactionScreen() {
 
   const pickImage = async () => {
     try {
+      setIsPickingImage(true);
       const res = await ImagePicker.launchImageLibraryAsync({ base64: true, quality: 0.7 });
       if (!res.canceled && res.assets?.[0]) {
         const asset = res.assets[0];
@@ -120,11 +168,14 @@ export default function AddTransactionScreen() {
     } catch (error) {
       logError('Error picking image', { error });
       Alert.alert('Error', 'Failed to pick image. Please try again.');
+    } finally {
+      setIsPickingImage(false);
     }
   };
 
   const takePhoto = async () => {
     try {
+      setIsPickingImage(true);
       const res = await ImagePicker.launchCameraAsync({ base64: true, quality: 0.7 });
       if (!res.canceled && res.assets?.[0]) {
         const asset = res.assets[0];
@@ -143,6 +194,8 @@ export default function AddTransactionScreen() {
     } catch (error) {
       logError('Error taking photo', { error });
       Alert.alert('Error', 'Failed to take photo. Please try again.');
+    } finally {
+      setIsPickingImage(false);
     }
   };
 
@@ -324,22 +377,39 @@ export default function AddTransactionScreen() {
       const finalAmount = type === 'expense' ? -Math.abs(numericAmount) : Math.abs(numericAmount);
 
       try {
-        await addTransaction({
-          wallet_id: walletId,
-          type: type as 'income' | 'expense',
-          amount: finalAmount,
-          category,
-          date: date.toISOString(),
-          notes,
-          receipt_path: receiptUri,
-          is_recurring: isRecurring,
-          recurrence_frequency: isRecurring ? recurrenceFrequency : undefined,
-          recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate.toISOString() : undefined
-        });
+        if (isEditMode && id) {
+          // Update existing transaction
+          await updateTransaction(Number(id), {
+            wallet_id: walletId,
+            type: type as 'income' | 'expense',
+            amount: finalAmount,
+            category,
+            date: date.toISOString(),
+            notes,
+            receipt_path: receiptUri,
+            is_recurring: isRecurring,
+            recurrence_frequency: isRecurring ? recurrenceFrequency : undefined,
+            recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate.toISOString() : undefined
+          });
+        } else {
+          // Add new transaction
+          await addTransaction({
+            wallet_id: walletId,
+            type: type as 'income' | 'expense',
+            amount: finalAmount,
+            category,
+            date: date.toISOString(),
+            notes,
+            receipt_path: receiptUri,
+            is_recurring: isRecurring,
+            recurrence_frequency: isRecurring ? recurrenceFrequency : undefined,
+            recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate.toISOString() : undefined
+          });
+        }
         router.back();
       } catch (err: any) {
-        logError('[Transaction] Failed to add transaction:', { error: err });
-        let errorMessage = 'Failed to add transaction. Please try again.';
+        logError(`[Transaction] Failed to ${isEditMode ? 'update' : 'add'} transaction:`, { error: err });
+        let errorMessage = `Failed to ${isEditMode ? 'update' : 'add'} transaction. Please try again.`;
         if (err?.message?.includes('database')) {
           errorMessage = 'Database error occurred. Please restart the app and try again.';
         } else if (err?.message?.includes('timeout')) {
@@ -362,25 +432,42 @@ export default function AddTransactionScreen() {
   const saveTransactionWithoutReceipt = async () => {
     const finalAmount = type === 'expense' ? -Math.abs(numericAmount) : Math.abs(numericAmount);
     try {
-      await addTransaction({
-        wallet_id: walletId,
-        type: type as 'income' | 'expense',
-        amount: finalAmount,
-        category,
-        date: date.toISOString(),
-        notes,
-        receipt_uri: undefined,
-        is_recurring: isRecurring,
-        recurrence_frequency: isRecurring ? recurrenceFrequency : undefined,
-        recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate.toISOString() : undefined
-      });
+      if (isEditMode && id) {
+        // Update existing transaction
+        await updateTransaction(Number(id), {
+          wallet_id: walletId,
+          type: type as 'income' | 'expense',
+          amount: finalAmount,
+          category,
+          date: date.toISOString(),
+          notes,
+          receipt_path: undefined,
+          is_recurring: isRecurring,
+          recurrence_frequency: isRecurring ? recurrenceFrequency : undefined,
+          recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate.toISOString() : undefined
+        });
+      } else {
+        // Add new transaction
+        await addTransaction({
+          wallet_id: walletId,
+          type: type as 'income' | 'expense',
+          amount: finalAmount,
+          category,
+          date: date.toISOString(),
+          notes,
+          receipt_path: undefined,
+          is_recurring: isRecurring,
+          recurrence_frequency: isRecurring ? recurrenceFrequency : undefined,
+          recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate.toISOString() : undefined
+        });
+      }
       router.back();
     } catch (err) {
-      logError('[Transaction] Failed to add transaction without receipt:', { error: err });
+      logError(`[Transaction] Failed to ${isEditMode ? 'update' : 'add'} transaction without receipt:`, { error: err });
       setAlertConfig({
         visible: true,
         title: 'Error',
-        message: 'Failed to add transaction. Please try again.',
+        message: `Failed to ${isEditMode ? 'update' : 'add'} transaction. Please try again.`,
         buttons: [{ text: 'OK' }]
       });
     } finally {
@@ -416,6 +503,16 @@ export default function AddTransactionScreen() {
       </View>
     );
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ color: t.textSecondary }}>Loading transaction...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
@@ -545,7 +642,7 @@ export default function AddTransactionScreen() {
               }}
             >
               <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>
-                {isSaving ? 'Saving...' : 'Save Transaction'}
+                {isSaving ? 'Saving...' : (isEditMode ? 'Update Transaction' : 'Save Transaction')}
               </Text>
             </TouchableOpacity>
           </View>

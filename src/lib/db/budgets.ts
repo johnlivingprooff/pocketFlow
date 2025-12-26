@@ -5,6 +5,7 @@
 
 import { Budget, BudgetWithMetrics, BudgetInput } from '@/types/goal';
 import { execRun, exec } from '.';
+import { enqueueWrite } from './writeQueue';
 
 /**
  * Create a new budget
@@ -20,26 +21,28 @@ export async function createBudget(budget: BudgetInput): Promise<Budget> {
     updatedAt: now,
   };
 
-  await execRun(
-    `INSERT INTO budgets (name, category_id, subcategory_id, limit_amount, current_spending,
-                          period_type, start_date, end_date, notes, linked_wallet_id,
-                          created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      budget.name,
-      budget.categoryId || null,
-      budget.subcategoryId || null,
-      budget.limitAmount,
-      0,
-      budget.periodType,
-      budget.startDate,
-      budget.endDate,
-      budget.notes || null,
-      budget.linkedWalletId,
-      now,
-      now,
-    ]
-  );
+  await enqueueWrite(async () => {
+    await execRun(
+      `INSERT INTO budgets (name, category_id, subcategory_id, limit_amount, current_spending,
+                            period_type, start_date, end_date, notes, linked_wallet_id,
+                            created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        budget.name,
+        budget.categoryId || null,
+        budget.subcategoryId || null,
+        budget.limitAmount,
+        0,
+        budget.periodType,
+        budget.startDate,
+        budget.endDate,
+        budget.notes || null,
+        budget.linkedWalletId,
+        now,
+        now,
+      ]
+    );
+  }, 'createBudget');
 
   return createdBudget;
 }
@@ -175,7 +178,7 @@ export async function updateBudget(id: number, updates: Partial<BudgetInput>): P
     fields.push('linked_wallet_id = ?');
     values.push(updates.linkedWalletId);
     // If wallet changed, recalculate spending
-    const budget = getBudgetById(id);
+    const budget = await getBudgetById(id);
     if (budget && budget.linkedWalletId !== updates.linkedWalletId) {
       fields.push('current_spending = ?');
       values.push(0);
@@ -188,10 +191,12 @@ export async function updateBudget(id: number, updates: Partial<BudgetInput>): P
   values.push(now);
   values.push(id);
 
-  await execRun(
-    `UPDATE budgets SET ${fields.join(', ')} WHERE id = ?`,
-    values
-  );
+  await enqueueWrite(async () => {
+    await execRun(
+      `UPDATE budgets SET ${fields.join(', ')} WHERE id = ?`,
+      values
+    );
+  }, 'updateBudget');
 }
 
 /**
@@ -199,7 +204,9 @@ export async function updateBudget(id: number, updates: Partial<BudgetInput>): P
  * @param id Budget ID
  */
 export async function deleteBudget(id: number): Promise<void> {
-  await execRun('DELETE FROM budgets WHERE id = ?', [id]);
+  await enqueueWrite(async () => {
+    await execRun('DELETE FROM budgets WHERE id = ?', [id]);
+  }, 'deleteBudget');
 }
 
 /**
@@ -270,10 +277,12 @@ export async function recalculateBudgetSpending(budgetId: number): Promise<void>
     const result = await exec<{ total: number }>(query, params);
     const totalSpending = result[0]?.total || 0;
 
-    await execRun(
-      `UPDATE budgets SET current_spending = ?, updated_at = ? WHERE id = ?`,
-      [totalSpending, new Date().toISOString(), budgetId]
-    );
+    await enqueueWrite(async () => {
+      await execRun(
+        `UPDATE budgets SET current_spending = ?, updated_at = ? WHERE id = ?`,
+        [totalSpending, new Date().toISOString(), budgetId]
+      );
+    }, 'recalculateBudgetSpending');
   } catch (error) {
     console.error('Failed to recalculate budget spending:', error);
   }

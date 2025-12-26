@@ -11,7 +11,7 @@ export interface AnalyticsReportData {
     savingsRate: number;
   };
   categories: Array<{ category: string; total: number; percentage: number }>;
-  insights: Array<{ type: string; title: string; message: string }>;
+  insights?: Array<{ type: string; title: string; message: string }>;
   financialHealth?: {
     score: number;
     rating: string;

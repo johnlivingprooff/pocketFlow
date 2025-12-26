@@ -101,11 +101,13 @@ export async function createWallet(w: Wallet) {
       nextDisplayOrder, // Ensure new wallet gets sequential display_order
     ];
     
-    await execRun(
-      `INSERT INTO wallets (name, currency, initial_balance, type, color, description, created_at, is_primary, exchange_rate, display_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-      params
-    );
+    await enqueueWrite(async () => {
+      await execRun(
+        `INSERT INTO wallets (name, currency, initial_balance, type, color, description, created_at, is_primary, exchange_rate, display_order)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        params
+      );
+    }, 'createWallet');
     
     const writeTime = Date.now() - startTime;
     log('[DB] Wallet created successfully', { 
@@ -149,14 +151,18 @@ export async function updateWallet(id: number, w: Partial<Wallet>) {
   if (w.exchange_rate !== undefined) set('exchange_rate', w.exchange_rate);
     if (w.display_order !== undefined) set('display_order', w.display_order);
   params.push(id);
-  await execRun(`UPDATE wallets SET ${fields.join(', ')} WHERE id = ?;`, params);
+  await enqueueWrite(async () => {
+    await execRun(`UPDATE wallets SET ${fields.join(', ')} WHERE id = ?;`, params);
+  }, 'updateWallet');
   
   // Invalidate wallet caches after update
   invalidateWalletCaches();
 }
 
 export async function deleteWallet(id: number) {
-  await execRun('DELETE FROM wallets WHERE id = ?;', [id]);
+  await enqueueWrite(async () => {
+    await execRun('DELETE FROM wallets WHERE id = ?;', [id]);
+  }, 'deleteWallet');
   
   // Invalidate wallet caches after deletion
   invalidateWalletCaches();

@@ -77,10 +77,14 @@ export const useSettings = create<SettingsState>()(
 
 interface UIState {
   activeWalletId?: number;
+  isPickingImage: boolean;
   setActiveWalletId: (id?: number) => void;
+  setIsPickingImage: (picking: boolean) => void;
 }
 
 export const useUI = create<UIState>((set) => ({
   activeWalletId: undefined,
+  isPickingImage: false,
   setActiveWalletId: (id) => set({ activeWalletId: id }),
+  setIsPickingImage: (picking) => set({ isPickingImage: picking }),
 }));

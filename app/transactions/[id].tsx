@@ -154,11 +154,11 @@ export default function TransactionDetail() {
         </View>
 
         {/* Receipt Image */}
-        {transaction.receipt_uri && (
+        {transaction.receipt_path && (
           <View style={{ marginBottom: 24 }}>
             <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600', marginBottom: 12 }}>Receipt</Text>
             <Image
-              source={{ uri: transaction.receipt_uri }}
+              source={{ uri: transaction.receipt_path }}
               style={{
                 width: '100%',
                 height: 300,
@@ -172,17 +172,19 @@ export default function TransactionDetail() {
 
         {/* Action Buttons */}
         <View style={{ gap: 12, marginBottom: 32 }}>
-          <TouchableOpacity
-            onPress={() => router.push(`/transactions/edit?id=${id}`)}
-            style={{
-              backgroundColor: t.accent,
-              padding: 16,
-              borderRadius: 12,
-              alignItems: 'center'
-            }}
-          >
-            <Text style={{ color: t.background, fontSize: 16, fontWeight: '700' }}>Edit Transaction</Text>
-          </TouchableOpacity>
+          {transaction.type !== 'transfer' && (
+            <TouchableOpacity
+              onPress={() => router.push(`/transactions/add?id=${id}`)}
+              style={{
+                backgroundColor: t.accent,
+                padding: 16,
+                borderRadius: 12,
+                alignItems: 'center'
+              }}
+            >
+              <Text style={{ color: t.background, fontSize: 16, fontWeight: '700' }}>Edit Transaction</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             onPress={handleDelete}
