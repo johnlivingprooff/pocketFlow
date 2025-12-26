@@ -388,10 +388,10 @@ export default function AnalyticsPage() {
                 ...shadows.sm
               }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                  <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>Savings [{defaultCurrency}]</Text>
+                  <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>Income [{defaultCurrency}]</Text>
                   <HelpIcon
                     onPress={() => Alert.alert(
-                      'Savings (Income)',
+                      'Income',
                       'Total income received this month from all sources (salary, freelance, business, investments, gifts, etc.). This represents money coming into your accounts.'
                     )}
                     color={t.textSecondary}
