@@ -12,7 +12,7 @@ let dbPromise: Promise<NitroSQLiteConnection> | null = null;
 async function resolveDbPath(): Promise<string> {
   // For nitro-sqlite with just a name, the database is stored in the app's data directory
   // We need to construct the full path for file operations like deletion
-  const dir = FileSystem.documentDirectory;
+  const dir = (FileSystem as any).documentDirectory;
   if (!dir) throw new Error('Could not resolve document directory for database');
   const cleanDir = dir.startsWith('file://') ? dir.replace('file://', '') : dir;
   return `${cleanDir}SQLite/pocketflow.db`;
@@ -34,7 +34,7 @@ async function openDb(): Promise<NitroSQLiteConnection> {
         db.close();
         try {
           // For nitro-sqlite, we need to construct the path to the database file for deletion
-          const dir = FileSystem.documentDirectory;
+          const dir = (FileSystem as any).documentDirectory;
           if (dir) {
             const cleanDir = dir.startsWith('file://') ? dir.replace('file://', '') : dir;
             const dbPath = `${cleanDir}SQLite/pocketflow.db`;
@@ -43,7 +43,7 @@ async function openDb(): Promise<NitroSQLiteConnection> {
             logError('[DB] Cannot delete corrupted database: document directory not available');
           }
         } catch (deleteErr) {
-          logError('[DB] Failed to delete corrupted database file:', deleteErr);
+          logError('[DB] Failed to delete corrupted database file:', deleteErr as any);
         }
         db = open({ name: 'pocketflow.db' });
         log('[DB] Fresh database created successfully');
@@ -66,7 +66,7 @@ async function openDb(): Promise<NitroSQLiteConnection> {
     return db;
   } catch (err: any) {
     logError('[DB] Failed to open database:', err);
-    throw new Error(`Failed to open database at ${dbPath}: ${err?.message || err}`);
+    throw new Error(`Failed to open database: ${err?.message || err}`);
   }
 }
 
@@ -97,7 +97,7 @@ export async function exec<T = any>(sql: string, params: any[] = []): Promise<T[
   try {
     const database = await getDbAsync();
     const result = await database.executeAsync(sql, params);
-    return result.rows?._array || [];
+    return (result.rows?._array || []) as T[];
   } catch (err: any) {
     logError('[DB] Query execution failed:', { sql, params, error: err });
     throw err;
@@ -207,30 +207,30 @@ export async function ensureTables() {
         const txnColsResult = database.execute('PRAGMA table_info(transactions);');
         const txnCols = txnColsResult.rows?._array || [];
         const hasRecurrenceFrequency = txnCols.some(c => c.name === 'recurrence_frequency');
-        
+
         if (!hasRecurrenceFrequency) {
-      console.log('[DB] Adding missing recurrence_frequency column...');
-      database.execute('ALTER TABLE transactions ADD COLUMN recurrence_frequency TEXT;');
-      console.log('[DB] Migration: Added recurrence_frequency column');
-    }
-    const hasRecurrenceEndDate = txnCols.some(c => c.name === 'recurrence_end_date');
-    if (!hasRecurrenceEndDate) {
-      console.log('[DB] Adding missing recurrence_end_date column...');
-      database.execute('ALTER TABLE transactions ADD COLUMN recurrence_end_date TEXT;');
-      console.log('[DB] Migration: Added recurrence_end_date column');
-    }
-    const hasParentTransactionId = txnCols.some(c => c.name === 'parent_transaction_id');
-    if (!hasParentTransactionId) {
-      console.log('[DB] Adding missing parent_transaction_id column...');
-      database.execute('ALTER TABLE transactions ADD COLUMN parent_transaction_id INTEGER;');
-      console.log('[DB] Migration: Added parent_transaction_id column');
-    }
-    
-    console.log('[DB] Transaction table migrations completed successfully');
-  } catch (e: any) {
-    console.error('[DB] CRITICAL: Migration failed:', e);
-    console.error('[DB] Migration error details:', e.message, e.code);
-  }
+          console.log('[DB] Adding missing recurrence_frequency column...');
+          database.execute('ALTER TABLE transactions ADD COLUMN recurrence_frequency TEXT;');
+          console.log('[DB] Migration: Added recurrence_frequency column');
+        }
+        const hasRecurrenceEndDate = txnCols.some(c => c.name === 'recurrence_end_date');
+        if (!hasRecurrenceEndDate) {
+          console.log('[DB] Adding missing recurrence_end_date column...');
+          database.execute('ALTER TABLE transactions ADD COLUMN recurrence_end_date TEXT;');
+          console.log('[DB] Migration: Added recurrence_end_date column');
+        }
+        const hasParentTransactionId = txnCols.some(c => c.name === 'parent_transaction_id');
+        if (!hasParentTransactionId) {
+          console.log('[DB] Adding missing parent_transaction_id column...');
+          database.execute('ALTER TABLE transactions ADD COLUMN parent_transaction_id INTEGER;');
+          console.log('[DB] Migration: Added parent_transaction_id column');
+        }
+
+        console.log('[DB] Transaction table migrations completed successfully');
+      } catch (e: any) {
+        console.error('[DB] CRITICAL: Migration failed:', e);
+        console.error('[DB] Migration error details:', e.message, e.code);
+      }
 
   try {
     database.execute('CREATE INDEX IF NOT EXISTS idx_transactions_wallet_id ON transactions(wallet_id);');
@@ -269,6 +269,7 @@ export async function ensureTables() {
       icon TEXT,
       color TEXT,
       is_preset INTEGER DEFAULT 0,
+      user_modified TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(name, type)
     );`
@@ -287,25 +288,31 @@ export async function ensureTables() {
           'ALTER TABLE categories ADD COLUMN parent_category_id INTEGER REFERENCES categories(id) ON DELETE CASCADE;'
         );
       }
+      const hasUserModified = catCols.some(c => c.name === 'user_modified');
+      if (!hasUserModified) {
+        database.execute('ALTER TABLE categories ADD COLUMN user_modified TEXT;');
+      }
     } catch (e) {
       // noop: best-effort migration
     }
 
     try {
+      // Migration: Update icons for existing preset categories that still have default values
+      // Only update categories that haven't been customized by users
       const iconMapping: Record<string, string> = {};
-      
+
       INCOME_TAXONOMY.forEach(cat => {
         if (cat.icon) {
           iconMapping[cat.name] = cat.icon;
         }
       });
-      
+
       EXPENSE_TAXONOMY.forEach(cat => {
         if (cat.icon) {
           iconMapping[cat.name] = cat.icon;
         }
       });
-      
+
       const legacyMapping: Record<string, string> = {
         'Food': 'food',
         'Transport': 'fuel',
@@ -326,17 +333,25 @@ export async function ensureTables() {
         'Salary': 'salary'
       };
 
+      // Only update icons for categories that haven't been modified by users
       await database.transaction(async (tx) => {
-        for (const [name, icon] of Object.entries(iconMapping)) {
-          await tx.executeAsync('UPDATE categories SET icon = ? WHERE name = ? AND is_preset = 1;', [icon, name]);
+        for (const [name, newIcon] of Object.entries(iconMapping)) {
+          await tx.executeAsync(
+            'UPDATE categories SET icon = ? WHERE name = ? AND is_preset = 1 AND icon IS NULL AND user_modified IS NULL;',
+            [newIcon, name]
+          );
         }
-        for (const [name, icon] of Object.entries(legacyMapping)) {
-          await tx.executeAsync('UPDATE categories SET icon = ? WHERE name = ? AND is_preset = 1;', [icon, name]);
+        for (const [name, newIcon] of Object.entries(legacyMapping)) {
+          await tx.executeAsync(
+            'UPDATE categories SET icon = ? WHERE name = ? AND is_preset = 1 AND icon = ? AND user_modified IS NULL;',
+            [newIcon, name, 'other']
+          );
         }
       });
 
-      await execRun("UPDATE categories SET icon = 'moneyrecive' WHERE icon = 'other' AND type = 'income';");
-      await execRun("UPDATE categories SET icon = 'moneysend' WHERE icon = 'other' AND type = 'expense';");
+      // Only update "other" categories that haven't been customized
+      await execRun("UPDATE categories SET icon = 'moneyrecive' WHERE icon = 'other' AND type = 'income' AND is_preset = 1 AND user_modified IS NULL;");
+      await execRun("UPDATE categories SET icon = 'moneysend' WHERE icon = 'other' AND type = 'expense' AND is_preset = 1 AND user_modified IS NULL;");
     } catch (e) {
       // noop
     }
@@ -439,8 +454,6 @@ export async function ensureTables() {
       for (const mainCat of INCOME_TAXONOMY) {
         const categoryColor = incomeCategoryColors[mainCat.name] || '#66BB6A';
         
-        await tx.executeAsync('UPDATE categories SET color = ? WHERE name = ? AND type = ? AND is_preset = 1;', [categoryColor, mainCat.name, 'income']);
-
         await tx.executeAsync(
           'INSERT OR IGNORE INTO categories (name, type, icon, is_preset, color) VALUES (?, ?, ?, 1, ?);',
           [mainCat.name, 'income', mainCat.icon || 'moneyrecive', categoryColor]
@@ -456,8 +469,6 @@ export async function ensureTables() {
           const parentId = mainCatRow[0].id;
           if (parentId != null) {
             for (const subCat of mainCat.subcategories) {
-              await tx.executeAsync('UPDATE categories SET color = ? WHERE name = ? AND type = ? AND is_preset = 1;', [categoryColor, subCat, 'income']);
-
               await tx.executeAsync(
                 'INSERT OR IGNORE INTO categories (name, type, icon, is_preset, color, parent_category_id) VALUES (?, ?, ?, 1, ?, ?);',
                 [subCat, 'income', mainCat.icon || 'moneyrecive', categoryColor, parentId]
@@ -470,8 +481,6 @@ export async function ensureTables() {
       for (const mainCat of EXPENSE_TAXONOMY) {
         const categoryColor = expenseCategoryColors[mainCat.name] || '#607D8B';
         
-        await tx.executeAsync('UPDATE categories SET color = ? WHERE name = ? AND type = ? AND is_preset = 1;', [categoryColor, mainCat.name, 'expense']);
-
         await tx.executeAsync(
           'INSERT OR IGNORE INTO categories (name, type, icon, is_preset, color) VALUES (?, ?, ?, 1, ?);',
           [mainCat.name, 'expense', mainCat.icon || 'moneysend', categoryColor]
@@ -487,8 +496,6 @@ export async function ensureTables() {
           const parentId = mainCatRow[0].id;
           if (parentId != null) {
             for (const subCat of mainCat.subcategories) {
-              await tx.executeAsync('UPDATE categories SET color = ? WHERE name = ? AND type = ? AND is_preset = 1;', [categoryColor, subCat, 'expense']);
-
               await tx.executeAsync(
                 'INSERT OR IGNORE INTO categories (name, type, icon, is_preset, color, parent_category_id) VALUES (?, ?, ?, 1, ?, ?);',
                 [subCat, 'expense', mainCat.icon || 'moneysend', categoryColor, parentId]

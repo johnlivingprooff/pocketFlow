@@ -9,7 +9,7 @@ import { theme } from '../../src/theme/theme';
 import { saveReceiptImage } from '../../src/lib/services/fileService';
 
 export default function ReceiptScan() {
-  const { themeMode } = useSettings();
+  const { themeMode, setImagePickingStartTime } = useSettings();
   const { setIsPickingImage } = useUI();
   const t = theme(themeMode);
   const [localUri, setLocalUri] = useState<string | undefined>();
@@ -18,6 +18,7 @@ export default function ReceiptScan() {
   const pickOrCapture = async () => {
     try {
       setIsPickingImage(true);
+      setImagePickingStartTime(Date.now());
       const res = await ImagePicker.launchCameraAsync({ base64: true, quality: 0.7 });
       if (!res.canceled && res.assets?.[0]) {
         const asset = res.assets[0];
@@ -36,6 +37,7 @@ export default function ReceiptScan() {
       Alert.alert('Error', 'Failed to save receipt. Please try again.');
     } finally {
       setIsPickingImage(false);
+      setImagePickingStartTime(null);
     }
   };
 

@@ -19,7 +19,7 @@ import { formatCurrency } from '../../src/utils/formatCurrency';
 import { Transaction } from '../../src/types/transaction';
 import { log } from '../../src/utils/logger';
 import { invalidateTransactionCaches, invalidateWalletCaches } from '../../src/lib/cache/queryCache';
-import { EyeOffIcon } from '../../src/assets/icons/EyeOffIcon';
+import { EyeOffIcon, EyeIcon } from '../../src/assets/icons/EyeOffIcon';
 import { WalletIcon, PlusIcon } from '../../src/assets/icons/CategoryIcons';
 
 type TimePeriod = 'all' | 'today' | 'week' | 'month' | 'lastMonth' | 'custom';
@@ -567,7 +567,7 @@ export default function Home() {
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={{ padding: 6, borderRadius: 8 }}
           >
-            <EyeOffIcon size={20} color={t.textSecondary} />
+            {hideBalances ? <EyeIcon size={20} color={t.textSecondary} /> : <EyeOffIcon size={20} color={t.textSecondary} />}
           </TouchableOpacity>
         </View>
 

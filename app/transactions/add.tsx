@@ -24,7 +24,7 @@ import { error as logError } from '../../src/utils/logger';
 
 export default function AddTransactionScreen() {
   const router = useRouter();
-  const { themeMode, defaultCurrency } = useSettings();
+  const { themeMode, defaultCurrency, setImagePickingStartTime } = useSettings();
   const { setIsPickingImage } = useUI();
   const systemColorScheme = useColorScheme();
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
@@ -150,6 +150,7 @@ export default function AddTransactionScreen() {
   const pickImage = async () => {
     try {
       setIsPickingImage(true);
+      setImagePickingStartTime(Date.now());
       const res = await ImagePicker.launchImageLibraryAsync({ base64: true, quality: 0.7 });
       if (!res.canceled && res.assets?.[0]) {
         const asset = res.assets[0];
@@ -170,12 +171,14 @@ export default function AddTransactionScreen() {
       Alert.alert('Error', 'Failed to pick image. Please try again.');
     } finally {
       setIsPickingImage(false);
+      setImagePickingStartTime(null);
     }
   };
 
   const takePhoto = async () => {
     try {
       setIsPickingImage(true);
+      setImagePickingStartTime(Date.now());
       const res = await ImagePicker.launchCameraAsync({ base64: true, quality: 0.7 });
       if (!res.canceled && res.assets?.[0]) {
         const asset = res.assets[0];
@@ -196,6 +199,7 @@ export default function AddTransactionScreen() {
       Alert.alert('Error', 'Failed to take photo. Please try again.');
     } finally {
       setIsPickingImage(false);
+      setImagePickingStartTime(null);
     }
   };
 

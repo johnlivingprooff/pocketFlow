@@ -64,7 +64,7 @@ export const EXPENSE_TAXONOMY: CategoryDefinition[] = [
     name: 'Food',
     icon: 'Food & Groceries',
     subcategories: [
-      'Groceries / Snacks',
+      'Groceries',
       'Eating Out / Fine Dining',
     ],
   },
@@ -72,7 +72,7 @@ export const EXPENSE_TAXONOMY: CategoryDefinition[] = [
     name: 'Transport',
     icon: 'Travel',
     subcategories: [
-      'Fuel / Fares',
+      'Fuel','Fares',
       'Maintenance',
     ],
   },
@@ -80,8 +80,8 @@ export const EXPENSE_TAXONOMY: CategoryDefinition[] = [
     name: 'Utilities & Communication',
     icon: 'Utilities',
     subcategories: [
-      'Electricity / Water',
-      'Airtime / Internet',
+      'Electricity','Water',
+      'Airtime', 'Internet',
     ],
   },
 ];

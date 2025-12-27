@@ -72,43 +72,31 @@ export default function CandlestickChart({
           const x = spacing + index * (candleWidth + spacing);
           const centerX = x + candleWidth / 2;
 
-          // Calculate positions - expenses are negative (below x-axis)
-          const incomeY = scaleY(item.income);        // Positive income above x-axis
-          const expenseY = scaleY(-item.expense);     // Negative expense below x-axis
-          const highY = Math.min(incomeY, expenseY);  // Higher value (more positive) is visually higher
-          const lowY = Math.max(incomeY, expenseY);   // Lower value (more negative) is visually lower
-
-          // Body represents net flow (income - expense)
-          const netY = scaleY(item.net);
-          const bodyTop = Math.min(netY, scaleY(0));  // Body extends from net to zero
-          const bodyBottom = Math.max(netY, scaleY(0));
-          const bodyHeight = Math.max(bodyBottom - bodyTop, 2); // Minimum height of 2
-
-          // Determine if this is a bullish (green) or bearish (red) candle
-          const isPositive = item.net >= 0;
-          const candleColor = isPositive ? positiveColor : negativeColor;
+          // Calculate positions for income (above x-axis) and expense (below x-axis)
+          const incomeHeight = (item.income / maxAbsValue) * (chartHeight / 2 - 20);
+          const expenseHeight = (item.expense / maxAbsValue) * (chartHeight / 2 - 20);
+          const incomeY = chartHeight / 2 - incomeHeight;
+          const expenseY = chartHeight / 2;
 
           return (
-            <React.Fragment key={`candle-${index}`}>
-              {/* High-Low wick */}
-              <Line
-                x1={centerX}
-                y1={highY}
-                x2={centerX}
-                y2={lowY}
-                stroke={candleColor}
-                strokeWidth={2}
-              />
-
-              {/* Candle body */}
+            <React.Fragment key={`bar-${index}`}>
+              {/* Income bar (above x-axis) */}
               <Rect
                 x={x}
-                y={bodyTop}
+                y={incomeY}
                 width={candleWidth}
-                height={bodyHeight}
-                fill={candleColor}
-                stroke={candleColor}
-                strokeWidth={1}
+                height={incomeHeight}
+                fill={positiveColor}
+                rx={2}
+              />
+
+              {/* Expense bar (below x-axis) */}
+              <Rect
+                x={x}
+                y={expenseY}
+                width={candleWidth}
+                height={expenseHeight}
+                fill={negativeColor}
                 rx={2}
               />
 
@@ -124,15 +112,26 @@ export default function CandlestickChart({
                 {item.label}
               </SvgText>
 
-              {/* Net value label */}
+              {/* Income value label */}
               <SvgText
                 x={centerX}
-                y={bodyTop - 8}
+                y={incomeY - 8}
                 fontSize={10}
                 fill={textColor}
                 textAnchor="middle"
               >
-                {formatCurrency(item.net)}
+                {formatCurrency(item.income)}
+              </SvgText>
+
+              {/* Expense value label */}
+              <SvgText
+                x={centerX}
+                y={expenseY + expenseHeight + 15}
+                fontSize={10}
+                fill={textColor}
+                textAnchor="middle"
+              >
+                {formatCurrency(-item.expense)}
               </SvgText>
             </React.Fragment>
           );

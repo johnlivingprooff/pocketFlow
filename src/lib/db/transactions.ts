@@ -764,19 +764,92 @@ export async function getDailySpendingForMonth() {
   return data;
 }
 
-export async function getMonthlyComparison() {
+export async function getMonthlyComparison(period: '7days' | '30days' | '3months' | '6months' = '30days') {
   const now = new Date();
   
-  // Current month
+  if (period === '7days') {
+    // For 7 days, return null as monthly trends don't make sense
+    return null;
+  }
+  
+
+  if (period === '3months') {
+    // For 3 months, show current month and previous 2 months
+    const months: Array<{ start: string; end: string }> = [];
+    for (let i = 2; i >= 0; i--) {
+      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1).toISOString();
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59).toISOString();
+      months.push({ start: monthStart, end: monthEnd });
+    }
+    
+    const result = await exec<{ 
+      month_index: number;
+      income: number; 
+      expense: number 
+    }>(
+      months.map((_, i) => 
+        `SELECT ${i} as month_index, 
+         COALESCE(SUM(CASE WHEN t.type = 'income' THEN t.amount * COALESCE(w.exchange_rate, 1.0) ELSE 0 END), 0) as income,
+         COALESCE(SUM(CASE WHEN t.type = 'expense' THEN ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) ELSE 0 END), 0) as expense
+         FROM transactions t
+         LEFT JOIN wallets w ON t.wallet_id = w.id
+         WHERE (t.category IS NULL OR t.category <> 'Transfer') AND t.date BETWEEN '${months[i].start}' AND '${months[i].end}'`
+      ).join(' UNION ALL '),
+      []
+    );
+    
+    return {
+      threeMonths: result.map(r => ({
+        month: r.month_index,
+        income: r.income,
+        expense: r.expense,
+        net: r.income - r.expense
+      }))
+    };
+  }
+
+  if (period === '6months') {
+    // For 6 months, show current month and previous 5 months
+    const months: Array<{ start: string; end: string }> = [];
+    for (let i = 5; i >= 0; i--) {
+      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1).toISOString();
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59).toISOString();
+      months.push({ start: monthStart, end: monthEnd });
+    }
+    
+    const result = await exec<{ 
+      month_index: number;
+      income: number; 
+      expense: number 
+    }>(
+      months.map((_, i) => 
+        `SELECT ${i} as month_index, 
+         COALESCE(SUM(CASE WHEN t.type = 'income' THEN t.amount * COALESCE(w.exchange_rate, 1.0) ELSE 0 END), 0) as income,
+         COALESCE(SUM(CASE WHEN t.type = 'expense' THEN ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) ELSE 0 END), 0) as expense
+         FROM transactions t
+         LEFT JOIN wallets w ON t.wallet_id = w.id
+         WHERE (t.category IS NULL OR t.category <> 'Transfer') AND t.date BETWEEN '${months[i].start}' AND '${months[i].end}'`
+      ).join(' UNION ALL '),
+      []
+    );
+    
+    return {
+      sixMonths: result.map(r => ({
+        month: r.month_index,
+        income: r.income,
+        expense: r.expense,
+        net: r.income - r.expense
+      }))
+    };
+  }
+  
+  // Default 30 days (current behavior)
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
   
-  // Last month
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
   const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).toISOString();
   
-  // Optimize: Use a single query with CASE statements to get all 4 values at once
-  // Organize parameters clearly to avoid confusion
   const params = [
     thisMonthStart, thisMonthEnd,  // For this month income
     thisMonthStart, thisMonthEnd,  // For this month expense
@@ -956,20 +1029,23 @@ export async function getSpendingTrendForPeriod(period: 'week' | 'month' | 'quar
   return [];
 }
 
-export async function getCategorySpendingForPeriod(period: 'week' | 'month' | 'quarter' | 'year') {
+export async function getCategorySpendingForPeriod(period: '7days' | '30days' | '3months' | '6months') {
   const now = new Date();
   let startDate: Date;
   
-  if (period === 'week') {
+  if (period === '7days') {
     startDate = new Date(now);
     startDate.setDate(now.getDate() - 7);
-  } else if (period === 'month') {
-    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-  } else if (period === 'quarter') {
+  } else if (period === '30days') {
     startDate = new Date(now);
-    startDate.setMonth(now.getMonth() - 3);
+    startDate.setDate(now.getDate() - 30);
+  } else if (period === '6months') {
+    startDate = new Date(now);
+    startDate.setMonth(now.getMonth() - 6);
   } else {
-    startDate = new Date(now.getFullYear(), 0, 1);
+    // Default to 30 days if period is unknown
+    startDate = new Date(now);
+    startDate.setDate(now.getDate() - 30);
   }
   
   const start = startDate.toISOString();
@@ -988,20 +1064,26 @@ export async function getCategorySpendingForPeriod(period: 'week' | 'month' | 'q
   return result;
 }
 
-export async function getTransactionsByCategory(category: string, period: 'week' | 'month' | 'quarter' | 'year' = 'month') {
+export async function getTransactionsByCategory(category: string, period: '7days' | '30days' | '3months' | '6months' = '30days') {
   const now = new Date();
   let startDate: Date;
   
-  if (period === 'week') {
+  if (period === '7days') {
     startDate = new Date(now);
     startDate.setDate(now.getDate() - 7);
-  } else if (period === 'month') {
-    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-  } else if (period === 'quarter') {
+  } else if (period === '30days') {
+    startDate = new Date(now);
+    startDate.setDate(now.getDate() - 30);
+  } else if (period === '3months') {
     startDate = new Date(now);
     startDate.setMonth(now.getMonth() - 3);
+  } else if (period === '6months') {
+    startDate = new Date(now);
+    startDate.setMonth(now.getMonth() - 6);
   } else {
-    startDate = new Date(now.getFullYear(), 0, 1);
+    // Default to 30 days if period is unknown
+    startDate = new Date(now);
+    startDate.setDate(now.getDate() - 30);
   }
   
   const start = startDate.toISOString();

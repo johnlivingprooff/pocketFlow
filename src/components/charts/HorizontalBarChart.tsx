@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Dimensions } from 'react-native';
+import { View, Text, Dimensions, TouchableOpacity } from 'react-native';
 import Svg, { Rect, Text as SvgText } from 'react-native-svg';
 
 interface BarData {
@@ -14,6 +14,7 @@ interface HorizontalBarChartProps {
   textColor: string;
   backgroundColor: string;
   formatCurrency: (amount: number) => string;
+  onCategoryPress?: (category: string) => void;
 }
 
 export default function HorizontalBarChart({
@@ -21,6 +22,7 @@ export default function HorizontalBarChart({
   textColor,
   backgroundColor,
   formatCurrency,
+  onCategoryPress,
 }: HorizontalBarChartProps) {
   if (!data || data.length === 0) {
     return (
@@ -45,17 +47,26 @@ export default function HorizontalBarChart({
 
   return (
     <View>
-      <Svg width={chartWidth} height={chartHeight}>
-        {data.map((item, index) => {
-          const y = index * (barHeight + barSpacing) + 10;
-          const barWidth = (item.total / maxValue) * barAreaWidth;
+      {data.map((item, index) => {
+        const y = index * (barHeight + barSpacing) + 10;
+        const barWidth = (item.total / maxValue) * barAreaWidth;
 
-          return (
-            <React.Fragment key={`bar-${index}`}>
+        return (
+          <TouchableOpacity
+            key={`bar-${index}`}
+            onPress={() => onCategoryPress?.(item.category)}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              height: barHeight + barSpacing,
+              marginBottom: index === data.length - 1 ? 0 : barSpacing,
+            }}
+          >
+            <Svg width={chartWidth} height={barHeight}>
               {/* Category label */}
               <SvgText
                 x={0}
-                y={y + barHeight / 2 + 5}
+                y={barHeight / 2 + 5}
                 fontSize={12}
                 fill={textColor}
                 fontWeight="500"
@@ -66,7 +77,7 @@ export default function HorizontalBarChart({
               {/* Bar background */}
               <Rect
                 x={labelWidth}
-                y={y}
+                y={0}
                 width={barAreaWidth}
                 height={barHeight}
                 fill={`${item.color}20`}
@@ -76,7 +87,7 @@ export default function HorizontalBarChart({
               {/* Bar fill */}
               <Rect
                 x={labelWidth}
-                y={y}
+                y={0}
                 width={barWidth}
                 height={barHeight}
                 fill={item.color}
@@ -86,7 +97,7 @@ export default function HorizontalBarChart({
               {/* Percentage */}
               <SvgText
                 x={labelWidth + barAreaWidth + 10}
-                y={y + barHeight / 2 + 5}
+                y={barHeight / 2 + 5}
                 fontSize={12}
                 fill={textColor}
                 fontWeight="600"
@@ -98,7 +109,7 @@ export default function HorizontalBarChart({
               {barWidth > 60 && (
                 <SvgText
                   x={labelWidth + barWidth - 8}
-                  y={y + barHeight / 2 + 5}
+                  y={barHeight / 2 + 5}
                   fontSize={10}
                   fill="white"
                   textAnchor="end"
@@ -107,10 +118,10 @@ export default function HorizontalBarChart({
                   {formatCurrency(item.total)}
                 </SvgText>
               )}
-            </React.Fragment>
-          );
-        })}
-      </Svg>
+            </Svg>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }

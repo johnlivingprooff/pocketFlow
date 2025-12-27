@@ -24,6 +24,8 @@ interface SettingsState {
   lastBackupAt: number | null;
   // Privacy
   hideBalances: boolean;
+  // Image picking state for biometric auth delay
+  imagePickingStartTime: number | null;
   // Actions
   setUserInfo: (info: Partial<UserInfo>) => void;
   setThemeMode: (m: ThemeMode) => void;
@@ -33,6 +35,7 @@ interface SettingsState {
   setLastAuthTime: (time: number | null) => void;
   setLastBackupAt: (time: number | null) => void;
   setHideBalances: (v: boolean) => void;
+  setImagePickingStartTime: (time: number | null) => void;
   resetSettings: () => void;
 }
 
@@ -50,6 +53,7 @@ const initialState = {
   lastAuthTime: null,
   lastBackupAt: null,
   hideBalances: false,
+  imagePickingStartTime: null,
 };
 
 export const useSettings = create<SettingsState>()(
@@ -66,6 +70,7 @@ export const useSettings = create<SettingsState>()(
       setLastAuthTime: (lastAuthTime) => set({ lastAuthTime }),
       setLastBackupAt: (lastBackupAt) => set({ lastBackupAt }),
       setHideBalances: (hideBalances) => set({ hideBalances }),
+      setImagePickingStartTime: (imagePickingStartTime) => set({ imagePickingStartTime }),
       resetSettings: () => set(initialState),
     }),
     {

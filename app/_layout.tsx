@@ -19,8 +19,10 @@ export default function RootLayout() {
     biometricSetupComplete,
     lastAuthTime,
     lastBackupAt,
+    imagePickingStartTime,
     setLastAuthTime,
     setLastBackupAt,
+    setImagePickingStartTime,
   } = useSettings();
   const { isPickingImage } = useUI();
   const systemColorScheme = useColorScheme();
@@ -85,8 +87,8 @@ export default function RootLayout() {
       }
       
       if (biometricEnabled && biometricSetupComplete) {
-        // Check if auth is needed, but skip if user is picking an image
-        if (!isPickingImage && shouldRequireAuth(lastAuthTime)) {
+        // Check if auth is needed, but skip if user recently started picking an image
+        if (!shouldSkipAuthForImagePicking() && shouldRequireAuth(lastAuthTime)) {
           setIsAuthenticated(false);
           performBiometricAuth();
         }
@@ -99,6 +101,17 @@ export default function RootLayout() {
       setLastAuthTime(null);
       setIsAuthenticated(false);
     }
+  };
+
+  const shouldSkipAuthForImagePicking = (): boolean => {
+    if (!imagePickingStartTime) return false;
+    
+    // Skip authentication for 2 minutes after image picking starts
+    // This covers the time spent in camera/gallery interface and processing
+    const IMAGE_PICKING_AUTH_DELAY = 2 * 60 * 1000; // 2 minutes
+    const timeSinceImagePickingStarted = Date.now() - imagePickingStartTime;
+    
+    return timeSinceImagePickingStarted < IMAGE_PICKING_AUTH_DELAY;
   };
 
   const performBiometricAuth = async () => {

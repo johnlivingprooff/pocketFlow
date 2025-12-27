@@ -9,6 +9,7 @@ export type Category = {
   icon?: string;
   color?: string;
   is_preset?: number;
+  user_modified?: string;
   created_at?: string;
   budget?: number | null;
   parent_category_id?: number | null;
@@ -47,14 +48,31 @@ export async function createCategory(category: Category): Promise<number> {
 export async function updateCategory(id: number, category: Partial<Category>): Promise<void> {
   const fields: string[] = [];
   const params: any[] = [];
-  
+
   if (category.name !== undefined) { fields.push('name = ?'); params.push(category.name); }
   if (category.type !== undefined) { fields.push('type = ?'); params.push(category.type); }
   if (category.icon !== undefined) { fields.push('icon = ?'); params.push(category.icon); }
   if (category.color !== undefined) { fields.push('color = ?'); params.push(category.color); }
   if (category.budget !== undefined) { fields.push('budget = ?'); params.push(category.budget); }
   if (category.parent_category_id !== undefined) { fields.push('parent_category_id = ?'); params.push(category.parent_category_id); }
-  
+
+  // Check if user_modified column exists before trying to set it
+  try {
+    const colsResult = await exec('PRAGMA table_info(categories);');
+    const hasUserModified = colsResult.some((col: any) => col.name === 'user_modified');
+    if (hasUserModified) {
+      fields.push('user_modified = datetime(\'now\')');
+    }
+  } catch (error) {
+    // If we can't check column info, skip setting user_modified
+    console.warn('Could not check for user_modified column, skipping timestamp update');
+  }
+
+  if (fields.length === 0) {
+    // Nothing to update
+    return;
+  }
+
   params.push(id);
   await enqueueWrite(async () => {
     await execRun(`UPDATE categories SET ${fields.join(', ')} WHERE id = ?;`, params);

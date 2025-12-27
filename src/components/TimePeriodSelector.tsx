@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 
-export type TimePeriod = 'week' | 'month' | 'quarter' | 'year';
+export type TimePeriod = '7days' | '30days' | '3months' | '6months';
 
 interface TimePeriodSelectorProps {
   selectedPeriod: TimePeriod;
@@ -21,10 +21,10 @@ export default function TimePeriodSelector({
   borderColor,
 }: TimePeriodSelectorProps) {
   const periods: { value: TimePeriod; label: string }[] = [
-    { value: 'week', label: 'Week' },
-    { value: 'month', label: 'Month' },
-    { value: 'quarter', label: 'Quarter' },
-    { value: 'year', label: 'Year' },
+    { value: '7days', label: '7D' },
+    { value: '30days', label: '30D' },
+    { value: '3months', label: '3M' },
+    { value: '6months', label: '6M' },
   ];
 
   return (

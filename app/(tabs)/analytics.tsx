@@ -43,7 +43,6 @@ import {
   calculateFinancialHealthScore,
   FinancialHealthScore
 } from '../../src/lib/insights/analyticsInsights';
-import { exportAnalyticsReport, AnalyticsReportData } from '../../src/lib/export/exportReport';
 
 export default function AnalyticsPage() {
   const { themeMode, defaultCurrency, userInfo } = useSettings();
@@ -76,17 +75,17 @@ export default function AnalyticsPage() {
   const [financialHealth, setFinancialHealth] = useState<FinancialHealthScore | null>(null);
 
   // Phase 4: Interactivity & Customization State
-  const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('month');
+  const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('30days');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [categoryTransactions, setCategoryTransactions] = useState<Array<{ id: number; amount: number; date: string; notes?: string }>>([]);
   const [showCategoryDrillDown, setShowCategoryDrillDown] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (period: TimePeriod = '30days') => {
     if (Platform.OS !== 'web') {
       const month = await monthSpend();
       const today = await todaySpend();
-      const breakdown = await categoryBreakdown();
+      const breakdown = await getCategorySpendingForPeriod(period);
       
       setMonthTotal(month);
       setTodayTotal(today);
@@ -129,11 +128,11 @@ export default function AnalyticsPage() {
       const daily = await getDailySpendingForMonth();
       setDailySpending(daily);
 
-      const comparison = await getMonthlyComparison();
+      const comparison = await getMonthlyComparison(period);
       setMonthlyComparison(comparison);
 
       const pieData = await getCategorySpendingForPieChart();
-      setCategoryPieData(pieData);
+      setCategoryPieData(breakdown);
 
       // Fetch category colors
       const allCategories = await getCategories();
@@ -173,8 +172,8 @@ export default function AnalyticsPage() {
 
   useFocusEffect(
     useCallback(() => {
-      loadData();
-    }, [loadData])
+      loadData(selectedPeriod);
+    }, [loadData, selectedPeriod])
   );
 
   // Handle income vs expense period toggle
@@ -190,61 +189,10 @@ export default function AnalyticsPage() {
   const handlePeriodChange = useCallback(async (period: TimePeriod) => {
     setSelectedPeriod(period);
     if (Platform.OS !== 'web') {
-      // Reload all analytics for the selected period (except 7-day trend which is fixed)
-      const categoryData = await getCategorySpendingForPeriod(period);
-      setCategoryPieData(categoryData);
-      
-      // Reload period-specific data
-      const month = await monthSpend();
-      const today = await todaySpend();
-      const breakdown = await categoryBreakdown();
-      
-      setMonthTotal(month);
-      setTodayTotal(today);
-      setCategories(breakdown);
-      
-      const daysInMonth = new Date().getDate();
-      setAvgDailySpend(month / daysInMonth);
-      const largest = Math.max(...breakdown.map(c => c.total), 0);
-      setLargestPurchase(largest);
-
-      const weekComp = await weekOverWeekComparison();
-      setWeekComparison(weekComp);
-
-      const incExpAnalysis = await incomeVsExpenseAnalysis(incomeExpensePeriod);
-      setIncomeExpense(incExpAnalysis);
-
-      const streak = await getSpendingStreak();
-      setSpendingStreak(streak);
-
-      const progress = await getMonthProgress();
-      setMonthProgress(progress);
-
-      const topDay = await getTopSpendingDay();
-      setTopSpendingDay(topDay);
-
-      const counts = await getTransactionCounts();
-      setTransactionCounts(counts);
-
-      const avgPurch = await getAveragePurchaseSize();
-      setAvgPurchase(avgPurch);
-
-      const daily = await getDailySpendingForMonth();
-      setDailySpending(daily);
-
-      const comparison = await getMonthlyComparison();
-      setMonthlyComparison(comparison);
-
-      // Regenerate insights with updated data
-      const healthScore = calculateFinancialHealthScore({
-        incomeExpense: incExpAnalysis,
-        spendingStreak: streak,
-        weekComparison: weekComp,
-        dailySpending: daily
-      });
-      setFinancialHealth(healthScore);
+      // Load period-specific data
+      await loadData(period);
     }
-  }, [incomeExpensePeriod]);
+  }, [loadData]);
 
   // Phase 4: Handle category drill-down
   const handleCategoryClick = useCallback(async (category: string) => {
@@ -256,34 +204,6 @@ export default function AnalyticsPage() {
       setShowCategoryDrillDown(true);
     }
   }, [selectedPeriod]);
-
-  // Phase 4: Handle export
-  const handleExport = useCallback(async () => {
-    const reportData: AnalyticsReportData = {
-      generatedAt: new Date().toISOString(),
-      period: selectedPeriod,
-      summary: {
-        totalIncome: incomeExpense?.income ?? 0,
-        totalExpense: incomeExpense?.expense ?? 0,
-        netSavings: incomeExpense?.netSavings ?? 0,
-        savingsRate: incomeExpense?.savingsRate ?? 0,
-      },
-      categories: categoryPieData.map(cat => ({
-        category: cat.category,
-        total: cat.total,
-        percentage: (cat.total / categoryPieData.reduce((sum, c) => sum + c.total, 0)) * 100,
-      })),
-      financialHealth: financialHealth ? {
-        score: financialHealth.score,
-        rating: financialHealth.rating,
-      } : undefined,
-    };
-
-    const result = await exportAnalyticsReport(reportData, 'txt');
-    if (!result.success && result.error) {
-      Alert.alert('Export Failed', result.error);
-    }
-  }, [selectedPeriod, incomeExpense, categoryPieData, financialHealth]);
 
   const topCategory = categories.length > 0 ? categories[0] : null;
   const screenWidth = Dimensions.get('window').width;
@@ -312,12 +232,6 @@ export default function AnalyticsPage() {
             <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Your financial snapshot</Text>
           </View>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <TouchableOpacity 
-              onPress={handleExport}
-              style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, justifyContent: 'center', alignItems: 'center', ...shadows.sm }}
-            >
-              <Text style={{ color: t.textPrimary, fontSize: 18 }}>📤</Text>
-            </TouchableOpacity>
             <Link href="/profile" asChild>
               <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', ...shadows.sm }}>
                 {userInfo?.profileImage ? (
@@ -488,9 +402,11 @@ export default function AnalyticsPage() {
         )}
 
         {/* SECTION 3: TRENDS (Forex-style Candlestick Chart) */}
-        {monthlyComparison && (
+        {monthlyComparison && selectedPeriod !== '7days' && (
           <View style={{ marginBottom: 24 }}>
-            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Monthly Trends</Text>
+            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>
+              {selectedPeriod === '3months' ? '3-Month Trends' : selectedPeriod === '6months' ? '6-Month Trends' : 'Monthly Trends'}
+            </Text>
             
             <View style={{
               backgroundColor: t.card,
@@ -501,20 +417,41 @@ export default function AnalyticsPage() {
               ...shadows.sm
             }}>
               <CandlestickChart
-                data={[
-                  {
-                    label: 'Last Month',
-                    income: monthlyComparison.lastMonth.income,
-                    expense: monthlyComparison.lastMonth.expense,
-                    net: monthlyComparison.lastMonth.net
-                  },
-                  {
-                    label: 'This Month',
-                    income: monthlyComparison.thisMonth.income,
-                    expense: monthlyComparison.thisMonth.expense,
-                    net: monthlyComparison.thisMonth.net
-                  }
-                ]}
+                data={
+                  (() => {
+                    const now = new Date();
+                    return selectedPeriod === '3months' && monthlyComparison.threeMonths
+                      ? monthlyComparison.threeMonths.map((monthData: any, index: number) => ({
+                          label: new Date(now.getFullYear(), now.getMonth() - (2 - index), 1).toLocaleString('default', { month: 'short' }),
+                          income: monthData.income,
+                          expense: monthData.expense,
+                          net: monthData.net
+                        }))
+                      : selectedPeriod === '6months' && monthlyComparison.sixMonths
+                      ? monthlyComparison.sixMonths.map((monthData: any, index: number) => ({
+                          label: new Date(now.getFullYear(), now.getMonth() - (5 - index), 1).toLocaleString('default', { month: 'short' }),
+                          income: monthData.income,
+                          expense: monthData.expense,
+                          net: monthData.net
+                        }))
+                      : selectedPeriod === '30days' && monthlyComparison.thisMonth && monthlyComparison.lastMonth
+                      ? [
+                          {
+                            label: 'Last Month',
+                            income: monthlyComparison.lastMonth.income,
+                            expense: monthlyComparison.lastMonth.expense,
+                            net: monthlyComparison.lastMonth.net
+                          },
+                          {
+                            label: 'This Month',
+                            income: monthlyComparison.thisMonth.income,
+                            expense: monthlyComparison.thisMonth.expense,
+                            net: monthlyComparison.thisMonth.net
+                          }
+                        ]
+                      : [];
+                  })()
+                }
                 positiveColor={t.success}
                 negativeColor={t.danger}
                 textColor={t.textPrimary}
@@ -525,7 +462,32 @@ export default function AnalyticsPage() {
           </View>
         )}
 
-        {/* SECTION 4: CATEGORY BREAKDOWN (Horizontal Bar Chart) */}
+        {/* SECTION 4: 7-DAY TREND */}
+        {selectedPeriod === '7days' && (
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>7-Day Spending</Text>
+            
+            <View style={{
+              backgroundColor: t.card,
+              borderWidth: 1,
+              borderColor: t.border,
+              borderRadius: 14,
+              padding: 16,
+              ...shadows.sm
+            }}>
+              <SevenDayTrendChart
+                data={sevenDayTrend}
+                color={t.primary}
+                textColor={t.textPrimary}
+                backgroundColor={t.card}
+                gridColor={t.border}
+                formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* SECTION 5: CATEGORY BREAKDOWN (Horizontal Bar Chart) */}
         {chartData.length > 0 ? (
           <View style={{ marginBottom: 24 }}>
             <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Spending by Category</Text>
@@ -538,58 +500,24 @@ export default function AnalyticsPage() {
               padding: 16,
               ...shadows.sm
             }}>
-              {/* <HorizontalBarChart
-                data={
-                  chartData.map((cat, index) => ({
-                    category: cat.category,
-                    total: cat.total,
-                    percentage: cat.percentage,
-                    color: fallbackColors[index % fallbackColors.length]
-                  }))
-                }
-                textColor={t.textPrimary}
-                backgroundColor={t.card}
-                formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
-              /> */}
+              
               <HorizontalBarChart
                 data={
                   chartData.map((cat, index) => ({
                     category: cat.category,
                     total: cat.total,
                     percentage: cat.percentage,
-                    color: fallbackColors[index % fallbackColors.length]
+                    color: categoryColorMap[cat.category] || fallbackColors[index % fallbackColors.length]
                   }))
                 }
                 textColor={t.textPrimary}
                 backgroundColor={t.card}
                 formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
+                onCategoryPress={handleCategoryClick}
               />
             </View>
           </View>
         ) : null}
-
-        {/* SECTION 5: 7-DAY TREND */}
-        <View style={{ marginBottom: 24 }}>
-          <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>7-Day Spending</Text>
-          
-          <View style={{
-            backgroundColor: t.card,
-            borderWidth: 1,
-            borderColor: t.border,
-            borderRadius: 14,
-            padding: 16,
-            ...shadows.sm
-          }}>
-            <SevenDayTrendChart
-              data={sevenDayTrend}
-              color={t.primary}
-              textColor={t.textPrimary}
-              backgroundColor={t.card}
-              gridColor={t.border}
-              formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
-            />
-          </View>
-        </View>
 
         {/* SECTION 6: FINANCIAL HEALTH & INSIGHTS */}
         {financialHealth && (

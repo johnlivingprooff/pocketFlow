@@ -9,7 +9,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 interface ReceiptItem {
   id: number;
-  receipt_uri: string;
+  receipt_path: string;
   category: string;
   amount: number;
   date: string;
@@ -35,9 +35,9 @@ export default function ReceiptsGalleryScreen() {
     try {
       setLoading(true);
       const receiptData = await exec<ReceiptItem>(
-        `SELECT id, receipt_uri, category, amount, date 
+        `SELECT id, receipt_path, category, amount, date 
          FROM transactions 
-         WHERE receipt_uri IS NOT NULL AND receipt_uri != ''
+         WHERE receipt_path IS NOT NULL AND receipt_path != ''
          ORDER BY date DESC`
       );
       setReceipts(receiptData);
@@ -61,17 +61,17 @@ export default function ReceiptsGalleryScreen() {
           onPress: async () => {
             try {
               // Delete file
-              if (receipt.receipt_uri) {
+              if (receipt.receipt_path) {
                 try {
-                  await FileSystem.deleteAsync(receipt.receipt_uri);
+                  await FileSystem.deleteAsync(receipt.receipt_path);
                 } catch (e) {
                   console.warn('Could not delete file:', e);
                 }
               }
 
-              // Clear receipt_uri from transaction
+              // Clear receipt_path from transaction
               await exec(
-                `UPDATE transactions SET receipt_uri = NULL WHERE id = ?`,
+                `UPDATE transactions SET receipt_path = NULL WHERE id = ?`,
                 [receipt.id]
               );
 
@@ -106,7 +106,7 @@ export default function ReceiptsGalleryScreen() {
       }}
     >
       <Image
-        source={{ uri: receipt.receipt_uri }}
+        source={{ uri: receipt.receipt_path }}
         style={{ width: '100%', height: 150 }}
       />
       <View style={{ padding: 8 }}>
@@ -207,7 +207,7 @@ export default function ReceiptsGalleryScreen() {
 
               {/* Image */}
               <Image
-                source={{ uri: selectedReceipt.receipt_uri }}
+                source={{ uri: selectedReceipt.receipt_path }}
                 style={{ width: '90%', height: '70%', borderRadius: 12 }}
                 resizeMode="contain"
               />
