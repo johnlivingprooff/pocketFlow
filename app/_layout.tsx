@@ -170,85 +170,210 @@ export default function RootLayout() {
     );
   }
 
-  // Show biometric auth screen if not authenticated
-  if (!isAuthenticated && biometricEnabled && biometricSetupComplete) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.background, padding: 32 }}>
-        {/* App Logo */}
-        <Image 
-          source={require('../assets/logo.png')} 
-          style={{ width: 120, height: 120, marginBottom: 24 }}
-          resizeMode="contain"
-        />
-        
-        <Text style={{ color: t.textPrimary, fontSize: 28, fontWeight: '800', marginBottom: 8, textAlign: 'center' }}>
-          pocketFlow
-        </Text>
-        
-        <Text style={{ color: t.textSecondary, fontSize: 16, marginBottom: 48, textAlign: 'center' }}>
-          Your personal finance tracker
-        </Text>
-        
-        {authError && (
-          <Text style={{ color: t.danger, fontSize: 14, marginBottom: 16, textAlign: 'center' }}>
-            {authError}
-          </Text>
-        )}
-        
-        {/* Fingerprint Icon as the authenticate button (no background) */}
-        <TouchableOpacity
-          onPress={performBiometricAuth}
-          accessibilityRole="button"
-          accessibilityLabel="Authenticate with biometrics"
-          style={{ marginBottom: 24 }}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <FingerprintIcon size={72} color={t.primary} />
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  // Define common header style options based on theme
-  const headerOptions = {
-    headerStyle: {
-      backgroundColor: t.background,
-    },
-    headerTintColor: t.textPrimary,
-    headerTitleStyle: {
-      color: t.textPrimary,
-      fontWeight: '700' as TextStyle['fontWeight'],
-    },
-    headerShadowVisible: false,
-  };
-
   return (
     <GestureHandlerRootView style={styles.container}>
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen 
-        name="transactions/add" 
-        options={{ 
-          presentation: 'modal',
-          headerShown: true,
-          title: 'Add Transaction',
-          ...headerOptions,
-        }} 
-      />
-      <Stack.Screen name="transactions/[id]" options={{ headerShown: true, title: 'Transaction Details', ...headerOptions }} />
-      <Stack.Screen name="transactions/edit" options={{ headerShown: true, title: 'Edit Transaction', ...headerOptions }} />
-      <Stack.Screen name="transactions/history" options={{ headerShown: true, title: 'History', ...headerOptions }} />
-      <Stack.Screen name="wallets/create" options={{ headerShown: true, title: 'Create Wallet', ...headerOptions }} />
-      <Stack.Screen name="wallets/[id]" options={{ headerShown: true, title: 'Wallet Details', ...headerOptions }} />
-      <Stack.Screen name="categories/create" options={{ headerShown: true, title: 'Create Category', ...headerOptions }} />
-      <Stack.Screen name="categories/index" options={{ headerShown: true, title: 'Categories', ...headerOptions }} />
-      <Stack.Screen name="receipt/scan" options={{ headerShown: true, title: 'Scan Receipt', ...headerOptions }} />
-      <Stack.Screen name="profile/index" options={{ headerShown: true, title: 'Profile', ...headerOptions }} />
-      <Stack.Screen name="settings/currency" options={{ headerShown: true, title: 'Currency Settings', ...headerOptions }} />
-      <Stack.Screen name="settings/security" options={{ headerShown: true, title: 'Security Settings', ...headerOptions }} />
-      <Stack.Screen name="budget/index" options={{ headerShown: false }} />
-      <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
-    </Stack>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen 
+          name="transactions/add" 
+          options={{ 
+            presentation: 'modal',
+            headerShown: true,
+            title: 'Add Transaction',
+            headerStyle: {
+              backgroundColor: t.background,
+            },
+            headerTintColor: t.textPrimary,
+            headerTitleStyle: {
+              color: t.textPrimary,
+              fontWeight: '700' as TextStyle['fontWeight'],
+            },
+            headerShadowVisible: false,
+          }} 
+        />
+        <Stack.Screen name="transactions/[id]" options={{ 
+          headerShown: true, 
+          title: 'Transaction Details',
+          headerStyle: {
+            backgroundColor: t.background,
+          },
+          headerTintColor: t.textPrimary,
+          headerTitleStyle: {
+            color: t.textPrimary,
+            fontWeight: '700' as TextStyle['fontWeight'],
+          },
+          headerShadowVisible: false,
+        }} />
+        <Stack.Screen name="transactions/edit" options={{ 
+          headerShown: true, 
+          title: 'Edit Transaction',
+          headerStyle: {
+            backgroundColor: t.background,
+          },
+          headerTintColor: t.textPrimary,
+          headerTitleStyle: {
+            color: t.textPrimary,
+            fontWeight: '700' as TextStyle['fontWeight'],
+          },
+          headerShadowVisible: false,
+        }} />
+        <Stack.Screen name="transactions/history" options={{ 
+          headerShown: true, 
+          title: 'History',
+          headerStyle: {
+            backgroundColor: t.background,
+          },
+          headerTintColor: t.textPrimary,
+          headerTitleStyle: {
+            color: t.textPrimary,
+            fontWeight: '700' as TextStyle['fontWeight'],
+          },
+          headerShadowVisible: false,
+        }} />
+        <Stack.Screen name="wallets/create" options={{ 
+          headerShown: true, 
+          title: 'Create Wallet',
+          headerStyle: {
+            backgroundColor: t.background,
+          },
+          headerTintColor: t.textPrimary,
+          headerTitleStyle: {
+            color: t.textPrimary,
+            fontWeight: '700' as TextStyle['fontWeight'],
+          },
+          headerShadowVisible: false,
+        }} />
+        <Stack.Screen name="wallets/[id]" options={{ 
+          headerShown: true, 
+          title: 'Wallet Details',
+          headerStyle: {
+            backgroundColor: t.background,
+          },
+          headerTintColor: t.textPrimary,
+          headerTitleStyle: {
+            color: t.textPrimary,
+            fontWeight: '700' as TextStyle['fontWeight'],
+          },
+          headerShadowVisible: false,
+        }} />
+        <Stack.Screen name="categories/create" options={{ 
+          headerShown: true, 
+          title: 'Create Category',
+          headerStyle: {
+            backgroundColor: t.background,
+          },
+          headerTintColor: t.textPrimary,
+          headerTitleStyle: {
+            color: t.textPrimary,
+            fontWeight: '700' as TextStyle['fontWeight'],
+          },
+          headerShadowVisible: false,
+        }} />
+        <Stack.Screen name="categories/index" options={{ 
+          headerShown: true, 
+          title: 'Categories',
+          headerStyle: {
+            backgroundColor: t.background,
+          },
+          headerTintColor: t.textPrimary,
+          headerTitleStyle: {
+            color: t.textPrimary,
+            fontWeight: '700' as TextStyle['fontWeight'],
+          },
+          headerShadowVisible: false,
+        }} />
+        <Stack.Screen name="receipt/scan" options={{ 
+          headerShown: true, 
+          title: 'Scan Receipt',
+          headerStyle: {
+            backgroundColor: t.background,
+          },
+          headerTintColor: t.textPrimary,
+          headerTitleStyle: {
+            color: t.textPrimary,
+            fontWeight: '700' as TextStyle['fontWeight'],
+          },
+          headerShadowVisible: false,
+        }} />
+        <Stack.Screen name="profile/index" options={{ 
+          headerShown: true, 
+          title: 'Profile',
+          headerStyle: {
+            backgroundColor: t.background,
+          },
+          headerTintColor: t.textPrimary,
+          headerTitleStyle: {
+            color: t.textPrimary,
+            fontWeight: '700' as TextStyle['fontWeight'],
+          },
+          headerShadowVisible: false,
+        }} />
+        <Stack.Screen name="settings/currency" options={{ 
+          headerShown: true, 
+          title: 'Currency Settings',
+          headerStyle: {
+            backgroundColor: t.background,
+          },
+          headerTintColor: t.textPrimary,
+          headerTitleStyle: {
+            color: t.textPrimary,
+            fontWeight: '700' as TextStyle['fontWeight'],
+          },
+          headerShadowVisible: false,
+        }} />
+        <Stack.Screen name="settings/security" options={{ 
+          headerShown: true, 
+          title: 'Security Settings',
+          headerStyle: {
+            backgroundColor: t.background,
+          },
+          headerTintColor: t.textPrimary,
+          headerTitleStyle: {
+            color: t.textPrimary,
+            fontWeight: '700' as TextStyle['fontWeight'],
+          },
+          headerShadowVisible: false,
+        }} />
+        <Stack.Screen name="budget/index" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
+      </Stack>
+
+      {/* Show biometric auth overlay if not authenticated */}
+      {!isAuthenticated && biometricEnabled && biometricSetupComplete && (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: t.background, justifyContent: 'center', alignItems: 'center', padding: 32, zIndex: 1000 }]}>
+          {/* App Logo */}
+          <Image 
+            source={require('../assets/logo.png')} 
+            style={{ width: 120, height: 120, marginBottom: 24 }}
+            resizeMode="contain"
+          />
+          
+          <Text style={{ color: t.textPrimary, fontSize: 28, fontWeight: '800', marginBottom: 8, textAlign: 'center' }}>
+            pocketFlow
+          </Text>
+          
+          <Text style={{ color: t.textSecondary, fontSize: 16, marginBottom: 48, textAlign: 'center' }}>
+            Your personal finance tracker
+          </Text>
+          
+          {authError && (
+            <Text style={{ color: t.danger, fontSize: 14, marginBottom: 16, textAlign: 'center' }}>
+              {authError}
+            </Text>
+          )}
+          
+          {/* Fingerprint Icon as the authenticate button (no background) */}
+          <TouchableOpacity
+            onPress={performBiometricAuth}
+            accessibilityRole="button"
+            accessibilityLabel="Authenticate with biometrics"
+            style={{ marginBottom: 24 }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <FingerprintIcon size={72} color={t.primary} />
+          </TouchableOpacity>
+        </View>
+      )}
     </GestureHandlerRootView>
   );
 }

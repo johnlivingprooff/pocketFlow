@@ -374,6 +374,21 @@ export async function ensureTables() {
     );
 
     try {
+      const goalColsResult = database.execute('PRAGMA table_info(goals);');
+      const goalCols = goalColsResult.rows?._array || [];
+      const hasLinkedWalletIds = goalCols.some(c => c.name === 'linked_wallet_ids');
+      if (!hasLinkedWalletIds) {
+        database.execute('ALTER TABLE goals ADD COLUMN linked_wallet_ids TEXT;');
+      }
+      const hasCategoryIds = goalCols.some(c => c.name === 'category_ids');
+      if (!hasCategoryIds) {
+        database.execute('ALTER TABLE goals ADD COLUMN category_ids TEXT;');
+      }
+    } catch (e) {
+      // noop: best-effort migration
+    }
+
+    try {
       database.execute('CREATE INDEX IF NOT EXISTS idx_goals_wallet_id ON goals(linked_wallet_id);');
       database.execute('CREATE INDEX IF NOT EXISTS idx_goals_target_date ON goals(target_date);');
     } catch (e) {
@@ -402,6 +417,25 @@ export async function ensureTables() {
         CHECK(current_spending >= 0)
       );`
     );
+
+    try {
+      const budgetColsResult = database.execute('PRAGMA table_info(budgets);');
+      const budgetCols = budgetColsResult.rows?._array || [];
+      const hasLinkedWalletIds = budgetCols.some(c => c.name === 'linked_wallet_ids');
+      if (!hasLinkedWalletIds) {
+        database.execute('ALTER TABLE budgets ADD COLUMN linked_wallet_ids TEXT;');
+      }
+      const hasCategoryIds = budgetCols.some(c => c.name === 'category_ids');
+      if (!hasCategoryIds) {
+        database.execute('ALTER TABLE budgets ADD COLUMN category_ids TEXT;');
+      }
+      const hasSubcategoryIds = budgetCols.some(c => c.name === 'subcategory_ids');
+      if (!hasSubcategoryIds) {
+        database.execute('ALTER TABLE budgets ADD COLUMN subcategory_ids TEXT;');
+      }
+    } catch (e) {
+      // noop: best-effort migration
+    }
 
     try {
       database.execute('CREATE INDEX IF NOT EXISTS idx_budgets_wallet_id ON budgets(linked_wallet_id);');

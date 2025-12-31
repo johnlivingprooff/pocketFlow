@@ -23,7 +23,7 @@ export async function createGoal(goal: GoalInput): Promise<Goal> {
 
   await enqueueWrite(async () => {
     await execRun(
-      `INSERT INTO goals (name, target_amount, current_progress, target_date, notes, linked_wallet_id, created_at, updated_at)
+      `INSERT INTO goals (name, target_amount, current_progress, target_date, notes, linked_wallet_ids, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         goal.name,
@@ -31,7 +31,7 @@ export async function createGoal(goal: GoalInput): Promise<Goal> {
         0,
         goal.targetDate,
         goal.notes || null,
-        goal.linkedWalletId,
+        JSON.stringify(goal.linkedWalletIds),
         now,
         now,
       ]
@@ -47,14 +47,29 @@ export async function createGoal(goal: GoalInput): Promise<Goal> {
  */
 export async function getGoals(): Promise<Goal[]> {
   try {
-    const goals = await exec<Goal>(
+    const rawGoals = await exec<{
+      id: number;
+      name: string;
+      targetAmount: number;
+      currentProgress: number;
+      targetDate: string;
+      notes: string | null;
+      linkedWalletIds: string;
+      createdAt: string;
+      updatedAt: string;
+    }>(
       `SELECT id, name, target_amount as targetAmount, current_progress as currentProgress,
-              target_date as targetDate, notes, linked_wallet_id as linkedWalletId,
+              target_date as targetDate, notes, linked_wallet_ids as linkedWalletIds,
               created_at as createdAt, updated_at as updatedAt
        FROM goals
        ORDER BY created_at DESC`
     );
-    return goals;
+    
+    return rawGoals.map(goal => ({
+      ...goal,
+      linkedWalletIds: JSON.parse(goal.linkedWalletIds),
+      notes: goal.notes || undefined,
+    }));
   } catch (error) {
     console.error('Failed to fetch goals:', error);
     return [];
@@ -68,15 +83,34 @@ export async function getGoals(): Promise<Goal[]> {
  */
 export async function getGoalById(id: number): Promise<Goal | null> {
   try {
-    const result = await exec<Goal>(
+    const result = await exec<{
+      id: number;
+      name: string;
+      targetAmount: number;
+      currentProgress: number;
+      targetDate: string;
+      notes: string | null;
+      linkedWalletIds: string;
+      createdAt: string;
+      updatedAt: string;
+    }>(
       `SELECT id, name, target_amount as targetAmount, current_progress as currentProgress,
-              target_date as targetDate, notes, linked_wallet_id as linkedWalletId,
+              target_date as targetDate, notes, linked_wallet_ids as linkedWalletIds,
               created_at as createdAt, updated_at as updatedAt
        FROM goals
        WHERE id = ?`,
       [id]
     );
-    return result.length > 0 ? result[0] : null;
+    
+    if (result.length > 0) {
+      const goal = result[0];
+      return {
+        ...goal,
+        linkedWalletIds: JSON.parse(goal.linkedWalletIds),
+        notes: goal.notes || undefined,
+      };
+    }
+    return null;
   } catch (error) {
     console.error('Failed to fetch goal:', error);
     return null;
@@ -123,12 +157,12 @@ export async function updateGoal(id: number, updates: Partial<GoalInput>): Promi
     fields.push('notes = ?');
     values.push(updates.notes || null);
   }
-  if (updates.linkedWalletId !== undefined) {
-    fields.push('linked_wallet_id = ?');
-    values.push(updates.linkedWalletId);
-    // If wallet changed, recalculate progress
+  if (updates.linkedWalletIds !== undefined) {
+    fields.push('linked_wallet_ids = ?');
+    values.push(JSON.stringify(updates.linkedWalletIds));
+    // If wallets changed, recalculate progress
     const goal = await getGoalById(id);
-    if (goal && goal.linkedWalletId !== updates.linkedWalletId) {
+    if (goal && JSON.stringify(goal.linkedWalletIds.sort()) !== JSON.stringify(updates.linkedWalletIds.sort())) {
       fields.push('current_progress = ?');
       values.push(0);
     }
@@ -168,12 +202,13 @@ export async function recalculateGoalProgress(goalId: number): Promise<void> {
   if (!goal) return;
 
   try {
-    // Sum all income transactions in the linked wallet
+    // Sum all income transactions in the linked wallets
+    const placeholders = goal.linkedWalletIds.map(() => '?').join(',');
     const result = await exec<{ total: number }>(
       `SELECT COALESCE(SUM(amount), 0) as total
        FROM transactions
-       WHERE wallet_id = ? AND type = 'income' AND category != 'Transfer'`,
-      [goal.linkedWalletId]
+       WHERE wallet_id IN (${placeholders}) AND type = 'income' AND category != 'Transfer'`,
+      goal.linkedWalletIds
     );
 
     const totalIncome = result[0]?.total || 0;
@@ -196,16 +231,31 @@ export async function recalculateGoalProgress(goalId: number): Promise<void> {
  */
 export async function getGoalsByWallet(walletId: number): Promise<Goal[]> {
   try {
-    const goals = await exec<Goal>(
+    const rawGoals = await exec<{
+      id: number;
+      name: string;
+      targetAmount: number;
+      currentProgress: number;
+      targetDate: string;
+      notes: string | null;
+      linkedWalletIds: string;
+      createdAt: string;
+      updatedAt: string;
+    }>(
       `SELECT id, name, target_amount as targetAmount, current_progress as currentProgress,
-              target_date as targetDate, notes, linked_wallet_id as linkedWalletId,
+              target_date as targetDate, notes, linked_wallet_ids as linkedWalletIds,
               created_at as createdAt, updated_at as updatedAt
        FROM goals
-       WHERE linked_wallet_id = ?
+       WHERE json_extract(linked_wallet_ids, '$') LIKE ?
        ORDER BY target_date ASC`,
-      [walletId]
+      [`%${walletId}%`]
     );
-    return goals;
+    
+    return rawGoals.map(goal => ({
+      ...goal,
+      linkedWalletIds: JSON.parse(goal.linkedWalletIds),
+      notes: goal.notes || undefined,
+    }));
   } catch (error) {
     console.error('Failed to fetch goals by wallet:', error);
     return [];
@@ -221,20 +271,30 @@ export function calculateGoalMetrics(goal: Goal): GoalWithMetrics {
   const targetDate = new Date(goal.targetDate);
   const today = new Date();
   const daysRemaining = Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  const progressPercentage = Math.min(100, (goal.currentProgress / goal.targetAmount) * 100);
+  const progressPercentage = goal.targetAmount > 0 ? Math.min(100, (goal.currentProgress / goal.targetAmount) * 100) : 0;
 
   // Calculate monthly required to stay on track
-  const monthsRemaining = Math.max(1, daysRemaining / 30);
-  const remainingAmount = Math.max(0, goal.targetAmount - goal.currentProgress);
-  const monthlyRequired = remainingAmount / monthsRemaining;
+  let monthlyRequired: number;
+  let onTrack: boolean;
 
-  // Determine if on track (user is meeting monthly requirements)
-  const onTrack = daysRemaining > 0 && remainingAmount <= monthlyRequired * monthsRemaining;
+  if (daysRemaining > 0) {
+    // Future goal - calculate required monthly savings
+    const monthsRemaining = Math.max(1, daysRemaining / 30);
+    const remainingAmount = Math.max(0, goal.targetAmount - goal.currentProgress);
+    monthlyRequired = remainingAmount / monthsRemaining;
+    onTrack = remainingAmount <= monthlyRequired * monthsRemaining;
+  } else {
+    // Past goal - show what would have been required
+    const totalDays = Math.max(1, Math.abs(daysRemaining));
+    const monthsElapsed = Math.max(1, totalDays / 30);
+    monthlyRequired = goal.currentProgress / monthsElapsed;
+    onTrack = goal.currentProgress >= goal.targetAmount; // Goal achieved if reached target
+  }
 
   return {
     ...goal,
     progressPercentage,
-    daysRemaining: Math.max(0, daysRemaining),
+    daysRemaining,
     monthlyRequired,
     onTrack,
   };

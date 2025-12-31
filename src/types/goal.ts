@@ -13,7 +13,7 @@ export interface Goal {
   currentProgress: number;
   targetDate: string; // ISO 8601
   notes?: string;
-  linkedWalletId: number;
+  linkedWalletIds: number[]; // Support multiple wallets or "all"
   createdAt?: string; // ISO 8601
   updatedAt?: string; // ISO 8601
 }
@@ -29,20 +29,20 @@ export interface GoalWithMetrics extends Goal {
 }
 
 /**
- * Budget: Spending limit for a category within a period
+ * Budget: Spending limit for categories within a period
  */
 export interface Budget {
   id?: number;
   name: string;
-  categoryId?: number;
-  subcategoryId?: number;
+  categoryIds: number[]; // Support multiple categories
+  subcategoryIds?: number[]; // Support multiple subcategories
   limitAmount: number;
   currentSpending: number;
   periodType: 'weekly' | 'monthly' | 'custom';
   startDate: string; // ISO 8601
   endDate: string; // ISO 8601
   notes?: string;
-  linkedWalletId: number;
+  linkedWalletIds: number[]; // Support multiple wallets or "all"
   createdAt?: string; // ISO 8601
   updatedAt?: string; // ISO 8601
 }
@@ -66,7 +66,7 @@ export interface GoalInput {
   targetAmount: number;
   targetDate: string;
   notes?: string;
-  linkedWalletId: number;
+  linkedWalletIds: number[]; // Support multiple wallets
 }
 
 /**
@@ -74,12 +74,12 @@ export interface GoalInput {
  */
 export interface BudgetInput {
   name: string;
-  categoryId?: number;
-  subcategoryId?: number;
+  categoryIds: number[]; // Support multiple categories
+  subcategoryIds?: number[]; // Support multiple subcategories
   limitAmount: number;
   periodType: 'weekly' | 'monthly' | 'custom';
   startDate: string;
   endDate: string;
   notes?: string;
-  linkedWalletId: number;
+  linkedWalletIds: number[]; // Support multiple wallets
 }

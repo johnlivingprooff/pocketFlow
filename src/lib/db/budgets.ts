@@ -23,21 +23,21 @@ export async function createBudget(budget: BudgetInput): Promise<Budget> {
 
   await enqueueWrite(async () => {
     await execRun(
-      `INSERT INTO budgets (name, category_id, subcategory_id, limit_amount, current_spending,
-                            period_type, start_date, end_date, notes, linked_wallet_id,
+      `INSERT INTO budgets (name, category_ids, subcategory_ids, limit_amount, current_spending,
+                            period_type, start_date, end_date, notes, linked_wallet_ids,
                             created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         budget.name,
-        budget.categoryId || null,
-        budget.subcategoryId || null,
+        JSON.stringify(budget.categoryIds),
+        JSON.stringify(budget.subcategoryIds || []),
         budget.limitAmount,
         0,
         budget.periodType,
         budget.startDate,
         budget.endDate,
         budget.notes || null,
-        budget.linkedWalletId,
+        JSON.stringify(budget.linkedWalletIds),
         now,
         now,
       ]
@@ -53,16 +53,38 @@ export async function createBudget(budget: BudgetInput): Promise<Budget> {
  */
 export async function getBudgets(): Promise<Budget[]> {
   try {
-    const budgets = await exec<Budget>(
-      `SELECT id, name, category_id as categoryId, subcategory_id as subcategoryId,
+    const rawBudgets = await exec<{
+      id: number;
+      name: string;
+      categoryIds: string;
+      subcategoryIds: string;
+      limitAmount: number;
+      currentSpending: number;
+      periodType: string;
+      startDate: string;
+      endDate: string;
+      notes: string | null;
+      linkedWalletIds: string;
+      createdAt: string;
+      updatedAt: string;
+    }>(
+      `SELECT id, name, category_ids as categoryIds, subcategory_ids as subcategoryIds,
               limit_amount as limitAmount, current_spending as currentSpending,
               period_type as periodType, start_date as startDate, end_date as endDate,
-              notes, linked_wallet_id as linkedWalletId,
+              notes, linked_wallet_ids as linkedWalletIds,
               created_at as createdAt, updated_at as updatedAt
        FROM budgets
        ORDER BY created_at DESC`
     );
-    return budgets;
+    
+    return rawBudgets.map(budget => ({
+      ...budget,
+      categoryIds: JSON.parse(budget.categoryIds),
+      subcategoryIds: JSON.parse(budget.subcategoryIds),
+      linkedWalletIds: JSON.parse(budget.linkedWalletIds),
+      periodType: budget.periodType as 'weekly' | 'monthly' | 'custom',
+      notes: budget.notes || undefined,
+    }));
   } catch (error) {
     console.error('Failed to fetch budgets:', error);
     return [];
@@ -76,18 +98,40 @@ export async function getBudgets(): Promise<Budget[]> {
 export async function getActiveBudgets(): Promise<Budget[]> {
   try {
     const today = new Date().toISOString();
-    const budgets = await exec<Budget>(
-      `SELECT id, name, category_id as categoryId, subcategory_id as subcategoryId,
+    const rawBudgets = await exec<{
+      id: number;
+      name: string;
+      categoryIds: string;
+      subcategoryIds: string;
+      limitAmount: number;
+      currentSpending: number;
+      periodType: string;
+      startDate: string;
+      endDate: string;
+      notes: string | null;
+      linkedWalletIds: string;
+      createdAt: string;
+      updatedAt: string;
+    }>(
+      `SELECT id, name, category_ids as categoryIds, subcategory_ids as subcategoryIds,
               limit_amount as limitAmount, current_spending as currentSpending,
               period_type as periodType, start_date as startDate, end_date as endDate,
-              notes, linked_wallet_id as linkedWalletId,
+              notes, linked_wallet_ids as linkedWalletIds,
               created_at as createdAt, updated_at as updatedAt
        FROM budgets
        WHERE start_date <= ? AND end_date >= ?
        ORDER BY end_date ASC`,
       [today, today]
     );
-    return budgets;
+    
+    return rawBudgets.map(budget => ({
+      ...budget,
+      categoryIds: JSON.parse(budget.categoryIds),
+      subcategoryIds: JSON.parse(budget.subcategoryIds),
+      linkedWalletIds: JSON.parse(budget.linkedWalletIds),
+      periodType: budget.periodType as 'weekly' | 'monthly' | 'custom',
+      notes: budget.notes || undefined,
+    }));
   } catch (error) {
     console.error('Failed to fetch active budgets:', error);
     return [];
@@ -101,17 +145,43 @@ export async function getActiveBudgets(): Promise<Budget[]> {
  */
 export async function getBudgetById(id: number): Promise<Budget | null> {
   try {
-    const result = await exec<Budget>(
-      `SELECT id, name, category_id as categoryId, subcategory_id as subcategoryId,
+    const result = await exec<{
+      id: number;
+      name: string;
+      categoryIds: string;
+      subcategoryIds: string;
+      limitAmount: number;
+      currentSpending: number;
+      periodType: string;
+      startDate: string;
+      endDate: string;
+      notes: string | null;
+      linkedWalletIds: string;
+      createdAt: string;
+      updatedAt: string;
+    }>(
+      `SELECT id, name, category_ids as categoryIds, subcategory_ids as subcategoryIds,
               limit_amount as limitAmount, current_spending as currentSpending,
               period_type as periodType, start_date as startDate, end_date as endDate,
-              notes, linked_wallet_id as linkedWalletId,
+              notes, linked_wallet_ids as linkedWalletIds,
               created_at as createdAt, updated_at as updatedAt
        FROM budgets
        WHERE id = ?`,
       [id]
     );
-    return result.length > 0 ? result[0] : null;
+    
+    if (result.length > 0) {
+      const budget = result[0];
+      return {
+        ...budget,
+        categoryIds: JSON.parse(budget.categoryIds),
+        subcategoryIds: JSON.parse(budget.subcategoryIds),
+        linkedWalletIds: JSON.parse(budget.linkedWalletIds),
+        periodType: budget.periodType as 'weekly' | 'monthly' | 'custom',
+        notes: budget.notes || undefined,
+      };
+    }
+    return null;
   } catch (error) {
     console.error('Failed to fetch budget:', error);
     return null;
@@ -146,13 +216,13 @@ export async function updateBudget(id: number, updates: Partial<BudgetInput>): P
     fields.push('name = ?');
     values.push(updates.name);
   }
-  if (updates.categoryId !== undefined) {
-    fields.push('category_id = ?');
-    values.push(updates.categoryId || null);
+  if (updates.categoryIds !== undefined) {
+    fields.push('category_ids = ?');
+    values.push(JSON.stringify(updates.categoryIds));
   }
-  if (updates.subcategoryId !== undefined) {
-    fields.push('subcategory_id = ?');
-    values.push(updates.subcategoryId || null);
+  if (updates.subcategoryIds !== undefined) {
+    fields.push('subcategory_ids = ?');
+    values.push(JSON.stringify(updates.subcategoryIds));
   }
   if (updates.limitAmount !== undefined) {
     fields.push('limit_amount = ?');
@@ -174,12 +244,12 @@ export async function updateBudget(id: number, updates: Partial<BudgetInput>): P
     fields.push('notes = ?');
     values.push(updates.notes || null);
   }
-  if (updates.linkedWalletId !== undefined) {
-    fields.push('linked_wallet_id = ?');
-    values.push(updates.linkedWalletId);
-    // If wallet changed, recalculate spending
+  if (updates.linkedWalletIds !== undefined) {
+    fields.push('linked_wallet_ids = ?');
+    values.push(JSON.stringify(updates.linkedWalletIds));
+    // If wallets changed, recalculate spending
     const budget = await getBudgetById(id);
-    if (budget && budget.linkedWalletId !== updates.linkedWalletId) {
+    if (budget && JSON.stringify(budget.linkedWalletIds.sort()) !== JSON.stringify(updates.linkedWalletIds.sort())) {
       fields.push('current_spending = ?');
       values.push(0);
     }
@@ -219,63 +289,64 @@ export async function recalculateBudgetSpending(budgetId: number): Promise<void>
   if (!budget) return;
 
   try {
-    // Get wallet exchange rate for currency conversion
-    const walletResult = await exec<{ exchange_rate: number }>(
-      'SELECT exchange_rate FROM wallets WHERE id = ?',
-      [budget.linkedWalletId]
-    );
-    const exchangeRate = walletResult[0]?.exchange_rate || 1.0;
+    // Get all linked wallets for exchange rates
+    const linkedWalletIds = budget.linkedWalletIds;
+    if (linkedWalletIds.length === 0) return;
 
     // Get category name(s) to filter transactions
     let categoryNames: string[] = [];
-    
-    if (budget.categoryId) {
-      // Get the category and all its subcategories
-      const categoryResult = await exec<{ name: string }>(
-        'SELECT name FROM categories WHERE id = ?',
-        [budget.categoryId]
-      );
-      if (categoryResult.length > 0) {
-        categoryNames.push(categoryResult[0].name);
-        
-        // Also get subcategories
-        const subcategories = await exec<{ name: string }>(
-          'SELECT name FROM categories WHERE parent_category_id = ?',
-          [budget.categoryId]
+
+    if (budget.categoryIds && budget.categoryIds.length > 0) {
+      // Get all selected categories and their subcategories
+      for (const categoryId of budget.categoryIds) {
+        const categoryResult = await exec<{ name: string }>(
+          'SELECT name FROM categories WHERE id = ?',
+          [categoryId]
         );
-        categoryNames.push(...subcategories.map(s => s.name));
+        if (categoryResult.length > 0) {
+          categoryNames.push(categoryResult[0].name);
+
+          // Also get subcategories
+          const subcategories = await exec<{ name: string }>(
+            'SELECT name FROM categories WHERE parent_category_id = ?',
+            [categoryId]
+          );
+          categoryNames.push(...subcategories.map(s => s.name));
+        }
       }
-    } else if (budget.subcategoryId) {
-      // Just get the specific subcategory
-      const subcategoryResult = await exec<{ name: string }>(
-        'SELECT name FROM categories WHERE id = ?',
-        [budget.subcategoryId]
+    }
+
+    // Sum all expense transactions across all linked wallets
+    // Convert amounts to default currency using each wallet's exchange rate
+    let totalSpending = 0;
+
+    for (const walletId of linkedWalletIds) {
+      // Get wallet exchange rate for currency conversion
+      const walletResult = await exec<{ exchange_rate: number }>(
+        'SELECT exchange_rate FROM wallets WHERE id = ?',
+        [walletId]
       );
-      if (subcategoryResult.length > 0) {
-        categoryNames.push(subcategoryResult[0].name);
+      const exchangeRate = walletResult[0]?.exchange_rate || 1.0;
+
+      let query = `SELECT COALESCE(SUM(ABS(amount) * ?), 0) as total
+                   FROM transactions
+                   WHERE type = 'expense'
+                   AND wallet_id = ?
+                   AND date BETWEEN ? AND ?
+                   AND category != 'Transfer'`;
+
+      const params: any[] = [exchangeRate, walletId, budget.startDate, budget.endDate];
+
+      // Add category filter if we have category names
+      if (categoryNames.length > 0) {
+        const placeholders = categoryNames.map(() => '?').join(', ');
+        query += ` AND category IN (${placeholders})`;
+        params.push(...categoryNames);
       }
+
+      const result = await exec<{ total: number }>(query, params);
+      totalSpending += result[0]?.total || 0;
     }
-    
-    // Sum all expense transactions matching category, wallet, and period
-    // Convert amounts to default currency using wallet's exchange rate
-    let query = `SELECT COALESCE(SUM(ABS(amount) * ?), 0) as total
-                 FROM transactions
-                 WHERE type = 'expense'
-                 AND wallet_id = ?
-                 AND date BETWEEN ? AND ?
-                 AND category != 'Transfer'`;
-
-    const params: any[] = [exchangeRate, budget.linkedWalletId, budget.startDate, budget.endDate];
-
-    // Add category filter if we have category names
-    if (categoryNames.length > 0) {
-      const placeholders = categoryNames.map(() => '?').join(', ');
-      query += ` AND category IN (${placeholders})`;
-      params.push(...categoryNames);
-    }
-
-    const result = await exec<{ total: number }>(query, params);
-    const totalSpending = result[0]?.total || 0;
 
     await enqueueWrite(async () => {
       await execRun(
@@ -299,12 +370,13 @@ export async function getBudgetsByWallet(walletId: number): Promise<Budget[]> {
       `SELECT id, name, category_id as categoryId, subcategory_id as subcategoryId,
               limit_amount as limitAmount, current_spending as currentSpending,
               period_type as periodType, start_date as startDate, end_date as endDate,
-              notes, linked_wallet_id as linkedWalletId,
+              notes, linked_wallet_id as linkedWalletId, linked_wallet_ids as linkedWalletIds,
+              category_ids as categoryIds, subcategory_ids as subcategoryIds,
               created_at as createdAt, updated_at as updatedAt
        FROM budgets
-       WHERE linked_wallet_id = ?
+       WHERE linked_wallet_id = ? OR json_extract(linked_wallet_ids, '$') LIKE ?
        ORDER BY created_at DESC`,
-      [walletId]
+      [walletId, `%${walletId}%`]
     );
     return budgets;
   } catch (error) {
@@ -324,12 +396,15 @@ export async function getBudgetsByCategory(categoryId: number): Promise<Budget[]
       `SELECT id, name, category_id as categoryId, subcategory_id as subcategoryId,
               limit_amount as limitAmount, current_spending as currentSpending,
               period_type as periodType, start_date as startDate, end_date as endDate,
-              notes, linked_wallet_id as linkedWalletId,
+              notes, linked_wallet_id as linkedWalletId, linked_wallet_ids as linkedWalletIds,
+              category_ids as categoryIds, subcategory_ids as subcategoryIds,
               created_at as createdAt, updated_at as updatedAt
        FROM budgets
-       WHERE category_id = ? OR subcategory_id = ?
+       WHERE category_id = ? OR subcategory_id = ? OR
+             json_extract(category_ids, '$') LIKE ? OR
+             json_extract(subcategory_ids, '$') LIKE ?
        ORDER BY created_at DESC`,
-      [categoryId, categoryId]
+      [categoryId, categoryId, `%${categoryId}%`, `%${categoryId}%`]
     );
     return budgets;
   } catch (error) {
@@ -344,24 +419,42 @@ export async function getBudgetsByCategory(categoryId: number): Promise<Budget[]
  * @returns Budget with calculated metrics
  */
 export function calculateBudgetMetrics(budget: Budget): BudgetWithMetrics {
+  const startDate = new Date(budget.startDate);
   const endDate = new Date(budget.endDate);
   const today = new Date();
-  const daysRemaining = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  const remainingBalance = budget.limitAmount - budget.currentSpending;
-  const percentageUsed = (budget.currentSpending / budget.limitAmount) * 100;
-  const isOverBudget = budget.currentSpending > budget.limitAmount;
 
-  // Calculate average daily spend
-  const startDate = new Date(budget.startDate);
-  const daysElapsed = Math.max(1, (today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-  const averageDailySpend = budget.currentSpending / daysElapsed;
+  // Calculate days remaining (can be negative for past budgets)
+  const daysRemaining = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  // Calculate days elapsed since budget start (capped at budget duration for past budgets)
+  const actualDaysElapsed = Math.max(0, (today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  const budgetDurationDays = Math.max(1, (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+  // For metrics calculation, use the appropriate time period
+  let relevantDaysElapsed: number;
+  if (today < startDate) {
+    // Future budget - no spending yet
+    relevantDaysElapsed = 0;
+  } else if (today > endDate) {
+    // Past budget - use full budget duration
+    relevantDaysElapsed = budgetDurationDays;
+  } else {
+    // Current budget - use days since start
+    relevantDaysElapsed = actualDaysElapsed;
+  }
+
+  const averageDailySpend = relevantDaysElapsed > 0 ? budget.currentSpending / relevantDaysElapsed : 0;
+
+  const remainingBalance = budget.limitAmount - budget.currentSpending;
+  const percentageUsed = budget.limitAmount > 0 ? (budget.currentSpending / budget.limitAmount) * 100 : 0;
+  const isOverBudget = budget.currentSpending > budget.limitAmount;
 
   return {
     ...budget,
     remainingBalance,
     percentageUsed: Math.min(percentageUsed, 100),
     isOverBudget,
-    daysRemaining: Math.max(0, daysRemaining),
+    daysRemaining,
     averageDailySpend,
   };
 }

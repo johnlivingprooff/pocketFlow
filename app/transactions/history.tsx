@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, useColorScheme, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, useColorScheme, RefreshControl, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
@@ -11,6 +11,9 @@ import { formatDate, yyyyMmDd, formatShortDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { getCategories, Category, getCategoriesHierarchy } from '../../src/lib/db/categories';
 import { invalidateTransactionCaches } from '../../src/lib/cache/queryCache';
+import { exportTransactionsToCSV } from '../../src/lib/export/csvExport';
+import { CsvIcon } from '../../src/assets/icons/CsvIcon';
+import * as Sharing from 'expo-sharing';
 
 export default function HistoryScreen() {
   const { themeMode, defaultCurrency } = useSettings();
@@ -66,6 +69,51 @@ export default function HistoryScreen() {
       console.error('Error refreshing transactions:', error);
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handleExportCSV = async () => {
+    try {
+      Alert.alert(
+        'Export Transactions',
+        'Export all transactions to CSV file?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Export',
+            onPress: async () => {
+              const result = await exportTransactionsToCSV();
+              if (result.success && result.uri) {
+                Alert.alert(
+                  'Export Successful',
+                  'CSV file has been saved. Would you like to share it?',
+                  [
+                    { text: 'No', style: 'cancel' },
+                    {
+                      text: 'Share',
+                      onPress: async () => {
+                        try {
+                          if (result.uri) {
+                            await Sharing.shareAsync(result.uri);
+                          }
+                        } catch (shareError) {
+                          console.error('Error sharing CSV:', shareError);
+                          Alert.alert('Error', 'Failed to share the CSV file');
+                        }
+                      }
+                    }
+                  ]
+                );
+              } else {
+                Alert.alert('Export Failed', result.error || 'Failed to export transactions');
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+      Alert.alert('Error', 'Failed to export transactions');
     }
   };
 
@@ -245,6 +293,34 @@ export default function HistoryScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
+      {/* Header with Export Button */}
+      <View style={{ 
+        flexDirection: 'row', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        paddingHorizontal: 16, 
+        paddingVertical: 12,
+        backgroundColor: t.background,
+        borderBottomWidth: 1,
+        borderBottomColor: t.border
+      }}>
+        <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>Transaction History</Text>
+        <TouchableOpacity
+          onPress={handleExportCSV}
+          style={{ 
+            padding: 8,
+            borderRadius: 8,
+            backgroundColor: t.card,
+            borderWidth: 1,
+            borderColor: t.border
+          }}
+          accessibilityLabel="Export transactions to CSV"
+          accessibilityRole="button"
+        >
+          <CsvIcon size={20} color={t.primary} />
+        </TouchableOpacity>
+      </View>
+
       <ScrollView 
         style={{ flex: 1, backgroundColor: t.background }}
         refreshControl={
@@ -255,10 +331,8 @@ export default function HistoryScreen() {
             colors={[t.primary]}
           />
         }
-    >
-      <View style={{ padding: 16, paddingTop: 20 }}>
-        {/* Header */}
-        <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 16 }}>Transaction History</Text>
+      >
+        <View style={{ padding: 16, paddingTop: 20 }}>
 
         {/* Search Bar */}
         <TextInput

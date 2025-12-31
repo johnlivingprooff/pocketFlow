@@ -57,8 +57,8 @@ export default function EditBudgetScreen() {
   const [name, setName] = useState('');
   const [limitAmount, setLimitAmount] = useState('');
   const [periodType, setPeriodType] = useState<PeriodType>('monthly');
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-  const [selectedWallet, setSelectedWallet] = useState<number | null>(null);
+  const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
+  const [selectedWallets, setSelectedWallets] = useState<number[]>([]);
   const [notes, setNotes] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -121,8 +121,8 @@ export default function EditBudgetScreen() {
       setName(budgetData.name);
       setLimitAmount(budgetData.limitAmount.toString());
       setPeriodType(budgetData.periodType as PeriodType);
-      setSelectedCategory(budgetData.categoryId!);
-      setSelectedWallet(budgetData.linkedWalletId!);
+      setSelectedCategories(budgetData.categoryIds || []);
+      setSelectedWallets(budgetData.linkedWalletIds || []);
       setNotes(budgetData.notes || '');
       setStartDate(budgetData.startDate);
       setEndDate(budgetData.endDate);
@@ -145,12 +145,12 @@ export default function EditBudgetScreen() {
       Alert.alert('Validation Error', 'Please enter a valid budget limit');
       return false;
     }
-    if (!selectedCategory) {
-      Alert.alert('Validation Error', 'Please select a category');
+    if (selectedCategories.length === 0) {
+      Alert.alert('Validation Error', 'Please select at least one category');
       return false;
     }
-    if (!selectedWallet) {
-      Alert.alert('Validation Error', 'Please select a wallet');
+    if (selectedWallets.length === 0) {
+      Alert.alert('Validation Error', 'Please select at least one wallet');
       return false;
     }
     if (new Date(startDate) > new Date(endDate)) {
@@ -168,13 +168,13 @@ export default function EditBudgetScreen() {
 
       await updateBudget(budgetId, {
         name: name.trim(),
-        categoryId: selectedCategory!,
+        categoryIds: selectedCategories,
         limitAmount: parseFloat(limitAmount),
         periodType,
         startDate,
         endDate,
-        linkedWalletId: selectedWallet!,
-          notes: notes.trim() || undefined,
+        linkedWalletIds: selectedWallets,
+        notes: notes.trim() || undefined,
       });
 
       Alert.alert('Success', 'Budget updated successfully', [
@@ -249,89 +249,142 @@ export default function EditBudgetScreen() {
 
           {/* Category Selection */}
           <View style={styles.section}>
-            <Text style={[styles.label, { color: colors.textPrimary }]}>Category *</Text>
+            <Text style={[styles.label, { color: colors.textPrimary }]}>Categories *</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
-              {categories.map((cat) => (
-                <Pressable
-                  key={cat.id}
-                  onPress={() => setSelectedCategory(cat.id!)}
-                  style={[
-                    styles.categoryButton,
-                    {
-                      backgroundColor:
-                        selectedCategory === cat.id ? colors.primary : colors.card,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                  disabled={saving}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    {(() => {
-                      const iconKey = cat.icon || cat.name;
-                      const IconComp = (CategoryIcons as any)[iconKey] || (CategoryIcons as any)[iconKey?.toLowerCase?.()] || null;
-                      const isEmoji = typeof iconKey === 'string' && /\p{Extended_Pictographic}/u.test(iconKey);
-                      if (isEmoji) {
-                        return <Text style={{ fontSize: 16 }}>{iconKey}</Text>;
+              {categories.map((cat) => {
+                const isSelected = selectedCategories.includes(cat.id!);
+                return (
+                  <Pressable
+                    key={cat.id}
+                    onPress={() => {
+                      if (isSelected) {
+                        setSelectedCategories(prev => prev.filter(id => id !== cat.id));
+                      } else {
+                        setSelectedCategories(prev => [...prev, cat.id!]);
                       }
-                      if (IconComp) {
-                        const color = selectedCategory === cat.id ? colors.background : colors.textPrimary;
-                        return <IconComp size={18} color={color} />;
-                      }
-                      return null;
-                    })()}
-                    <Text
-                      style={[
-                        styles.categoryButtonText,
-                        {
-                          color:
-                            selectedCategory === cat.id
-                              ? colors.background
-                              : colors.textPrimary,
-                        },
-                      ]}
-                    >
-                      {cat.name}
-                    </Text>
-                  </View>
-                </Pressable>
-              ))}
+                    }}
+                    style={[
+                      styles.categoryButton,
+                      {
+                        backgroundColor: isSelected ? colors.primary : colors.card,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    disabled={saving}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      {(() => {
+                        const iconKey = cat.icon || cat.name;
+                        const IconComp = (CategoryIcons as any)[iconKey] || (CategoryIcons as any)[iconKey?.toLowerCase?.()] || null;
+                        const isEmoji = typeof iconKey === 'string' && /\p{Extended_Pictographic}/u.test(iconKey);
+                        if (isEmoji) {
+                          return <Text style={{ fontSize: 16 }}>{iconKey}</Text>;
+                        }
+                        if (IconComp) {
+                          const color = isSelected ? colors.background : colors.textPrimary;
+                          return <IconComp size={18} color={color} />;
+                        }
+                        return null;
+                      })()}
+                      <Text
+                        style={[
+                          styles.categoryButtonText,
+                          {
+                            color: isSelected ? colors.background : colors.textPrimary,
+                          },
+                        ]}
+                      >
+                        {cat.name}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
             </ScrollView>
+            {selectedCategories.length > 0 && (
+              <Text style={[styles.selectionSummary, { color: colors.textSecondary }]}>
+                {selectedCategories.length} categor{selectedCategories.length === 1 ? 'y' : 'ies'} selected
+              </Text>
+            )}
           </View>
 
           {/* Wallet Selection */}
           <View style={styles.section}>
-            <Text style={[styles.label, { color: colors.textPrimary }]}>Wallet *</Text>
+            <Text style={[styles.label, { color: colors.textPrimary }]}>Wallets *</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.walletScroll}>
-              {wallets.map((wallet) => (
-                <Pressable
-                  key={wallet.id}
-                  onPress={() => setSelectedWallet(wallet.id!)}
+              {/* All Wallets option */}
+              <Pressable
+                onPress={() => {
+                  const allWalletIds = wallets.map(w => w.id!);
+                  const isAllSelected = selectedWallets.length === wallets.length &&
+                    allWalletIds.every(id => selectedWallets.includes(id));
+                  if (isAllSelected) {
+                    setSelectedWallets([]);
+                  } else {
+                    setSelectedWallets(allWalletIds);
+                  }
+                }}
+                style={[
+                  styles.walletButton,
+                  {
+                    backgroundColor: selectedWallets.length === wallets.length && wallets.length > 0 ? colors.primary : colors.card,
+                    borderColor: colors.border,
+                  },
+                ]}
+                disabled={saving}
+              >
+                <Text
                   style={[
-                    styles.walletButton,
+                    styles.walletButtonText,
                     {
-                      backgroundColor:
-                        selectedWallet === wallet.id ? colors.primary : colors.card,
-                      borderColor: colors.border,
+                      color: selectedWallets.length === wallets.length && wallets.length > 0 ? colors.background : colors.textPrimary,
                     },
                   ]}
-                  disabled={saving}
                 >
-                  <Text
+                  All Wallets
+                </Text>
+              </Pressable>
+              {/* Individual wallet options */}
+              {wallets.map((wallet) => {
+                const isSelected = selectedWallets.includes(wallet.id!);
+                return (
+                  <Pressable
+                    key={wallet.id}
+                    onPress={() => {
+                      if (isSelected) {
+                        setSelectedWallets(prev => prev.filter(id => id !== wallet.id));
+                      } else {
+                        setSelectedWallets(prev => [...prev, wallet.id!]);
+                      }
+                    }}
                     style={[
-                      styles.walletButtonText,
+                      styles.walletButton,
                       {
-                        color:
-                          selectedWallet === wallet.id
-                            ? colors.background
-                            : colors.textPrimary,
+                        backgroundColor: isSelected ? colors.primary : colors.card,
+                        borderColor: colors.border,
                       },
                     ]}
+                    disabled={saving}
                   >
-                    {wallet.name}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text
+                      style={[
+                        styles.walletButtonText,
+                        {
+                          color: isSelected ? colors.background : colors.textPrimary,
+                        },
+                      ]}
+                    >
+                      {wallet.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </ScrollView>
+            {selectedWallets.length > 0 && (
+              <Text style={[styles.selectionSummary, { color: colors.textSecondary }]}>
+                {selectedWallets.length === wallets.length ? 'All wallets selected' : `${selectedWallets.length} wallet${selectedWallets.length === 1 ? '' : 's'} selected`}
+              </Text>
+            )}
           </View>
 
           {/* Period Type */}
@@ -514,6 +567,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 8,
+  },
+  selectionSummary: {
+    fontSize: 12,
+    marginTop: 6,
+    fontWeight: '400',
   },
   input: {
     borderWidth: 1,

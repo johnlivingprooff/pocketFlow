@@ -54,7 +54,7 @@ export default function CreateGoalScreen() {
     tomorrow.setDate(today.getDate() + 1);
     return formatISODate(tomorrow);
   });
-  const [selectedWallet, setSelectedWallet] = useState<number | null>(null);
+  const [selectedWallets, setSelectedWallets] = useState<number[]>([]);
   const [notes, setNotes] = useState("");
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,7 +71,7 @@ export default function CreateGoalScreen() {
       const wals = await getWallets();
       setWallets(wals);
       if (wals.length > 0) {
-        setSelectedWallet(wals[0].id!);
+        setSelectedWallets([wals[0].id!]);
       }
     } catch (err: unknown) {
       logError("Failed to load wallets:", { error: err });
@@ -94,12 +94,8 @@ export default function CreateGoalScreen() {
       Alert.alert("Validation Error", "Please enter a target date");
       return false;
     }
-    if (new Date(targetDate) <= new Date()) {
-      Alert.alert("Validation Error", "Target date must be in the future");
-      return false;
-    }
-    if (!selectedWallet) {
-      Alert.alert("Validation Error", "Please select a wallet");
+    if (selectedWallets.length === 0) {
+      Alert.alert("Validation Error", "Please select at least one wallet");
       return false;
     }
     return true;
@@ -118,16 +114,22 @@ export default function CreateGoalScreen() {
         name: name.trim(),
         targetAmount: parseFloat(targetAmount),
         targetDate,
-        linkedWalletId: selectedWallet,
+        linkedWalletIds: selectedWallets,
       });
 
-      await createGoal({
+      const createdGoal = await createGoal({
         name: name.trim(),
         targetAmount: parseFloat(targetAmount),
         targetDate,
-        linkedWalletId: selectedWallet!,
+        linkedWalletIds: selectedWallets,
         notes: notes.trim() || undefined,
       });
+
+      // Calculate initial progress for the new goal
+      if (createdGoal.id) {
+        const { recalculateGoalProgress } = await import('@/lib/db/goals');
+        await recalculateGoalProgress(createdGoal.id);
+      }
 
       console.log('[Goal Create] Goal created successfully');
       // Invalidate caches so goal page will reload with new data
@@ -237,46 +239,88 @@ export default function CreateGoalScreen() {
                   setTargetDate(formatISODate(date));
                 }}
                 selectedDate={targetDate ? new Date(targetDate) : new Date()}
-                minDate={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d; })()}
                 title="Select target date"
               />
             )}
-            <Text style={[styles.helperText, { color: colors.textSecondary }]}>Must be a future date</Text>
+            <Text style={[styles.helperText, { color: colors.textSecondary }]}>Select your target completion date</Text>
           </View>
 
           <View style={styles.section}>
-            <Text style={[styles.label, { color: colors.textPrimary }]}>Wallet *</Text>
+            <Text style={[styles.label, { color: colors.textPrimary }]}>Wallets *</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.walletScroll}>
-              {wallets.map((wallet) => (
-                <Pressable
-                  key={wallet.id}
-                  onPress={() => setSelectedWallet(wallet.id!)}
+              {/* All Wallets option */}
+              <Pressable
+                onPress={() => {
+                  const allWalletIds = wallets.map(w => w.id!);
+                  const isAllSelected = selectedWallets.length === wallets.length &&
+                    allWalletIds.every(id => selectedWallets.includes(id));
+                  if (isAllSelected) {
+                    setSelectedWallets([]);
+                  } else {
+                    setSelectedWallets(allWalletIds);
+                  }
+                }}
+                style={[
+                  styles.walletButton,
+                  {
+                    backgroundColor: selectedWallets.length === wallets.length && wallets.length > 0 ? colors.primary : colors.card,
+                    borderColor: colors.border,
+                  },
+                ]}
+                disabled={saving}
+              >
+                <Text
                   style={[
-                    styles.walletButton,
+                    styles.walletButtonText,
                     {
-                      backgroundColor:
-                        selectedWallet === wallet.id ? colors.primary : colors.card,
-                      borderColor: colors.border,
+                      color: selectedWallets.length === wallets.length && wallets.length > 0 ? colors.background : colors.textPrimary,
                     },
                   ]}
-                  disabled={saving}
                 >
-                  <Text
+                  All Wallets
+                </Text>
+              </Pressable>
+              {/* Individual wallet options */}
+              {wallets.map((wallet) => {
+                const isSelected = selectedWallets.includes(wallet.id!);
+                return (
+                  <Pressable
+                    key={wallet.id}
+                    onPress={() => {
+                      if (isSelected) {
+                        setSelectedWallets(prev => prev.filter(id => id !== wallet.id));
+                      } else {
+                        setSelectedWallets(prev => [...prev, wallet.id!]);
+                      }
+                    }}
                     style={[
-                      styles.walletButtonText,
+                      styles.walletButton,
                       {
-                        color:
-                          selectedWallet === wallet.id
-                            ? colors.background
-                            : colors.textPrimary,
+                        backgroundColor: isSelected ? colors.primary : colors.card,
+                        borderColor: colors.border,
                       },
                     ]}
+                    disabled={saving}
                   >
-                    {wallet.name}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text
+                      style={[
+                        styles.walletButtonText,
+                        {
+                          color: isSelected ? colors.background : colors.textPrimary,
+                        },
+                      ]}
+                    >
+                      {wallet.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </ScrollView>
+            {selectedWallets.length > 0 && (
+              <Text style={[styles.selectionSummary, { color: colors.textSecondary }]}>
+                {selectedWallets.length === wallets.length ? 'All wallets selected' : `${selectedWallets.length} wallet${selectedWallets.length === 1 ? '' : 's'} selected`}
+              </Text>
+            )}
           </View>
 
           <View style={styles.section}>
@@ -369,6 +413,11 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   helperText: {
+    fontSize: 12,
+    marginTop: 6,
+    fontWeight: "400",
+  },
+  selectionSummary: {
     fontSize: 12,
     marginTop: 6,
     fontWeight: "400",

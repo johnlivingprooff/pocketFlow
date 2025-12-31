@@ -50,7 +50,7 @@ export default function EditGoalScreen() {
   const [name, setName] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
   const [targetDate, setTargetDate] = useState('');
-  const [selectedWallet, setSelectedWallet] = useState<number | null>(null);
+  const [selectedWallets, setSelectedWallets] = useState<number[]>([]);
   const [notes, setNotes] = useState('');
 
   const [wallets, setWallets] = useState<Wallet[]>([]);
@@ -91,7 +91,7 @@ export default function EditGoalScreen() {
       setName(goal.name);
       setTargetAmount(goal.targetAmount.toString());
       setTargetDate(goal.targetDate);
-      setSelectedWallet(goal.linkedWalletId);
+      setSelectedWallets(goal.linkedWalletIds || []);
       setNotes(goal.notes || '');
       setWallets(walletsData);
     } catch (err: any) {
@@ -128,8 +128,8 @@ export default function EditGoalScreen() {
       return false;
     }
 
-    if (!selectedWallet) {
-      Alert.alert('Error', 'Please select a wallet');
+    if (selectedWallets.length === 0) {
+      Alert.alert('Error', 'Please select at least one wallet');
       return false;
     }
 
@@ -147,8 +147,8 @@ export default function EditGoalScreen() {
         name: name.trim(),
         targetAmount: Number(targetAmount),
         targetDate,
-        linkedWalletId: selectedWallet!,
-          notes: notes.trim() || undefined,
+        linkedWalletIds: selectedWallets,
+        notes: notes.trim() || undefined,
       });
 
       Alert.alert('Success', 'Goal updated successfully', [
@@ -257,44 +257,85 @@ export default function EditGoalScreen() {
 
           {/* Wallet Selection */}
           <View style={styles.fieldGroup}>
-            <Text style={[styles.label, { color: colors.textPrimary }]}>Wallet *</Text>
+            <Text style={[styles.label, { color: colors.textPrimary }]}>Wallets *</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.walletScroll}
             >
-              {wallets.map((w) => (
-                <Pressable
-                  key={w.id}
-                  onPress={() => setSelectedWallet(w.id || null)}
-                  disabled={saving}
+              {/* All Wallets option */}
+              <Pressable
+                onPress={() => {
+                  const allWalletIds = wallets.map(w => w.id!);
+                  const isAllSelected = selectedWallets.length === wallets.length &&
+                    allWalletIds.every(id => selectedWallets.includes(id));
+                  if (isAllSelected) {
+                    setSelectedWallets([]);
+                  } else {
+                    setSelectedWallets(allWalletIds);
+                  }
+                }}
+                disabled={saving}
+                style={[
+                  styles.walletButton,
+                  {
+                    backgroundColor: selectedWallets.length === wallets.length && wallets.length > 0 ? colors.primary : colors.background,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Text
                   style={[
-                    styles.walletButton,
+                    styles.walletButtonText,
                     {
-                      backgroundColor:
-                        selectedWallet === w.id
-                          ? colors.primary
-                          : colors.background,
-                      borderColor: colors.border,
+                      color: selectedWallets.length === wallets.length && wallets.length > 0 ? colors.background : colors.textPrimary,
                     },
                   ]}
                 >
-                  <Text
+                  All Wallets
+                </Text>
+              </Pressable>
+              {/* Individual wallet options */}
+              {wallets.map((w) => {
+                const isSelected = selectedWallets.includes(w.id!);
+                return (
+                  <Pressable
+                    key={w.id}
+                    onPress={() => {
+                      if (isSelected) {
+                        setSelectedWallets(prev => prev.filter(id => id !== w.id));
+                      } else {
+                        setSelectedWallets(prev => [...prev, w.id!]);
+                      }
+                    }}
+                    disabled={saving}
                     style={[
-                      styles.walletButtonText,
+                      styles.walletButton,
                       {
-                        color:
-                          selectedWallet === w.id
-                            ? colors.background
-                            : colors.textPrimary,
+                        backgroundColor: isSelected ? colors.primary : colors.background,
+                        borderColor: colors.border,
                       },
                     ]}
                   >
-                    {w.name}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text
+                      style={[
+                        styles.walletButtonText,
+                        {
+                          color: isSelected ? colors.background : colors.textPrimary,
+                        },
+                      ]}
+                    >
+                      {w.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </ScrollView>
+            {selectedWallets.length > 0 && (
+              <Text style={[styles.selectionSummary, { color: colors.textSecondary }]}>
+                {selectedWallets.length === wallets.length ? 'All wallets selected' : `${selectedWallets.length} wallet${selectedWallets.length === 1 ? '' : 's'} selected`}
+              </Text>
+            )}
           </View>
 
           {/* Notes */}
@@ -385,6 +426,11 @@ const styles = StyleSheet.create({
   fieldHint: {
     fontSize: 12,
     marginTop: 4,
+    fontWeight: '400',
+  },
+  selectionSummary: {
+    fontSize: 12,
+    marginTop: 6,
     fontWeight: '400',
   },
   dateInput: {
