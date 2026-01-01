@@ -44,6 +44,10 @@ export default function GoalDetailScreen() {
 
     try {
       setLoading(true);
+      // Small delay to allow recalculateGoalProgress write queue to complete
+      // This ensures we don't get stale currentProgress values on newly created goals
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const data = await getGoalWithMetrics(goalId);
       if (!data) {
         Alert.alert('Error', 'Goal not found');

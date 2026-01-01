@@ -27,7 +27,12 @@ const dateFormatter = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 });
 
-const formatISODate = (date: Date) => date.toISOString().split('T')[0];
+const formatISODate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const formatDisplayDate = (dateStr: string) => {
   if (!dateStr) return 'Select date';
@@ -150,6 +155,14 @@ export default function EditGoalScreen() {
         linkedWalletIds: selectedWallets,
         notes: notes.trim() || undefined,
       });
+
+      // Recalculate progress after update since wallets or target may have changed
+      const { recalculateGoalProgress } = await import('@/lib/db/goals');
+      await recalculateGoalProgress(goalId!);
+
+      // Invalidate caches so goal screens will reload with fresh data
+      const { invalidateTransactionCaches } = await import('@/lib/cache/queryCache');
+      invalidateTransactionCaches();
 
       Alert.alert('Success', 'Goal updated successfully', [
         {

@@ -23,12 +23,14 @@ export async function createBudget(budget: BudgetInput): Promise<Budget> {
 
   await enqueueWrite(async () => {
     await execRun(
-      `INSERT INTO budgets (name, category_ids, subcategory_ids, limit_amount, current_spending,
+      `INSERT INTO budgets (name, category_id, subcategory_id, category_ids, subcategory_ids, limit_amount, current_spending,
                             period_type, start_date, end_date, notes, linked_wallet_ids,
                             created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         budget.name,
+        null, // category_id (old single column, now null)
+        null, // subcategory_id (old single column, now null)
         JSON.stringify(budget.categoryIds),
         JSON.stringify(budget.subcategoryIds || []),
         budget.limitAmount,

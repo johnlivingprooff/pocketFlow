@@ -9,6 +9,9 @@ import { INCOME_TAXONOMY, EXPENSE_TAXONOMY } from '@/constants/categories';
 
 let dbPromise: Promise<NitroSQLiteConnection> | null = null;
 
+// Schema version - increment this when making breaking schema changes
+const CURRENT_SCHEMA_VERSION = 2;
+
 async function resolveDbPath(): Promise<string> {
   // For nitro-sqlite with just a name, the database is stored in the app's data directory
   // We need to construct the full path for file operations like deletion
@@ -118,6 +121,13 @@ export async function execRun(sql: string, params: any[] = []): Promise<any> {
 
 export async function ensureTables() {
   const database = await getDbAsync();
+  
+  // Set schema version
+  try {
+    database.execute(`PRAGMA user_version = ${CURRENT_SCHEMA_VERSION};`);
+  } catch (e: any) {
+    logError('[DB] Failed to set schema version:', e);
+  }
 
       database.execute(
         `CREATE TABLE IF NOT EXISTS wallets (
@@ -364,7 +374,7 @@ export async function ensureTables() {
         current_progress REAL NOT NULL DEFAULT 0,
         target_date TEXT NOT NULL,
         notes TEXT,
-        linked_wallet_id INTEGER NOT NULL,
+        linked_wallet_id INTEGER,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         FOREIGN KEY(linked_wallet_id) REFERENCES wallets(id) ON DELETE CASCADE,
@@ -383,6 +393,52 @@ export async function ensureTables() {
       const hasCategoryIds = goalCols.some(c => c.name === 'category_ids');
       if (!hasCategoryIds) {
         database.execute('ALTER TABLE goals ADD COLUMN category_ids TEXT;');
+      }
+      
+      // Migration: Fix NOT NULL constraints on legacy columns for existing databases
+      try {
+        const linkedWalletIdCol = goalCols.find(c => c.name === 'linked_wallet_id');
+        if (linkedWalletIdCol && linkedWalletIdCol.notnull === 1) {
+          log('[DB] Migrating goals table: Removing NOT NULL from linked_wallet_id');
+          const countResult = database.execute('SELECT COUNT(*) as count FROM goals;');
+          const hasData = (countResult.rows?._array?.[0]?.count as number) > 0;
+          
+          database.execute('PRAGMA foreign_keys = OFF;');
+          database.execute(`
+            CREATE TABLE goals_new (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              target_amount REAL NOT NULL,
+              current_progress REAL NOT NULL DEFAULT 0,
+              target_date TEXT NOT NULL,
+              notes TEXT,
+              linked_wallet_id INTEGER,
+              linked_wallet_ids TEXT,
+              category_ids TEXT,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              FOREIGN KEY(linked_wallet_id) REFERENCES wallets(id) ON DELETE CASCADE,
+              CHECK(target_amount > 0),
+              CHECK(current_progress >= 0)
+            );
+          `);
+          
+          if (hasData) {
+            database.execute(`
+              INSERT INTO goals_new 
+              SELECT id, name, target_amount, current_progress, target_date, notes, 
+                     linked_wallet_id, linked_wallet_ids, category_ids, created_at, updated_at 
+              FROM goals;
+            `);
+          }
+          
+          database.execute('DROP TABLE goals;');
+          database.execute('ALTER TABLE goals_new RENAME TO goals;');
+          database.execute('PRAGMA foreign_keys = ON;');
+          log('[DB] Successfully migrated goals table schema');
+        }
+      } catch (migrationErr: any) {
+        logError('[DB] Error migrating goals table NOT NULL constraints:', migrationErr);
       }
     } catch (e) {
       // noop: best-effort migration
@@ -407,7 +463,7 @@ export async function ensureTables() {
         start_date TEXT NOT NULL,
         end_date TEXT NOT NULL,
         notes TEXT,
-        linked_wallet_id INTEGER NOT NULL,
+        linked_wallet_id INTEGER,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE SET NULL,
@@ -432,6 +488,65 @@ export async function ensureTables() {
       const hasSubcategoryIds = budgetCols.some(c => c.name === 'subcategory_ids');
       if (!hasSubcategoryIds) {
         database.execute('ALTER TABLE budgets ADD COLUMN subcategory_ids TEXT;');
+      }
+      
+      // Migration: Fix NOT NULL constraints on legacy columns for existing databases
+      // These columns were required in old schema but are now optional
+      try {
+        // Check if linked_wallet_id still has NOT NULL constraint
+        const linkedWalletIdCol = budgetCols.find(c => c.name === 'linked_wallet_id');
+        if (linkedWalletIdCol && linkedWalletIdCol.notnull === 1) {
+          log('[DB] Migrating budgets table: Removing NOT NULL from linked_wallet_id');
+          // SQLite doesn't support removing NOT NULL directly, so we recreate the table
+          const countResult = database.execute('SELECT COUNT(*) as count FROM budgets;');
+          const hasData = (countResult.rows?._array?.[0]?.count as number) > 0;
+          
+          // Data exists, perform safe migration
+          database.execute('PRAGMA foreign_keys = OFF;');
+          database.execute(`
+            CREATE TABLE budgets_new (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              category_id INTEGER,
+              subcategory_id INTEGER,
+              category_ids TEXT,
+              subcategory_ids TEXT,
+              limit_amount REAL NOT NULL,
+              current_spending REAL NOT NULL DEFAULT 0,
+              period_type TEXT NOT NULL CHECK(period_type IN ('weekly', 'monthly', 'custom')),
+              start_date TEXT NOT NULL,
+              end_date TEXT NOT NULL,
+              notes TEXT,
+              linked_wallet_id INTEGER,
+              linked_wallet_ids TEXT,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE SET NULL,
+              FOREIGN KEY(subcategory_id) REFERENCES categories(id) ON DELETE SET NULL,
+              FOREIGN KEY(linked_wallet_id) REFERENCES wallets(id) ON DELETE CASCADE,
+              CHECK(limit_amount > 0),
+              CHECK(current_spending >= 0)
+            );
+          `);
+          
+          if (hasData) {
+            database.execute(`
+              INSERT INTO budgets_new 
+              SELECT id, name, category_id, subcategory_id, category_ids, subcategory_ids, 
+                     limit_amount, current_spending, period_type, start_date, end_date, notes, 
+                     linked_wallet_id, linked_wallet_ids, created_at, updated_at 
+              FROM budgets;
+            `);
+          }
+          
+          database.execute('DROP TABLE budgets;');
+          database.execute('ALTER TABLE budgets_new RENAME TO budgets;');
+          database.execute('PRAGMA foreign_keys = ON;');
+          log('[DB] Successfully migrated budgets table schema');
+        }
+      } catch (migrationErr: any) {
+        logError('[DB] Error migrating budgets table NOT NULL constraints:', migrationErr);
+        // Continue anyway - the constraint may have already been fixed
       }
     } catch (e) {
       // noop: best-effort migration

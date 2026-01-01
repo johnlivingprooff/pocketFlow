@@ -44,6 +44,10 @@ export default function BudgetDetailScreen() {
 
     try {
       setLoading(true);
+      // Small delay to allow recalculateBudgetSpending write queue to complete
+      // This ensures we don't get stale currentSpending values on newly created budgets
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const data = await getBudgetWithMetrics(budgetId);
       if (!data) {
         Alert.alert('Error', 'Budget not found');

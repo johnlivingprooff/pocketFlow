@@ -58,6 +58,10 @@ export default function BudgetGoalsScreen() {
       setLoading(true);
       setRefreshing(true);
 
+      // Small delay to allow recalculateBudgetSpending/recalculateGoalProgress write queue to complete
+      // This ensures we don't get stale currentSpending/currentProgress values after transactions or budget/goal creation
+      await new Promise(resolve => setTimeout(resolve, 150));
+
       // Load all budgets and enrich with metrics in parallel for better performance
       const allBudgets = await getBudgets();
       const budgetsWithMetrics = await Promise.all(
@@ -126,8 +130,8 @@ export default function BudgetGoalsScreen() {
     ]);
   };
 
-  const handleEditBudget = (budgetId: number) => {
-    router.push(`/budgets/${budgetId}/edit`);
+  const handleViewBudget = (budgetId: number) => {
+    router.push(`/budgets/${budgetId}`);
   };
 
   const handleEditGoal = (goalId: number) => {
@@ -201,7 +205,7 @@ export default function BudgetGoalsScreen() {
   const renderBudgetItem = (item: BudgetWithMetrics) => (
     <View key={item.id}>
       <Pressable
-        onPress={() => handleEditBudget(item.id!)}
+        onPress={() => handleViewBudget(item.id!)}
         style={[styles.categoryCard, { backgroundColor: colors.card }]}
         android_ripple={{ color: colors.primary }}
       >

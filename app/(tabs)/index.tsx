@@ -20,7 +20,7 @@ import { Transaction } from '../../src/types/transaction';
 import { log } from '../../src/utils/logger';
 import { invalidateTransactionCaches, invalidateWalletCaches } from '../../src/lib/cache/queryCache';
 import { EyeOffIcon, EyeIcon } from '../../src/assets/icons/EyeOffIcon';
-import { WalletIcon, PlusIcon } from '../../src/assets/icons/CategoryIcons';
+import { WalletIcon, PlusIcon, ChartIcon, SettingsIcon } from '../../src/assets/icons/CategoryIcons';
 
 type TimePeriod = 'all' | 'today' | 'week' | 'month' | 'lastMonth' | 'custom';
 
@@ -538,8 +538,8 @@ export default function Home() {
         {/* Header Section */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 20 }}>
         <View>
-          <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>{greeting}, {displayName} 👋</Text>
-          <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Here's where your money is flowing today.</Text>
+          <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>{greeting}, {displayName}.</Text>
+          <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Here's how your money is flowing.</Text>
           <Text style={{ color: t.textTertiary, fontSize: 12, marginTop: 2 }}>{formatFullDate(new Date())}</Text>
         </View>
         <Link href="/profile" asChild>
@@ -853,16 +853,51 @@ export default function Home() {
         <View style={{ marginBottom: 24 }}>
           <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Quick Actions</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-            <Link href="/categories/create" asChild>
-              <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 16, minWidth: 140, alignItems: 'center', ...shadows.sm }}>
-                <PlusIcon size={24} color={t.primary} />
-                <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600', marginTop: 8 }}>Add Category</Text>
+            {/* View Categories */}
+            <Link href="/categories" asChild>
+              <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 12, minWidth: 100, alignItems: 'center', ...shadows.sm }}>
+                <SettingsIcon size={20} color={t.primary} />
+                <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '600', marginTop: 6 }}>Categories</Text>
               </TouchableOpacity>
             </Link>
+
+            {/* View Budgets & Goals */}
+            <Link href="/budget" asChild>
+              <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 12, minWidth: 100, alignItems: 'center', ...shadows.sm }}>
+                <ChartIcon size={20} color={t.primary} />
+                <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '600', marginTop: 6 }}>Budgets & Goals</Text>
+              </TouchableOpacity>
+            </Link>
+
+            {/* Create Budget */}
+            <Link href="/budgets/create" asChild>
+              <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 12, minWidth: 100, alignItems: 'center', ...shadows.sm }}>
+                <ChartIcon size={20} color={t.primary} />
+                <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '600', marginTop: 6 }}>Create Budget</Text>
+              </TouchableOpacity>
+            </Link>
+
+            {/* Create Goal */}
+            <Link href="/goals/create" asChild>
+              <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 12, minWidth: 100, alignItems: 'center', ...shadows.sm }}>
+                <ChartIcon size={20} color={t.primary} />
+                <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '600', marginTop: 6 }}>Create Goal</Text>
+              </TouchableOpacity>
+            </Link>
+
+            {/* Add Wallet */}
             <Link href="/wallets/create" asChild>
-              <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 16, minWidth: 140, alignItems: 'center', ...shadows.sm }}>
-                <WalletIcon size={24} color={t.primary} />
-                <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600', marginTop: 8 }}>Add Wallet</Text>
+              <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 12, minWidth: 100, alignItems: 'center', ...shadows.sm }}>
+                <WalletIcon size={20} color={t.primary} />
+                <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '600', marginTop: 6 }}>Add Wallet</Text>
+              </TouchableOpacity>
+            </Link>
+
+            {/* Add Category */}
+            <Link href="/categories/create" asChild>
+              <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 12, minWidth: 100, alignItems: 'center', ...shadows.sm }}>
+                <PlusIcon size={20} color={t.primary} />
+                <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '600', marginTop: 6 }}>Add Category</Text>
               </TouchableOpacity>
             </Link>
           </ScrollView>
