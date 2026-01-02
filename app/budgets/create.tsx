@@ -10,6 +10,7 @@ import {
   useColorScheme,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from 'react-native';
 import { CalendarModal } from '@/components/CalendarModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -72,8 +73,11 @@ export default function CreateBudgetScreen() {
     return formatISODate(today);
   });
   const [endDate, setEndDate] = useState<string>('');
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>('');
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+  const [showRecurrenceEndPicker, setShowRecurrenceEndPicker] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -138,6 +142,10 @@ export default function CreateBudgetScreen() {
       Alert.alert('Validation Error', 'Start date must be before end date');
       return false;
     }
+    if (isRecurring && recurrenceEndDate && new Date(recurrenceEndDate) < new Date(endDate)) {
+      Alert.alert('Validation Error', 'Repeat until date must be after the budget end date');
+      return false;
+    }
     return true;
   };
 
@@ -169,6 +177,10 @@ export default function CreateBudgetScreen() {
         startDate,
         endDate,
         linkedWalletIds: selectedWallets,
+        isRecurring,
+        recurrenceEndDate,
+        isRecurring,
+        recurrenceEndDate: isRecurring ? recurrenceEndDate || undefined : undefined,
         notes: notes.trim() || undefined,
       });
 
@@ -510,6 +522,69 @@ export default function CreateBudgetScreen() {
                 ? 'Set custom dates'
                 : `Auto-calculated for ${periodType}`}
             </Text>
+          </View>
+
+          {/* Recurring Budget */}
+          <View style={styles.section}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <Text style={[styles.label, { color: colors.textPrimary }]}>Repeat Budget</Text>
+              <Switch
+                value={isRecurring}
+                onValueChange={(val) => {
+                  setIsRecurring(val);
+                  if (!val) {
+                    setRecurrenceEndDate('');
+                    setShowRecurrenceEndPicker(false);
+                  }
+                }}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={isRecurring ? colors.background : colors.card}
+              />
+            </View>
+            <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+              When enabled, this budget will auto-renew using the same duration once the end date passes.
+            </Text>
+
+            {isRecurring && (
+              <View style={{ marginTop: 12 }}>
+                <Text style={[styles.label, { color: colors.textPrimary }]}>Repeat Until (optional)</Text>
+                <Pressable
+                  onPress={() => setShowRecurrenceEndPicker(true)}
+                  disabled={saving}
+                  style={[
+                    styles.dateInput,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.dateText,
+                      { color: recurrenceEndDate ? colors.textPrimary : colors.textSecondary },
+                    ]}
+                  >
+                    {recurrenceEndDate ? formatDisplayDate(recurrenceEndDate) : 'No end date (continues)'}
+                  </Text>
+                </Pressable>
+                {showRecurrenceEndPicker && (
+                  <CalendarModal
+                    visible={showRecurrenceEndPicker}
+                    onClose={() => setShowRecurrenceEndPicker(false)}
+                    onSelectDate={(date) => {
+                      const iso = formatISODate(date);
+                      setRecurrenceEndDate(iso);
+                      setShowRecurrenceEndPicker(false);
+                    }}
+                    selectedDate={recurrenceEndDate ? new Date(recurrenceEndDate) : new Date(endDate)}
+                  />
+                )}
+                <Text style={[styles.helperText, { color: colors.textSecondary, marginTop: 6 }]}>
+                  Leave empty to keep repeating indefinitely.
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Notes */}

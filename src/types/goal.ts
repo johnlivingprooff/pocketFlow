@@ -43,6 +43,9 @@ export interface Budget {
   endDate: string; // ISO 8601
   notes?: string;
   linkedWalletIds: number[]; // Support multiple wallets or "all"
+  isRecurring: boolean;
+  recurrenceEndDate?: string | null;
+  recurrenceParentId?: number | null;
   createdAt?: string; // ISO 8601
   updatedAt?: string; // ISO 8601
 }
@@ -82,4 +85,7 @@ export interface BudgetInput {
   endDate: string;
   notes?: string;
   linkedWalletIds: number[]; // Support multiple wallets
+  isRecurring?: boolean;
+  recurrenceEndDate?: string | null;
+  recurrenceParentId?: number | null;
 }

@@ -17,7 +17,7 @@ A complete, production-ready **Personal Finance Tracker** mobile app with:
 - **React Native** + **Expo** (SDK 54)
 - **Expo Router** (file-based navigation)
 - **TypeScript** (strict mode)
-- **SQLite** (expo-sqlite async API)
+- **SQLite** (Nitro SQLite with async API)
 - **Zustand** (state management)
 - **React Native Reanimated** (animations ready)
 - **Expo Image Picker** + **Image Manipulator** (receipt photos)

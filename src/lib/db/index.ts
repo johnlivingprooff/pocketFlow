@@ -10,7 +10,7 @@ import { INCOME_TAXONOMY, EXPENSE_TAXONOMY } from '@/constants/categories';
 let dbPromise: Promise<NitroSQLiteConnection> | null = null;
 
 // Schema version - increment this when making breaking schema changes
-const CURRENT_SCHEMA_VERSION = 2;
+const CURRENT_SCHEMA_VERSION = 3;
 
 async function resolveDbPath(): Promise<string> {
   // For nitro-sqlite with just a name, the database is stored in the app's data directory
@@ -464,11 +464,15 @@ export async function ensureTables() {
         end_date TEXT NOT NULL,
         notes TEXT,
         linked_wallet_id INTEGER,
+        is_recurring INTEGER NOT NULL DEFAULT 0,
+        recurrence_end_date TEXT,
+        recurrence_parent_id INTEGER,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE SET NULL,
         FOREIGN KEY(subcategory_id) REFERENCES categories(id) ON DELETE SET NULL,
         FOREIGN KEY(linked_wallet_id) REFERENCES wallets(id) ON DELETE CASCADE,
+        FOREIGN KEY(recurrence_parent_id) REFERENCES budgets(id) ON DELETE SET NULL,
         CHECK(limit_amount > 0),
         CHECK(current_spending >= 0)
       );`
@@ -488,6 +492,18 @@ export async function ensureTables() {
       const hasSubcategoryIds = budgetCols.some(c => c.name === 'subcategory_ids');
       if (!hasSubcategoryIds) {
         database.execute('ALTER TABLE budgets ADD COLUMN subcategory_ids TEXT;');
+      }
+      const hasIsRecurring = budgetCols.some(c => c.name === 'is_recurring');
+      if (!hasIsRecurring) {
+        database.execute('ALTER TABLE budgets ADD COLUMN is_recurring INTEGER NOT NULL DEFAULT 0;');
+      }
+      const hasRecurrenceEndDate = budgetCols.some(c => c.name === 'recurrence_end_date');
+      if (!hasRecurrenceEndDate) {
+        database.execute('ALTER TABLE budgets ADD COLUMN recurrence_end_date TEXT;');
+      }
+      const hasRecurrenceParentId = budgetCols.some(c => c.name === 'recurrence_parent_id');
+      if (!hasRecurrenceParentId) {
+        database.execute('ALTER TABLE budgets ADD COLUMN recurrence_parent_id INTEGER;');
       }
       
       // Migration: Fix NOT NULL constraints on legacy columns for existing databases
@@ -519,11 +535,15 @@ export async function ensureTables() {
               notes TEXT,
               linked_wallet_id INTEGER,
               linked_wallet_ids TEXT,
+              is_recurring INTEGER NOT NULL DEFAULT 0,
+              recurrence_end_date TEXT,
+              recurrence_parent_id INTEGER,
               created_at TEXT NOT NULL,
               updated_at TEXT NOT NULL,
               FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE SET NULL,
               FOREIGN KEY(subcategory_id) REFERENCES categories(id) ON DELETE SET NULL,
               FOREIGN KEY(linked_wallet_id) REFERENCES wallets(id) ON DELETE CASCADE,
+              FOREIGN KEY(recurrence_parent_id) REFERENCES budgets(id) ON DELETE SET NULL,
               CHECK(limit_amount > 0),
               CHECK(current_spending >= 0)
             );
@@ -534,7 +554,8 @@ export async function ensureTables() {
               INSERT INTO budgets_new 
               SELECT id, name, category_id, subcategory_id, category_ids, subcategory_ids, 
                      limit_amount, current_spending, period_type, start_date, end_date, notes, 
-                     linked_wallet_id, linked_wallet_ids, created_at, updated_at 
+                     linked_wallet_id, linked_wallet_ids, is_recurring, recurrence_end_date, recurrence_parent_id,
+                     created_at, updated_at 
               FROM budgets;
             `);
           }
@@ -556,6 +577,7 @@ export async function ensureTables() {
       database.execute('CREATE INDEX IF NOT EXISTS idx_budgets_wallet_id ON budgets(linked_wallet_id);');
       database.execute('CREATE INDEX IF NOT EXISTS idx_budgets_category_id ON budgets(category_id);');
       database.execute('CREATE INDEX IF NOT EXISTS idx_budgets_period ON budgets(start_date, end_date);');
+      database.execute('CREATE INDEX IF NOT EXISTS idx_budgets_recurrence_parent ON budgets(recurrence_parent_id);');
     } catch (e) {
       // noop: indexes may already exist
     }

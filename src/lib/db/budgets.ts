@@ -7,6 +7,165 @@ import { Budget, BudgetWithMetrics, BudgetInput } from '@/types/goal';
 import { execRun, exec } from '.';
 import { enqueueWrite } from './writeQueue';
 
+function toDateOnly(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function addMonths(date: Date, months: number): Date {
+  const next = new Date(date);
+  const targetMonth = next.getMonth() + months;
+  next.setMonth(targetMonth);
+  return next;
+}
+
+async function ensureRecurringBudgets(): Promise<void> {
+  const today = new Date();
+
+  const recurringBudgets = await exec<{
+    id: number;
+    name: string;
+    categoryIds: string;
+    subcategoryIds: string;
+    limitAmount: number;
+    currentSpending: number;
+    periodType: string;
+    startDate: string;
+    endDate: string;
+    notes: string | null;
+    linkedWalletIds: string;
+    isRecurring: number;
+    recurrenceEndDate: string | null;
+    recurrenceParentId: number | null;
+    createdAt: string;
+    updatedAt: string;
+  }>(
+    `SELECT id, name, category_ids as categoryIds, subcategory_ids as subcategoryIds,
+            limit_amount as limitAmount, current_spending as currentSpending,
+            period_type as periodType, start_date as startDate, end_date as endDate,
+            notes, linked_wallet_ids as linkedWalletIds,
+            is_recurring as isRecurring, recurrence_end_date as recurrenceEndDate, recurrence_parent_id as recurrenceParentId,
+            created_at as createdAt, updated_at as updatedAt
+     FROM budgets
+     WHERE is_recurring = 1`
+  );
+
+  for (const budget of recurringBudgets) {
+    let current: Budget = {
+      ...budget,
+      categoryIds: JSON.parse(budget.categoryIds),
+      subcategoryIds: JSON.parse(budget.subcategoryIds),
+      linkedWalletIds: JSON.parse(budget.linkedWalletIds),
+      periodType: budget.periodType as 'weekly' | 'monthly' | 'custom',
+      notes: budget.notes || undefined,
+      isRecurring: Boolean(budget.isRecurring),
+      recurrenceEndDate: budget.recurrenceEndDate || undefined,
+      recurrenceParentId: budget.recurrenceParentId ?? undefined,
+    };
+
+    let safetyCounter = 0;
+    while (new Date(current.endDate).getTime() < today.getTime()) {
+      const start = new Date(current.startDate);
+      const end = new Date(current.endDate);
+      const durationDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+
+      let nextStart: Date;
+      let nextEnd: Date;
+
+      if (current.periodType === 'weekly') {
+        nextStart = addDays(start, 7);
+        nextEnd = addDays(end, 7);
+      } else if (current.periodType === 'monthly') {
+        nextStart = addMonths(start, 1);
+        nextEnd = addMonths(end, 1);
+      } else {
+        nextStart = addDays(start, durationDays);
+        nextEnd = addDays(end, durationDays);
+      }
+
+      if (current.recurrenceEndDate) {
+        const recurEnd = new Date(current.recurrenceEndDate);
+        if (nextStart.getTime() > recurEnd.getTime()) {
+          break;
+        }
+      }
+
+      const nowIso = new Date().toISOString();
+      const nextStartStr = toDateOnly(nextStart);
+      const nextEndStr = toDateOnly(nextEnd);
+      const recurrenceParentId = current.recurrenceParentId ?? current.id;
+      let nextBudgetId: number | undefined;
+
+      await enqueueWrite(async () => {
+        await execRun(
+          `UPDATE budgets SET is_recurring = 0, updated_at = ? WHERE id = ?`,
+          [nowIso, current.id]
+        );
+
+        await execRun(
+          `INSERT INTO budgets (name, category_id, subcategory_id, category_ids, subcategory_ids, limit_amount, current_spending,
+                                period_type, start_date, end_date, notes, linked_wallet_ids,
+                                is_recurring, recurrence_end_date, recurrence_parent_id,
+                                created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            current.name,
+            null,
+            null,
+            JSON.stringify(current.categoryIds),
+            JSON.stringify(current.subcategoryIds || []),
+            current.limitAmount,
+            0,
+            current.periodType,
+            nextStartStr,
+            nextEndStr,
+            current.notes || null,
+            JSON.stringify(current.linkedWalletIds),
+            1,
+            current.recurrenceEndDate || null,
+            recurrenceParentId ?? null,
+            nowIso,
+            nowIso,
+          ]
+        );
+
+        const inserted = await exec<{ id: number }>('SELECT last_insert_rowid() as id;');
+        nextBudgetId = inserted[0]?.id;
+      }, 'rolloverRecurringBudget');
+
+      if (!nextBudgetId) {
+        break;
+      }
+
+      current = {
+        ...current,
+        id: nextBudgetId,
+        startDate: nextStartStr,
+        endDate: nextEndStr,
+        currentSpending: 0,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        isRecurring: true,
+        recurrenceParentId,
+      };
+
+      safetyCounter += 1;
+      if (safetyCounter > 24) {
+        // Prevent runaway loops in case of unexpected data issues
+        break;
+      }
+    }
+  }
+}
+
 /**
  * Create a new budget
  * @param budget Budget data to create
@@ -14,19 +173,26 @@ import { enqueueWrite } from './writeQueue';
  */
 export async function createBudget(budget: BudgetInput): Promise<Budget> {
   const now = new Date().toISOString();
+  const isRecurring = Boolean(budget.isRecurring);
+  const recurrenceEndDate = budget.recurrenceEndDate ?? null;
+  const recurrenceParentId = budget.recurrenceParentId ?? null;
   const createdBudget: Budget = {
     ...budget,
     currentSpending: 0,
     createdAt: now,
     updatedAt: now,
+    isRecurring,
+    recurrenceEndDate,
+    recurrenceParentId,
   };
 
   await enqueueWrite(async () => {
     await execRun(
       `INSERT INTO budgets (name, category_id, subcategory_id, category_ids, subcategory_ids, limit_amount, current_spending,
                             period_type, start_date, end_date, notes, linked_wallet_ids,
+                            is_recurring, recurrence_end_date, recurrence_parent_id,
                             created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         budget.name,
         null, // category_id (old single column, now null)
@@ -40,6 +206,9 @@ export async function createBudget(budget: BudgetInput): Promise<Budget> {
         budget.endDate,
         budget.notes || null,
         JSON.stringify(budget.linkedWalletIds),
+        isRecurring ? 1 : 0,
+        recurrenceEndDate,
+        recurrenceParentId,
         now,
         now,
       ]
@@ -55,6 +224,7 @@ export async function createBudget(budget: BudgetInput): Promise<Budget> {
  */
 export async function getBudgets(): Promise<Budget[]> {
   try {
+    await ensureRecurringBudgets();
     const rawBudgets = await exec<{
       id: number;
       name: string;
@@ -67,6 +237,9 @@ export async function getBudgets(): Promise<Budget[]> {
       endDate: string;
       notes: string | null;
       linkedWalletIds: string;
+      isRecurring: number;
+      recurrenceEndDate: string | null;
+      recurrenceParentId: number | null;
       createdAt: string;
       updatedAt: string;
     }>(
@@ -74,6 +247,7 @@ export async function getBudgets(): Promise<Budget[]> {
               limit_amount as limitAmount, current_spending as currentSpending,
               period_type as periodType, start_date as startDate, end_date as endDate,
               notes, linked_wallet_ids as linkedWalletIds,
+              is_recurring as isRecurring, recurrence_end_date as recurrenceEndDate, recurrence_parent_id as recurrenceParentId,
               created_at as createdAt, updated_at as updatedAt
        FROM budgets
        ORDER BY created_at DESC`
@@ -86,6 +260,9 @@ export async function getBudgets(): Promise<Budget[]> {
       linkedWalletIds: JSON.parse(budget.linkedWalletIds),
       periodType: budget.periodType as 'weekly' | 'monthly' | 'custom',
       notes: budget.notes || undefined,
+      isRecurring: Boolean(budget.isRecurring),
+      recurrenceEndDate: budget.recurrenceEndDate || undefined,
+      recurrenceParentId: budget.recurrenceParentId ?? undefined,
     }));
   } catch (error) {
     console.error('Failed to fetch budgets:', error);
@@ -99,6 +276,7 @@ export async function getBudgets(): Promise<Budget[]> {
  */
 export async function getActiveBudgets(): Promise<Budget[]> {
   try {
+    await ensureRecurringBudgets();
     const today = new Date().toISOString();
     const rawBudgets = await exec<{
       id: number;
@@ -112,6 +290,9 @@ export async function getActiveBudgets(): Promise<Budget[]> {
       endDate: string;
       notes: string | null;
       linkedWalletIds: string;
+      isRecurring: number;
+      recurrenceEndDate: string | null;
+      recurrenceParentId: number | null;
       createdAt: string;
       updatedAt: string;
     }>(
@@ -119,6 +300,7 @@ export async function getActiveBudgets(): Promise<Budget[]> {
               limit_amount as limitAmount, current_spending as currentSpending,
               period_type as periodType, start_date as startDate, end_date as endDate,
               notes, linked_wallet_ids as linkedWalletIds,
+              is_recurring as isRecurring, recurrence_end_date as recurrenceEndDate, recurrence_parent_id as recurrenceParentId,
               created_at as createdAt, updated_at as updatedAt
        FROM budgets
        WHERE start_date <= ? AND end_date >= ?
@@ -133,6 +315,9 @@ export async function getActiveBudgets(): Promise<Budget[]> {
       linkedWalletIds: JSON.parse(budget.linkedWalletIds),
       periodType: budget.periodType as 'weekly' | 'monthly' | 'custom',
       notes: budget.notes || undefined,
+      isRecurring: Boolean(budget.isRecurring),
+      recurrenceEndDate: budget.recurrenceEndDate || undefined,
+      recurrenceParentId: budget.recurrenceParentId ?? undefined,
     }));
   } catch (error) {
     console.error('Failed to fetch active budgets:', error);
@@ -159,6 +344,9 @@ export async function getBudgetById(id: number): Promise<Budget | null> {
       endDate: string;
       notes: string | null;
       linkedWalletIds: string;
+      isRecurring: number;
+      recurrenceEndDate: string | null;
+      recurrenceParentId: number | null;
       createdAt: string;
       updatedAt: string;
     }>(
@@ -166,6 +354,7 @@ export async function getBudgetById(id: number): Promise<Budget | null> {
               limit_amount as limitAmount, current_spending as currentSpending,
               period_type as periodType, start_date as startDate, end_date as endDate,
               notes, linked_wallet_ids as linkedWalletIds,
+              is_recurring as isRecurring, recurrence_end_date as recurrenceEndDate, recurrence_parent_id as recurrenceParentId,
               created_at as createdAt, updated_at as updatedAt
        FROM budgets
        WHERE id = ?`,
@@ -181,6 +370,9 @@ export async function getBudgetById(id: number): Promise<Budget | null> {
         linkedWalletIds: JSON.parse(budget.linkedWalletIds),
         periodType: budget.periodType as 'weekly' | 'monthly' | 'custom',
         notes: budget.notes || undefined,
+        isRecurring: Boolean(budget.isRecurring),
+        recurrenceEndDate: budget.recurrenceEndDate || undefined,
+        recurrenceParentId: budget.recurrenceParentId ?? undefined,
       };
     }
     return null;
@@ -255,6 +447,18 @@ export async function updateBudget(id: number, updates: Partial<BudgetInput>): P
       fields.push('current_spending = ?');
       values.push(0);
     }
+  }
+  if (updates.isRecurring !== undefined) {
+    fields.push('is_recurring = ?');
+    values.push(updates.isRecurring ? 1 : 0);
+  }
+  if (updates.recurrenceEndDate !== undefined) {
+    fields.push('recurrence_end_date = ?');
+    values.push(updates.recurrenceEndDate || null);
+  }
+  if (updates.recurrenceParentId !== undefined) {
+    fields.push('recurrence_parent_id = ?');
+    values.push(updates.recurrenceParentId ?? null);
   }
 
   if (fields.length === 0) return;
@@ -368,19 +572,47 @@ export async function recalculateBudgetSpending(budgetId: number): Promise<void>
  */
 export async function getBudgetsByWallet(walletId: number): Promise<Budget[]> {
   try {
-    const budgets = await exec<Budget>(
-      `SELECT id, name, category_id as categoryId, subcategory_id as subcategoryId,
+    const rawBudgets = await exec<{
+      id: number;
+      name: string;
+      categoryIds: string;
+      subcategoryIds: string;
+      limitAmount: number;
+      currentSpending: number;
+      periodType: string;
+      startDate: string;
+      endDate: string;
+      notes: string | null;
+      linkedWalletIds: string;
+      isRecurring: number;
+      recurrenceEndDate: string | null;
+      recurrenceParentId: number | null;
+      createdAt: string;
+      updatedAt: string;
+    }>(
+      `SELECT id, name, category_ids as categoryIds, subcategory_ids as subcategoryIds,
               limit_amount as limitAmount, current_spending as currentSpending,
               period_type as periodType, start_date as startDate, end_date as endDate,
-              notes, linked_wallet_id as linkedWalletId, linked_wallet_ids as linkedWalletIds,
-              category_ids as categoryIds, subcategory_ids as subcategoryIds,
+              notes, linked_wallet_ids as linkedWalletIds,
+              is_recurring as isRecurring, recurrence_end_date as recurrenceEndDate, recurrence_parent_id as recurrenceParentId,
               created_at as createdAt, updated_at as updatedAt
        FROM budgets
        WHERE linked_wallet_id = ? OR json_extract(linked_wallet_ids, '$') LIKE ?
        ORDER BY created_at DESC`,
       [walletId, `%${walletId}%`]
     );
-    return budgets;
+
+    return rawBudgets.map(budget => ({
+      ...budget,
+      categoryIds: JSON.parse(budget.categoryIds),
+      subcategoryIds: JSON.parse(budget.subcategoryIds),
+      linkedWalletIds: JSON.parse(budget.linkedWalletIds),
+      periodType: budget.periodType as 'weekly' | 'monthly' | 'custom',
+      notes: budget.notes || undefined,
+      isRecurring: Boolean(budget.isRecurring),
+      recurrenceEndDate: budget.recurrenceEndDate || undefined,
+      recurrenceParentId: budget.recurrenceParentId ?? undefined,
+    }));
   } catch (error) {
     console.error('Failed to fetch budgets by wallet:', error);
     return [];
@@ -394,12 +626,29 @@ export async function getBudgetsByWallet(walletId: number): Promise<Budget[]> {
  */
 export async function getBudgetsByCategory(categoryId: number): Promise<Budget[]> {
   try {
-    const budgets = await exec<Budget>(
-      `SELECT id, name, category_id as categoryId, subcategory_id as subcategoryId,
+    const rawBudgets = await exec<{
+      id: number;
+      name: string;
+      categoryIds: string;
+      subcategoryIds: string;
+      limitAmount: number;
+      currentSpending: number;
+      periodType: string;
+      startDate: string;
+      endDate: string;
+      notes: string | null;
+      linkedWalletIds: string;
+      isRecurring: number;
+      recurrenceEndDate: string | null;
+      recurrenceParentId: number | null;
+      createdAt: string;
+      updatedAt: string;
+    }>(
+      `SELECT id, name, category_ids as categoryIds, subcategory_ids as subcategoryIds,
               limit_amount as limitAmount, current_spending as currentSpending,
               period_type as periodType, start_date as startDate, end_date as endDate,
-              notes, linked_wallet_id as linkedWalletId, linked_wallet_ids as linkedWalletIds,
-              category_ids as categoryIds, subcategory_ids as subcategoryIds,
+              notes, linked_wallet_ids as linkedWalletIds,
+              is_recurring as isRecurring, recurrence_end_date as recurrenceEndDate, recurrence_parent_id as recurrenceParentId,
               created_at as createdAt, updated_at as updatedAt
        FROM budgets
        WHERE category_id = ? OR subcategory_id = ? OR
@@ -408,7 +657,18 @@ export async function getBudgetsByCategory(categoryId: number): Promise<Budget[]
        ORDER BY created_at DESC`,
       [categoryId, categoryId, `%${categoryId}%`, `%${categoryId}%`]
     );
-    return budgets;
+
+    return rawBudgets.map(budget => ({
+      ...budget,
+      categoryIds: JSON.parse(budget.categoryIds),
+      subcategoryIds: JSON.parse(budget.subcategoryIds),
+      linkedWalletIds: JSON.parse(budget.linkedWalletIds),
+      periodType: budget.periodType as 'weekly' | 'monthly' | 'custom',
+      notes: budget.notes || undefined,
+      isRecurring: Boolean(budget.isRecurring),
+      recurrenceEndDate: budget.recurrenceEndDate || undefined,
+      recurrenceParentId: budget.recurrenceParentId ?? undefined,
+    }));
   } catch (error) {
     console.error('Failed to fetch budgets by category:', error);
     return [];
