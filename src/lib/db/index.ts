@@ -372,6 +372,7 @@ export async function ensureTables() {
         name TEXT NOT NULL,
         target_amount REAL NOT NULL,
         current_progress REAL NOT NULL DEFAULT 0,
+        start_date TEXT NOT NULL,
         target_date TEXT NOT NULL,
         notes TEXT,
         linked_wallet_id INTEGER,
@@ -394,6 +395,12 @@ export async function ensureTables() {
       if (!hasCategoryIds) {
         database.execute('ALTER TABLE goals ADD COLUMN category_ids TEXT;');
       }
+      const hasStartDate = goalCols.some(c => c.name === 'start_date');
+      if (!hasStartDate) {
+        // Add start_date column with default value as created_at for existing records
+        database.execute('ALTER TABLE goals ADD COLUMN start_date TEXT;');
+        database.execute('UPDATE goals SET start_date = created_at WHERE start_date IS NULL;');
+      }
       
       // Migration: Fix NOT NULL constraints on legacy columns for existing databases
       try {
@@ -410,6 +417,7 @@ export async function ensureTables() {
               name TEXT NOT NULL,
               target_amount REAL NOT NULL,
               current_progress REAL NOT NULL DEFAULT 0,
+              start_date TEXT NOT NULL,
               target_date TEXT NOT NULL,
               notes TEXT,
               linked_wallet_id INTEGER,
@@ -426,7 +434,9 @@ export async function ensureTables() {
           if (hasData) {
             database.execute(`
               INSERT INTO goals_new 
-              SELECT id, name, target_amount, current_progress, target_date, notes, 
+              SELECT id, name, target_amount, current_progress, 
+                     COALESCE(start_date, created_at) as start_date,
+                     target_date, notes, 
                      linked_wallet_id, linked_wallet_ids, category_ids, created_at, updated_at 
               FROM goals;
             `);

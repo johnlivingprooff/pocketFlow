@@ -54,6 +54,7 @@ export default function EditGoalScreen() {
 
   const [name, setName] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
+  const [startDate, setStartDate] = useState('');
   const [targetDate, setTargetDate] = useState('');
   const [selectedWallets, setSelectedWallets] = useState<number[]>([]);
   const [notes, setNotes] = useState('');
@@ -61,6 +62,7 @@ export default function EditGoalScreen() {
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showStartPicker, setShowStartPicker] = useState(false);
   const [showTargetPicker, setShowTargetPicker] = useState(false);
 
   const goalId = typeof id === 'string' ? parseInt(id) : null;
@@ -95,6 +97,7 @@ export default function EditGoalScreen() {
       // Pre-populate form
       setName(goal.name);
       setTargetAmount(goal.targetAmount.toString());
+      setStartDate(goal.startDate);
       setTargetDate(goal.targetDate);
       setSelectedWallets(goal.linkedWalletIds || []);
       setNotes(goal.notes || '');
@@ -118,18 +121,18 @@ export default function EditGoalScreen() {
       return false;
     }
 
+    if (!startDate.trim()) {
+      Alert.alert('Error', 'Please select a start date');
+      return false;
+    }
+
     if (!targetDate.trim()) {
       Alert.alert('Error', 'Please select a target date');
       return false;
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const selected = new Date(targetDate);
-    selected.setHours(0, 0, 0, 0);
-
-    if (selected <= today) {
-      Alert.alert('Error', 'Target date must be in the future');
+    if (new Date(startDate) >= new Date(targetDate)) {
+      Alert.alert('Error', 'Target date must be after start date');
       return false;
     }
 
@@ -151,6 +154,7 @@ export default function EditGoalScreen() {
       await updateGoal(goalId!, {
         name: name.trim(),
         targetAmount: Number(targetAmount),
+        startDate,
         targetDate,
         linkedWalletIds: selectedWallets,
         notes: notes.trim() || undefined,
@@ -234,6 +238,37 @@ export default function EditGoalScreen() {
               onChangeText={setTargetAmount}
               editable={!saving}
             />
+          </View>
+
+          {/* Start Date */}
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.label, { color: colors.textPrimary }]}>Start Date (YYYY-MM-DD) *</Text>
+            <Pressable
+              onPress={() => setShowStartPicker(true)}
+              disabled={saving}
+              style={[
+                styles.input,
+                styles.dateInput,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <Text style={[styles.dateText, { color: startDate ? colors.textPrimary : colors.textSecondary }]}>
+                {formatDisplayDate(startDate)}
+              </Text>
+            </Pressable>
+            <CalendarModal
+              visible={showStartPicker}
+              onClose={() => setShowStartPicker(false)}
+              onSelectDate={(date) => {
+                setStartDate(formatISODate(date));
+              }}
+              selectedDate={startDate ? new Date(startDate) : new Date()}
+              title="Select start date"
+            />
+            <Text style={[styles.helperText, { color: colors.textSecondary }]}>When did/do you want to start tracking this goal?</Text>
           </View>
 
           {/* Target Date */}

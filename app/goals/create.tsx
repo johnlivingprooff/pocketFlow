@@ -53,6 +53,7 @@ export default function CreateGoalScreen() {
 
   const [name, setName] = useState("");
   const [targetAmount, setTargetAmount] = useState("");
+  const [startDate, setStartDate] = useState<string>(() => formatISODate(new Date()));
   const [targetDate, setTargetDate] = useState<string>(() => {
     const today = new Date();
     const tomorrow = new Date(today);
@@ -64,6 +65,7 @@ export default function CreateGoalScreen() {
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showStartPicker, setShowStartPicker] = useState(false);
   const [showTargetPicker, setShowTargetPicker] = useState(false);
 
   useEffect(() => {
@@ -95,8 +97,16 @@ export default function CreateGoalScreen() {
       Alert.alert("Validation Error", "Please enter a valid target amount");
       return false;
     }
+    if (!startDate.trim()) {
+      Alert.alert("Validation Error", "Please enter a start date");
+      return false;
+    }
     if (!targetDate.trim()) {
       Alert.alert("Validation Error", "Please enter a target date");
+      return false;
+    }
+    if (new Date(startDate) >= new Date(targetDate)) {
+      Alert.alert("Validation Error", "Target date must be after start date");
       return false;
     }
     if (selectedWallets.length === 0) {
@@ -113,11 +123,13 @@ export default function CreateGoalScreen() {
       setSaving(true);
       
       // Close any open modals before navigating
+      setShowStartPicker(false);
       setShowTargetPicker(false);
 
       console.log('[Goal Create] Starting creation with data:', {
         name: name.trim(),
         targetAmount: parseFloat(targetAmount),
+        startDate,
         targetDate,
         linkedWalletIds: selectedWallets,
       });
@@ -125,6 +137,7 @@ export default function CreateGoalScreen() {
       const createdGoal = await createGoal({
         name: name.trim(),
         targetAmount: parseFloat(targetAmount),
+        startDate,
         targetDate,
         linkedWalletIds: selectedWallets,
         notes: notes.trim() || undefined,
@@ -212,6 +225,42 @@ export default function CreateGoalScreen() {
               keyboardType="decimal-pad"
               editable={!saving}
             />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={[styles.label, { color: colors.textPrimary }]}>Start Date *</Text>
+            <Pressable
+              onPress={() => setShowStartPicker(true)}
+              disabled={saving}
+              style={[
+                styles.dateInput,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.dateText,
+                  { color: startDate ? colors.textPrimary : colors.textSecondary },
+                ]}
+              >
+                {formatDisplayDate(startDate)}
+              </Text>
+            </Pressable>
+            {showStartPicker && (
+              <CalendarModal
+                visible={showStartPicker}
+                onClose={() => setShowStartPicker(false)}
+                onSelectDate={(date) => {
+                  setStartDate(formatISODate(date));
+                }}
+                selectedDate={startDate ? new Date(startDate) : new Date()}
+                title="Select start date"
+              />
+            )}
+            <Text style={[styles.helperText, { color: colors.textSecondary }]}>When do you want to start tracking this goal?</Text>
           </View>
 
           <View style={styles.section}>

@@ -23,12 +23,13 @@ export async function createGoal(goal: GoalInput): Promise<Goal> {
 
   await enqueueWrite(async () => {
     await execRun(
-      `INSERT INTO goals (name, target_amount, current_progress, target_date, notes, linked_wallet_ids, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO goals (name, target_amount, current_progress, start_date, target_date, notes, linked_wallet_ids, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         goal.name,
         goal.targetAmount,
         0,
+        goal.startDate,
         goal.targetDate,
         goal.notes || null,
         JSON.stringify(goal.linkedWalletIds),
@@ -52,6 +53,7 @@ export async function getGoals(): Promise<Goal[]> {
       name: string;
       targetAmount: number;
       currentProgress: number;
+      startDate: string;
       targetDate: string;
       notes: string | null;
       linkedWalletIds: string;
@@ -59,7 +61,7 @@ export async function getGoals(): Promise<Goal[]> {
       updatedAt: string;
     }>(
       `SELECT id, name, target_amount as targetAmount, current_progress as currentProgress,
-              target_date as targetDate, notes, linked_wallet_ids as linkedWalletIds,
+              start_date as startDate, target_date as targetDate, notes, linked_wallet_ids as linkedWalletIds,
               created_at as createdAt, updated_at as updatedAt
        FROM goals
        ORDER BY created_at DESC`
@@ -88,6 +90,7 @@ export async function getGoalById(id: number): Promise<Goal | null> {
       name: string;
       targetAmount: number;
       currentProgress: number;
+      startDate: string;
       targetDate: string;
       notes: string | null;
       linkedWalletIds: string;
@@ -95,7 +98,7 @@ export async function getGoalById(id: number): Promise<Goal | null> {
       updatedAt: string;
     }>(
       `SELECT id, name, target_amount as targetAmount, current_progress as currentProgress,
-              target_date as targetDate, notes, linked_wallet_ids as linkedWalletIds,
+              start_date as startDate, target_date as targetDate, notes, linked_wallet_ids as linkedWalletIds,
               created_at as createdAt, updated_at as updatedAt
        FROM goals
        WHERE id = ?`,
@@ -148,6 +151,10 @@ export async function updateGoal(id: number, updates: Partial<GoalInput>): Promi
   if (updates.targetAmount !== undefined) {
     fields.push('target_amount = ?');
     values.push(updates.targetAmount);
+  }
+  if (updates.startDate !== undefined) {
+    fields.push('start_date = ?');
+    values.push(updates.startDate);
   }
   if (updates.targetDate !== undefined) {
     fields.push('target_date = ?');

@@ -11,6 +11,7 @@ export interface Goal {
   name: string;
   targetAmount: number;
   currentProgress: number;
+  startDate: string; // ISO 8601
   targetDate: string; // ISO 8601
   notes?: string;
   linkedWalletIds: number[]; // Support multiple wallets or "all"
@@ -67,6 +68,7 @@ export interface BudgetWithMetrics extends Budget {
 export interface GoalInput {
   name: string;
   targetAmount: number;
+  startDate: string;
   targetDate: string;
   notes?: string;
   linkedWalletIds: number[]; // Support multiple wallets
