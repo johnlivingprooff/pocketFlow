@@ -30,7 +30,7 @@ export default function AddTransactionScreen() {
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const t = theme(effectiveMode);
   const { wallets, balances } = useWallets();
-  const { id } = useLocalSearchParams();
+  const { id, walletId: paramWalletId } = useLocalSearchParams();
 
   // Check if we're in edit mode
   const isEditMode = !!id;
@@ -69,10 +69,15 @@ export default function AddTransactionScreen() {
   const { loadCategoriesHierarchy } = useCategoriesHierarchy(type === 'transfer' ? undefined : (type as 'income' | 'expense'));
 
   useEffect(() => {
-    if (wallets.length > 0 && !walletId) {
-      setWalletId(wallets[0].id!);
+    if (wallets.length > 0 && !walletId && !isEditMode) {
+      const preselectedWalletId = paramWalletId ? Number(paramWalletId) : null;
+      if (preselectedWalletId && wallets.find(w => w.id === preselectedWalletId)) {
+        setWalletId(preselectedWalletId);
+      } else {
+        setWalletId(wallets[0].id!);
+      }
     }
-  }, [wallets, walletId]);
+  }, [wallets, walletId, isEditMode, paramWalletId]);
 
   useEffect(() => {
     if (type === 'transfer') {
