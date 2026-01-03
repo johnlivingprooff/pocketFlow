@@ -1,6 +1,5 @@
 ﻿import React, { useEffect, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -19,6 +18,8 @@ import { theme } from "@/theme/theme";
 import { error as logError } from "@/utils/logger";
 import { createGoal } from "@/lib/db/goals";
 import { getWallets } from "@/lib/db/wallets";
+import { useAlert } from "@/lib/hooks/useAlert";
+import { ThemedAlert } from "@/components/ThemedAlert";
 import type { Wallet } from "@/types/wallet";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -67,6 +68,7 @@ export default function CreateGoalScreen() {
   const [saving, setSaving] = useState(false);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showTargetPicker, setShowTargetPicker] = useState(false);
+  const { alertConfig, showErrorAlert, showConfirmAlert, dismissAlert } = useAlert();
 
   useEffect(() => {
     void loadData();
@@ -82,7 +84,7 @@ export default function CreateGoalScreen() {
       }
     } catch (err: unknown) {
       logError("Failed to load wallets:", { error: err });
-      Alert.alert("Error", "Failed to load wallets");
+      showErrorAlert("Error", "Failed to load wallets");
     } finally {
       setLoading(false);
     }
@@ -90,27 +92,27 @@ export default function CreateGoalScreen() {
 
   const validateForm = (): boolean => {
     if (!name.trim()) {
-      Alert.alert("Validation Error", "Please enter a goal name");
+      showErrorAlert("Validation Error", "Please enter a goal name");
       return false;
     }
     if (!targetAmount.trim() || Number.isNaN(parseFloat(targetAmount)) || parseFloat(targetAmount) <= 0) {
-      Alert.alert("Validation Error", "Please enter a valid target amount");
+      showErrorAlert("Validation Error", "Please enter a valid target amount");
       return false;
     }
     if (!startDate.trim()) {
-      Alert.alert("Validation Error", "Please enter a start date");
+      showErrorAlert("Validation Error", "Please enter a start date");
       return false;
     }
     if (!targetDate.trim()) {
-      Alert.alert("Validation Error", "Please enter a target date");
+      showErrorAlert("Validation Error", "Please enter a target date");
       return false;
     }
     if (new Date(startDate) >= new Date(targetDate)) {
-      Alert.alert("Validation Error", "Target date must be after start date");
+      showErrorAlert("Validation Error", "Target date must be after start date");
       return false;
     }
     if (selectedWallets.length === 0) {
-      Alert.alert("Validation Error", "Please select at least one wallet");
+      showErrorAlert("Validation Error", "Please select at least one wallet");
       return false;
     }
     return true;
@@ -153,17 +155,12 @@ export default function CreateGoalScreen() {
       // Invalidate caches so goal page will reload with new data
       const { invalidateTransactionCaches } = await import('@/lib/cache/queryCache');
       invalidateTransactionCaches();
-      Alert.alert("Success", "Goal created successfully", [
-        {
-          text: "OK",
-          onPress: () => router.back(),
-        },
-      ]);
+      showConfirmAlert("Success", "Goal created successfully", () => router.back());
     } catch (err: unknown) {
       const error = err as Error;
       console.error('[Goal Create] Error creating goal:', error);
       logError("Failed to create goal:", { error: err });
-      Alert.alert("Error", `Failed to create goal: ${error.message || 'Unknown error'}`);
+      showErrorAlert("Error", `Failed to create goal: ${error.message || 'Unknown error'}`);
     } finally {
       setSaving(false);
     }
@@ -415,6 +412,17 @@ export default function CreateGoalScreen() {
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Themed Alert Component */}
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={dismissAlert}
+        themeMode={themeMode}
+        systemColorScheme={systemColorScheme || 'light'}
+      />
     </SafeAreaView>
   );
 }

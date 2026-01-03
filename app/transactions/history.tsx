@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, useColorScheme, RefreshControl, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, useColorScheme, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
@@ -12,8 +12,91 @@ import { formatCurrency } from '../../src/utils/formatCurrency';
 import { getCategories, Category, getCategoriesHierarchy } from '../../src/lib/db/categories';
 import { invalidateTransactionCaches } from '../../src/lib/cache/queryCache';
 import { exportTransactionsToCSV } from '../../src/lib/export/csvExport';
-import { CsvIcon } from '../../src/assets/icons/CsvIcon';
+import { ExportIcon } from '../../src/assets/icons/ExportIcon';
+import { useAlert } from '../../src/lib/hooks/useAlert';
+import { ThemedAlert } from '../../src/components/ThemedAlert';
 import * as Sharing from 'expo-sharing';
+
+const SkeletonLoader = () => {
+  const { themeMode, defaultCurrency } = useSettings();
+  const systemColorScheme = useColorScheme();
+  const t = theme(themeMode, systemColorScheme || 'light');
+
+  return (
+    <View style={{ gap: 24 }}>
+      {[1, 2, 3].map((group) => (
+        <View key={group} style={{ marginBottom: 24 }}>
+          {/* Date Header Skeleton */}
+          <View style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 12,
+            paddingBottom: 8,
+            borderBottomWidth: 1,
+            borderBottomColor: t.border
+          }}>
+            <View style={{
+              height: 16,
+              width: 80,
+              backgroundColor: t.card,
+              borderRadius: 4,
+              opacity: 0.5
+            }} />
+            <View style={{
+              height: 14,
+              width: 60,
+              backgroundColor: t.card,
+              borderRadius: 4,
+              opacity: 0.5
+            }} />
+          </View>
+
+          {/* Transaction Skeletons */}
+          <View style={{ gap: 8 }}>
+            {[1, 2, 3].map((tx) => (
+              <View key={tx} style={{
+                backgroundColor: t.card,
+                borderWidth: 1,
+                borderColor: t.border,
+                borderRadius: 12,
+                padding: 12,
+                opacity: 0.7
+              }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View style={{ flex: 1 }}>
+                    <View style={{
+                      height: 16,
+                      width: 120,
+                      backgroundColor: t.border,
+                      borderRadius: 4,
+                      marginBottom: 4,
+                      opacity: 0.5
+                    }} />
+                    <View style={{
+                      height: 12,
+                      width: 80,
+                      backgroundColor: t.border,
+                      borderRadius: 4,
+                      opacity: 0.4
+                    }} />
+                  </View>
+                  <View style={{
+                    height: 16,
+                    width: 70,
+                    backgroundColor: t.border,
+                    borderRadius: 4,
+                    opacity: 0.5
+                  }} />
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+};
 
 export default function HistoryScreen() {
   const { themeMode, defaultCurrency } = useSettings();
@@ -30,6 +113,8 @@ export default function HistoryScreen() {
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [categoryHierarchy, setCategoryHierarchy] = useState<Array<{ category: Category; children: Category[] }>>([]);
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
+  const { alertConfig, showConfirmAlert, showErrorAlert, dismissAlert, setAlertConfig } = useAlert();
   const categoryScrollViewRef = useRef<ScrollView>(null);
 
   // Sort categories to put selected one first
@@ -74,46 +159,36 @@ export default function HistoryScreen() {
 
   const handleExportCSV = async () => {
     try {
-      Alert.alert(
-        'Export Transactions',
-        'Export all transactions to CSV file?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Export',
-            onPress: async () => {
-              const result = await exportTransactionsToCSV();
-              if (result.success && result.uri) {
-                Alert.alert(
-                  'Export Successful',
-                  'CSV file has been saved. Would you like to share it?',
-                  [
-                    { text: 'No', style: 'cancel' },
-                    {
-                      text: 'Share',
-                      onPress: async () => {
-                        try {
-                          if (result.uri) {
-                            await Sharing.shareAsync(result.uri);
-                          }
-                        } catch (shareError) {
-                          console.error('Error sharing CSV:', shareError);
-                          Alert.alert('Error', 'Failed to share the CSV file');
-                        }
-                      }
-                    }
-                  ]
-                );
-              } else {
-                Alert.alert('Export Failed', result.error || 'Failed to export transactions');
+      const result = await exportTransactionsToCSV();
+      if (result.success && result.uri) {
+        setAlertConfig({
+          visible: true,
+          title: 'Export Successful',
+          message: 'CSV file has been saved. Would you like to share it?',
+          buttons: [
+            { text: 'Later', style: 'cancel' },
+            {
+              text: 'Share',
+              style: 'success',
+              onPress: async () => {
+                try {
+                  if (result.uri) {
+                    await Sharing.shareAsync(result.uri);
+                  }
+                } catch (shareError) {
+                  console.error('Error sharing CSV:', shareError);
+                  showErrorAlert('Error', 'Failed to share the CSV file');
+                }
               }
             }
-          }
-        ]
-      );
+          ]
+        });
+      } else {
+        showErrorAlert('Export Failed', result.error || 'Failed to export transactions');
+      }
     } catch (error) {
       console.error('Error exporting CSV:', error);
-      Alert.alert('Error', 'Failed to export transactions');
+      showErrorAlert('Error', 'Failed to export transactions');
     }
   };
 
@@ -133,6 +208,7 @@ export default function HistoryScreen() {
     setCategories(cats);
     const hierarchy = await getCategoriesHierarchy();
     setCategoryHierarchy(hierarchy);
+    setIsLoadingTransactions(false);
   };
 
   const getCategoryDisplayName = (tx: typeof transactions[number]) => {
@@ -317,7 +393,7 @@ export default function HistoryScreen() {
           accessibilityLabel="Export transactions to CSV"
           accessibilityRole="button"
         >
-          <CsvIcon size={20} color={t.primary} />
+          <ExportIcon size={20} color={t.primary} />
         </TouchableOpacity>
       </View>
 
@@ -441,86 +517,92 @@ export default function HistoryScreen() {
         </ScrollView>
 
         {/* Grouped Transactions */}
-        {Object.keys(groupedTransactions).length === 0 && (
-          <View style={{ alignItems: 'center', paddingVertical: 48 }}>
-            <Text style={{ fontSize: 48, marginBottom: 16 }}>📝</Text>
-            <Text style={{ color: t.textSecondary, fontSize: 16 }}>No transactions found</Text>
-          </View>
+        {isLoadingTransactions ? (
+          <SkeletonLoader />
+        ) : (
+          <>
+            {Object.keys(groupedTransactions).length === 0 && (
+              <View style={{ alignItems: 'center', paddingVertical: 48 }}>
+                <Text style={{ fontSize: 48, marginBottom: 16 }}>📝</Text>
+                <Text style={{ color: t.textSecondary, fontSize: 16 }}>No transactions found</Text>
+              </View>
+            )}
+
+            {/* List View: Simple flat list grouped by date */}
+            {Object.keys(groupedTransactions).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()).map(date => (
+            <View key={date} style={{ marginBottom: 24 }}>
+              {/* Date Header with Daily Total */}
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 12,
+                paddingBottom: 8,
+                borderBottomWidth: 1,
+                borderBottomColor: t.border
+              }}>
+                <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>{date}</Text>
+                <Text style={{ color: t.accent, fontSize: 14, fontWeight: '700' }}>
+                  {formatCurrency(dailyTotals[date], defaultCurrency)}
+                </Text>
+              </View>
+
+              {/* Transactions for this date */}
+              <View style={{ gap: 8 }}>
+                {groupedTransactions[date].map(tx => {
+                  const isTransfer = tx.category === 'Transfer';
+                  return (
+                  <Link key={tx.id} href={`/transactions/${tx.id}`} asChild>
+                    <TouchableOpacity style={{
+                      backgroundColor: t.card,
+                      borderWidth: 1,
+                      borderColor: isTransfer ? t.border : t.border,
+                      borderRadius: 12,
+                      padding: 12,
+                      opacity: isTransfer ? 0.6 : 1
+                    }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>
+                            {getCategoryDisplayName(tx)}
+                          </Text>
+                          {getMainCategoryName(tx) && (
+                            <Text style={{ color: t.textSecondary, fontSize: 12, opacity: 0.4, marginTop: 2 }}>
+                              {getMainCategoryName(tx)}
+                            </Text>
+                          )}
+                          {tx.notes && (
+                            <Text style={{ color: isTransfer ? t.textTertiary : t.textSecondary, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
+                              {tx.notes}
+                            </Text>
+                          )}
+                        </View>
+                        <View style={{ alignItems: 'flex-end', marginLeft: 12 }}>
+                          <Text style={{
+                            color: isTransfer ? t.textSecondary : tx.type === 'income' ? t.income : t.expense,
+                            fontSize: 16,
+                            fontWeight: '700'
+                          }}>
+                            {tx.type === 'income' ? '+' : '-'}
+                            {formatCurrency(
+                              Math.abs(tx.amount * (walletExchangeRate[tx.wallet_id] ?? 1.0)),
+                              defaultCurrency
+                            )}
+                          </Text>
+                          {tx.receipt_path && (
+                            <Text style={{ color: t.textSecondary, fontSize: 10, marginTop: 2 }}>📎 Receipt</Text>
+                          )}
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  </Link>
+                  );
+                })}
+              </View>
+            </View>
+          ))}
+          </>
         )}
-
-        {/* List View: Simple flat list grouped by date */}
-        {Object.keys(groupedTransactions).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()).map(date => (
-        <View key={date} style={{ marginBottom: 24 }}>
-          {/* Date Header with Daily Total */}
-          <View style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 12,
-            paddingBottom: 8,
-            borderBottomWidth: 1,
-            borderBottomColor: t.border
-          }}>
-            <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>{date}</Text>
-            <Text style={{ color: t.accent, fontSize: 14, fontWeight: '700' }}>
-              {formatCurrency(dailyTotals[date], defaultCurrency)}
-            </Text>
-          </View>
-
-          {/* Transactions for this date */}
-          <View style={{ gap: 8 }}>
-            {groupedTransactions[date].map(tx => {
-              const isTransfer = tx.category === 'Transfer';
-              return (
-              <Link key={tx.id} href={`/transactions/${tx.id}`} asChild>
-                <TouchableOpacity style={{
-                  backgroundColor: t.card,
-                  borderWidth: 1,
-                  borderColor: isTransfer ? t.border : t.border,
-                  borderRadius: 12,
-                  padding: 12,
-                  opacity: isTransfer ? 0.6 : 1
-                }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>
-                        {getCategoryDisplayName(tx)}
-                      </Text>
-                      {getMainCategoryName(tx) && (
-                        <Text style={{ color: t.textSecondary, fontSize: 12, opacity: 0.4, marginTop: 2 }}>
-                          {getMainCategoryName(tx)}
-                        </Text>
-                      )}
-                      {tx.notes && (
-                        <Text style={{ color: isTransfer ? t.textTertiary : t.textSecondary, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
-                          {tx.notes}
-                        </Text>
-                      )}
-                    </View>
-                    <View style={{ alignItems: 'flex-end', marginLeft: 12 }}>
-                      <Text style={{
-                        color: isTransfer ? t.textSecondary : tx.type === 'income' ? t.income : t.expense,
-                        fontSize: 16,
-                        fontWeight: '700'
-                      }}>
-                        {tx.type === 'income' ? '+' : '-'}
-                        {formatCurrency(
-                          Math.abs(tx.amount * (walletExchangeRate[tx.wallet_id] ?? 1.0)),
-                          defaultCurrency
-                        )}
-                      </Text>
-                      {tx.receipt_path && (
-                        <Text style={{ color: t.textSecondary, fontSize: 10, marginTop: 2 }}>📎 Receipt</Text>
-                      )}
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              </Link>
-              );
-            })}
-          </View>
-        </View>
-      ))}
       </View>
 
       {/* Date Range Picker Modal */}
@@ -599,6 +681,17 @@ export default function HistoryScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Themed Alert Component */}
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={dismissAlert}
+        themeMode={themeMode}
+        systemColorScheme={systemColorScheme || 'light'}
+      />
       </ScrollView>
     </SafeAreaView>
   );

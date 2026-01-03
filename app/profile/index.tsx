@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Image, Alert, useColorScheme } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Image, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
 import * as ImagePicker from 'expo-image-picker';
+import { useAlert } from '../../src/lib/hooks/useAlert';
+import { ThemedAlert } from '../../src/components/ThemedAlert';
 
 export default function ProfilePage() {
   const { themeMode, userInfo, setUserInfo } = useSettings();
   const systemColorScheme = useColorScheme();
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const t = theme(effectiveMode);
+  const { alertConfig, showSuccessAlert, dismissAlert } = useAlert();
   const safeUser = userInfo ?? { name: 'pFlowr', email: '', phone: '', profileImage: null };
   const [name, setName] = useState(safeUser.name);
   const [email, setEmail] = useState(safeUser.email);
@@ -34,7 +37,7 @@ export default function ProfilePage() {
   const handleSave = () => {
     setUserInfo({ name, email, phone });
     setIsEditing(false);
-    Alert.alert('Success', 'Profile updated successfully');
+    showSuccessAlert('Success', 'Profile updated successfully');
   };
 
   const handleCancel = () => {
@@ -188,6 +191,17 @@ export default function ProfilePage() {
         </View>
       </View>
     </ScrollView>
+
+    {/* Themed Alert Component */}
+    <ThemedAlert
+      visible={alertConfig.visible}
+      title={alertConfig.title}
+      message={alertConfig.message}
+      buttons={alertConfig.buttons}
+      onDismiss={dismissAlert}
+      themeMode={effectiveMode}
+      systemColorScheme={systemColorScheme || 'light'}
+    />
     </SafeAreaView>
   );
 }

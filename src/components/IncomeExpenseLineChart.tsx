@@ -73,6 +73,19 @@ export function IncomeExpenseLineChart({
     { value: 0, y: paddingTop + chartHeight },
   ];
 
+  // Format number with abbreviations
+  const formatNumber = (num: number): string => {
+    if (num < 1000) {
+      return Math.round(num).toString();
+    } else if (num < 1000000) {
+      return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    } else if (num < 1000000000) {
+      return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    } else {
+      return (num / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
+    }
+  };
+
   return (
     <View style={{ backgroundColor, borderRadius: 12, padding: 8 }}>
       <Svg width={chartWidth} height={height - legendHeight}>
@@ -100,7 +113,7 @@ export function IncomeExpenseLineChart({
             fill={textColor}
             textAnchor="end"
           >
-            {Math.round(label.value).toLocaleString()}
+            {formatNumber(label.value)}
           </SvgText>
         ))}
 

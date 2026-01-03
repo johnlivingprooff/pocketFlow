@@ -147,9 +147,14 @@ export async function updateWallet(id: number, w: Partial<Wallet>) {
   if (w.initial_balance !== undefined) set('initial_balance', w.initial_balance);
   if (w.type !== undefined) set('type', w.type);
   if (w.color !== undefined) set('color', w.color);
+  if (w.description !== undefined) set('description', w.description);
   if (w.is_primary !== undefined) set('is_primary', w.is_primary);
   if (w.exchange_rate !== undefined) set('exchange_rate', w.exchange_rate);
-    if (w.display_order !== undefined) set('display_order', w.display_order);
+  if (w.display_order !== undefined) set('display_order', w.display_order);
+  if ((w as any).accountType !== undefined) set('accountType', (w as any).accountType);
+  if ((w as any).accountNumber !== undefined) set('accountNumber', (w as any).accountNumber);
+  if ((w as any).phoneNumber !== undefined) set('phoneNumber', (w as any).phoneNumber);
+  if ((w as any).serviceProvider !== undefined) set('serviceProvider', (w as any).serviceProvider);
   params.push(id);
   await enqueueWrite(async () => {
     await execRun(`UPDATE wallets SET ${fields.join(', ')} WHERE id = ?;`, params);

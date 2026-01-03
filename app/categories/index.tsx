@@ -10,6 +10,65 @@ import { EditIcon } from '../../src/assets/icons/EditIcon';
 import { categoryBreakdown } from '../../src/lib/db/transactions';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 
+// Skeleton Loader Component
+const SkeletonLoader = () => {
+  const { themeMode } = useSettings();
+  const systemColorScheme = useColorScheme();
+  const t = theme(themeMode, systemColorScheme || 'light');
+
+  return (
+    <View style={{ padding: 16, paddingTop: 20 }}>
+      {/* Header Skeleton */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <View style={{ height: 24, width: 120, backgroundColor: t.card, borderRadius: 4, opacity: 0.5 }} />
+        <View style={{ height: 32, width: 80, backgroundColor: t.accent, borderRadius: 8, opacity: 0.5 }} />
+      </View>
+
+      {/* Filter Pills Skeleton */}
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+        {[1, 2, 3].map((i) => (
+          <View key={i} style={{ height: 32, width: 60, backgroundColor: t.card, borderRadius: 999, opacity: 0.5 }} />
+        ))}
+      </View>
+
+      {/* Search Bar Skeleton */}
+      <View style={{ height: 48, backgroundColor: t.card, borderRadius: 8, marginBottom: 24, opacity: 0.5 }} />
+
+      {/* Category Items Skeleton */}
+      {[1, 2, 3, 4, 5].map((i) => (
+        <View key={i} style={{ marginBottom: 12 }}>
+          <View style={{
+            backgroundColor: t.card,
+            borderWidth: 1,
+            borderColor: t.border,
+            borderRadius: 12,
+            padding: 16,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            opacity: 0.7
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+              <View style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                backgroundColor: t.border,
+                opacity: 0.5
+              }} />
+              <View style={{ flex: 1 }}>
+                <View style={{ height: 16, width: 100, backgroundColor: t.border, borderRadius: 4, marginBottom: 6, opacity: 0.5 }} />
+                <View style={{ height: 12, width: 80, backgroundColor: t.border, borderRadius: 4, opacity: 0.4 }} />
+              </View>
+            </View>
+            <View style={{ height: 20, width: 20, backgroundColor: t.border, borderRadius: 4, opacity: 0.5 }} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+};
+
 // Helper function to determine if a string is an emoji
 const isEmojiIcon = (iconValue: string): boolean => {
   if (!iconValue) return false;
@@ -242,19 +301,23 @@ export default function CategoriesPage() {
 
   return (
     <View style={{ flex: 1, backgroundColor: t.background }}>
-      <FlatList
-        data={filteredCategories}
-        renderItem={renderItem}
-        keyExtractor={item => (item.id?.toString() || item.name)}
-        contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-        ListHeaderComponent={ListHeader}
-        ListEmptyComponent={
-          <View style={{ alignItems: 'center', marginTop: 48 }}>
-            <Text style={{ fontSize: 48, marginBottom: 16 }}>🔍</Text>
-            <Text style={{ color: t.textSecondary, fontSize: 16 }}>No categories found</Text>
-          </View>
-        }
-      />
+      {loading ? (
+        <SkeletonLoader />
+      ) : (
+        <FlatList
+          data={filteredCategories}
+          renderItem={renderItem}
+          keyExtractor={item => (item.id?.toString() || item.name)}
+          contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+          ListHeaderComponent={ListHeader}
+          ListEmptyComponent={
+            <View style={{ alignItems: 'center', marginTop: 48 }}>
+              <Text style={{ fontSize: 48, marginBottom: 16 }}>🔍</Text>
+              <Text style={{ color: t.textSecondary, fontSize: 16 }}>No categories found</Text>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 }

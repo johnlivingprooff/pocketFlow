@@ -6,7 +6,6 @@ import {
   ScrollView,
   Pressable,
   TextInput,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   useColorScheme,
@@ -19,6 +18,8 @@ import { theme } from '@/theme/theme';
 import { error as logError } from '@/utils/logger';
 import { getGoalById, updateGoal } from '@/lib/db/goals';
 import { getWallets } from '@/lib/db/wallets';
+import { useAlert } from '@/lib/hooks/useAlert';
+import { ThemedAlert } from '@/components/ThemedAlert';
 import type { Wallet } from '@/types/wallet';
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -66,6 +67,7 @@ export default function EditGoalScreen() {
   const [showTargetPicker, setShowTargetPicker] = useState(false);
 
   const goalId = typeof id === 'string' ? parseInt(id) : null;
+  const { alertConfig, showErrorAlert, showConfirmAlert, dismissAlert } = useAlert();
 
   useFocusEffect(
     React.useCallback(() => {
@@ -75,7 +77,7 @@ export default function EditGoalScreen() {
 
   const loadData = async () => {
     if (!goalId) {
-      Alert.alert('Error', 'Invalid goal ID');
+      showErrorAlert('Error', 'Invalid goal ID');
       router.back();
       return;
     }
@@ -86,7 +88,7 @@ export default function EditGoalScreen() {
       // Load goal data
       const goal = await getGoalById(goalId);
       if (!goal) {
-        Alert.alert('Error', 'Goal not found');
+        showErrorAlert('Error', 'Goal not found');
         router.back();
         return;
       }
@@ -104,7 +106,7 @@ export default function EditGoalScreen() {
       setWallets(walletsData);
     } catch (err: any) {
       logError('Failed to load goal data:', { error: err });
-      Alert.alert('Error', 'Failed to load goal');
+      showErrorAlert('Error', 'Failed to load goal');
     } finally {
       setLoading(false);
     }
@@ -112,32 +114,32 @@ export default function EditGoalScreen() {
 
   const validateForm = (): boolean => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Please enter a goal name');
+      showErrorAlert('Error', 'Please enter a goal name');
       return false;
     }
 
     if (!targetAmount.trim() || isNaN(Number(targetAmount)) || Number(targetAmount) <= 0) {
-      Alert.alert('Error', 'Please enter a valid target amount');
+      showErrorAlert('Error', 'Please enter a valid target amount');
       return false;
     }
 
     if (!startDate.trim()) {
-      Alert.alert('Error', 'Please select a start date');
+      showErrorAlert('Error', 'Please select a start date');
       return false;
     }
 
     if (!targetDate.trim()) {
-      Alert.alert('Error', 'Please select a target date');
+      showErrorAlert('Error', 'Please select a target date');
       return false;
     }
 
     if (new Date(startDate) >= new Date(targetDate)) {
-      Alert.alert('Error', 'Target date must be after start date');
+      showErrorAlert('Error', 'Target date must be after start date');
       return false;
     }
 
     if (selectedWallets.length === 0) {
-      Alert.alert('Error', 'Please select at least one wallet');
+      showErrorAlert('Error', 'Please select at least one wallet');
       return false;
     }
 
@@ -168,15 +170,10 @@ export default function EditGoalScreen() {
       const { invalidateTransactionCaches } = await import('@/lib/cache/queryCache');
       invalidateTransactionCaches();
 
-      Alert.alert('Success', 'Goal updated successfully', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]);
+      showConfirmAlert('Success', 'Goal updated successfully', () => router.back());
     } catch (err: any) {
       logError('Failed to update goal:', { error: err });
-      Alert.alert('Error', err?.message || 'Failed to update goal');
+      showErrorAlert('Error', err?.message || 'Failed to update goal');
     } finally {
       setSaving(false);
     }
@@ -428,6 +425,17 @@ export default function EditGoalScreen() {
           <View style={styles.spacer} />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Themed Alert Component */}
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={dismissAlert}
+        themeMode={themeMode}
+        systemColorScheme={systemColorScheme || 'light'}
+      />
     </SafeAreaView>
   );
 }

@@ -1,17 +1,18 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, useColorScheme, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, useColorScheme, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, Link, router } from 'expo-router';
+import { useLocalSearchParams, Link, router, useFocusEffect } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
-import { useFocusEffect } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
 import { getWallet, getWalletBalance, deleteWallet } from '../../src/lib/db/wallets';
 import { filterTransactions } from '../../src/lib/db/transactions';
+import { useAlert } from '../../src/lib/hooks/useAlert';
+import { ThemedAlert } from '../../src/components/ThemedAlert';
 import { Transaction } from '../../src/types/transaction';
 import { Wallet } from '../../src/types/wallet';
 import { TransactionItem } from '../../src/components/TransactionItem';
-// date formatting not needed in this view
+import { ExportIcon } from '../../src/assets/icons/ExportIcon';
 
 const TrashIcon = ({ size = 18, color = '#fff' }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -19,6 +20,60 @@ const TrashIcon = ({ size = 18, color = '#fff' }) => (
     <Path d="M6 7v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
     <Path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
+);
+
+const SkeletonLoader = ({ count = 3, theme }: any) => (
+  <View style={{ gap: 8 }}>
+    {Array.from({ length: count }).map((_, i) => (
+      <View
+        key={i}
+        style={{
+          flexDirection: 'row',
+          paddingVertical: 10,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.border,
+          opacity: 0.6 + (i * 0.1),
+        }}
+      >
+        <View
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            backgroundColor: theme.border,
+            marginRight: 12,
+          }}
+        />
+        <View style={{ flex: 1 }}>
+          <View
+            style={{
+              height: 14,
+              backgroundColor: theme.border,
+              borderRadius: 6,
+              marginBottom: 6,
+              width: '70%',
+            }}
+          />
+          <View
+            style={{
+              height: 12,
+              backgroundColor: theme.border,
+              borderRadius: 6,
+              width: '40%',
+            }}
+          />
+        </View>
+        <View
+          style={{
+            width: 50,
+            height: 14,
+            backgroundColor: theme.border,
+            borderRadius: 6,
+          }}
+        />
+      </View>
+    ))}
+  </View>
 );
 
 export default function WalletDetail() {
@@ -37,6 +92,8 @@ export default function WalletDetail() {
   const [income, setIncome] = useState(0);
   const [expenses, setExpenses] = useState(0);
   const [showAddCollapsed, setShowAddCollapsed] = useState(false);
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
+  const { alertConfig, showConfirmAlert, showSuccessAlert, dismissAlert } = useAlert();
   const addButtonTimer = useRef<NodeJS.Timeout | null>(null);
 
   const loadWallet = useCallback(async () => {
@@ -49,38 +106,42 @@ export default function WalletDetail() {
       setBalance(await getWalletBalance(walletId));
     }
 
-    // Load recent transactions for this wallet
-    const txns = await filterTransactions({ walletId, page: 0, pageSize: 10 });
-    setTransactions(txns);
+    // Load recent transactions for this wallet with lazy loading
+    setIsLoadingTransactions(true);
+    try {
+      const txns = await filterTransactions({ walletId, page: 0, pageSize: 10 });
+      setTransactions(txns);
 
-    // Calculate income and expenses
-    const incomeSum = txns.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-    const expensesSum = txns.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-    setIncome(incomeSum);
-    setExpenses(expensesSum);
+      // Calculate income and expenses
+      const incomeSum = txns.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+      const expensesSum = txns.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+      setIncome(incomeSum);
+      setExpenses(expensesSum);
+    } finally {
+      setIsLoadingTransactions(false);
+    }
   }, [walletId]);
 
   const handleDeleteWallet = () => {
-    Alert.alert(
+    showConfirmAlert(
       'Delete wallet?',
       'Deleting a wallet removes its balance and history from this device. Consider backing up first. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteWallet(walletId);
-              Alert.alert('Wallet deleted', 'The wallet was removed.');
-              router.back();
-            } catch (e) {
-              Alert.alert('Error', 'Could not delete wallet. Please try again.');
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          await deleteWallet(walletId);
+          showSuccessAlert('Wallet deleted', 'The wallet was removed.', () => router.back());
+        } catch (e) {
+          showConfirmAlert('Error', 'Could not delete wallet. Please try again.', () => {});
+        }
+      }
     );
+  };
+
+  const handleTransactionPress = (txId: number) => {
+    router.push({
+      pathname: '/transactions/[id]',
+      params: { id: String(txId) },
+    });
   };
 
   useFocusEffect(
@@ -184,6 +245,11 @@ export default function WalletDetail() {
               </View>
             </View>
 
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <Text style={{ color: t.textSecondary, fontSize: 13, marginRight: 8 }}>Currency:</Text>
+              <Text style={{ color: t.textPrimary, fontSize: 13, fontWeight: '700' }}>{wallet.currency}</Text>
+            </View>
+
             {/* Bank Account Details */}
             {wallet.type === 'Bank Account' && (wallet.accountType || wallet.accountNumber) && (
               <View style={{ 
@@ -248,6 +314,10 @@ export default function WalletDetail() {
                 </Text>
               </View>
             )}
+
+            {!wallet.accountType && !wallet.accountNumber && !wallet.phoneNumber && !wallet.serviceProvider && (!wallet.exchange_rate || wallet.exchange_rate === 1.0 || wallet.currency === defaultCurrency) && (
+              <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 6 }}>No additional details provided for this wallet.</Text>
+            )}
           </View>
         )}
         
@@ -279,16 +349,23 @@ export default function WalletDetail() {
       <View style={{ marginBottom: 16 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Recent Activity</Text>
-          {transactions.length > 0 && (
-            <Link href="/transactions/history" asChild>
-              <TouchableOpacity>
-                <Text style={{ color: t.primary, fontSize: 14, fontWeight: '600' }}>View All</Text>
-              </TouchableOpacity>
-            </Link>
-          )}
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: t.card, borderRadius: 8, borderWidth: 1, borderColor: t.border }}>
+              <ExportIcon size={16} color={t.textPrimary} />
+            </TouchableOpacity>
+            {transactions.length > 0 && (
+              <Link href="/transactions/history" asChild>
+                <TouchableOpacity>
+                  <Text style={{ color: t.primary, fontSize: 14, fontWeight: '600' }}>View All</Text>
+                </TouchableOpacity>
+              </Link>
+            )}
+          </View>
         </View>
 
-        {transactions.length === 0 ? (
+        {isLoadingTransactions ? (
+          <SkeletonLoader count={3} theme={t} />
+        ) : transactions.length === 0 ? (
           <View style={{ backgroundColor: t.card, padding: 24, borderRadius: 12, alignItems: 'center', ...shadows.sm }}>
             <Text style={{ color: t.textSecondary, fontSize: 14, textAlign: 'center' }}>
               No transactions yet
@@ -302,16 +379,33 @@ export default function WalletDetail() {
         ) : (
           <View style={{ gap: 8 }}>
             {transactions.map((tx) => (
-              <TransactionItem 
-                key={tx.id} 
-                item={tx} 
-                currency={currency} 
-                mode={themeMode === 'system' ? systemColorScheme || 'light' : themeMode} 
-              />
+              <TouchableOpacity
+                key={tx.id}
+                onPress={() => handleTransactionPress(tx.id!)}
+                activeOpacity={0.7}
+                style={{ backgroundColor: t.card, paddingHorizontal: 12, paddingVertical: 0, borderRadius: 8 }}
+              >
+                <TransactionItem 
+                  item={tx} 
+                  currency={currency} 
+                  mode={themeMode === 'system' ? systemColorScheme || 'light' : themeMode} 
+                />
+              </TouchableOpacity>
             ))}
           </View>
         )}
       </View>
+
+      {/* Themed Alert Component */}
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={dismissAlert}
+        themeMode={themeMode}
+        systemColorScheme={systemColorScheme || 'light'}
+      />
       </ScrollView>
       </View>
     </SafeAreaView>

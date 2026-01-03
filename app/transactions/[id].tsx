@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, Alert, Platform, useColorScheme } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, Platform, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '../../src/store/useStore';
 import { theme } from '../../src/theme/theme';
@@ -7,6 +7,8 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { getById, deleteTransaction } from '../../src/lib/db/transactions';
 import { useWallets } from '../../src/lib/hooks/useWallets';
+import { useAlert } from '../../src/lib/hooks/useAlert';
+import { ThemedAlert } from '../../src/components/ThemedAlert';
 import { Transaction } from '../../src/types/transaction';
 import { formatShortDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
@@ -20,6 +22,7 @@ export default function TransactionDetail() {
   const { wallets } = useWallets();
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [loading, setLoading] = useState(true);
+  const { alertConfig, showConfirmAlert, showErrorAlert, dismissAlert } = useAlert();
 
   // Get wallet exchange rate
   const wallet = wallets.find(w => w.id === transaction?.wallet_id);
@@ -33,7 +36,7 @@ export default function TransactionDetail() {
         const txn = await getById(Number(id));
         setTransaction(txn);
       } catch (error) {
-        Alert.alert('Error', 'Failed to load transaction');
+        showErrorAlert('Error', 'Failed to load transaction');
       } finally {
         setLoading(false);
       }
@@ -47,26 +50,17 @@ export default function TransactionDetail() {
   );
 
   const handleDelete = () => {
-    Alert.alert(
+    showConfirmAlert(
       'Delete Transaction',
       'Are you sure you want to delete this transaction?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteTransaction(Number(id));
-              Alert.alert('Success', 'Transaction deleted', [
-                { text: 'OK', onPress: () => router.back() }
-              ]);
-            } catch (error) {
-              Alert.alert('Error', 'Failed to delete transaction');
-            }
-          }
+      async () => {
+        try {
+          await deleteTransaction(Number(id));
+          showConfirmAlert('Success', 'Transaction deleted', () => router.back());
+        } catch (error) {
+          showErrorAlert('Error', 'Failed to delete transaction');
         }
-      ]
+      }
     );
   };
 
@@ -201,6 +195,17 @@ export default function TransactionDetail() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Themed Alert Component */}
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={dismissAlert}
+        themeMode={themeMode}
+        systemColorScheme={systemColorScheme || 'light'}
+      />
       </ScrollView>
     </SafeAreaView>
   );

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ScrollView, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -7,11 +7,16 @@ import { useSettings } from '../../src/store/useStore';
 import { useUI } from '../../src/store/useStore';
 import { theme } from '../../src/theme/theme';
 import { saveReceiptImage } from '../../src/lib/services/fileService';
+import { useAlert } from '../../src/lib/hooks/useAlert';
+import { ThemedAlert } from '../../src/components/ThemedAlert';
 
 export default function ReceiptScan() {
+  const systemColorScheme = useColorScheme();
   const { themeMode, setImagePickingStartTime } = useSettings();
   const { setIsPickingImage } = useUI();
-  const t = theme(themeMode);
+  const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
+  const t = theme(effectiveMode);
+  const { alertConfig, showErrorAlert, showSuccessAlert, dismissAlert } = useAlert();
   const [localUri, setLocalUri] = useState<string | undefined>();
   const [savedUri, setSavedUri] = useState<string | undefined>();
 
@@ -24,17 +29,17 @@ export default function ReceiptScan() {
         const asset = res.assets[0];
         const manip = await ImageManipulator.manipulateAsync(asset.uri, [{ resize: { width: 1000 } }], { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true });
         if (!manip.base64) {
-          Alert.alert('Error', 'Failed to process image');
+          showErrorAlert('Error', 'Failed to process image');
           return;
         }
         setLocalUri(asset.uri);
         const uri = await saveReceiptImage(`scan_${Date.now()}.jpg`, manip.base64);
         setSavedUri(uri);
-        Alert.alert('Success', 'Receipt saved successfully');
+        showSuccessAlert('Success', 'Receipt saved successfully');
       }
     } catch (error) {
       console.error('Error in receipt scan:', error);
-      Alert.alert('Error', 'Failed to save receipt. Please try again.');
+      showErrorAlert('Error', 'Failed to save receipt. Please try again.');
     } finally {
       setIsPickingImage(false);
       setImagePickingStartTime(null);
@@ -50,6 +55,17 @@ export default function ReceiptScan() {
         {localUri ? <Image source={{ uri: localUri }} style={{ width: 200, height: 200, marginTop: 12 }} /> : null}
         {savedUri ? <Text style={{ color: t.textSecondary, marginTop: 8 }}>Saved at: {savedUri}</Text> : null}
       </ScrollView>
+
+      {/* Themed Alert Component */}
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={dismissAlert}
+        themeMode={effectiveMode}
+        systemColorScheme={systemColorScheme || 'light'}
+      />
     </SafeAreaView>
   );
 }

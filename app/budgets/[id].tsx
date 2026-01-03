@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  Alert,
   useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +15,8 @@ import { formatCurrency } from '@/utils/formatCurrency';
 import { error as logError } from '@/utils/logger';
 import { getBudgetWithMetrics, deleteBudget } from '@/lib/db/budgets';
 import type { BudgetWithMetrics } from '@/types/goal';
+import { useAlert } from '@/lib/hooks/useAlert';
+import { ThemedAlert } from '@/components/ThemedAlert';
 
 export default function BudgetDetailScreen() {
   const router = useRouter();
@@ -23,6 +24,7 @@ export default function BudgetDetailScreen() {
   const { themeMode, defaultCurrency } = useSettings();
   const systemColorScheme = useColorScheme();
   const colors = theme(themeMode, systemColorScheme || 'light');
+  const { alertConfig, showErrorAlert, showConfirmAlert, showSuccessAlert, dismissAlert, setAlertConfig } = useAlert();
 
   const [budget, setBudget] = useState<BudgetWithMetrics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -37,7 +39,7 @@ export default function BudgetDetailScreen() {
 
   const loadBudget = async () => {
     if (!budgetId) {
-      Alert.alert('Error', 'Invalid budget ID');
+      showErrorAlert('Error', 'Invalid budget ID');
       router.back();
       return;
     }
@@ -50,14 +52,14 @@ export default function BudgetDetailScreen() {
       
       const data = await getBudgetWithMetrics(budgetId);
       if (!data) {
-        Alert.alert('Error', 'Budget not found');
+        showErrorAlert('Error', 'Budget not found');
         router.back();
         return;
       }
       setBudget(data);
     } catch (err: any) {
       logError('Failed to load budget:', { error: err });
-      Alert.alert('Error', 'Failed to load budget details');
+      showErrorAlert('Error', 'Failed to load budget details');
     } finally {
       setLoading(false);
     }
@@ -68,29 +70,29 @@ export default function BudgetDetailScreen() {
   };
 
   const handleDelete = () => {
-    Alert.alert('Delete Budget', 'Are you sure you want to delete this budget? This action cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            if (budgetId) {
-              await deleteBudget(budgetId);
-              Alert.alert('Success', 'Budget deleted', [
-                {
-                  text: 'OK',
-                  onPress: () => router.back(),
-                },
-              ]);
+    setAlertConfig({
+      visible: true,
+      title: 'Delete Budget',
+      message: 'Are you sure you want to delete this budget? This action cannot be undone.',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (budgetId) {
+                await deleteBudget(budgetId);
+                showSuccessAlert('Success', 'Budget deleted', () => router.back());
+              }
+            } catch (err: any) {
+              logError('Failed to delete budget:', { error: err });
+              showErrorAlert('Error', 'Failed to delete budget');
             }
-          } catch (err: any) {
-            logError('Failed to delete budget:', { error: err });
-            Alert.alert('Error', 'Failed to delete budget');
-          }
+          },
         },
-      },
-    ]);
+      ],
+    });
   };
 
   if (loading) {
@@ -292,6 +294,17 @@ export default function BudgetDetailScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* Themed Alert Component */}
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={dismissAlert}
+        themeMode={themeMode}
+        systemColorScheme={systemColorScheme || 'light'}
+      />
     </SafeAreaView>
   );
 }

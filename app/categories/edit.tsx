@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, useColorScheme, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, useColorScheme, ActivityIndicator, Modal, LayoutChangeEvent, GestureResponderEvent, StyleSheet } from 'react-native';
 import { useSettings } from '../../src/store/useStore';
 import { theme } from '../../src/theme/theme';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -11,6 +11,7 @@ import { ThemedAlert } from '../../src/components/ThemedAlert';
 import { EmojiPicker } from '../../src/components/EmojiPicker';
 import { INCOME_TAXONOMY, EXPENSE_TAXONOMY } from '../../src/constants/categoryTaxonomy';
 import { getRecommendedColors, type ColorOption } from '../../src/constants/categoryColors';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // Helper to check if a string is an emoji
 const isEmojiIcon = (iconValue: string): boolean => {
@@ -48,6 +49,8 @@ export default function EditCategory() {
   const [selectedSvg, setSelectedSvg] = useState<CategoryIconName>('wallet');
   const [selectedEmoji, setSelectedEmoji] = useState('💰');
   const [selectedColor, setSelectedColor] = useState('#66BB6A');
+  const [customHex, setCustomHex] = useState('#66BB6A');
+  const [showColorPicker, setShowColorPicker] = useState(false);
   const [categoryType, setCategoryType] = useState<'income' | 'expense'>('expense');
   const [colorOptions, setColorOptions] = useState<ColorOption[]>(getRecommendedColors('expense'));
   const [monthlyBudget, setMonthlyBudget] = useState('');
@@ -99,7 +102,9 @@ export default function EditCategory() {
 
       setCategoryName(cat.name);
       setCategoryType(cat.type === 'both' ? 'expense' : cat.type);
-      setSelectedColor(cat.color || '#C1A12F');
+      const colorToUse = cat.color || '#C1A12F';
+      setSelectedColor(colorToUse);
+      setCustomHex(colorToUse);
       setMonthlyBudget(cat.budget ? String(cat.budget) : '');
       setIsSubcategory(!!cat.parent_category_id);
       setSelectedParentId(cat.parent_category_id || null);
@@ -475,6 +480,45 @@ export default function EditCategory() {
               {colorOptions.find(c => c.color === selectedColor)!.label}: {colorOptions.find(c => c.color === selectedColor)!.description}
             </Text>
           )}
+          <View style={{ marginTop: 16 }}>
+            <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 8 }}>Custom Color</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: selectedColor, borderWidth: 1, borderColor: t.border }} />
+              <TextInput
+                style={{
+                  flex: 1,
+                  backgroundColor: t.card,
+                  borderWidth: 1,
+                  borderColor: t.border,
+                  borderRadius: 8,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  color: t.textPrimary,
+                  fontSize: 14,
+                }}
+                placeholder="#RRGGBB"
+                placeholderTextColor={t.textSecondary}
+                value={customHex}
+                autoCapitalize="characters"
+                onChangeText={(val) => {
+                  const normalized = val.startsWith('#') ? val : `#${val}`;
+                  setCustomHex(normalized);
+                  if (/^#([0-9a-fA-F]{6})$/.test(normalized)) {
+                    setSelectedColor(normalized);
+                  }
+                }}
+              />
+              <TouchableOpacity
+                onPress={() => setShowColorPicker(true)}
+                style={{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, backgroundColor: t.primary }}
+              >
+                <Text style={{ color: '#fff', fontWeight: '700' }}>Wheel</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 6 }}>
+              Use the color wheel or hex to pick any shade beyond the defaults.
+            </Text>
+          </View>
         </View>
 
         {/* Monthly Budget */}
@@ -558,6 +602,18 @@ export default function EditCategory() {
       </View>
       </ScrollView>
       
+      <ColorPickerModal
+        visible={showColorPicker}
+        initialColor={selectedColor}
+        onClose={() => setShowColorPicker(false)}
+        onSave={(color) => {
+          setSelectedColor(color);
+          setCustomHex(color);
+          setShowColorPicker(false);
+        }}
+        colors={t}
+      />
+
       <ThemedAlert
         visible={alertConfig.visible}
         title={alertConfig.title}
@@ -569,4 +625,173 @@ export default function EditCategory() {
       />
     </KeyboardAvoidingView>
   );
+}
+
+
+type ColorPickerModalProps = {
+  visible: boolean;
+  initialColor: string;
+  onClose: () => void;
+  onSave: (color: string) => void;
+  colors: ReturnType<typeof theme>;
+};
+
+function ColorPickerModal({ visible, initialColor, onClose, onSave, colors }: ColorPickerModalProps) {
+  const [hue, setHue] = useState(0);
+  const [sat, setSat] = useState(1);
+  const [val, setVal] = useState(1);
+  const squareSize = useRef({ width: 0, height: 0 });
+  const sliderWidth = useRef(1);
+
+  useEffect(() => {
+    const { h, s, v } = hexToHsv(initialColor);
+    setHue(h);
+    setSat(s);
+    setVal(v);
+  }, [initialColor]);
+
+  const currentHex = hsvToHex(hue, sat, val);
+
+  const handleSvTouch = (e: GestureResponderEvent) => {
+    const { locationX, locationY } = e.nativeEvent;
+    const w = squareSize.current.width || 1;
+    const h = squareSize.current.height || 1;
+    const newSat = clamp(locationX / w, 0, 1);
+    const newVal = clamp(1 - locationY / h, 0, 1);
+    setSat(newSat);
+    setVal(newVal);
+  };
+
+  const handleHueTouch = (e: GestureResponderEvent) => {
+    const { locationX } = e.nativeEvent;
+    const w = sliderWidth.current || 1;
+    const newHue = clamp(locationX / w, 0, 1) * 360;
+    setHue(newHue);
+  };
+
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 }}>
+        <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.border }}>
+          <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Color Wheel</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+            <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: currentHex, borderWidth: 1, borderColor: colors.border }} />
+            <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>{currentHex}</Text>
+          </View>
+
+          <View
+            style={{ width: '100%', aspectRatio: 1, borderRadius: 16, overflow: 'hidden', marginBottom: 12 }}
+            onLayout={(e: LayoutChangeEvent) => {
+              squareSize.current = { width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height };
+            }}
+            onStartShouldSetResponder={() => true}
+            onResponderMove={handleSvTouch}
+            onResponderGrant={handleSvTouch}
+          >
+            <LinearGradient
+              colors={[hsvToHex(hue, 0, val), hsvToHex(hue, 1, val)]}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={{ flex: 1 }}
+            />
+            <LinearGradient
+              colors={['rgba(0,0,0,0)', 'rgba(0,0,0,1)']}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={{ ...StyleSheet.absoluteFillObject }}
+            />
+          </View>
+
+          <View
+            style={{ height: 28, borderRadius: 14, overflow: 'hidden', marginBottom: 16 }}
+            onLayout={(e: LayoutChangeEvent) => {
+              sliderWidth.current = e.nativeEvent.layout.width;
+            }}
+            onStartShouldSetResponder={() => true}
+            onResponderMove={handleHueTouch}
+            onResponderGrant={handleHueTouch}
+          >
+            <LinearGradient
+              colors={['#FF0000', '#FFFF00', '#00FF00', '#00FFFF', '#0000FF', '#FF00FF', '#FF0000']}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={{ flex: 1 }}
+            />
+          </View>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
+            <TouchableOpacity onPress={onClose} style={{ paddingVertical: 10, paddingHorizontal: 14 }}>
+              <Text style={{ color: colors.textSecondary, fontWeight: '700' }}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => onSave(currentHex)}
+              style={{ paddingVertical: 10, paddingHorizontal: 16, backgroundColor: colors.primary, borderRadius: 10 }}
+            >
+              <Text style={{ color: '#fff', fontWeight: '800' }}>Use Color</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function hsvToHex(h: number, s: number, v: number): string {
+  const { r, g, b } = hsvToRgb(h, s, v);
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function toHex(x: number) {
+  const hex = Math.round(x * 255).toString(16).padStart(2, '0');
+  return hex.toUpperCase();
+}
+
+function hsvToRgb(h: number, s: number, v: number) {
+  const c = v * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = v - c;
+  let r = 0, g = 0, b = 0;
+  if (h >= 0 && h < 60) {
+    r = c; g = x; b = 0;
+  } else if (h < 120) {
+    r = x; g = c; b = 0;
+  } else if (h < 180) {
+    r = 0; g = c; b = x;
+  } else if (h < 240) {
+    r = 0; g = x; b = c;
+  } else if (h < 300) {
+    r = x; g = 0; b = c;
+  } else {
+    r = c; g = 0; b = x;
+  }
+  return { r: r + m, g: g + m, b: b + m };
+}
+
+function hexToHsv(hex: string) {
+  const { r, g, b } = hexToRgb(hex);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const d = max - min;
+  let h = 0;
+  if (d !== 0) {
+    if (max === r) h = 60 * (((g - b) / d) % 6);
+    else if (max === g) h = 60 * ((b - r) / d + 2);
+    else h = 60 * ((r - g) / d + 4);
+  }
+  if (h < 0) h += 360;
+  const s = max === 0 ? 0 : d / max;
+  const v = max;
+  return { h, s, v };
+}
+
+function hexToRgb(hex: string) {
+  const sanitized = hex.replace('#', '');
+  const num = parseInt(sanitized, 16);
+  const r = ((num >> 16) & 255) / 255;
+  const g = ((num >> 8) & 255) / 255;
+  const b = (num & 255) / 255;
+  return { r, g, b };
 }

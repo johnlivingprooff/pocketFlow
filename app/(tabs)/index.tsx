@@ -49,6 +49,134 @@ function getGreeting(now: Date = new Date()): string {
   return 'Hello';
 }
 
+// Skeleton Loader Component
+const SkeletonLoader = () => {
+  const { themeMode } = useSettings();
+  const systemColorScheme = useColorScheme();
+  const t = theme(themeMode, systemColorScheme || 'light');
+
+  return (
+    <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 0 }}>
+      {/* Header Section */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 20 }}>
+        <View>
+          <View style={{ height: 16, width: 120, backgroundColor: t.card, borderRadius: 4, marginBottom: 6, opacity: 0.5 }} />
+          <View style={{ height: 13, width: 180, backgroundColor: t.card, borderRadius: 4, marginBottom: 4, opacity: 0.4 }} />
+          <View style={{ height: 12, width: 100, backgroundColor: t.card, borderRadius: 4, opacity: 0.3 }} />
+        </View>
+        <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.card, opacity: 0.5 }} />
+      </View>
+
+      {/* Privacy toggle */}
+      <View style={{ marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ height: 12, width: 80, backgroundColor: t.card, borderRadius: 4, opacity: 0.4 }} />
+        <View style={{ width: 32, height: 32, backgroundColor: t.card, borderRadius: 8, opacity: 0.5 }} />
+      </View>
+
+      {/* Total Balance */}
+      <View style={{ marginBottom: 12 }}>
+        <View style={{ height: 13, width: 200, backgroundColor: t.card, borderRadius: 4, opacity: 0.5 }} />
+      </View>
+
+      {/* Wallets Carousel */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }} contentContainerStyle={{ gap: 12 }}>
+        {[1, 2, 3].map((i) => (
+          <View key={i} style={{
+            borderRadius: 22,
+            padding: 16,
+            minWidth: 240,
+            backgroundColor: t.card,
+            opacity: 0.7,
+            ...shadows.md
+          }}>
+            <View style={{ height: 16, width: 100, backgroundColor: t.border, borderRadius: 4, marginBottom: 4, opacity: 0.5 }} />
+            <View style={{ height: 12, width: 60, backgroundColor: t.border, borderRadius: 4, marginBottom: 8, opacity: 0.4 }} />
+            <View style={{ height: 24, width: 80, backgroundColor: t.border, borderRadius: 4, marginBottom: 8, opacity: 0.5 }} />
+            <View style={{ height: 20, width: 60, backgroundColor: t.border, borderRadius: 12, opacity: 0.4 }} />
+          </View>
+        ))}
+      </ScrollView>
+
+      {/* Dots indicator */}
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 16 }}>
+        {[1, 2, 3].map((i) => (
+          <View key={i} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: t.card, opacity: 0.5 }} />
+        ))}
+      </View>
+
+      {/* Time Period Filter Tabs */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {[1, 2, 3, 4].map((i) => (
+            <View key={i} style={{ height: 40, width: 90, backgroundColor: t.card, borderRadius: 12, opacity: 0.5 }} />
+          ))}
+        </View>
+      </ScrollView>
+
+      {/* Analytics Cards */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          {[1, 2, 3].map((i) => (
+            <View key={i} style={{ minWidth: 160, backgroundColor: t.card, borderRadius: 16, padding: 14, opacity: 0.7, ...shadows.sm }}>
+              <View style={{ height: 12, width: 80, backgroundColor: t.border, borderRadius: 4, marginBottom: 6, opacity: 0.5 }} />
+              <View style={{ height: 18, width: 60, backgroundColor: t.border, borderRadius: 4, opacity: 0.5 }} />
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+
+      {/* Recent Activity */}
+      <View style={{ marginBottom: 24 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <View style={{ height: 18, width: 120, backgroundColor: t.card, borderRadius: 4, opacity: 0.5 }} />
+          <View style={{ height: 14, width: 50, backgroundColor: t.card, borderRadius: 4, opacity: 0.4 }} />
+        </View>
+        {[1, 2, 3].map((i) => (
+          <View key={i} style={{ backgroundColor: t.card, padding: 12, borderRadius: 8, marginBottom: 8, opacity: 0.7 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ flex: 1 }}>
+                <View style={{ height: 16, width: 100, backgroundColor: t.border, borderRadius: 4, marginBottom: 4, opacity: 0.5 }} />
+                <View style={{ height: 12, width: 80, backgroundColor: t.border, borderRadius: 4, opacity: 0.4 }} />
+              </View>
+              <View style={{ height: 16, width: 60, backgroundColor: t.border, borderRadius: 4, opacity: 0.5 }} />
+            </View>
+          </View>
+        ))}
+      </View>
+
+      {/* Trend Chart */}
+      <View style={{ marginBottom: 24 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <View style={{ height: 18, width: 60, backgroundColor: t.card, borderRadius: 4, opacity: 0.5 }} />
+        </View>
+        {/* Chart Range Filters */}
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+          {[1, 2, 3, 4].map((i) => (
+            <View key={i} style={{ flex: 1, height: 32, backgroundColor: t.card, borderRadius: 12, opacity: 0.5 }} />
+          ))}
+        </View>
+        {/* Chart Placeholder */}
+        <View style={{ height: 220, backgroundColor: t.card, borderRadius: 12, opacity: 0.7, ...shadows.sm }} />
+      </View>
+
+      {/* Quick Actions */}
+      <View style={{ marginBottom: 24 }}>
+        <View style={{ height: 18, width: 120, backgroundColor: t.card, borderRadius: 4, marginBottom: 12, opacity: 0.5 }} />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <View key={i} style={{ backgroundColor: t.card, borderRadius: 16, padding: 12, minWidth: 100, alignItems: 'center', opacity: 0.7, ...shadows.sm }}>
+              <View style={{ width: 20, height: 20, backgroundColor: t.border, borderRadius: 4, marginBottom: 6, opacity: 0.5 }} />
+              <View style={{ height: 12, width: 60, backgroundColor: t.border, borderRadius: 4, opacity: 0.4 }} />
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+    </ScrollView>
+  );
+};
+
+// Format full date with day of week
+
 // Format full date with day of week
 function formatFullDate(date: Date): string {
   const dayOfWeek = date.toLocaleString('default', { weekday: 'long' });
@@ -83,12 +211,13 @@ export default function Home() {
   const [customEndDate, setCustomEndDate] = useState<Date | null>(null);
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [chartData, setChartData] = useState<Array<{ date: string; income: number; expense: number }>>([]);
-  const [chartRange, setChartRange] = useState<'7d' | '3m' | '6m' | '1y'>('7d');
+  const [chartRange, setChartRange] = useState<'7d' | '3m' | '6m'>('7d');
   const [weekComparison, setWeekComparison] = useState<{ thisWeek: number; lastWeek: number; percentChange: number } | null>(null);
   const [biggestCategory, setBiggestCategory] = useState<{ category: string; amount: number } | null>(null);
   const [recentOrder, setRecentOrder] = useState<number[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [dataVersion, setDataVersion] = useState(0); // Force re-render when data changes
+  const [isLoading, setIsLoading] = useState(true);
 
   // Load upcoming recurring transactions
   const loadUpcomingTransactions = async () => {
@@ -212,7 +341,7 @@ export default function Home() {
   };
 
   // Build time-series for the chart based on selected range
-  function buildChartData(range: '7d' | '3m' | '6m' | '1y', txns: Transaction[]) {
+  function buildChartData(range: '7d' | '3m' | '6m', txns: Transaction[]) {
     const result: Array<{ date: string; income: number; expense: number }> = [];
     const now = new Date();
     now.setHours(0, 0, 0, 0);
@@ -243,28 +372,9 @@ export default function Home() {
         result.push({ date: dayStart.toISOString(), income: incomeSum, expense: expenseSum });
       }
     } else if (range === '3m') {
-      // Last 12 weeks (weekly aggregates)
-      // Determine start of current week (Sunday start)
-      const currentWeekStart = new Date(now);
-      currentWeekStart.setDate(now.getDate() - now.getDay());
-      for (let i = 11; i >= 0; i--) {
-        const weekStart = new Date(currentWeekStart);
-        weekStart.setDate(currentWeekStart.getDate() - i * 7);
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 7);
-
-        const weekTx = txns.filter(t => {
-          const d = new Date(t.date);
-          return d >= weekStart && d < weekEnd;
-        });
-        const incomeSum = sumIncome(weekTx);
-        const expenseSum = sumExpense(weekTx);
-        result.push({ date: weekStart.toISOString(), income: incomeSum, expense: expenseSum });
-      }
-    } else if (range === '6m') {
-      // Last 6 months (monthly aggregates)
+      // Last 3 months (monthly aggregates)
       const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      for (let i = 5; i >= 0; i--) {
+      for (let i = 2; i >= 0; i--) {
         const monthStart = new Date(firstOfThisMonth.getFullYear(), firstOfThisMonth.getMonth() - i, 1);
         const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
 
@@ -276,10 +386,10 @@ export default function Home() {
         const expenseSum = sumExpense(monthTx);
         result.push({ date: monthStart.toISOString(), income: incomeSum, expense: expenseSum });
       }
-    } else if (range === '1y') {
-      // Last 12 months (monthly aggregates)
+    } else if (range === '6m') {
+      // Last 6 months (monthly aggregates)
       const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      for (let i = 11; i >= 0; i--) {
+      for (let i = 5; i >= 0; i--) {
         const monthStart = new Date(firstOfThisMonth.getFullYear(), firstOfThisMonth.getMonth() - i, 1);
         const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
 
@@ -323,14 +433,10 @@ export default function Home() {
             chartStartDate.setDate(now.getDate() - 7);
             break;
           case '3m':
-            chartStartDate = new Date(now);
-            chartStartDate.setDate(now.getDate() - (12 * 7)); // 12 weeks
+            chartStartDate = new Date(now.getFullYear(), now.getMonth() - 3, 1);
             break;
           case '6m':
             chartStartDate = new Date(now.getFullYear(), now.getMonth() - 6, 1);
-            break;
-          case '1y':
-            chartStartDate = new Date(now.getFullYear(), now.getMonth() - 12, 1);
             break;
         }
         
@@ -457,6 +563,7 @@ export default function Home() {
           setBiggestCategory(null);
         }
       })();
+      setIsLoading(false);
     }
   }, [wallets, selectedPeriod, customStartDate, customEndDate, chartRange, dataVersion]);
 
@@ -524,17 +631,20 @@ export default function Home() {
 
   return (
     <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
-      <ScrollView 
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 0 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={t.primary}
-            colors={[t.primary]}
-          />
-        }
-      >
+      {isLoading ? (
+        <SkeletonLoader />
+      ) : (
+        <ScrollView 
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 0 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={t.primary}
+              colors={[t.primary]}
+            />
+          }
+        >
         {/* Header Section */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 20 }}>
         <View>
@@ -812,8 +922,7 @@ export default function Home() {
               { key: '7d', label: '7D' },
               { key: '3m', label: '3M' },
               { key: '6m', label: '6M' },
-              { key: '1y', label: '1Y' },
-            ] as Array<{ key: '7d' | '3m' | '6m' | '1y'; label: string }>).map(({ key, label }) => (
+            ] as Array<{ key: '7d' | '3m' | '6m'; label: string }>).map(({ key, label }) => (
               <TouchableOpacity
                 key={key}
                 onPress={() => setChartRange(key)}
@@ -903,6 +1012,7 @@ export default function Home() {
           </ScrollView>
         </View>
       </ScrollView>
+      )}
 
       {/* Custom Date Range Picker Modal */}
       <Modal visible={showDatePicker} transparent animationType="slide">

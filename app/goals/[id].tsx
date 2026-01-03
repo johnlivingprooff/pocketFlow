@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  Alert,
   useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +14,8 @@ import { theme } from '@/theme/theme';
 import { formatCurrency } from '@/utils/formatCurrency';
 import { error as logError } from '@/utils/logger';
 import { getGoalWithMetrics, deleteGoal } from '@/lib/db/goals';
+import { useAlert } from '@/lib/hooks/useAlert';
+import { ThemedAlert } from '@/components/ThemedAlert';
 import type { GoalWithMetrics } from '@/types/goal';
 
 export default function GoalDetailScreen() {
@@ -26,6 +27,7 @@ export default function GoalDetailScreen() {
 
   const [goal, setGoal] = useState<GoalWithMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+  const { alertConfig, showErrorAlert, showConfirmAlert, dismissAlert } = useAlert();
 
   const goalId = typeof id === 'string' ? parseInt(id) : null;
 
@@ -37,7 +39,7 @@ export default function GoalDetailScreen() {
 
   const loadGoal = async () => {
     if (!goalId) {
-      Alert.alert('Error', 'Invalid goal ID');
+      showErrorAlert('Error', 'Invalid goal ID');
       router.back();
       return;
     }
@@ -50,14 +52,14 @@ export default function GoalDetailScreen() {
       
       const data = await getGoalWithMetrics(goalId);
       if (!data) {
-        Alert.alert('Error', 'Goal not found');
+        showErrorAlert('Error', 'Goal not found');
         router.back();
         return;
       }
       setGoal(data);
     } catch (err: any) {
       logError('Failed to load goal:', { error: err });
-      Alert.alert('Error', 'Failed to load goal details');
+      showErrorAlert('Error', 'Failed to load goal details');
     } finally {
       setLoading(false);
     }
@@ -68,29 +70,17 @@ export default function GoalDetailScreen() {
   };
 
   const handleDelete = () => {
-    Alert.alert('Delete Goal', 'Are you sure you want to delete this goal? This action cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            if (goalId) {
-              await deleteGoal(goalId);
-              Alert.alert('Success', 'Goal deleted', [
-                {
-                  text: 'OK',
-                  onPress: () => router.back(),
-                },
-              ]);
-            }
-          } catch (err: any) {
-            logError('Failed to delete goal:', { error: err });
-            Alert.alert('Error', 'Failed to delete goal');
-          }
-        },
-      },
-    ]);
+    showConfirmAlert('Delete Goal', 'Are you sure you want to delete this goal? This action cannot be undone.', async () => {
+      try {
+        if (goalId) {
+          await deleteGoal(goalId);
+          showConfirmAlert('Success', 'Goal deleted', () => router.back());
+        }
+      } catch (err: any) {
+        logError('Failed to delete goal:', { error: err });
+        showErrorAlert('Error', 'Failed to delete goal');
+      }
+    });
   };
 
   if (loading) {
@@ -275,6 +265,17 @@ export default function GoalDetailScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* Themed Alert Component */}
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={dismissAlert}
+        themeMode={themeMode}
+        systemColorScheme={systemColorScheme || 'light'}
+      />
     </SafeAreaView>
   );
 }

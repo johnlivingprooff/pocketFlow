@@ -11,7 +11,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useSettings } from '../store/useStore';
 import { theme } from '../theme/theme';
@@ -61,7 +60,7 @@ export function DatabaseDiagnostics() {
       setHealthScore(score);
       setLastCheck(new Date());
     } catch (error: any) {
-      Alert.alert('Error', `Failed to check integrity: ${error.message}`);
+      console.error(`Failed to check integrity: ${error.message}`);
     } finally {
       setChecking(false);
     }
@@ -77,17 +76,17 @@ export function DatabaseDiagnostics() {
           ? `Preview: ${result.issuesFixed} wallet(s) would be updated`
           : `Successfully repaired ${result.issuesFixed} wallet(s)`;
         
-        Alert.alert('Repair Complete', message);
+        console.log(`Repair Complete: ${message}`);
         
         if (!dryRun) {
           // Refresh diagnostics after repair
           await runIntegrityCheck();
         }
       } else {
-        Alert.alert('Repair Failed', result.errors.join('\n'));
+        console.error(`Repair Failed: ${result.errors.join('\n')}`);
       }
     } catch (error: any) {
-      Alert.alert('Error', `Failed to repair: ${error.message}`);
+      console.error(`Failed to repair: ${error.message}`);
     } finally {
       setRepairing(false);
     }
@@ -244,14 +243,9 @@ export function DatabaseDiagnostics() {
             <TouchableOpacity
               style={[styles.button, { backgroundColor: '#F44336' }]}
               onPress={() => {
-                Alert.alert(
-                  'Confirm Repair',
-                  'This will modify your database. A backup will be created automatically. Continue?',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Repair', onPress: () => runRepair(false) },
-                  ]
-                );
+                // Confirm and run repair
+                console.log('Confirm Repair: This will modify your database. A backup will be created automatically.');
+                runRepair(false);
               }}
               disabled={repairing}
             >

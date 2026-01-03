@@ -21,10 +21,10 @@ export default function TimePeriodSelector({
   borderColor,
 }: TimePeriodSelectorProps) {
   const periods: { value: TimePeriod; label: string }[] = [
-    { value: '7days', label: '7D' },
-    { value: '30days', label: '30D' },
-    { value: '3months', label: '3M' },
-    { value: '6months', label: '6M' },
+    { value: '7days', label: 'last 7 days' },
+    { value: '30days', label: 'last 30 days' },
+    { value: '3months', label: 'last 3 months' },
+    { value: '6months', label: 'last 6 months' },
   ];
 
   return (
@@ -41,9 +41,9 @@ export default function TimePeriodSelector({
               key={period.value}
               onPress={() => onSelectPeriod(period.value)}
               style={{
-                paddingHorizontal: 20,
-                paddingVertical: 10,
-                borderRadius: 20,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 16,
                 borderWidth: 1,
                 borderColor: isSelected ? primaryColor : borderColor,
                 backgroundColor: isSelected ? primaryColor : backgroundColor,
@@ -52,7 +52,7 @@ export default function TimePeriodSelector({
               <Text
                 style={{
                   color: isSelected ? '#FFFFFF' : textColor,
-                  fontSize: 14,
+                  fontSize: 12,
                   fontWeight: isSelected ? '700' : '600',
                 }}
               >

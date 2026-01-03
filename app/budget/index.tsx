@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, useColorScheme, Dimensions, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, useColorScheme, Dimensions, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -15,6 +15,8 @@ import type { GoalWithMetrics } from '@/types/goal';
 import { BudgetAlertBanner } from '@/components/BudgetAlertBanner';
 import { GoalAlertBanner } from '@/components/GoalAlertBanner';
 import { FinancialSummaryCard } from '@/components/FinancialSummaryCard';
+import { useAlert } from '@/lib/hooks/useAlert';
+import { ThemedAlert } from '@/components/ThemedAlert';
 
 type TabType = 'budget' | 'goals';
 
@@ -39,6 +41,7 @@ export default function BudgetGoalsScreen() {
   const { themeMode, defaultCurrency } = useSettings();
   const systemColorScheme = useColorScheme();
   const colors = theme(themeMode, systemColorScheme || 'light');
+  const { alertConfig, showErrorAlert, showConfirmAlert, showSuccessAlert, dismissAlert, setAlertConfig } = useAlert();
   const [activeTab, setActiveTab] = useState<TabType>('budget');
   const [budgets, setBudgets] = useState<BudgetWithMetrics[]>([]);
   const [goals, setGoals] = useState<GoalWithMetrics[]>([]);
@@ -83,7 +86,7 @@ export default function BudgetGoalsScreen() {
       setGoals(goalsWithMetrics.filter((g): g is GoalWithMetrics => g !== null));
     } catch (err: any) {
       logError('Failed to load budgets/goals data:', { error: err });
-      Alert.alert('Error', 'Failed to load budgets and goals');
+      showErrorAlert('Error', 'Failed to load budgets and goals');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -91,43 +94,53 @@ export default function BudgetGoalsScreen() {
   };
 
   const handleDeleteBudget = (budgetId: number) => {
-    Alert.alert('Delete Budget', 'Are you sure you want to delete this budget?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteBudget(budgetId);
-            loadData();
-            Alert.alert('Success', 'Budget deleted');
-          } catch (err: any) {
-            logError('Failed to delete budget:', { error: err });
-            Alert.alert('Error', 'Failed to delete budget');
-          }
+    setAlertConfig({
+      visible: true,
+      title: 'Delete Budget',
+      message: 'Are you sure you want to delete this budget?',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteBudget(budgetId);
+              loadData();
+              showSuccessAlert('Success', 'Budget deleted');
+            } catch (err: any) {
+              logError('Failed to delete budget:', { error: err });
+              showErrorAlert('Error', 'Failed to delete budget');
+            }
+          },
         },
-      },
-    ]);
+      ],
+    });
   };
 
   const handleDeleteGoal = (goalId: number) => {
-    Alert.alert('Delete Goal', 'Are you sure you want to delete this goal?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteGoal(goalId);
-            loadData();
-            Alert.alert('Success', 'Goal deleted');
-          } catch (err: any) {
-            logError('Failed to delete goal:', { error: err });
-            Alert.alert('Error', 'Failed to delete goal');
-          }
+    setAlertConfig({
+      visible: true,
+      title: 'Delete Goal',
+      message: 'Are you sure you want to delete this goal?',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteGoal(goalId);
+              loadData();
+              showSuccessAlert('Success', 'Goal deleted');
+            } catch (err: any) {
+              logError('Failed to delete goal:', { error: err });
+              showErrorAlert('Error', 'Failed to delete goal');
+            }
+          },
         },
-      },
-    ]);
+      ],
+    });
   };
 
   const handleViewBudget = (budgetId: number) => {
@@ -642,6 +655,17 @@ export default function BudgetGoalsScreen() {
         </Animated.View>
       </GestureDetector>
       </View>
+
+      {/* Themed Alert Component */}
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={dismissAlert}
+        themeMode={themeMode}
+        systemColorScheme={systemColorScheme || 'light'}
+      />
     </SafeAreaView>
   );
 }

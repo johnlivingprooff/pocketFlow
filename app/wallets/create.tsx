@@ -27,13 +27,13 @@ export default function CreateWallet() {
   const [exchangeRate, setExchangeRate] = useState('1.0');
   
   // Bank Account fields
-  const [accountType, setAccountType] = useState<string>('Checking');
+  const [accountType, setAccountType] = useState<string>('');
   const [accountNumber, setAccountNumber] = useState('');
   const [showAccountTypePicker, setShowAccountTypePicker] = useState(false);
   
   // Mobile Money fields
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [serviceProvider, setServiceProvider] = useState<string>('Mpesa');
+  const [serviceProvider, setServiceProvider] = useState<string>('');
   const [showServiceProviderPicker, setShowServiceProviderPicker] = useState(false);
   
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
@@ -58,27 +58,6 @@ export default function CreateWallet() {
       return;
     }
 
-    // Validate conditional fields
-    if (type === 'Bank Account' && !accountNumber.trim()) {
-      setAlertConfig({
-        visible: true,
-        title: 'Validation Error',
-        message: 'Please enter an account number for bank account',
-        buttons: [{ text: 'OK' }]
-      });
-      return;
-    }
-
-    if (type === 'Mobile Money' && !phoneNumber.trim()) {
-      setAlertConfig({
-        visible: true,
-        title: 'Validation Error',
-        message: 'Please enter a phone number for mobile money',
-        buttons: [{ text: 'OK' }]
-      });
-      return;
-    }
-
     if (isSaving) return; // Prevent double submission
     setIsSaving(true);
 
@@ -94,11 +73,11 @@ export default function CreateWallet() {
 
       // Add conditional fields based on wallet type
       if (type === 'Bank Account') {
-        walletData.accountType = accountType;
-        walletData.accountNumber = accountNumber.trim();
+        if (accountType.trim()) walletData.accountType = accountType.trim();
+        if (accountNumber.trim()) walletData.accountNumber = accountNumber.trim();
       } else if (type === 'Mobile Money') {
-        walletData.phoneNumber = phoneNumber.trim();
-        walletData.serviceProvider = serviceProvider;
+        if (phoneNumber.trim()) walletData.phoneNumber = phoneNumber.trim();
+        if (serviceProvider.trim()) walletData.serviceProvider = serviceProvider.trim();
       }
 
       await createWallet(walletData);
@@ -133,13 +112,13 @@ export default function CreateWallet() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top', 'bottom']}>
       <KeyboardAvoidingView 
         style={{ flex: 1, backgroundColor: t.background }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 20 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 20, paddingBottom: 140 }}>
         <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 24 }}>Create Wallet</Text>
 
       <Text style={{ color: t.textSecondary, fontSize: 14, fontWeight: '600', marginBottom: 6 }}>Wallet Name</Text>
@@ -216,7 +195,9 @@ export default function CreateWallet() {
               alignItems: 'center'
             }}
           >
-            <Text style={{ color: t.textPrimary, fontSize: 16 }}>{accountType}</Text>
+            <Text style={{ color: t.textPrimary, fontSize: 16 }}>
+              {accountType || 'Select (optional)'}
+            </Text>
             <Text style={{ color: t.textSecondary }}>▼</Text>
           </TouchableOpacity>
 
@@ -258,7 +239,9 @@ export default function CreateWallet() {
               alignItems: 'center'
             }}
           >
-            <Text style={{ color: t.textPrimary, fontSize: 16 }}>{serviceProvider}</Text>
+            <Text style={{ color: t.textPrimary, fontSize: 16 }}>
+              {serviceProvider || 'Select (optional)'}
+            </Text>
             <Text style={{ color: t.textSecondary }}>▼</Text>
           </TouchableOpacity>
 

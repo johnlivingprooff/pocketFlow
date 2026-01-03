@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, useColorScheme, Modal, Switch, Platform, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, useColorScheme, Modal, Switch, Platform, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -18,6 +18,8 @@ import { enqueueWrite } from '../../src/lib/db/writeQueue';
 import { CalendarModal } from '../../src/components/CalendarModal';
 import { SelectModal, SelectOption } from '../../src/components/SelectModal';
 import { CATEGORY_ICONS } from '../../src/assets/icons/CategoryIcons';
+import { useAlert } from '../../src/lib/hooks/useAlert';
+import { ThemedAlert } from '../../src/components/ThemedAlert';
 
 export default function RecurringTransactionsScreen() {
   const router = useRouter();
@@ -25,6 +27,7 @@ export default function RecurringTransactionsScreen() {
   const { themeMode, defaultCurrency } = useSettings();
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const t = theme(effectiveMode);
+  const { alertConfig, showErrorAlert, showConfirmAlert, showSuccessAlert, dismissAlert, setAlertConfig } = useAlert();
 
   const [recurringTransactions, setRecurringTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,7 +113,7 @@ export default function RecurringTransactionsScreen() {
       }
     } catch (error) {
       console.error('Error loading wallets and categories:', error);
-      Alert.alert('Error', 'Failed to load wallets. Please try again.');
+      showErrorAlert('Error', 'Failed to load wallets. Please try again.');
     } finally {
       setLoadingCategories(false);
     }
@@ -130,7 +133,7 @@ export default function RecurringTransactionsScreen() {
       setRecurringTransactions(transactions);
     } catch (error) {
       console.error('Error loading recurring transactions:', error);
-      Alert.alert('Error', 'Failed to load recurring transactions');
+      showErrorAlert('Error', 'Failed to load recurring transactions');
     } finally {
       setLoading(false);
     }
@@ -176,10 +179,11 @@ export default function RecurringTransactionsScreen() {
   };
 
   const handleCancelRecurring = (transaction: Transaction) => {
-    Alert.alert(
-      'Cancel Recurring Transaction',
-      `Are you sure you want to stop this recurring ${transaction.type}? Future instances will not be generated, but existing transactions will remain.`,
-      [
+    setAlertConfig({
+      visible: true,
+      title: 'Cancel Recurring Transaction',
+      message: `Are you sure you want to stop this recurring ${transaction.type}? Future instances will not be generated, but existing transactions will remain.`,
+      buttons: [
         { text: 'Keep Active', style: 'cancel' },
         {
           text: 'Stop Recurring',
@@ -189,16 +193,16 @@ export default function RecurringTransactionsScreen() {
               if (transaction.id) {
                 await cancelRecurringTransaction(transaction.id);
                 await loadRecurringTransactions();
-                Alert.alert('Success', 'Recurring transaction has been cancelled');
+                showSuccessAlert('Success', 'Recurring transaction has been cancelled');
               }
             } catch (error) {
               console.error('Error cancelling recurring transaction:', error);
-              Alert.alert('Error', 'Failed to cancel recurring transaction');
+              showErrorAlert('Error', 'Failed to cancel recurring transaction');
             }
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   const handleEditRecurring = (transaction: Transaction) => {
@@ -220,10 +224,10 @@ export default function RecurringTransactionsScreen() {
       setShowEditModal(false);
       setEditingTransaction(null);
       await loadRecurringTransactions();
-      Alert.alert('Success', 'Recurring transaction updated');
+      showSuccessAlert('Success', 'Recurring transaction updated');
     } catch (error) {
       console.error('Error updating recurring transaction:', error);
-      Alert.alert('Error', 'Failed to update recurring transaction');
+      showErrorAlert('Error', 'Failed to update recurring transaction');
     }
   };
 
@@ -231,12 +235,12 @@ export default function RecurringTransactionsScreen() {
     // Validation
     const amount = parseFloat(createAmount);
     if (!createWalletId || !amount || !createCategory) {
-      Alert.alert('Validation Error', 'Please fill in all required fields');
+      showErrorAlert('Validation Error', 'Please fill in all required fields');
       return;
     }
 
     if (createType === 'transfer' && !createToWalletId) {
-      Alert.alert('Validation Error', 'Please select a destination wallet for the transfer');
+      showErrorAlert('Validation Error', 'Please select a destination wallet for the transfer');
       return;
     }
 
@@ -339,10 +343,10 @@ export default function RecurringTransactionsScreen() {
       setCreateWalletId(wallets.length > 0 ? wallets[0].id! : 0);
       setCreateToWalletId(0);
       await loadRecurringTransactions();
-      Alert.alert('Success', 'Recurring transaction created successfully');
+      showSuccessAlert('Success', 'Recurring transaction created successfully');
     } catch (error) {
       console.error('Error creating recurring transaction:', error);
-      Alert.alert('Error', 'Failed to create recurring transaction');
+      showErrorAlert('Error', 'Failed to create recurring transaction');
     }
   };
 
@@ -1051,6 +1055,17 @@ export default function RecurringTransactionsScreen() {
           hierarchical={true}
         />
       )}
+
+      {/* Themed Alert Component */}
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={dismissAlert}
+        themeMode={effectiveMode}
+        systemColorScheme={systemColorScheme || 'light'}
+      />
     </SafeAreaView>
   );
 }

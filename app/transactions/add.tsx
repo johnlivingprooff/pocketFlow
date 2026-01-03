@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Platform, Modal, useColorScheme, KeyboardAvoidingView, Switch, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Platform, Modal, useColorScheme, KeyboardAvoidingView, Switch } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -101,8 +101,15 @@ export default function AddTransactionScreen() {
         const transaction = await getById(Number(id));
         if (transaction) {
           if (transaction.type === 'transfer') {
-            Alert.alert('Cannot Edit Transfer', 'Transfer transactions cannot be edited directly. Please delete and create a new transfer if needed.');
-            router.back();
+            setAlertConfig({
+              visible: true,
+              title: 'Cannot Edit Transfer',
+              message: 'Transfer transactions cannot be edited directly. Please delete and create a new transfer if needed.',
+              buttons: [{
+                text: 'OK',
+                onPress: () => router.back()
+              }]
+            });
             return;
           }
           setType(transaction.amount < 0 ? 'expense' : 'income');
@@ -122,8 +129,15 @@ export default function AddTransactionScreen() {
         }
       } catch (error) {
         logError('Failed to load transaction for editing:', { error });
-        Alert.alert('Error', 'Failed to load transaction for editing');
-        router.back();
+        setAlertConfig({
+          visible: true,
+          title: 'Error',
+          message: 'Failed to load transaction for editing',
+          buttons: [{
+            text: 'OK',
+            onPress: () => router.back()
+          }]
+        });
       } finally {
         setLoading(false);
       }
@@ -165,7 +179,12 @@ export default function AddTransactionScreen() {
           { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
         );
         if (!manip.base64) {
-          Alert.alert('Error', 'Failed to process image');
+          setAlertConfig({
+            visible: true,
+            title: 'Error',
+            message: 'Failed to process image',
+            buttons: [{ text: 'OK' }]
+          });
           return;
         }
         setImageBase64(manip.base64);
@@ -173,7 +192,12 @@ export default function AddTransactionScreen() {
       }
     } catch (error) {
       logError('Error picking image', { error });
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
+      setAlertConfig({
+        visible: true,
+        title: 'Error',
+        message: 'Failed to pick image. Please try again.',
+        buttons: [{ text: 'OK' }]
+      });
     } finally {
       setIsPickingImage(false);
       setImagePickingStartTime(null);
@@ -193,7 +217,12 @@ export default function AddTransactionScreen() {
           { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
         );
         if (!manip.base64) {
-          Alert.alert('Error', 'Failed to process photo');
+          setAlertConfig({
+            visible: true,
+            title: 'Error',
+            message: 'Failed to process photo',
+            buttons: [{ text: 'OK' }]
+          });
           return;
         }
         setImageBase64(manip.base64);
@@ -201,7 +230,12 @@ export default function AddTransactionScreen() {
       }
     } catch (error) {
       logError('Error taking photo', { error });
-      Alert.alert('Error', 'Failed to take photo. Please try again.');
+      setAlertConfig({
+        visible: true,
+        title: 'Error',
+        message: 'Failed to take photo. Please try again.',
+        buttons: [{ text: 'OK' }]
+      });
     } finally {
       setIsPickingImage(false);
       setImagePickingStartTime(null);

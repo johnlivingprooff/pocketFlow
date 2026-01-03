@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Switch, TouchableOpacity, Alert, useColorScheme } from 'react-native';
+import React, { useState, useEffect, useColorScheme } from 'react';
+import { View, Text, ScrollView, Switch, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
 import { checkBiometricAvailability, authenticateWithBiometrics } from '../../src/lib/services/biometricService';
 import { clearDatabase } from '../../src/lib/db';
+import { useAlert } from '../../src/lib/hooks/useAlert';
+import { ThemedAlert } from '../../src/components/ThemedAlert';
 
 export default function SecuritySettings() {
   const router = useRouter();
@@ -22,6 +24,7 @@ export default function SecuritySettings() {
   const t = theme(effectiveMode);
   const [biometricType, setBiometricType] = useState<string>('Biometric');
   const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const { alertConfig, showErrorAlert, showConfirmAlert, dismissAlert } = useAlert();
 
   useEffect(() => {
     checkBiometrics();
@@ -40,10 +43,9 @@ export default function SecuritySettings() {
       const availability = await checkBiometricAvailability();
       
       if (!availability.isAvailable) {
-        Alert.alert(
+        showErrorAlert(
           'Biometric Not Available',
-          availability.error || 'Biometric authentication is not available.',
-          [{ text: 'OK' }]
+          availability.error || 'Biometric authentication is not available.'
         );
         return;
       }
@@ -54,78 +56,64 @@ export default function SecuritySettings() {
         setBiometricEnabled(true);
         setBiometricSetupComplete(true);
         setLastAuthTime(Date.now());
-        Alert.alert('Success', `${biometricType} has been enabled successfully.`);
+        showConfirmAlert('Success', `${biometricType} has been enabled successfully.`, dismissAlert);
       } else {
-        Alert.alert('Failed', auth.error || 'Could not enable biometric lock.');
+        showErrorAlert('Failed', auth.error || 'Could not enable biometric lock.');
       }
     } else {
-      Alert.alert(
+      showConfirmAlert(
         'Disable Biometric Lock',
         'Are you sure you want to disable biometric authentication?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Disable',
-            style: 'destructive',
-            onPress: () => {
-              setBiometricEnabled(false);
-              setLastAuthTime(null);
-            },
-          },
-        ]
+        () => {
+          setBiometricEnabled(false);
+          setLastAuthTime(null);
+        }
       );
     }
   };
 
   const handleClearAllData = () => {
-    Alert.alert(
+    showConfirmAlert(
       'Clear All Data',
       'This will permanently delete all your wallets, transactions, and categories. This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear All',
-          style: 'destructive',
-          onPress: async () => {
+      async () => {
+        try {
+          await clearDatabase();
+          resetSettings();
+          // Close the app using native modules to restart fresh
+          setTimeout(() => {
             try {
-              await clearDatabase();
-              resetSettings();
-              // Close the app using native modules to restart fresh
-              setTimeout(() => {
-                try {
-                  const { NativeModules } = require('react-native');
-                  // Try Android exit
-                  if (NativeModules.RNExitApp) {
-                    NativeModules.RNExitApp.exitApp();
-                  }
-                  // Try iOS exit via native code
-                  else if (NativeModules.ExitApp) {
-                    NativeModules.ExitApp.exit();
-                  }
-                  // Fallback: navigate and clear router state
-                  else {
-                    router.replace('/');
-                  }
-                } catch (e) {
-                  // If all else fails, just navigate back
-                  router.replace('/');
-                }
-              }, 200);
-            } catch (error) {
-              Alert.alert('Error', 'Failed to clear data. Please try again.');
+              const { NativeModules } = require('react-native');
+              // Try Android exit
+              if (NativeModules.RNExitApp) {
+                NativeModules.RNExitApp.exitApp();
+              }
+              // Try iOS exit via native code
+              else if (NativeModules.ExitApp) {
+                NativeModules.ExitApp.exit();
+              }
+              // Fallback: navigate and clear router state
+              else {
+                router.replace('/');
+              }
+            } catch (e) {
+              // If all else fails, just navigate back
+              router.replace('/');
             }
-          },
-        },
-      ]
+          }, 200);
+        } catch (error) {
+          showErrorAlert('Error', 'Failed to clear data. Please try again.');
+        }
+      }
     );
   };
 
   const handleTestBiometric = async () => {
     const auth = await authenticateWithBiometrics('Test biometric authentication');
     if (auth.success) {
-      Alert.alert('Success', 'Biometric authentication successful!');
+      showConfirmAlert('Success', 'Biometric authentication successful!', dismissAlert);
     } else {
-      Alert.alert('Failed', auth.error || 'Authentication failed.');
+      showErrorAlert('Failed', auth.error || 'Authentication failed.');
     }
   };
 
@@ -266,6 +254,17 @@ export default function SecuritySettings() {
         </View>
       </View>
     </ScrollView>
+
+    {/* Themed Alert Component */}
+    <ThemedAlert
+      visible={alertConfig.visible}
+      title={alertConfig.title}
+      message={alertConfig.message}
+      buttons={alertConfig.buttons}
+      onDismiss={dismissAlert}
+      themeMode={themeMode}
+      systemColorScheme={systemColorScheme || 'light'}
+    />
     </SafeAreaView>
   );
 }

@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useColorScheme } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Pressable,
-  Alert,
   TextInput,
   Modal,
   FlatList,
@@ -24,6 +23,8 @@ import {
 } from '@/lib/db/categories';
 import { CATEGORY_ICONS, CategoryIconName } from '@/assets/icons/CategoryIcons';
 import { error as logError, log } from '@/utils/logger';
+import { useAlert } from '@/lib/hooks/useAlert';
+import { ThemedAlert } from '@/components/ThemedAlert';
 
 type CategoryType = 'income' | 'expense';
 
@@ -58,8 +59,9 @@ const renderCategoryIcon = (
 
 export default function CategoryManageScreen() {
   const { themeMode } = useSettings();
+  const systemColorScheme = useColorScheme();
   const router = useRouter();
-  const colors = theme(themeMode);
+  const colors = theme(themeMode, systemColorScheme || 'light');
 
   const [categoryType, setCategoryType] = useState<CategoryType>('expense');
   const [categories, setCategories] = useState<CategoryWithChildren[]>([]);
@@ -68,6 +70,7 @@ export default function CategoryManageScreen() {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedParent, setSelectedParent] = useState<Category | null>(null);
   const [isCreatingSubcategory, setIsCreatingSubcategory] = useState(false);
+  const { alertConfig, showErrorAlert, showConfirmAlert, dismissAlert } = useAlert();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -87,7 +90,7 @@ export default function CategoryManageScreen() {
       setCategories(hierarchy as any[]);
     } catch (err) {
       logError('Failed to load categories:', { error: err });
-      Alert.alert('Error', 'Failed to load categories');
+      showErrorAlert('Error', 'Failed to load categories');
     } finally {
       setLoading(false);
     }
@@ -95,7 +98,7 @@ export default function CategoryManageScreen() {
 
   const handleCreateCategory = async () => {
     if (!formData.name.trim()) {
-      Alert.alert('Error', 'Please enter a category name');
+      showErrorAlert('Error', 'Please enter a category name');
       return;
     }
 
@@ -116,16 +119,16 @@ export default function CategoryManageScreen() {
       setCreateModalVisible(false);
       loadCategories();
       
-      Alert.alert('Success', `${isCreatingSubcategory ? 'Sub' : ''}Category created`);
+      showConfirmAlert('Success', `${isCreatingSubcategory ? 'Sub' : ''}Category created`, dismissAlert);
     } catch (err) {
       logError('Failed to create category:', { error: err });
-      Alert.alert('Error', 'Failed to create category');
+      showErrorAlert('Error', 'Failed to create category');
     }
   };
 
   const handleUpdateCategory = async () => {
     if (!editingCategory || !formData.name.trim()) {
-      Alert.alert('Error', 'Please enter a category name');
+      showErrorAlert('Error', 'Please enter a category name');
       return;
     }
 
@@ -140,35 +143,28 @@ export default function CategoryManageScreen() {
       setEditModalVisible(false);
       loadCategories();
       
-      Alert.alert('Success', 'Category updated');
+      showConfirmAlert('Success', 'Category updated', dismissAlert);
     } catch (err) {
       logError('Failed to update category:', { error: err });
-      Alert.alert('Error', 'Failed to update category');
+      showErrorAlert('Error', 'Failed to update category');
     }
   };
 
   const handleDeleteCategory = (category: Category) => {
-    Alert.alert(
+    showConfirmAlert(
       'Delete Category',
       `Are you sure you want to delete "${category.name}"? This will also delete all subcategories.`,
-      [
-        { text: 'Cancel', onPress: () => {} },
-        {
-          text: 'Delete',
-          onPress: async () => {
-            try {
-              await deleteCategory(category.id!);
-              log(`Deleted category: ${category.name}`);
-              loadCategories();
-              Alert.alert('Success', 'Category deleted');
-            } catch (err) {
-              logError('Failed to delete category:', { error: err });
-              Alert.alert('Error', 'Failed to delete category');
-            }
-          },
-          style: 'destructive',
-        },
-      ]
+      async () => {
+        try {
+          await deleteCategory(category.id!);
+          log(`Deleted category: ${category.name}`);
+          loadCategories();
+          showConfirmAlert('Success', 'Category deleted', dismissAlert);
+        } catch (err) {
+          logError('Failed to delete category:', { error: err });
+          showErrorAlert('Error', 'Failed to delete category');
+        }
+      }
     );
   };
 
@@ -428,6 +424,17 @@ export default function CategoryManageScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Themed Alert Component */}
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={dismissAlert}
+        themeMode={themeMode}
+        systemColorScheme={systemColorScheme || 'light'}
+      />
     </View>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, Dimensions, Platform, TouchableOpacity, useColorScheme, Image, Alert, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, Dimensions, Platform, TouchableOpacity, useColorScheme, Image, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
@@ -23,6 +23,7 @@ import {
   getCategorySpendingForPeriod,
   getTransactionsByCategory
 } from '../../src/lib/db/transactions';
+import { exec } from '../../src/lib/db/index';
 import { getCategories } from '../../src/lib/db/categories';
 import { formatCurrency, formatLargeNumber } from '../../src/utils/formatCurrency';
 import { formatShortDate } from '../../src/utils/date';
@@ -43,6 +44,16 @@ import {
   calculateFinancialHealthScore,
   FinancialHealthScore
 } from '../../src/lib/insights/analyticsInsights';
+import { useAlert } from '../../src/lib/hooks/useAlert';
+import { ThemedAlert } from '../../src/components/ThemedAlert';
+
+// Helper function to format large numbers with abbreviations and comma separators
+function abbreviateNumber(num: number): string {
+  if (num < 999) return Math.round(num).toLocaleString('en-US');
+  if (num < 1_000_000) return (num / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
+  if (num < 1_000_000_000) return (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+  return (num / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'B';
+}
 
 export default function AnalyticsPage() {
   const { themeMode, defaultCurrency, userInfo } = useSettings();
@@ -53,6 +64,24 @@ export default function AnalyticsPage() {
   const [categories, setCategories] = useState<Array<{ category: string; total: number }>>([]);
   const [largestPurchase, setLargestPurchase] = useState(0);
   const [avgDailySpend, setAvgDailySpend] = useState(0);
+  const [incomeByPeriod, setIncomeByPeriod] = useState<Record<string, number>>({
+    '7days': 0,
+    '30days': 0,
+    '3months': 0,
+    '6months': 0
+  });
+  const [spendingRateByPeriod, setSpendingRateByPeriod] = useState<Record<string, number>>({
+    '7days': 0,
+    '30days': 0,
+    '3months': 0,
+    '6months': 0
+  });
+  const [largestPurchaseByPeriod, setLargestPurchaseByPeriod] = useState<Record<string, number>>({
+    '7days': 0,
+    '30days': 0,
+    '3months': 0,
+    '6months': 0
+  });
   
   // Phase 1: Enhanced Analytics State
   const [weekComparison, setWeekComparison] = useState<{ thisWeek: number; lastWeek: number; change: number } | null>(null);
@@ -79,9 +108,14 @@ export default function AnalyticsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [categoryTransactions, setCategoryTransactions] = useState<Array<{ id: number; amount: number; date: string; notes?: string }>>([]);
   const [showCategoryDrillDown, setShowCategoryDrillDown] = useState(false);
+
+  const { alertConfig, showSuccessAlert, dismissAlert } = useAlert();
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const loadData = useCallback(async (period: TimePeriod = '30days') => {
+    setIsLoading(true);
+    try {
     if (Platform.OS !== 'web') {
       const month = await monthSpend();
       const today = await todaySpend();
@@ -98,6 +132,71 @@ export default function AnalyticsPage() {
       // Find largest purchase (simplified - using category totals)
       const largest = Math.max(...breakdown.map(c => c.total), 0);
       setLargestPurchase(largest);
+
+      // Load period-specific metrics for cards
+      const incomeData: Record<string, number> = {};
+      const spendingData: Record<string, number> = {};
+      const largestPurchaseData: Record<string, number> = {};
+      
+      const periods: Array<{ key: TimePeriod; days: number }> = [
+        { key: '7days', days: 7 },
+        { key: '30days', days: 30 },
+        { key: '3months', days: 90 },
+        { key: '6months', days: 180 }
+      ];
+      
+      for (const { key, days } of periods) {
+        try {
+          // Calculate income and expense for this specific period
+          const now = new Date();
+          const startDate = new Date(now);
+          startDate.setDate(now.getDate() - days);
+          const start = startDate.toISOString();
+          const end = now.toISOString();
+          
+          // Query income for this period
+          const incomeResult = await exec<{ total: number }>(
+            `SELECT COALESCE(SUM(t.amount * COALESCE(w.exchange_rate, 1.0)),0) as total 
+             FROM transactions t 
+             LEFT JOIN wallets w ON t.wallet_id = w.id
+             WHERE t.type = 'income' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
+            [start, end]
+          );
+          
+          // Query expense for this period
+          const expenseResult = await exec<{ total: number }>(
+            `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
+             FROM transactions t 
+             LEFT JOIN wallets w ON t.wallet_id = w.id
+             WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
+            [start, end]
+          );
+          
+          // Query largest single transaction for this period
+          const largestResult = await exec<{ amount: number }>(
+            `SELECT ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) as amount
+             FROM transactions t 
+             LEFT JOIN wallets w ON t.wallet_id = w.id
+             WHERE t.date BETWEEN ? AND ? AND t.type = 'expense' AND (t.category IS NULL OR t.category <> 'Transfer')
+             ORDER BY ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) DESC
+             LIMIT 1;`,
+            [start, end]
+          );
+          
+          incomeData[key] = incomeResult[0]?.total ?? 0;
+          spendingData[key] = expenseResult[0]?.total ?? 0;
+          largestPurchaseData[key] = largestResult[0]?.amount ?? 0;
+        } catch (err) {
+          console.error(`Error loading metrics for period ${key}:`, err);
+          incomeData[key] = 0;
+          spendingData[key] = 0;
+          largestPurchaseData[key] = 0;
+        }
+      }
+      
+      setIncomeByPeriod(incomeData);
+      setSpendingRateByPeriod(spendingData);
+      setLargestPurchaseByPeriod(largestPurchaseData);
 
       // Phase 1: Load enhanced analytics
       const weekComp = await weekOverWeekComparison();
@@ -152,6 +251,9 @@ export default function AnalyticsPage() {
         dailySpending: daily
       });
       setFinancialHealth(healthScore);
+    }
+    } finally {
+      setIsLoading(false);
     }
   }, [incomeExpensePeriod]);
 
@@ -219,6 +321,61 @@ export default function AnalyticsPage() {
   // Use actual category colors, fallback to theme colors
   const fallbackColors = ['#C1A12F', '#84670B', '#B3B09E', '#6B6658', '#332D23', '#8B7355', '#A67C52', '#D4AF37'];
 
+  // Skeleton Loader Component
+  const SkeletonLoader = () => (
+    <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 80 }}>
+      {/* Header Section */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingTop: 20 }}>
+        <View>
+          <View style={{ height: 24, width: 120, backgroundColor: t.card, borderRadius: 4, marginBottom: 6, opacity: 0.5 }} />
+          <View style={{ height: 13, width: 180, backgroundColor: t.card, borderRadius: 4, opacity: 0.4 }} />
+        </View>
+        <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.card, opacity: 0.5 }} />
+      </View>
+
+      {/* Filter Pills */}
+      <View style={{ marginBottom: 20, flexDirection: 'row', gap: 8 }}>
+        {[1, 2, 3, 4].map((i) => (
+          <View key={i} style={{ height: 32, width: 80, backgroundColor: t.card, borderRadius: 16, opacity: 0.5 }} />
+        ))}
+      </View>
+
+      {/* Overview Cards */}
+      <View style={{ marginBottom: 24 }}>
+        <View style={{ height: 18, width: 100, backgroundColor: t.card, borderRadius: 4, marginBottom: 12, opacity: 0.5 }} />
+        {[1, 2].map((i) => (
+          <View key={i} style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+            {[1, 2].map((j) => (
+              <View key={j} style={{ flex: 1, height: 100, backgroundColor: t.card, borderRadius: 14, opacity: 0.5 }} />
+            ))}
+          </View>
+        ))}
+      </View>
+
+      {/* Chart Section */}
+      <View style={{ marginBottom: 24 }}>
+        <View style={{ height: 18, width: 150, backgroundColor: t.card, borderRadius: 4, marginBottom: 12, opacity: 0.5 }} />
+        <View style={{ height: 200, backgroundColor: t.card, borderRadius: 14, opacity: 0.5 }} />
+      </View>
+
+      {/* Category Breakdown */}
+      <View style={{ marginBottom: 24 }}>
+        <View style={{ height: 18, width: 180, backgroundColor: t.card, borderRadius: 4, marginBottom: 12, opacity: 0.5 }} />
+        {[1, 2, 3].map((i) => (
+          <View key={i} style={{ height: 60, backgroundColor: t.card, borderRadius: 12, marginBottom: 12, opacity: 0.5 }} />
+        ))}
+      </View>
+    </ScrollView>
+  );
+
+  if (isLoading) {
+    return (
+      <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
+        <SkeletonLoader />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
       <ScrollView 
@@ -262,7 +419,7 @@ export default function AnalyticsPage() {
         <View style={{ marginBottom: 24 }}>
           <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Overview</Text>
           
-          {/* Total Balance + Net Flow */}
+          {/* Net Flow + Income */}
           {incomeExpense && (
             <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
               <View style={{
@@ -275,17 +432,17 @@ export default function AnalyticsPage() {
                 ...shadows.sm
               }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                  <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>Net Flow [{defaultCurrency}]</Text>
+                  <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>Net Flow</Text>
                   <HelpIcon
-                    onPress={() => Alert.alert(
+                    onPress={() => showSuccessAlert(
                       'Net Flow',
-                      'Your net savings for the month (income minus expenses). Positive values show you\'re saving money, while negative values indicate you\'re spending more than you earn.'
+                      'Your net savings (income minus expenses). Positive values show you\'re saving money, while negative values indicate you\'re spending more than you earn.'
                     )}
                     color={t.textSecondary}
                   />
                 </View>
                 <Text style={{ color: incomeExpense.netSavings >= 0 ? t.success : t.danger, fontSize: 20, fontWeight: '800' }}>
-                  {formatLargeNumber(incomeExpense.netSavings)}
+                  {abbreviateNumber(incomeExpense.netSavings)}
                 </Text>
                 <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 4 }}>
                   {incomeExpense.savingsRate.toFixed(1)}% savings rate
@@ -302,24 +459,25 @@ export default function AnalyticsPage() {
                 ...shadows.sm
               }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                  <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>Income [{defaultCurrency}]</Text>
+                  <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>
+                    {selectedPeriod === '7days' ? 'Income (Week)' : selectedPeriod === '30days' ? 'Income (Month)' : selectedPeriod === '3months' ? 'Income (3M)' : 'Income (6M)'}
+                  </Text>
                   <HelpIcon
-                    onPress={() => Alert.alert(
+                    onPress={() => showSuccessAlert(
                       'Income',
-                      'Total income received this month from all sources (salary, freelance, business, investments, gifts, etc.). This represents money coming into your accounts.'
+                      'Total income received during the selected period from all sources.'
                     )}
                     color={t.textSecondary}
                   />
                 </View>
                 <Text style={{ color: t.success, fontSize: 20, fontWeight: '800' }}>
-                  {formatLargeNumber(incomeExpense.income)}
+                  {abbreviateNumber(incomeByPeriod[selectedPeriod] || 0)}
                 </Text>
-                <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 4 }}>income this month</Text>
               </View>
             </View>
           )}
 
-          {/* Daily Spend + Largest Purchase */}
+          {/* Spending Rate + Largest Purchase */}
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <View style={{
               flex: 1,
@@ -331,19 +489,20 @@ export default function AnalyticsPage() {
               ...shadows.sm
             }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>Avg Daily [{defaultCurrency}]</Text>
+                <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>
+                  {selectedPeriod === '7days' ? 'Spending (Week)' : selectedPeriod === '30days' ? 'Spending (Month)' : selectedPeriod === '3months' ? 'Spending (3M)' : 'Spending (6M)'}
+                </Text>
                 <HelpIcon
-                  onPress={() => Alert.alert(
-                    'Average Daily Spending',
-                    'Your average daily spending rate. Calculated by dividing total monthly expenses by the number of days in the current month. Helps you understand your typical spending pace.'
+                  onPress={() => showSuccessAlert(
+                    'Spending Rate',
+                    'Total expenses during the selected period.'
                   )}
                   color={t.textSecondary}
                 />
               </View>
               <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800' }}>
-                {formatLargeNumber(avgDailySpend)}
+                {abbreviateNumber(spendingRateByPeriod[selectedPeriod] || 0)}
               </Text>
-              <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 4 }}>spending rate</Text>
             </View>
 
             <View style={{
@@ -356,19 +515,18 @@ export default function AnalyticsPage() {
               ...shadows.sm
             }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>Top Spend [{defaultCurrency}]</Text>
+                <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>Largest Purchase</Text>
                 <HelpIcon
-                  onPress={() => Alert.alert(
-                    'Top Spend',
-                    'The highest amount spent on a single transaction this month. Shows your largest purchase and helps identify major spending events.'
+                  onPress={() => showSuccessAlert(
+                    'Largest Purchase',
+                    'The highest amount spent on a single transaction during the selected period.'
                   )}
                   color={t.textSecondary}
                 />
               </View>
               <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800' }}>
-                {formatLargeNumber(largestPurchase)}
+                {abbreviateNumber(largestPurchaseByPeriod[selectedPeriod] || 0)}
               </Text>
-              <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 4 }}>single purchase</Text>
             </View>
           </View>
         </View>
@@ -456,7 +614,7 @@ export default function AnalyticsPage() {
                 negativeColor={t.danger}
                 textColor={t.textPrimary}
                 backgroundColor={t.card}
-                formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
+                formatCurrency={(amount) => abbreviateNumber(amount)}
               />
             </View>
           </View>
@@ -490,7 +648,9 @@ export default function AnalyticsPage() {
         {/* SECTION 5: CATEGORY BREAKDOWN (Horizontal Bar Chart) */}
         {chartData.length > 0 ? (
           <View style={{ marginBottom: 24 }}>
-            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Spending by Category</Text>
+            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>
+              {selectedPeriod === '7days' ? 'Spending by Category (7D)' : selectedPeriod === '30days' ? 'Spending by Category (30D)' : selectedPeriod === '3months' ? 'Spending by Category (3M)' : 'Spending by Category (6M)'}
+            </Text>
             
             <View style={{
               backgroundColor: t.card,
@@ -512,7 +672,7 @@ export default function AnalyticsPage() {
                 }
                 textColor={t.textPrimary}
                 backgroundColor={t.card}
-                formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
+                formatCurrency={(amount) => abbreviateNumber(amount)}
                 onCategoryPress={handleCategoryClick}
               />
             </View>
@@ -544,6 +704,15 @@ export default function AnalyticsPage() {
         borderColor={t.border}
         formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
         formatDate={formatShortDate}
+      />
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={dismissAlert}
+        themeMode={themeMode}
+        systemColorScheme={systemColorScheme || 'light'}
       />
     </SafeAreaView>
   );

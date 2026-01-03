@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, useColorScheme, Image, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, useColorScheme, Image, FlatList, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { theme } from '../../src/theme/theme';
 import { useSettings } from '../../src/store/useStore';
 import { exec } from '../../src/lib/db';
 import * as FileSystem from 'expo-file-system/legacy';
+import { useAlert } from '../../src/lib/hooks/useAlert';
+import { ThemedAlert } from '../../src/components/ThemedAlert';
 
 interface ReceiptItem {
   id: number;
@@ -26,6 +28,7 @@ export default function ReceiptsGalleryScreen() {
   const [loading, setLoading] = useState(true);
   const [selectedReceipt, setSelectedReceipt] = useState<ReceiptItem | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const { alertConfig, showErrorAlert, showConfirmAlert, dismissAlert } = useAlert();
 
   useEffect(() => {
     loadReceipts();
@@ -43,48 +46,41 @@ export default function ReceiptsGalleryScreen() {
       setReceipts(receiptData);
     } catch (error) {
       console.error('Error loading receipts:', error);
-      Alert.alert('Error', 'Failed to load receipts');
+      showErrorAlert('Error', 'Failed to load receipts');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteReceipt = (receipt: ReceiptItem) => {
-    Alert.alert(
+    showConfirmAlert(
       'Delete Receipt',
       'Are you sure you want to delete this receipt? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
+      async () => {
+        try {
+          // Delete file
+          if (receipt.receipt_path) {
             try {
-              // Delete file
-              if (receipt.receipt_path) {
-                try {
-                  await FileSystem.deleteAsync(receipt.receipt_path);
-                } catch (e) {
-                  console.warn('Could not delete file:', e);
-                }
-              }
-
-              // Clear receipt_path from transaction
-              await exec(
-                `UPDATE transactions SET receipt_path = NULL WHERE id = ?`,
-                [receipt.id]
-              );
-
-              setReceipts(receipts.filter(r => r.id !== receipt.id));
-              setShowPreview(false);
-              Alert.alert('Success', 'Receipt deleted');
-            } catch (error) {
-              console.error('Error deleting receipt:', error);
-              Alert.alert('Error', 'Failed to delete receipt');
+              await FileSystem.deleteAsync(receipt.receipt_path);
+            } catch (e) {
+              console.warn('Could not delete file:', e);
             }
-          },
-        },
-      ]
+          }
+
+          // Clear receipt_path from transaction
+          await exec(
+            `UPDATE transactions SET receipt_path = NULL WHERE id = ?`,
+            [receipt.id]
+          );
+
+          setReceipts(receipts.filter(r => r.id !== receipt.id));
+          setShowPreview(false);
+          showConfirmAlert('Success', 'Receipt deleted', dismissAlert);
+        } catch (error) {
+          console.error('Error deleting receipt:', error);
+          showErrorAlert('Error', 'Failed to delete receipt');
+        }
+      }
     );
   };
 
@@ -258,6 +254,17 @@ export default function ReceiptsGalleryScreen() {
           )}
         </View>
       )}
+
+      {/* Themed Alert Component */}
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={dismissAlert}
+        themeMode={themeMode}
+        systemColorScheme={systemColorScheme || 'light'}
+      />
     </SafeAreaView>
   );
 }

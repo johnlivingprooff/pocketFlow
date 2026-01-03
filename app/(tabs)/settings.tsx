@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, Linking, useColorScheme, Modal, FlatList, Switch, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Linking, useColorScheme, Modal, FlatList, Switch, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Sharing from 'expo-sharing';
 import { useSettings } from '../../src/store/useStore';
@@ -10,8 +10,10 @@ import { checkBiometricAvailability, authenticateWithBiometrics } from '../../sr
 import { createBackup, listBackups, restoreFromBackup } from '../../src/lib/export/backupRestore';
 import { exportTransactionsToCSV } from '../../src/lib/export/csvExport';
 import { BackupIcon } from '../../src/assets/icons/BackupIcon';
-import { CsvIcon } from '../../src/assets/icons/CsvIcon';
+import { ExportIcon } from '../../src/assets/icons/ExportIcon';
 import { ReceiptIcon } from '../../src/assets/icons/ReceiptIcon';
+import { useAlert } from '../../src/lib/hooks/useAlert';
+import { ThemedAlert } from '../../src/components/ThemedAlert';
 import appPackage from '../../package.json';
 
 const APP_VERSION = appPackage.version;
@@ -38,6 +40,8 @@ export default function SettingsScreen() {
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [isLoadingBackup, setIsLoadingBackup] = useState(false);
 
+  const { alertConfig, showErrorAlert, showConfirmAlert, showSuccessAlert, dismissAlert } = useAlert();
+
   useEffect(() => {
     checkBiometrics();
     loadBackups();
@@ -62,10 +66,9 @@ export default function SettingsScreen() {
       const availability = await checkBiometricAvailability();
       
       if (!availability.isAvailable) {
-        Alert.alert(
+        showErrorAlert(
           'Biometric Not Available',
-          availability.error || 'Biometric authentication is not available on this device.',
-          [{ text: 'OK' }]
+          availability.error || 'Biometric authentication is not available on this device.'
         );
         return;
       }
@@ -76,37 +79,28 @@ export default function SettingsScreen() {
       if (auth.success) {
         setBiometricEnabled(true);
         setBiometricSetupComplete(true);
-        Alert.alert(
+        showSuccessAlert(
           'Biometric Lock Enabled',
-          `${biometricType} has been enabled. You'll be asked to authenticate when opening the app.`,
-          [{ text: 'OK' }]
+          `${biometricType} has been enabled. You'll be asked to authenticate when opening the app.`
         );
       } else {
-        Alert.alert(
+        showErrorAlert(
           'Authentication Failed',
-          auth.error || 'Could not enable biometric lock.',
-          [{ text: 'OK' }]
+          auth.error || 'Could not enable biometric lock.'
         );
       }
     } else {
       // Turning off - confirm with authentication
-      Alert.alert(
+      showConfirmAlert(
         'Disable Biometric Lock',
         'Are you sure you want to disable biometric authentication?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Disable',
-            style: 'destructive',
-            onPress: async () => {
-              const auth = await authenticateWithBiometrics('Authenticate to disable biometric lock');
-              if (auth.success) {
-                setBiometricEnabled(false);
-                Alert.alert('Biometric Lock Disabled', 'Biometric authentication has been disabled.');
-              }
-            },
-          },
-        ]
+        async () => {
+          const auth = await authenticateWithBiometrics('Authenticate to disable biometric lock');
+          if (auth.success) {
+            setBiometricEnabled(false);
+            showSuccessAlert('Biometric Lock Disabled', 'Biometric authentication has been disabled.');
+          }
+        }
       );
     }
   };
@@ -124,16 +118,11 @@ export default function SettingsScreen() {
     try {
       const result = await createBackup();
       if (result.success) {
-        Alert.alert('Success', 'Backup created successfully', [
-          {
-            text: 'OK',
-            onPress: () => {
-              loadBackups();
-            },
-          },
-        ]);
+        showSuccessAlert('Success', 'Backup created successfully', () => {
+          loadBackups();
+        });
       } else {
-        Alert.alert('Error', result.error || 'Failed to create backup');
+        showErrorAlert('Error', result.error || 'Failed to create backup');
       }
     } finally {
       setIsLoadingBackup(false);
@@ -141,26 +130,23 @@ export default function SettingsScreen() {
   };
 
   const handleRestoreBackup = (uri: string) => {
-    Alert.alert('Restore Backup', 'This will replace all current data. Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Restore',
-        style: 'destructive',
-        onPress: async () => {
-          setIsLoadingBackup(true);
-          try {
-            const result = await restoreFromBackup(uri);
-            if (result.success) {
-              Alert.alert('Success', 'Data restored successfully');
-            } else {
-              Alert.alert('Error', result.error || 'Failed to restore backup');
-            }
-          } finally {
-            setIsLoadingBackup(false);
+    showConfirmAlert(
+      'Restore Backup',
+      'This will replace all current data. Are you sure?',
+      async () => {
+        setIsLoadingBackup(true);
+        try {
+          const result = await restoreFromBackup(uri);
+          if (result.success) {
+            showSuccessAlert('Success', 'Data restored successfully');
+          } else {
+            showErrorAlert('Error', result.error || 'Failed to restore backup');
           }
-        },
-      },
-    ]);
+        } finally {
+          setIsLoadingBackup(false);
+        }
+      }
+    );
   };
 
   const handleExportCSV = async () => {
@@ -174,18 +160,18 @@ export default function SettingsScreen() {
             dialogTitle: 'Export Transactions',
           });
         } else {
-          Alert.alert('Success', `CSV exported successfully to\n${result.uri}`);
+          showSuccessAlert('Success', `CSV exported successfully to\n${result.uri}`);
         }
       } else {
-        Alert.alert('Error', result.error || 'Failed to export CSV');
+        showErrorAlert('Error', result.error || 'Failed to export CSV');
       }
     } catch (error) {
-      Alert.alert('Error', 'An error occurred while exporting');
+      showErrorAlert('Error', 'An error occurred while exporting');
     }
   };
 
-  const handleBackup = async () => Alert.alert('Backup', 'Backup feature will save your data');
-  const handleExportCSVOld = async () => Alert.alert('Export CSV', 'CSV export feature coming soon');
+  const handleBackup = async () => showSuccessAlert('Backup', 'Backup feature will save your data');
+  const handleExportCSVOld = async () => showSuccessAlert('Export CSV', 'CSV export feature coming soon');
   const handleFeedback = () => Linking.openURL('mailto:hello@eiteone.org?subject=Feedback');
 
   return (
@@ -346,7 +332,7 @@ export default function SettingsScreen() {
                 <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Export to CSV</Text>
                 <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>Download all transactions</Text>
               </View>
-              <CsvIcon size={24} color={t.textPrimary} />
+              <ExportIcon size={24} color={t.textPrimary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -447,6 +433,15 @@ export default function SettingsScreen() {
           </View>
         </View>
       </Modal>
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={dismissAlert}
+        themeMode={effectiveMode}
+        systemColorScheme={systemColorScheme || 'light'}
+      />
     </SafeAreaView>
   );
 }

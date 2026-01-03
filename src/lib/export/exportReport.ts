@@ -1,4 +1,4 @@
-import { Platform, Alert } from 'react-native';
+import { Platform } from 'react-native';
 import { Paths, File } from 'expo-file-system';
 
 export interface AnalyticsReportData {
@@ -125,11 +125,7 @@ export async function exportAnalyticsReport(
       await reportFile.create();
       await reportFile.write(content);
       
-      Alert.alert(
-        'Report Exported',
-        `Your analytics report has been saved to:\n${fileName}`,
-        [{ text: 'OK' }]
-      );
+      console.log(`Report Exported: Your analytics report has been saved to:\n${fileName}`);
       
       return { success: true, filePath: reportFile.uri };
     } catch (fileError) {
@@ -138,11 +134,7 @@ export async function exportAnalyticsReport(
       await fallbackFile.create();
       await fallbackFile.write(content);
       
-      Alert.alert(
-        'Report Exported',
-        `Your analytics report has been saved to:\n${fileName}`,
-        [{ text: 'OK' }]
-      );
+      console.log(`Report Exported: Your analytics report has been saved to:\n${fileName}`);
       
       return { success: true, filePath: fallbackFile.uri };
     }

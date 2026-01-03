@@ -6,7 +6,6 @@ import {
   ScrollView,
   TextInput,
   Pressable,
-  Alert,
   useColorScheme,
   KeyboardAvoidingView,
   Platform,
@@ -25,6 +24,8 @@ import { getWallets } from '@/lib/db/wallets';
 import type { Category } from '@/lib/db/categories';
 import type { Wallet } from '@/types/wallet';
 import * as CategoryIcons from '@/assets/icons/CategoryIcons';
+import { useAlert } from '@/lib/hooks/useAlert';
+import { ThemedAlert } from '@/components/ThemedAlert';
 
 type PeriodType = 'weekly' | 'monthly' | 'custom';
 
@@ -57,6 +58,7 @@ export default function CreateBudgetScreen() {
   const { themeMode, defaultCurrency } = useSettings();
   const systemColorScheme = useColorScheme();
   const colors = theme(themeMode, systemColorScheme || 'light');
+  const { alertConfig, showErrorAlert, showSuccessAlert, dismissAlert } = useAlert();
 
   const [name, setName] = useState('');
   const [limitAmount, setLimitAmount] = useState('');
@@ -102,7 +104,7 @@ export default function CreateBudgetScreen() {
       }
     } catch (err: any) {
       logError('Failed to load data:', { error: err });
-      Alert.alert('Error', 'Failed to load categories and wallets');
+      showErrorAlert('Error', 'Failed to load categories and wallets');
     } finally {
       setLoading(false);
     }
@@ -123,27 +125,27 @@ export default function CreateBudgetScreen() {
 
   const validateForm = (): boolean => {
     if (!name.trim()) {
-      Alert.alert('Validation Error', 'Please enter a budget name');
+      showErrorAlert('Validation Error', 'Please enter a budget name');
       return false;
     }
     if (!limitAmount.trim() || isNaN(parseFloat(limitAmount)) || parseFloat(limitAmount) <= 0) {
-      Alert.alert('Validation Error', 'Please enter a valid budget limit');
+      showErrorAlert('Validation Error', 'Please enter a valid budget limit');
       return false;
     }
     if (selectedCategories.length === 0) {
-      Alert.alert('Validation Error', 'Please select at least one category');
+      showErrorAlert('Validation Error', 'Please select at least one category');
       return false;
     }
     if (selectedWallets.length === 0) {
-      Alert.alert('Validation Error', 'Please select at least one wallet');
+      showErrorAlert('Validation Error', 'Please select at least one wallet');
       return false;
     }
     if (new Date(startDate) > new Date(endDate)) {
-      Alert.alert('Validation Error', 'Start date must be before end date');
+      showErrorAlert('Validation Error', 'Start date must be before end date');
       return false;
     }
     if (isRecurring && recurrenceEndDate && new Date(recurrenceEndDate) < new Date(endDate)) {
-      Alert.alert('Validation Error', 'Repeat until date must be after the budget end date');
+      showErrorAlert('Validation Error', 'Repeat until date must be after the budget end date');
       return false;
     }
     return true;
@@ -194,16 +196,11 @@ export default function CreateBudgetScreen() {
       // Invalidate caches so budget page will reload with new data
       const { invalidateTransactionCaches } = await import('@/lib/cache/queryCache');
       invalidateTransactionCaches();
-      Alert.alert('Success', 'Budget created successfully', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]);
+      showSuccessAlert('Success', 'Budget created successfully', () => router.back());
     } catch (err: any) {
       console.error('[Budget Create] Error creating budget:', err);
       logError('Failed to create budget:', { error: err });
-      Alert.alert('Error', `Failed to create budget: ${err.message || 'Unknown error'}`);
+      showErrorAlert('Error', `Failed to create budget: ${err.message || 'Unknown error'}`);
     } finally {
       setSaving(false);
     }
@@ -627,6 +624,17 @@ export default function CreateBudgetScreen() {
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Themed Alert Component */}
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={dismissAlert}
+        themeMode={themeMode}
+        systemColorScheme={systemColorScheme || 'light'}
+      />
     </SafeAreaView>
   );
 }

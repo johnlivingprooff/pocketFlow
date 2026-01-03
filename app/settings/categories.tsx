@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Alert,
   useColorScheme,
   Modal,
   TextInput,
@@ -18,6 +17,8 @@ import { useSettings } from '../../src/store/useStore';
 import { Category, getCategories, updateCategory } from '../../src/lib/db/categories';
 import { CATEGORY_ICONS, CategoryIconName } from '../../src/assets/icons/CategoryIcons';
 import { formatCurrency } from '../../src/utils/formatCurrency';
+import { useAlert } from '../../src/lib/hooks/useAlert';
+import { ThemedAlert } from '../../src/components/ThemedAlert';
 
 interface CategoryWithBudget extends Category {
   walletCurrency?: string;
@@ -61,6 +62,7 @@ export default function CategoriesScreen() {
   const [editBudget, setEditBudget] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'expense' | 'income'>('all');
+  const { alertConfig, showErrorAlert, showConfirmAlert, dismissAlert } = useAlert();
 
   useEffect(() => {
     loadCategories();
@@ -73,7 +75,7 @@ export default function CategoriesScreen() {
       setCategories(allCategories);
     } catch (error) {
       console.error('Error loading categories:', error);
-      Alert.alert('Error', 'Failed to load categories');
+      showErrorAlert('Error', 'Failed to load categories');
     } finally {
       setLoading(false);
     }
@@ -92,7 +94,7 @@ export default function CategoriesScreen() {
       const budgetValue = editBudget.trim() ? parseFloat(editBudget) : null;
 
       if (budgetValue !== null && (isNaN(budgetValue) || budgetValue < 0)) {
-        Alert.alert('Invalid Input', 'Please enter a valid positive amount or leave blank for no budget');
+        showErrorAlert('Invalid Input', 'Please enter a valid positive amount or leave blank for no budget');
         return;
       }
 
@@ -102,44 +104,38 @@ export default function CategoriesScreen() {
       setEditBudget('');
       loadCategories();
 
-      Alert.alert(
+      showConfirmAlert(
         'Success',
         budgetValue === null
           ? 'Budget removed successfully'
-          : `Budget set to ${formatCurrency(budgetValue, defaultCurrency)}`
+          : `Budget set to ${formatCurrency(budgetValue, defaultCurrency)}`,
+        dismissAlert
       );
     } catch (error) {
       console.error('Error updating budget:', error);
-      Alert.alert('Error', 'Failed to update budget');
+      showErrorAlert('Error', 'Failed to update budget');
     }
   };
 
   const handleRemoveBudget = async () => {
     if (!editingCategory) return;
 
-    Alert.alert(
+    showConfirmAlert(
       'Remove Budget',
       `Remove budget limit from ${editingCategory.name}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await updateCategory(editingCategory.id!, { budget: null });
-              setShowEditModal(false);
-              setEditingCategory(null);
-              setEditBudget('');
-              loadCategories();
-              Alert.alert('Success', 'Budget removed successfully');
-            } catch (error) {
-              console.error('Error removing budget:', error);
-              Alert.alert('Error', 'Failed to remove budget');
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          await updateCategory(editingCategory.id!, { budget: null });
+          setShowEditModal(false);
+          setEditingCategory(null);
+          setEditBudget('');
+          loadCategories();
+          showConfirmAlert('Success', 'Budget removed successfully', dismissAlert);
+        } catch (error) {
+          console.error('Error removing budget:', error);
+          showErrorAlert('Error', 'Failed to remove budget');
+        }
+      }
     );
   };
 
@@ -431,6 +427,17 @@ export default function CategoriesScreen() {
           <Text style={{ color: '#FFFFFF', fontSize: 28, fontWeight: '800' }}>＋</Text>
         </TouchableOpacity>
       </Link>
+
+      {/* Themed Alert Component */}
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={dismissAlert}
+        themeMode={themeMode}
+        systemColorScheme={systemColorScheme || 'light'}
+      />
     </SafeAreaView>
   );
 }

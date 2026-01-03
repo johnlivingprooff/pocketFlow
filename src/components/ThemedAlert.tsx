@@ -9,7 +9,7 @@ interface ThemedAlertProps {
   buttons?: Array<{
     text: string;
     onPress?: () => void;
-    style?: 'default' | 'cancel' | 'destructive';
+    style?: 'default' | 'cancel' | 'destructive' | 'success';
   }>;
   onDismiss?: () => void;
   themeMode: 'light' | 'dark' | 'system';
@@ -79,6 +79,7 @@ export function ThemedAlert({
             {buttons.map((button, index) => {
               const isDestructive = button.style === 'destructive';
               const isCancel = button.style === 'cancel';
+              const isSuccess = button.style === 'success';
               
               return (
                 <TouchableOpacity
@@ -88,7 +89,7 @@ export function ThemedAlert({
                     paddingVertical: 12,
                     paddingHorizontal: 20,
                     borderRadius: 8,
-                    backgroundColor: isDestructive ? '#E74C3C' : isCancel ? t.card : t.accent,
+                    backgroundColor: isDestructive ? '#E74C3C' : isSuccess ? t.success : isCancel ? t.card : t.accent,
                     borderWidth: isCancel ? 1 : 0,
                     borderColor: isCancel ? t.border : 'transparent',
                     flex: buttons.length > 2 ? 1 : 0,
