@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import clsx from 'clsx';
 import { Navigation } from '@/components/Navigation';
+import { Footer } from '@/components/Footer';
 
 const inter = Inter({ subsets: ['latin'], display: 'swap' });
 
@@ -35,6 +36,7 @@ export default function RootLayout({
         <div className="pt-16">
           {children}
         </div>
+        <Footer />
       </body>
     </html>
   );

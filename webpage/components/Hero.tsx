@@ -2,34 +2,29 @@ import Link from 'next/link';
 
 export function Hero() {
   return (
-    <section className="relative section-shell pt-32 pb-28 lg:pt-40 lg:pb-36 overflow-hidden">
-      {/* Ambient Background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-ink-900 via-ink-800 to-ink-900" />
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-gold-600/10 rounded-full blur-3xl" />
-      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-gold-600/5 rounded-full blur-3xl" />
-      
-      <div className="relative z-10 flex flex-col items-center text-center gap-10">
-        <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-tight text-sand-50 max-w-4xl">
+    <section className="relative min-h-screen pt-24 sm:pt-32 overflow-hidden section-shell pb-20 sm:pb-28 lg:pt-40 lg:pb-36 rounded-tr-2xl sm:rounded-tr-3xl rounded-br-2xl sm:rounded-br-3xl flex items-center">
+      {/* Background image */}
+      <div className="absolute inset-0 bg-[url('/assets/engine.jpg')] bg-cover bg-[center_right_10%] sm:bg-[center_right_10%]" />
+      {/* Dark-to-transparent gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-r from-ink-900 via-ink-900/90 sm:via-ink-900/80 to-transparent" />
+      {/* Top fade */}
+      <div className="absolute inset-x-0 top-0 h-32 sm:h-48 pointer-events-none bg-gradient-to-b from-ink-900 to-transparent" />
+      {/* Bottom fade into next section */}
+      <div className="absolute inset-x-0 bottom-0 h-40 sm:h-56 pointer-events-none bg-gradient-to-b from-transparent to-ink-900" />
+      {/* Right fade */}
+      <div className="absolute inset-y-0 right-0 w-32 sm:w-48 pointer-events-none bg-gradient-to-l from-ink-900 to-transparent" />
+
+      <div className="relative z-10 flex flex-col items-start w-full max-w-4xl gap-6 sm:gap-10 text-left px-4 sm:px-0">
+        <h1 className="text-3xl font-bold leading-tight sm:text-5xl lg:text-7xl text-sand-50">
           See your cash flow clearly.
         </h1>
-        
-        <div className="flex flex-wrap items-center justify-center gap-4">
+
+        <div className="flex items-center justify-start">
           <Link
-            href="https://github.com/johnlivingprooff/pocketFlow/releases/latest"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 justify-center rounded-xl bg-gold-600 px-8 py-4 text-sand-50 text-lg font-semibold shadow-2xl hover:bg-gold-500 hover:scale-105 transition-all duration-200"
+            href="#features"
+            className="text-base sm:text-lg font-semibold underline transition-colors text-sand-100 decoration-sand-300/60 underline-offset-4 hover:text-sand-50"
           >
-            <svg width="20" height="20" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M8 12L3 7L4.5 5.5L7 8V0H9V8L11.5 5.5L13 7L8 12ZM0 14V16H16V14H0Z" fill="currentColor"/>
-            </svg>
-            Download App
-          </Link>
-          <Link
-            href="#screens"
-            className="inline-flex items-center justify-center rounded-xl border-2 border-sand-300/30 px-8 py-4 text-sand-100 text-lg font-semibold hover:bg-sand-50/5 hover:border-sand-300/50 transition-all duration-200"
-          >
-            See Features
+            See features
           </Link>
         </div>
       </div>

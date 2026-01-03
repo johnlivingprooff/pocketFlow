@@ -25,6 +25,7 @@ module.exports = {
         gold: {
           500: '#8B6A0F',
           600: '#73570C',
+          700: '#5A4208',
         },
         slate: {
           300: '#CBD5E1',
