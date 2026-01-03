@@ -44,8 +44,14 @@ Copy-Item -Path $sourcePath -Destination $targetPath -Force
 Write-Host "✓ Successfully copied release APK to: $targetPath" -ForegroundColor Green
 
 # Get file size
-$fileSize = (Get-Item $targetPath).Length / 1MB
-Write-Host "✓ File size: $($fileSize.ToString('F2')) MB" -ForegroundColor Green
+$fileItem = Get-Item -Path $targetPath -ErrorAction SilentlyContinue
+if ($fileItem) {
+    $fileSizeBytes = $fileItem.Length
+    $fileSizeMB = [Math]::Round($fileSizeBytes / 1MB, 2)
+    Write-Host "✓ File size: $fileSizeMB MB" -ForegroundColor Green
+} else {
+    Write-Host "✓ File copied successfully" -ForegroundColor Green
+}
 
 # Display next steps
 Write-Host "`nNext steps:" -ForegroundColor Cyan
