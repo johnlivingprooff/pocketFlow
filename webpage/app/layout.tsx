@@ -8,24 +8,25 @@ import { Footer } from '@/components/Footer';
 const inter = Inter({ subsets: ['latin'], display: 'swap' });
 
 export const metadata: Metadata = {
-  title: 'pocketFlow | Cash-flow-first personal finance system',
+  title: 'pocketFlow | Personal Finance Tracker',
   description: 'pocketFlow is an offline-first personal finance tracker focused on cash flow clarity: multi-wallet tracking, categorized transactions, budgets, goals, and local receipts.',
   openGraph: {
-    title: 'pocketFlow | Cash-flow-first personal finance system',
+    title: 'pocketFlow | Personal Finance Tracker',
     description: 'Offline-first tracking for wallets, transactions, receipts, budgets, and goals—built for disciplined planners.',
-    url: 'https://pocketflow.app',
+    url: 'https://pf.eiteone.org',
+    locale: 'en_US',
     siteName: 'pocketFlow',
     type: 'website',
     images: [
       {
         url: '/assets/og-image.jpg',
-        width: 1200,
-        height: 630,
+        width: 3264,
+        height: 4896,
         alt: 'pocketFlow - Personal Finance Tracker',
       },
     ],
   },
-  metadataBase: new URL('https://pocketflow.app'),
+  metadataBase: new URL('https://pf.eiteone.org'),
   icons: {
     icon: '/assets/logo.svg',
     apple: '/assets/logo.png',
