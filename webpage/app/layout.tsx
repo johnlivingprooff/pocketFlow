@@ -20,8 +20,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: '/assets/og-image.jpg',
-        width: 3264,
-        height: 4896,
+        width: 1200,
+        height: 630,
         alt: 'pocketFlow - Personal Finance Tracker',
       },
     ],
