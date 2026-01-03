@@ -16,6 +16,14 @@ export const metadata: Metadata = {
     url: 'https://pocketflow.app',
     siteName: 'pocketFlow',
     type: 'website',
+    images: [
+      {
+        url: '/assets/og-image.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'pocketFlow - Personal Finance Tracker',
+      },
+    ],
   },
   metadataBase: new URL('https://pocketflow.app'),
   icons: {
