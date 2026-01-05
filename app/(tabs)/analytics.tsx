@@ -25,6 +25,8 @@ import {
 } from '../../src/lib/db/transactions';
 import { exec } from '../../src/lib/db/index';
 import { getCategories } from '../../src/lib/db/categories';
+import { getBudgetsForPeriod } from '../../src/lib/db/budgets';
+import { getGoalsForPeriod } from '../../src/lib/db/goals';
 import { formatCurrency, formatLargeNumber } from '../../src/utils/formatCurrency';
 import { formatShortDate } from '../../src/utils/date';
 import { Link } from 'expo-router';
@@ -40,6 +42,8 @@ import TimePeriodSelector, { TimePeriod } from '../../src/components/TimePeriodS
 import CategoryDrillDown from '../../src/components/CategoryDrillDown';
 import HelpIcon from '../../src/components/HelpIcon';
 import FinancialHealthRing from '../../src/components/FinancialHealthRing';
+import { BudgetCard } from '../../src/components/BudgetCard';
+import { GoalCard } from '../../src/components/GoalCard';
 import {
   calculateFinancialHealthScore,
   FinancialHealthScore
@@ -102,6 +106,10 @@ export default function AnalyticsPage() {
 
   // Phase 3: Insights & Financial Health State
   const [financialHealth, setFinancialHealth] = useState<FinancialHealthScore | null>(null);
+
+  // Phase 3.5: Budgets & Goals State
+  const [budgets, setBudgets] = useState<any[]>([]);
+  const [goals, setGoals] = useState<any[]>([]);
 
   // Phase 4: Interactivity & Customization State
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('30days');
@@ -251,6 +259,27 @@ export default function AnalyticsPage() {
         dailySpending: daily
       });
       setFinancialHealth(healthScore);
+
+      // Phase 3.5: Load budgets and goals for the selected period
+      try {
+        const daysMap: Record<TimePeriod, number> = {
+          '7days': 7,
+          '30days': 30,
+          '3months': 90,
+          '6months': 180
+        };
+        
+        const days = daysMap[period];
+        const periodBudgets = await getBudgetsForPeriod(days);
+        const periodGoals = await getGoalsForPeriod(days);
+        
+        setBudgets(periodBudgets);
+        setGoals(periodGoals);
+      } catch (error) {
+        console.error('Failed to load budgets/goals:', error);
+        setBudgets([]);
+        setGoals([]);
+      }
     }
     } finally {
       setIsLoading(false);
@@ -678,6 +707,37 @@ export default function AnalyticsPage() {
             </View>
           </View>
         ) : null}
+
+        {/* SECTION 5.5: BUDGETS & GOALS */}
+        {(budgets.length > 0 || goals.length > 0) && (
+          <View style={{ marginBottom: 24 }}>
+            {/* Budgets Section */}
+            {budgets.length > 0 && (
+              <View style={{ marginBottom: 24 }}>
+                <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>
+                  Budgets
+                  <Text style={{ color: t.textSecondary, fontSize: 14 }}> ({budgets.length})</Text>
+                </Text>
+                {budgets.map((budget) => (
+                  <BudgetCard key={budget.id} budget={budget} />
+                ))}
+              </View>
+            )}
+
+            {/* Goals Section */}
+            {goals.length > 0 && (
+              <View>
+                <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>
+                  Goals
+                  <Text style={{ color: t.textSecondary, fontSize: 14 }}> ({goals.length})</Text>
+                </Text>
+                {goals.map((goal) => (
+                  <GoalCard key={goal.id} goal={goal} />
+                ))}
+              </View>
+            )}
+          </View>
+        )}
 
         {/* SECTION 6: FINANCIAL HEALTH & INSIGHTS */}
         {financialHealth && (

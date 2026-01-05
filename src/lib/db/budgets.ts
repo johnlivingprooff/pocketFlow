@@ -326,6 +326,69 @@ export async function getActiveBudgets(): Promise<Budget[]> {
 }
 
 /**
+ * Get budgets for a specific time period
+ * Filters budgets based on when they were created within the given date range
+ * @param days Number of days back from today
+ * @returns Array of budgets created within the period
+ */
+export async function getBudgetsForPeriod(days: number): Promise<Budget[]> {
+  try {
+    await ensureRecurringBudgets();
+    const now = new Date();
+    const startDate = new Date(now);
+    startDate.setDate(now.getDate() - days);
+    
+    const start = startDate.toISOString();
+    const end = now.toISOString();
+    
+    const rawBudgets = await exec<{
+      id: number;
+      name: string;
+      categoryIds: string;
+      subcategoryIds: string;
+      limitAmount: number;
+      currentSpending: number;
+      periodType: string;
+      startDate: string;
+      endDate: string;
+      notes: string | null;
+      linkedWalletIds: string;
+      isRecurring: number;
+      recurrenceEndDate: string | null;
+      recurrenceParentId: number | null;
+      createdAt: string;
+      updatedAt: string;
+    }>(
+      `SELECT id, name, category_ids as categoryIds, subcategory_ids as subcategoryIds,
+              limit_amount as limitAmount, current_spending as currentSpending,
+              period_type as periodType, start_date as startDate, end_date as endDate,
+              notes, linked_wallet_ids as linkedWalletIds,
+              is_recurring as isRecurring, recurrence_end_date as recurrenceEndDate, recurrence_parent_id as recurrenceParentId,
+              created_at as createdAt, updated_at as updatedAt
+       FROM budgets
+       WHERE created_at BETWEEN ? AND ?
+       ORDER BY created_at DESC`,
+      [start, end]
+    );
+    
+    return rawBudgets.map(budget => ({
+      ...budget,
+      categoryIds: JSON.parse(budget.categoryIds),
+      subcategoryIds: JSON.parse(budget.subcategoryIds),
+      linkedWalletIds: JSON.parse(budget.linkedWalletIds),
+      periodType: budget.periodType as 'weekly' | 'monthly' | 'custom',
+      notes: budget.notes || undefined,
+      isRecurring: Boolean(budget.isRecurring),
+      recurrenceEndDate: budget.recurrenceEndDate || undefined,
+      recurrenceParentId: budget.recurrenceParentId ?? undefined,
+    }));
+  } catch (error) {
+    console.error('Failed to fetch budgets for period:', error);
+    return [];
+  }
+}
+
+/**
  * Get a specific budget by ID
  * @param id Budget ID
  * @returns Budget or null if not found

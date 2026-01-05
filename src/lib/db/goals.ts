@@ -79,6 +79,53 @@ export async function getGoals(): Promise<Goal[]> {
 }
 
 /**
+ * Get goals for a specific time period
+ * Filters goals based on when they were created within the given date range
+ * @param days Number of days back from today
+ * @returns Array of goals created within the period
+ */
+export async function getGoalsForPeriod(days: number): Promise<Goal[]> {
+  try {
+    const now = new Date();
+    const startDate = new Date(now);
+    startDate.setDate(now.getDate() - days);
+    
+    const start = startDate.toISOString();
+    const end = now.toISOString();
+    
+    const rawGoals = await exec<{
+      id: number;
+      name: string;
+      targetAmount: number;
+      currentProgress: number;
+      startDate: string;
+      targetDate: string;
+      notes: string | null;
+      linkedWalletIds: string;
+      createdAt: string;
+      updatedAt: string;
+    }>(
+      `SELECT id, name, target_amount as targetAmount, current_progress as currentProgress,
+              start_date as startDate, target_date as targetDate, notes, linked_wallet_ids as linkedWalletIds,
+              created_at as createdAt, updated_at as updatedAt
+       FROM goals
+       WHERE created_at BETWEEN ? AND ?
+       ORDER BY created_at DESC`,
+      [start, end]
+    );
+    
+    return rawGoals.map(goal => ({
+      ...goal,
+      linkedWalletIds: JSON.parse(goal.linkedWalletIds),
+      notes: goal.notes || undefined,
+    }));
+  } catch (error) {
+    console.error('Failed to fetch goals for period:', error);
+    return [];
+  }
+}
+
+/**
  * Get a specific goal by ID
  * @param id Goal ID
  * @returns Goal or null if not found

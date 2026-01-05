@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Linking, useColorScheme, Modal, FlatList, Switch, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Linking, useColorScheme, Modal, FlatList, Switch, Image, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Sharing from 'expo-sharing';
 import { useSettings } from '../../src/store/useStore';
-import { theme, ThemeMode } from '../../src/theme/theme';
+import { useOnboarding } from '../../src/store/useOnboarding';
+import { theme, ThemeMode, colors } from '../../src/theme/theme';
 import { Link } from 'expo-router';
 import { CURRENCIES } from '../../src/constants/currencies';
 import { checkBiometricAvailability, authenticateWithBiometrics } from '../../src/lib/services/biometricService';
@@ -29,6 +30,7 @@ export default function SettingsScreen() {
     defaultCurrency,
     userInfo,
   } = useSettings();
+  const { resetOnboarding } = useOnboarding();
   const systemColorScheme = useColorScheme();
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const t = theme(effectiveMode);
@@ -39,6 +41,8 @@ export default function SettingsScreen() {
   const [backups, setBackups] = useState<Array<{ filename: string; uri: string; date: Date }>>([]);
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [isLoadingBackup, setIsLoadingBackup] = useState(false);
+  const [versionTapCount, setVersionTapCount] = useState(0);
+  const [showDevOptions, setShowDevOptions] = useState(false);
 
   const { alertConfig, showErrorAlert, showConfirmAlert, showSuccessAlert, dismissAlert } = useAlert();
 
@@ -173,6 +177,41 @@ export default function SettingsScreen() {
   const handleBackup = async () => showSuccessAlert('Backup', 'Backup feature will save your data');
   const handleExportCSVOld = async () => showSuccessAlert('Export CSV', 'CSV export feature coming soon');
   const handleFeedback = () => Linking.openURL('mailto:hello@eiteone.org?subject=Feedback');
+  
+  const handleVersionTap = () => {
+    const newCount = versionTapCount + 1;
+    setVersionTapCount(newCount);
+    
+    if (newCount === 6) {
+      setShowDevOptions(true);
+      showSuccessAlert(
+        'Developer Options Unlocked',
+        'Developer Options section is now visible in settings!'
+      );
+    }
+  };
+  
+  const handleRestartOnboarding = () => {
+    Alert.alert(
+      'Restart Onboarding',
+      'This will restart the onboarding flow. The app will begin setup as if it\'s a fresh install.',
+      [
+        { text: 'Cancel', onPress: () => {}, style: 'cancel' },
+        {
+          text: 'Restart',
+          onPress: async () => {
+            try {
+              resetOnboarding();
+              showSuccessAlert('Success', 'Onboarding has been restarted. Please restart the app.');
+            } catch (error) {
+              showErrorAlert('Error', 'Failed to restart onboarding');
+            }
+          },
+          style: 'destructive',
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
@@ -348,12 +387,26 @@ export default function SettingsScreen() {
               </View>
               <Text style={{ fontSize: 20 }}>💬</Text>
             </TouchableOpacity>
-            <View style={{ padding: 16 }}>
+            <TouchableOpacity onPress={handleVersionTap} style={{ padding: 16 }}>
               <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>App Version</Text>
               <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>{APP_VERSION}</Text>
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
+
+        {/* Developer Options - Conditionally Visible */}
+        {showDevOptions && (
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 12 }}>DEVELOPER OPTIONS</Text>
+            <TouchableOpacity onPress={handleRestartOnboarding} style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View>
+                <Text style={{ color: colors.negativeRed, fontSize: 16, fontWeight: '600' }}>Restart Onboarding</Text>
+                <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>Restart the setup flow</Text>
+              </View>
+              <Text style={{ fontSize: 20 }}>⟲</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
       {/* Theme Picker Modal */}

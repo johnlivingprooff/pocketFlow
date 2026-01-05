@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { Platform, View, ActivityIndicator, useColorScheme, AppState, AppStateStatus, Text, TouchableOpacity, StyleSheet, Image, TextStyle } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { useSettings } from '../src/store/useStore';
 import { useUI } from '../src/store/useStore';
+import { useOnboarding } from '../src/store/useOnboarding';
 import { ensureTables, initDb } from '../src/lib/db';
 // Removed legacy write queue import (migrated to Nitro SQLite)
 import { processRecurringTransactions } from '../src/lib/services/recurringTransactionService';
@@ -24,7 +25,10 @@ export default function RootLayout() {
     setLastBackupAt,
     setImagePickingStartTime,
   } = useSettings();
+  const { isOnboardingComplete } = useOnboarding();
   const { isPickingImage } = useUI();
+  const router = useRouter();
+  const segments = useSegments();
   const systemColorScheme = useColorScheme();
   const [dbReady, setDbReady] = useState(Platform.OS === 'web');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -66,6 +70,21 @@ export default function RootLayout() {
       setIsAuthenticated(true);
     }
   }, [biometricEnabled, biometricSetupComplete, dbReady]);
+
+  // Handle onboarding redirection
+  useEffect(() => {
+    if (!dbReady || !isAuthenticated) return;
+
+    const inOnboarding = segments[0] === 'onboarding';
+
+    if (!isOnboardingComplete && !inOnboarding) {
+      // User hasn't completed onboarding, redirect to onboarding
+      router.replace('/onboarding/welcome');
+    } else if (isOnboardingComplete && inOnboarding) {
+      // User has completed onboarding but is still on onboarding screen, go to main app
+      router.replace('/(tabs)');
+    }
+  }, [isOnboardingComplete, segments, dbReady, isAuthenticated]);
 
   useEffect(() => {
     // Handle app state changes (background/foreground)
@@ -336,6 +355,15 @@ export default function RootLayout() {
         }} />
         <Stack.Screen name="budget/index" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding/welcome" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding/profile" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding/wallet" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding/category" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding/budget" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding/goal" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding/transaction" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding/transfer" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding/analytics" options={{ headerShown: false }} />
       </Stack>
 
       {/* Show biometric auth overlay if not authenticated */}

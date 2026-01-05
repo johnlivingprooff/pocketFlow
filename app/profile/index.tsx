@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Image, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,6 +10,7 @@ import { ThemedAlert } from '../../src/components/ThemedAlert';
 
 export default function ProfilePage() {
   const { themeMode, userInfo, setUserInfo } = useSettings();
+  const router = useRouter();
   const systemColorScheme = useColorScheme();
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const t = theme(effectiveMode);

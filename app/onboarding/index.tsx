@@ -1,19 +1,19 @@
-import React from 'react';
-import { View, Text, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { theme } from '../../src/theme/theme';
-import { useSettings } from '../../src/store/useStore';
+import React, { useEffect } from 'react';
+import { useRouter } from 'expo-router';
+import { useOnboarding } from '../../src/store/useOnboarding';
 
-export default function Onboarding() {
-  const { themeMode } = useSettings();
-  const t = theme(themeMode);
-  return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 20 }}>
-        <Text style={{ color: t.textPrimary, fontSize: 22, fontWeight: '800' }}>Welcome to pocketFlow</Text>
-        <Text style={{ color: t.textSecondary, marginTop: 8 }}>Track wallets and transactions offline with receipts.</Text>
-        <Text style={{ color: t.textSecondary, marginTop: 8 }}>Set your default currency in Settings.</Text>
-      </ScrollView>
-    </SafeAreaView>
-  );
+export default function OnboardingIndex() {
+  const router = useRouter();
+  const { isOnboardingComplete, currentStep } = useOnboarding();
+
+  useEffect(() => {
+    if (isOnboardingComplete) {
+      router.replace('/(tabs)');
+    } else {
+      // Redirect to the appropriate step
+      router.replace(`/onboarding/${currentStep}`);
+    }
+  }, [isOnboardingComplete, currentStep]);
+
+  return null;
 }
