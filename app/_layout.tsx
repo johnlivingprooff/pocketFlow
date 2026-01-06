@@ -12,6 +12,7 @@ import { theme, shadows } from '../src/theme/theme';
 import { authenticateWithBiometrics, shouldRequireAuth } from '../src/lib/services/biometricService';
 import { FingerprintIcon } from '../src/assets/icons/FingerprintIcon';
 import { createBackup } from '../src/lib/export/backupRestore';
+import { WebShell } from '../src/components/web/WebShell';
 
 export default function RootLayout() {
   const { 
@@ -189,183 +190,193 @@ export default function RootLayout() {
     );
   }
 
+  const renderStack = () => (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen 
+        name="transactions/add" 
+        options={{ 
+          presentation: 'modal',
+          headerShown: true,
+          title: 'Add Transaction',
+          headerStyle: {
+            backgroundColor: t.background,
+          },
+          headerTintColor: t.textPrimary,
+          headerTitleStyle: {
+            color: t.textPrimary,
+            fontWeight: '700' as TextStyle['fontWeight'],
+          },
+          headerShadowVisible: false,
+        }} 
+      />
+      <Stack.Screen name="transactions/[id]" options={{ 
+        headerShown: true, 
+        title: 'Transaction Details',
+        headerStyle: {
+          backgroundColor: t.background,
+        },
+        headerTintColor: t.textPrimary,
+        headerTitleStyle: {
+          color: t.textPrimary,
+          fontWeight: '700' as TextStyle['fontWeight'],
+        },
+        headerShadowVisible: false,
+      }} />
+      <Stack.Screen name="transactions/edit" options={{ 
+        headerShown: true, 
+        title: 'Edit Transaction',
+        headerStyle: {
+          backgroundColor: t.background,
+        },
+        headerTintColor: t.textPrimary,
+        headerTitleStyle: {
+          color: t.textPrimary,
+          fontWeight: '700' as TextStyle['fontWeight'],
+        },
+        headerShadowVisible: false,
+      }} />
+      <Stack.Screen name="transactions/history" options={{ 
+        headerShown: true, 
+        title: 'History',
+        headerStyle: {
+          backgroundColor: t.background,
+        },
+        headerTintColor: t.textPrimary,
+        headerTitleStyle: {
+          color: t.textPrimary,
+          fontWeight: '700' as TextStyle['fontWeight'],
+        },
+        headerShadowVisible: false,
+      }} />
+      <Stack.Screen name="wallets/create" options={{ 
+        headerShown: true, 
+        title: 'Create Wallet',
+        headerStyle: {
+          backgroundColor: t.background,
+        },
+        headerTintColor: t.textPrimary,
+        headerTitleStyle: {
+          color: t.textPrimary,
+          fontWeight: '700' as TextStyle['fontWeight'],
+        },
+        headerShadowVisible: false,
+      }} />
+      <Stack.Screen name="wallets/[id]" options={{ 
+        headerShown: true, 
+        title: 'Wallet Details',
+        headerStyle: {
+          backgroundColor: t.background,
+        },
+        headerTintColor: t.textPrimary,
+        headerTitleStyle: {
+          color: t.textPrimary,
+          fontWeight: '700' as TextStyle['fontWeight'],
+        },
+        headerShadowVisible: false,
+      }} />
+      <Stack.Screen name="categories/create" options={{ 
+        headerShown: true, 
+        title: 'Create Category',
+        headerStyle: {
+          backgroundColor: t.background,
+        },
+        headerTintColor: t.textPrimary,
+        headerTitleStyle: {
+          color: t.textPrimary,
+          fontWeight: '700' as TextStyle['fontWeight'],
+        },
+        headerShadowVisible: false,
+      }} />
+      <Stack.Screen name="categories/index" options={{ 
+        headerShown: true, 
+        title: 'Categories',
+        headerStyle: {
+          backgroundColor: t.background,
+        },
+        headerTintColor: t.textPrimary,
+        headerTitleStyle: {
+          color: t.textPrimary,
+          fontWeight: '700' as TextStyle['fontWeight'],
+        },
+        headerShadowVisible: false,
+      }} />
+      <Stack.Screen name="receipt/scan" options={{ 
+        headerShown: true, 
+        title: 'Scan Receipt',
+        headerStyle: {
+          backgroundColor: t.background,
+        },
+        headerTintColor: t.textPrimary,
+        headerTitleStyle: {
+          color: t.textPrimary,
+          fontWeight: '700' as TextStyle['fontWeight'],
+        },
+        headerShadowVisible: false,
+      }} />
+      <Stack.Screen name="profile/index" options={{ 
+        headerShown: true, 
+        title: 'Profile',
+        headerStyle: {
+          backgroundColor: t.background,
+        },
+        headerTintColor: t.textPrimary,
+        headerTitleStyle: {
+          color: t.textPrimary,
+          fontWeight: '700' as TextStyle['fontWeight'],
+        },
+        headerShadowVisible: false,
+      }} />
+      <Stack.Screen name="settings/currency" options={{ 
+        headerShown: true, 
+        title: 'Currency Settings',
+        headerStyle: {
+          backgroundColor: t.background,
+        },
+        headerTintColor: t.textPrimary,
+        headerTitleStyle: {
+          color: t.textPrimary,
+          fontWeight: '700' as TextStyle['fontWeight'],
+        },
+        headerShadowVisible: false,
+      }} />
+      <Stack.Screen name="settings/security" options={{ 
+        headerShown: true, 
+        title: 'Security Settings',
+        headerStyle: {
+          backgroundColor: t.background,
+        },
+        headerTintColor: t.textPrimary,
+        headerTitleStyle: {
+          color: t.textPrimary,
+          fontWeight: '700' as TextStyle['fontWeight'],
+        },
+        headerShadowVisible: false,
+      }} />
+      <Stack.Screen name="budget/index" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding/welcome" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding/profile" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding/wallet" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding/category" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding/budget" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding/goal" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding/transaction" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding/transfer" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding/analytics" options={{ headerShown: false }} />
+    </Stack>
+  );
+
   return (
     <GestureHandlerRootView style={styles.container}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen 
-          name="transactions/add" 
-          options={{ 
-            presentation: 'modal',
-            headerShown: true,
-            title: 'Add Transaction',
-            headerStyle: {
-              backgroundColor: t.background,
-            },
-            headerTintColor: t.textPrimary,
-            headerTitleStyle: {
-              color: t.textPrimary,
-              fontWeight: '700' as TextStyle['fontWeight'],
-            },
-            headerShadowVisible: false,
-          }} 
-        />
-        <Stack.Screen name="transactions/[id]" options={{ 
-          headerShown: true, 
-          title: 'Transaction Details',
-          headerStyle: {
-            backgroundColor: t.background,
-          },
-          headerTintColor: t.textPrimary,
-          headerTitleStyle: {
-            color: t.textPrimary,
-            fontWeight: '700' as TextStyle['fontWeight'],
-          },
-          headerShadowVisible: false,
-        }} />
-        <Stack.Screen name="transactions/edit" options={{ 
-          headerShown: true, 
-          title: 'Edit Transaction',
-          headerStyle: {
-            backgroundColor: t.background,
-          },
-          headerTintColor: t.textPrimary,
-          headerTitleStyle: {
-            color: t.textPrimary,
-            fontWeight: '700' as TextStyle['fontWeight'],
-          },
-          headerShadowVisible: false,
-        }} />
-        <Stack.Screen name="transactions/history" options={{ 
-          headerShown: true, 
-          title: 'History',
-          headerStyle: {
-            backgroundColor: t.background,
-          },
-          headerTintColor: t.textPrimary,
-          headerTitleStyle: {
-            color: t.textPrimary,
-            fontWeight: '700' as TextStyle['fontWeight'],
-          },
-          headerShadowVisible: false,
-        }} />
-        <Stack.Screen name="wallets/create" options={{ 
-          headerShown: true, 
-          title: 'Create Wallet',
-          headerStyle: {
-            backgroundColor: t.background,
-          },
-          headerTintColor: t.textPrimary,
-          headerTitleStyle: {
-            color: t.textPrimary,
-            fontWeight: '700' as TextStyle['fontWeight'],
-          },
-          headerShadowVisible: false,
-        }} />
-        <Stack.Screen name="wallets/[id]" options={{ 
-          headerShown: true, 
-          title: 'Wallet Details',
-          headerStyle: {
-            backgroundColor: t.background,
-          },
-          headerTintColor: t.textPrimary,
-          headerTitleStyle: {
-            color: t.textPrimary,
-            fontWeight: '700' as TextStyle['fontWeight'],
-          },
-          headerShadowVisible: false,
-        }} />
-        <Stack.Screen name="categories/create" options={{ 
-          headerShown: true, 
-          title: 'Create Category',
-          headerStyle: {
-            backgroundColor: t.background,
-          },
-          headerTintColor: t.textPrimary,
-          headerTitleStyle: {
-            color: t.textPrimary,
-            fontWeight: '700' as TextStyle['fontWeight'],
-          },
-          headerShadowVisible: false,
-        }} />
-        <Stack.Screen name="categories/index" options={{ 
-          headerShown: true, 
-          title: 'Categories',
-          headerStyle: {
-            backgroundColor: t.background,
-          },
-          headerTintColor: t.textPrimary,
-          headerTitleStyle: {
-            color: t.textPrimary,
-            fontWeight: '700' as TextStyle['fontWeight'],
-          },
-          headerShadowVisible: false,
-        }} />
-        <Stack.Screen name="receipt/scan" options={{ 
-          headerShown: true, 
-          title: 'Scan Receipt',
-          headerStyle: {
-            backgroundColor: t.background,
-          },
-          headerTintColor: t.textPrimary,
-          headerTitleStyle: {
-            color: t.textPrimary,
-            fontWeight: '700' as TextStyle['fontWeight'],
-          },
-          headerShadowVisible: false,
-        }} />
-        <Stack.Screen name="profile/index" options={{ 
-          headerShown: true, 
-          title: 'Profile',
-          headerStyle: {
-            backgroundColor: t.background,
-          },
-          headerTintColor: t.textPrimary,
-          headerTitleStyle: {
-            color: t.textPrimary,
-            fontWeight: '700' as TextStyle['fontWeight'],
-          },
-          headerShadowVisible: false,
-        }} />
-        <Stack.Screen name="settings/currency" options={{ 
-          headerShown: true, 
-          title: 'Currency Settings',
-          headerStyle: {
-            backgroundColor: t.background,
-          },
-          headerTintColor: t.textPrimary,
-          headerTitleStyle: {
-            color: t.textPrimary,
-            fontWeight: '700' as TextStyle['fontWeight'],
-          },
-          headerShadowVisible: false,
-        }} />
-        <Stack.Screen name="settings/security" options={{ 
-          headerShown: true, 
-          title: 'Security Settings',
-          headerStyle: {
-            backgroundColor: t.background,
-          },
-          headerTintColor: t.textPrimary,
-          headerTitleStyle: {
-            color: t.textPrimary,
-            fontWeight: '700' as TextStyle['fontWeight'],
-          },
-          headerShadowVisible: false,
-        }} />
-        <Stack.Screen name="budget/index" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding/welcome" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding/profile" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding/wallet" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding/category" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding/budget" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding/goal" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding/transaction" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding/transfer" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding/analytics" options={{ headerShown: false }} />
-      </Stack>
-
+      {Platform.OS === 'web' ? (
+        <WebShell>
+          {renderStack()}
+        </WebShell>
+      ) : (
+        renderStack()
+      )}
+      
       {/* Show biometric auth overlay if not authenticated */}
       {!isAuthenticated && biometricEnabled && biometricSetupComplete && (
         <View style={[StyleSheet.absoluteFill, { backgroundColor: t.background, justifyContent: 'center', alignItems: 'center', padding: 32, zIndex: 1000 }]}>

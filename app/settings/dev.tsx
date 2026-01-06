@@ -1,10 +1,12 @@
-import React from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView, Alert } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, Pressable, StyleSheet, ScrollView, Alert, useColorScheme, Platform, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { theme, colors } from '../../src/theme/theme';
 import { useSettings } from '../../src/store/useStore';
 import { useOnboarding } from '../../src/store/useOnboarding';
+import { useAlert } from '../../src/lib/hooks/useAlert';
+import { ThemedAlert } from '../../src/components/ThemedAlert';
 
 /**
  * Developer Settings Screen
@@ -13,26 +15,39 @@ import { useOnboarding } from '../../src/store/useOnboarding';
  */
 export default function DevSettingsScreen() {
   const { themeMode } = useSettings();
+  const systemColorScheme = useColorScheme();
   const { isOnboardingComplete, resetOnboarding, currentStep, completedSteps } = useOnboarding();
   const router = useRouter();
   const t = theme(themeMode);
+  const { alertConfig, showConfirmAlert, dismissAlert } = useAlert();
 
   const handleResetOnboarding = () => {
-    Alert.alert(
-      'Restart Onboarding',
-      'This will reset the onboarding flow. The app will restart as if it\'s a fresh install.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: () => {
-            resetOnboarding();
-            router.replace('/onboarding/welcome');
+    if (Platform.OS === 'web') {
+      showConfirmAlert(
+        'Restart Onboarding',
+        'This will reset the onboarding flow. The app will restart as if it\'s a fresh install.',
+        () => {
+          resetOnboarding();
+          router.replace('/onboarding/welcome');
+        }
+      );
+    } else {
+      Alert.alert(
+        'Restart Onboarding',
+        'This will reset the onboarding flow. The app will restart as if it\'s a fresh install.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Reset',
+            style: 'destructive',
+            onPress: () => {
+              resetOnboarding();
+              router.replace('/onboarding/welcome');
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const handleStartOnboarding = () => {
@@ -91,6 +106,17 @@ export default function DevSettingsScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Web: ThemedAlert */}
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={dismissAlert}
+        themeMode={themeMode}
+        systemColorScheme={systemColorScheme || 'light'}
+      />
     </SafeAreaView>
   );
 }

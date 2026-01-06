@@ -11,13 +11,6 @@ export function useWallets() {
 
   const loadWallets = useCallback(async () => {
     setLoading(true);
-    if (Platform.OS === 'web') {
-      // Skip SQLite on web; return empty data gracefully
-      setWallets([]);
-      setBalances({});
-      setLoading(false);
-      return;
-    }
     const ws = await getWallets();
     setWallets(ws);
     

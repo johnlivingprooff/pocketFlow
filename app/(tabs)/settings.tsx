@@ -192,24 +192,17 @@ export default function SettingsScreen() {
   };
   
   const handleRestartOnboarding = () => {
-    Alert.alert(
+    showConfirmAlert(
       'Restart Onboarding',
       'This will restart the onboarding flow. The app will begin setup as if it\'s a fresh install.',
-      [
-        { text: 'Cancel', onPress: () => {}, style: 'cancel' },
-        {
-          text: 'Restart',
-          onPress: async () => {
-            try {
-              resetOnboarding();
-              showSuccessAlert('Success', 'Onboarding has been restarted. Please restart the app.');
-            } catch (error) {
-              showErrorAlert('Error', 'Failed to restart onboarding');
-            }
-          },
-          style: 'destructive',
-        },
-      ]
+      async () => {
+        try {
+          resetOnboarding();
+          showSuccessAlert('Success', 'Onboarding has been restarted. Please restart the app.');
+        } catch (error) {
+          showErrorAlert('Error', 'Failed to restart onboarding');
+        }
+      }
     );
   };
 

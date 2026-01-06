@@ -10,12 +10,6 @@ export function useTransactions(page = 0, pageSize = 20) {
 
   const loadTransactions = useCallback(async () => {
     setLoading(true);
-    if (Platform.OS === 'web') {
-      // Skip SQLite-backed calls on web; return empty data
-      setTransactions([]);
-      setLoading(false);
-      return;
-    }
     const ts = await getTransactions(page, pageSize);
     setTransactions(ts);
     setLoading(false);

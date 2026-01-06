@@ -7,7 +7,7 @@ import { Platform } from 'react-native';
 import { log, error as logError, warn } from '@/utils/logger';
 import { INCOME_TAXONOMY, EXPENSE_TAXONOMY } from '@/constants/categories';
 
-let dbPromise: Promise<NitroSQLiteConnection> | null = null;
+let dbPromise: Promise<NitroSQLiteConnection | any> | null = null;
 
 // Schema version - increment this when making breaking schema changes
 const CURRENT_SCHEMA_VERSION = 3;
@@ -73,10 +73,17 @@ async function openDb(): Promise<NitroSQLiteConnection> {
   }
 }
 
-export async function getDbAsync(): Promise<NitroSQLiteConnection> {
-  if (typeof window !== 'undefined' && window.navigator && window.navigator.product === 'ReactNative' && Platform.OS === 'web') {
-    throw new Error('SQLite is not supported on web. Please use iOS or Android.');
+export async function getDbAsync(): Promise<NitroSQLiteConnection | any> {
+  if (Platform.OS === 'web') {
+      const { getWebDatabase } = await import('./webDriver');
+    // On web, use the web driver backed by IndexedDB and sql.js
+    if (!dbPromise) {
+      dbPromise = getWebDatabase();
+    }
+    return dbPromise;
   }
+
+  // On mobile, use native SQLite via nitro-sqlite
   if (!dbPromise) {
     dbPromise = openDb();
   }
@@ -92,7 +99,12 @@ export function getDbSync(): NitroSQLiteConnection {
 
 // Call this once at app startup (e.g. in _layout.tsx)
 export async function initDb(): Promise<void> {
-  _dbSync = await getDbAsync();
+  if (Platform.OS !== 'web') {
+    _dbSync = await getDbAsync() as NitroSQLiteConnection;
+  } else {
+    // On web, just initialize the web driver
+    await getDbAsync();
+  }
 }
 
 

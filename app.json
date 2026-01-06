@@ -30,8 +30,7 @@
       "package": "com.eiteone.pocketflow"
     },
     "web": {
-      "favicon": "./assets/app_icon.png",
-      "bundler": "webpack"
+      "favicon": "./assets/app_icon.png"
     },
     "scheme": "pocketflow",
     "plugins": [
