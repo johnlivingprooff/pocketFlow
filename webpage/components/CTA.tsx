@@ -1,10 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 
 export function CTA() {
   const [isVisible, setIsVisible] = useState(false);
+  const [email, setEmail] = useState('');
+  const [fullname, setFullname] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState('');
   const sectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -28,6 +31,39 @@ export function CTA() {
     };
   }, []);
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !fullname.trim()) return;
+
+    setIsSubmitting(true);
+    setMessage('');
+
+    try {
+      const response = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email: email.trim(),
+          fullname: fullname.trim()
+        }),
+      });
+
+      if (response.ok) {
+        setMessage('Thanks for joining the waitlist! We\'ll be in touch soon.');
+        setEmail('');
+        setFullname('');
+      } else {
+        setMessage('Something went wrong. Please try again.');
+      }
+    } catch (error) {
+      setMessage('Network error. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <section
       ref={sectionRef}
@@ -47,15 +83,35 @@ export function CTA() {
         <p className="text-xl text-sand-100">
           Start tracking your cash flow today. Offline-first, privacy-focused, built for clarity.
         </p>
-        <div className="mt-4">
-          <Link
-            href="https://github.com/johnlivingprooff/pocketFlow"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-lg font-semibold text-gold-400 underline decoration-gold-400/60 underline-offset-4 hover:text-gold-300 transition-colors"
-          >
-            View on GitHub
-          </Link>
+        <div className="mt-4 w-full max-w-md">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <input
+              type="text"
+              value={fullname}
+              onChange={(e) => setFullname(e.target.value)}
+              placeholder="Enter your full name"
+              required
+              className="px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-gold-400 focus:border-transparent"
+            />
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter your email"
+              required
+              className="px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-gold-400 focus:border-transparent"
+            />
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-6 py-3 bg-gold-500 hover:bg-gold-600 disabled:bg-gold-500/50 text-white font-semibold rounded-lg transition-colors duration-200"
+            >
+              {isSubmitting ? 'Joining...' : 'Join Waitlist'}
+            </button>
+          </form>
+          {message && (
+            <p className="mt-4 text-sm text-sand-200">{message}</p>
+          )}
         </div>
       </div>
     </section>

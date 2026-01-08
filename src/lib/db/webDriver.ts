@@ -7,28 +7,30 @@
 
 import { log, error as logError, warn } from '@/utils/logger';
 
-// Load sql.js dynamically via script tag to avoid bundler issues
+const SQL_JS_URL = 'https://sql.js.org/dist/sql-wasm.js';
+const locateFile = (file: string) => `${SQL_JS_URL.replace('sql-wasm.js', '')}${file}`;
+
+// Load sql.js as an ES module via dynamic import to avoid bundling and import.meta errors
 let SQL: any = null;
 const sqlInitPromise = (async () => {
-  // Check if already loaded
+  // If already present globally (unlikely on web), reuse it
   if ((window as any).initSqlJs) {
-    return (window as any).initSqlJs({
-      locateFile: (file: string) => `https://sql.js.org/dist/${file}`
-    });
+    return (window as any).initSqlJs({ locateFile });
   }
 
-  // Load sql.js from CDN
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = 'https://sql.js.org/dist/sql-wasm.js';
-    script.onload = () => {
-      (window as any).initSqlJs({
-        locateFile: (file: string) => `https://sql.js.org/dist/${file}`
-      }).then(resolve).catch(reject);
-    };
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
+  try {
+    // Use dynamic runtime import so Metro/Expo does not try to bundle sql.js (prevents import.meta errors)
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
+    const module = await (new Function('u', 'return import(u);'))(SQL_JS_URL);
+    const initSqlJs = (module as any).default ?? (module as any).initSqlJs;
+    if (!initSqlJs) {
+      throw new Error('sql.js module did not expose initSqlJs');
+    }
+    return initSqlJs({ locateFile });
+  } catch (err) {
+    logError('[WebDB] Failed to load sql.js module', err as Record<string, any>);
+    throw err;
+  }
 })();
 
 // IndexedDB constants
