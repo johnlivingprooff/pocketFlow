@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Platform, Modal, useColorScheme, KeyboardAvoidingView, Switch } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Platform, Modal, useColorScheme, KeyboardAvoidingView, Switch, Keyboard, Animated } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -60,6 +60,12 @@ export default function AddTransactionScreen() {
     buttons: Array<{ text: string; onPress?: () => void }>;
   }>({ visible: false, title: '', message: '', buttons: [] });
   const [isSaving, setIsSaving] = useState(false);
+
+  // Keyboard state for floating button
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const floatingButtonOpacity = useState(new Animated.Value(0))[0];
+  const floatingButtonTranslateY = useState(new Animated.Value(100))[0];
 
   const displayCurrency = useMemo(() => {
     const selected = wallets.find((w) => w.id === walletId);
@@ -145,6 +151,58 @@ export default function AddTransactionScreen() {
 
     loadTransactionForEdit();
   }, [isEditMode, id]);
+
+  // Keyboard event listeners for floating button
+  useEffect(() => {
+    const keyboardWillShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardVisible(true);
+        setKeyboardHeight(e.endCoordinates.height);
+        
+        // Animate button in
+        Animated.parallel([
+          Animated.timing(floatingButtonOpacity, {
+            toValue: 1,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+          Animated.timing(floatingButtonTranslateY, {
+            toValue: 0,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
+    );
+
+    const keyboardWillHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        // Animate button out
+        Animated.parallel([
+          Animated.timing(floatingButtonOpacity, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(floatingButtonTranslateY, {
+            toValue: 100,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          setKeyboardVisible(false);
+          setKeyboardHeight(0);
+        });
+      }
+    );
+
+    return () => {
+      keyboardWillShowListener.remove();
+      keyboardWillHideListener.remove();
+    };
+  }, []);
 
   const loadCategories = async (selectedType: 'income' | 'expense') => {
     try {
@@ -690,6 +748,36 @@ export default function AddTransactionScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Floating check button - appears above keyboard */}
+        {keyboardVisible && (
+          <Animated.View
+            style={{
+              position: 'absolute',
+              bottom: keyboardHeight + (Platform.OS === 'ios' ? 10 : 20),
+              right: 20,
+              opacity: floatingButtonOpacity,
+              transform: [{ translateY: floatingButtonTranslateY }],
+            }}
+          >
+            <TouchableOpacity
+              onPress={onSave}
+              disabled={!isValidAmount || isSaving || (type === 'transfer' && !toWalletId)}
+              style={{
+                backgroundColor: !isValidAmount || isSaving || (type === 'transfer' && !toWalletId) ? t.border : t.primary,
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                justifyContent: 'center',
+                alignItems: 'center',
+                ...shadows.lg,
+                opacity: !isValidAmount || isSaving ? 0.7 : 1,
+              }}
+            >
+              <Text style={{ color: '#fff', fontSize: 32, fontWeight: '600', lineHeight: 32 }}>✓</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
 
         <Modal visible={showCategoryPicker} transparent animationType="fade" onRequestClose={() => setShowCategoryPicker(false)}>
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 16 }}>

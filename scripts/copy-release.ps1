@@ -12,7 +12,7 @@ if ([string]::IsNullOrEmpty($Version)) {
 }
 
 # Define paths
-$sourcePath = "android\app\build\outputs\apk\release\app-release.apk"
+$sourcePath = "android/app/build/outputs/apk/release/app-release.apk"
 $releasesDir = "releases"
 $targetFileName = "pocketflow-v$Version.apk"
 $targetPath = Join-Path $releasesDir $targetFileName
@@ -41,16 +41,16 @@ if (Test-Path $targetPath) {
 
 # Copy and rename the APK
 Copy-Item -Path $sourcePath -Destination $targetPath -Force
-Write-Host "✓ Successfully copied release APK to: $targetPath" -ForegroundColor Green
+Write-Host "[OK] Successfully copied release APK to: $targetPath" -ForegroundColor Green
 
 # Get file size
 $fileItem = Get-Item -Path $targetPath -ErrorAction SilentlyContinue
 if ($fileItem) {
     $fileSizeBytes = $fileItem.Length
     $fileSizeMB = [Math]::Round($fileSizeBytes / 1MB, 2)
-    Write-Host "✓ File size: $fileSizeMB MB" -ForegroundColor Green
+    Write-Host "[OK] File size: $fileSizeMB MB" -ForegroundColor Green
 } else {
-    Write-Host "✓ File copied successfully" -ForegroundColor Green
+    Write-Host "[OK] File copied successfully" -ForegroundColor Green
 }
 
 # Display next steps
@@ -59,6 +59,6 @@ Write-Host "1. Test the APK on a device" -ForegroundColor White
 Write-Host "2. Update releases/README.md with release notes" -ForegroundColor White
 Write-Host "3. Commit and push to GitHub:" -ForegroundColor White
 Write-Host "   git add releases/" -ForegroundColor Gray
-Write-Host "   git commit -m `"Release v$Version`"" -ForegroundColor Gray
+Write-Host "   git commit -m 'Release v$Version'" -ForegroundColor Gray
 Write-Host "   git tag v$Version" -ForegroundColor Gray
 Write-Host "   git push origin main --tags" -ForegroundColor Gray

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform, Modal, KeyboardAvoidingView, useColorScheme } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform, Modal, KeyboardAvoidingView, useColorScheme, Keyboard, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
@@ -36,6 +36,12 @@ export default function EditTransaction() {
     buttons: Array<{ text: string; onPress?: () => void }>;
   }>({ visible: false, title: '', message: '', buttons: [] });
 
+  // Keyboard state for floating button
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const floatingButtonOpacity = useState(new Animated.Value(0))[0];
+  const floatingButtonTranslateY = useState(new Animated.Value(100))[0];
+
   const { loadCategories } = useCategories(type);
 
   const load = useCallback(async () => {
@@ -44,7 +50,10 @@ export default function EditTransaction() {
       const data = await getById(Number(id));
       setTxn(data);
       if (data) {
-        setType(data.type);
+        // Only handle income and expense types in edit screen
+        if (data.type !== 'transfer') {
+          setType(data.type);
+        }
         setAmount(String(Math.abs(data.amount)));
         setCategory(data.category ?? '');
         setDate(data.date);
@@ -63,6 +72,58 @@ export default function EditTransaction() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Keyboard event listeners for floating button
+  useEffect(() => {
+    const keyboardWillShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardVisible(true);
+        setKeyboardHeight(e.endCoordinates.height);
+        
+        // Animate button in
+        Animated.parallel([
+          Animated.timing(floatingButtonOpacity, {
+            toValue: 1,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+          Animated.timing(floatingButtonTranslateY, {
+            toValue: 0,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
+    );
+
+    const keyboardWillHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        // Animate button out
+        Animated.parallel([
+          Animated.timing(floatingButtonOpacity, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(floatingButtonTranslateY, {
+            toValue: 100,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          setKeyboardVisible(false);
+          setKeyboardHeight(0);
+        });
+      }
+    );
+
+    return () => {
+      keyboardWillShowListener.remove();
+      keyboardWillHideListener.remove();
+    };
+  }, []);
 
   // Load categories when type changes
   useEffect(() => {
@@ -94,9 +155,9 @@ export default function EditTransaction() {
       await updateTransaction(Number(id), {
         type,
         amount: type === 'expense' ? -Math.abs(value) : Math.abs(value),
-        category: category || null,
+        category: category || undefined,
         date,
-        notes: notes || null,
+        notes: notes || undefined,
       });
       setAlertConfig({
         visible: true,
@@ -414,6 +475,34 @@ export default function EditTransaction() {
         systemColorScheme={systemColorScheme || 'light'}
       />
       </ScrollView>
+
+      {/* Floating check button - appears above keyboard */}
+      {keyboardVisible && (
+        <Animated.View
+          style={{
+            position: 'absolute',
+            bottom: keyboardHeight + (Platform.OS === 'ios' ? 10 : 20),
+            right: 20,
+            opacity: floatingButtonOpacity,
+            transform: [{ translateY: floatingButtonTranslateY }],
+          }}
+        >
+          <TouchableOpacity
+            onPress={handleSave}
+            style={{
+              backgroundColor: t.primary,
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              justifyContent: 'center',
+              alignItems: 'center',
+              ...shadows.lg,
+            }}
+          >
+            <Text style={{ color: '#fff', fontSize: 32, fontWeight: '600', lineHeight: 32 }}>✓</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
     </KeyboardAvoidingView>
     </SafeAreaView>
   );
