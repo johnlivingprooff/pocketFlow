@@ -20,10 +20,10 @@ import appPackage from '../../package.json';
 const APP_VERSION = appPackage.version;
 
 export default function SettingsScreen() {
-  const { 
-    themeMode, 
-    setThemeMode, 
-    biometricEnabled, 
+  const {
+    themeMode,
+    setThemeMode,
+    biometricEnabled,
     setBiometricEnabled,
     biometricSetupComplete,
     setBiometricSetupComplete,
@@ -68,7 +68,7 @@ export default function SettingsScreen() {
     if (value) {
       // Turning on - check availability first
       const availability = await checkBiometricAvailability();
-      
+
       if (!availability.isAvailable) {
         showErrorAlert(
           'Biometric Not Available',
@@ -79,7 +79,7 @@ export default function SettingsScreen() {
 
       // Authenticate to enable
       const auth = await authenticateWithBiometrics('Authenticate to enable biometric lock');
-      
+
       if (auth.success) {
         setBiometricEnabled(true);
         setBiometricSetupComplete(true);
@@ -110,13 +110,14 @@ export default function SettingsScreen() {
   };
 
   const themeOptions: { value: ThemeMode; label: string; description: string }[] = [
-    { value: 'light', label: 'Light', description: 'Always use light theme' },
-    { value: 'dark', label: 'Dark', description: 'Always use dark theme' },
+    { value: 'light', label: 'Deep Teal (light)', description: 'Always use light theme' },
+    { value: 'dark', label: 'Luxury Gold (dark)', description: 'Always use dark theme' },
+    { value: 'dark-teal', label: 'Deep Teal (dark)', description: 'Dark theme with teal accents' },
     { value: 'system', label: 'System', description: 'Follow system preference' },
   ];
 
   const getThemeLabel = () => themeOptions.find(o => o.value === themeMode)?.label || 'System';
-  
+
   const handleCreateBackup = async () => {
     setIsLoadingBackup(true);
     try {
@@ -177,11 +178,11 @@ export default function SettingsScreen() {
   const handleBackup = async () => showSuccessAlert('Backup', 'Backup feature will save your data');
   const handleExportCSVOld = async () => showSuccessAlert('Export CSV', 'CSV export feature coming soon');
   const handleFeedback = () => Linking.openURL('mailto:hello@eiteone.org?subject=Feedback');
-  
+
   const handleVersionTap = () => {
     const newCount = versionTapCount + 1;
     setVersionTapCount(newCount);
-    
+
     if (newCount === 6) {
       setShowDevOptions(true);
       showSuccessAlert(
@@ -190,7 +191,7 @@ export default function SettingsScreen() {
       );
     }
   };
-  
+
   const handleRestartOnboarding = () => {
     showConfirmAlert(
       'Restart Onboarding',
@@ -282,13 +283,13 @@ export default function SettingsScreen() {
                   Use {biometricType}
                 </Text>
                 <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>
-                  {biometricAvailable 
-                    ? 'Secure app access with biometrics' 
+                  {biometricAvailable
+                    ? 'Secure app access with biometrics'
                     : 'Not available on this device'}
                 </Text>
               </View>
-              <Switch 
-                value={biometricEnabled} 
+              <Switch
+                value={biometricEnabled}
                 onValueChange={handleBiometricToggle}
                 disabled={!biometricAvailable}
               />

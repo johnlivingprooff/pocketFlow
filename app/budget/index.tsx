@@ -17,6 +17,9 @@ import { GoalAlertBanner } from '@/components/GoalAlertBanner';
 import { FinancialSummaryCard } from '@/components/FinancialSummaryCard';
 import { useAlert } from '@/lib/hooks/useAlert';
 import { ThemedAlert } from '@/components/ThemedAlert';
+import { EmptyBudgetIcon, EmptyGoalIcon, CheckCircleIcon, AlertCircleIcon, TrendUpIcon } from '@/assets/icons/BudgetGoalIcons';
+import { PlusIcon } from '@/assets/icons/PlusIcon';
+import { SettingsIcon } from '@/assets/icons/SettingsIcon'; // Using Settings as a placeholder if Chevron is missing, or just check what we have
 
 type TabType = 'budget' | 'goals';
 
@@ -47,7 +50,7 @@ export default function BudgetGoalsScreen() {
   const [goals, setGoals] = useState<GoalWithMetrics[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   const translateX = useSharedValue(0);
 
   useFocusEffect(
@@ -147,10 +150,18 @@ export default function BudgetGoalsScreen() {
     router.push(`/budgets/${budgetId}`);
   };
 
+  const handleCreateBudget = () => {
+    router.push('/budgets/create');
+  };
+
+  const handleCreateGoal = () => {
+    router.push('/goals/create');
+  };
+
   const handleEditGoal = (goalId: number) => {
     router.push(`/goals/${goalId}/edit`);
   };
-  
+
   const switchTab = (tab: TabType) => {
     setActiveTab(tab);
     // Animate to the correct position: budget = 0, goals = -SCREEN_WIDTH
@@ -160,11 +171,13 @@ export default function BudgetGoalsScreen() {
   };
 
   const pan = Gesture.Pan()
+    .failOffsetY([-10, 10])
+    .activeOffsetX([-10, 10])
     .onUpdate((e) => {
       // Only allow horizontal swiping if the gesture is predominantly horizontal
       // This prevents conflicts with vertical scrolling/pull-to-refresh
       const isHorizontalGesture = Math.abs(e.translationX) > Math.abs(e.translationY) && Math.abs(e.translationX) > 20;
-      
+
       if (!isHorizontalGesture) {
         return; // Let vertical gestures (like pull-to-refresh) pass through
       }
@@ -172,7 +185,7 @@ export default function BudgetGoalsScreen() {
       // Calculate target position based on current tab
       const baseOffset = activeTab === 'budget' ? 0 : -SCREEN_WIDTH;
       translateX.value = baseOffset + e.translationX;
-      
+
       // Clamp to prevent over-scrolling
       if (translateX.value > 0) {
         translateX.value = 0;
@@ -183,22 +196,22 @@ export default function BudgetGoalsScreen() {
     .onEnd((e) => {
       // Only process horizontal swipe if it was a horizontal gesture
       const isHorizontalGesture = Math.abs(e.translationX) > Math.abs(e.translationY) && Math.abs(e.translationX) > 20;
-      
+
       if (!isHorizontalGesture) {
         return; // Don't interfere with vertical gestures
       }
 
       const currentOffset = activeTab === 'budget' ? 0 : -SCREEN_WIDTH;
       const finalPosition = currentOffset + e.translationX;
-      
+
       // Determine which tab to snap to based on position and velocity
-      const shouldSwitchToGoals = 
-        finalPosition < -SCREEN_WIDTH / 2 || 
+      const shouldSwitchToGoals =
+        finalPosition < -SCREEN_WIDTH / 2 ||
         (e.velocityX < -500 && activeTab === 'budget');
-      const shouldSwitchToBudget = 
-        finalPosition > -SCREEN_WIDTH / 2 || 
+      const shouldSwitchToBudget =
+        finalPosition > -SCREEN_WIDTH / 2 ||
         (e.velocityX > 500 && activeTab === 'goals');
-      
+
       if (shouldSwitchToGoals && activeTab === 'budget') {
         runOnJS(switchTab)('goals');
       } else if (shouldSwitchToBudget && activeTab === 'goals') {
@@ -215,160 +228,204 @@ export default function BudgetGoalsScreen() {
     transform: [{ translateX: translateX.value }],
   }));
 
-  const renderBudgetItem = (item: BudgetWithMetrics) => (
-    <View key={item.id}>
-      <Pressable
-        onPress={() => handleViewBudget(item.id!)}
-        style={[styles.categoryCard, { backgroundColor: colors.card }]}
-        android_ripple={{ color: colors.primary }}
-      >
-      <View style={styles.categoryHeader}>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.categoryName, { color: colors.textPrimary }]}>
-            {item.name}
-          </Text>
-          <Text style={[styles.categorySubtext, { color: colors.textSecondary }]}>
-            {item.periodType === 'custom'
-              ? `${new Date(item.startDate).toLocaleDateString()} - ${new Date(item.endDate).toLocaleDateString()}`
-              : item.periodType === 'weekly'
-              ? 'Weekly'
-              : 'Monthly'}
-          </Text>
-        </View>
-        <Pressable
-          onPress={() => handleDeleteBudget(item.id!)}
-          hitSlop={12}
-          style={{ paddingLeft: 8 }}
-        >
-          <Text style={[styles.deleteButton, { color: colors.danger }]}>✕</Text>
-        </Pressable>
-      </View>
+  const renderBudgetItem = (item: BudgetWithMetrics) => {
+    // Determine status
+    let statusText = 'On Track';
+    let statusColor = colors.success;
+    let statusBgColor = colors.success + '20';
 
-      <View style={styles.progressContainer}>
-        <View
-          style={[
-            styles.progressBar,
-            {
-              width: `${Math.min(item.percentageUsed || 0, 100)}%`,
-              backgroundColor:
-                item.isOverBudget
-                  ? colors.danger
-                  : (item.percentageUsed || 0) > 75
-                  ? colors.primary
-                  : colors.success,
-            },
-          ]}
-        />
-      </View>
+    if (item.isOverBudget) {
+      statusText = 'Over Budget';
+      statusColor = colors.danger;
+      statusBgColor = colors.danger + '20';
+    } else if ((item.percentageUsed || 0) >= 85) {
+      statusText = 'Warning';
+      statusColor = colors.warning;
+      statusBgColor = colors.warning + '20';
+    }
 
-      <View style={styles.budgetInfo}>
-        <View>
-          <Text style={[styles.budgetText, { color: colors.textSecondary }]}>
-            Spent: {formatCurrency(item.currentSpending, defaultCurrency)}
-          </Text>
-          <Text style={[styles.budgetText, { color: colors.textSecondary }]}>
-            Limit: {formatCurrency(item.limitAmount, defaultCurrency)}
-          </Text>
-        </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text
-            style={[
-              styles.remainingText,
-              {
-                color: item.isOverBudget ? colors.danger : colors.success,
-              },
-            ]}
-          >
-            {item.isOverBudget ? 'Over' : 'Remaining'}: {formatCurrency(Math.abs(item.remainingBalance), defaultCurrency)}
-          </Text>
-          <Text style={[styles.percentageText, { color: colors.textSecondary }]}>
-            {item.percentageUsed?.toFixed(0) || '0'}%
-          </Text>
-        </View>
-      </View>
-
-      {item.daysRemaining !== undefined && item.daysRemaining > 0 && (
-        <View style={[styles.paceIndicator, { backgroundColor: colors.background }]}>
-          <Text style={[styles.paceText, { color: colors.textSecondary }]}>
-            {item.daysRemaining} day{item.daysRemaining !== 1 ? 's' : ''} left • 
-            Daily avg: {formatCurrency(item.averageDailySpend, defaultCurrency)}
-          </Text>
-        </View>
-      )}
-      </Pressable>
-    </View>
-  );
-
-  const renderGoalItem = (item: GoalWithMetrics) => (
-    <View key={item.id}>
-      <Pressable
-        onPress={() => handleEditGoal(item.id!)}
-        style={[styles.categoryCard, { backgroundColor: colors.card }]}
-        android_ripple={{ color: colors.primary }}
-      >
-      <View style={styles.categoryHeader}>
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+    return (
+      <View key={item.id} style={[styles.categoryCard, { backgroundColor: colors.card }]}>
+        {/* Header with name and status badge */}
+        <View style={styles.categoryHeader}>
+          <View style={{ flex: 1 }}>
             <Text style={[styles.categoryName, { color: colors.textPrimary }]}>
               {item.name}
             </Text>
-            {(() => {
-              const badge = getMilestoneBadge(item.progressPercentage || 0);
-              return badge ? <Text style={styles.milestoneBadge}>{badge}</Text> : null;
-            })()}
+            <Text style={[styles.categorySubtext, { color: colors.textSecondary }]}>
+              {item.periodType === 'custom'
+                ? `${new Date(item.startDate).toLocaleDateString()} - ${new Date(item.endDate).toLocaleDateString()}`
+                : item.periodType === 'weekly'
+                  ? 'Weekly'
+                  : 'Monthly'}
+            </Text>
           </View>
-          <Text style={[styles.categorySubtext, { color: colors.textSecondary }]}>
-            Target: {formatCurrency(item.targetAmount, defaultCurrency)}
-          </Text>
+          <View style={[styles.statusBadge, { backgroundColor: statusBgColor }]}>
+            <Text style={[styles.statusBadgeText, { color: statusColor }]}>{statusText}</Text>
+          </View>
         </View>
-        <Pressable
-          onPress={() => handleDeleteGoal(item.id!)}
-          hitSlop={12}
-          style={{ paddingLeft: 8 }}
-        >
-          <Text style={[styles.deleteButton, { color: colors.danger }]}>✕</Text>
-        </Pressable>
-      </View>
 
-      <View style={styles.progressContainer}>
-        <View
-          style={[
-            styles.progressBar,
-            {
-              width: `${Math.min(item.progressPercentage || 0, 100)}%`,
-              backgroundColor: item.onTrack ? colors.success : colors.primary,
-            },
-          ]}
-        />
-      </View>
-
-      <View style={styles.budgetInfo}>
-        <View>
-          <Text style={[styles.budgetText, { color: colors.textSecondary }]}>
-            Progress: {formatCurrency(item.currentProgress, defaultCurrency)}
-          </Text>
-          <Text style={[styles.budgetText, { color: colors.textSecondary }]}>
-            Status: {item.onTrack ? '✓ On track' : '⚠ Behind'}
-          </Text>
+        {/* Progress Bar */}
+        <View style={[styles.progressContainer, { backgroundColor: colors.border }]}>
+          <View
+            style={[
+              styles.progressBar,
+              {
+                width: `${Math.min(item.percentageUsed || 0, 100)}%`,
+                backgroundColor: statusColor,
+              },
+            ]}
+          />
         </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text style={[styles.percentageText, { color: colors.textSecondary }]}>
-            {item.progressPercentage?.toFixed(0) || '0'}%
-          </Text>
-          <Text style={[styles.remainingText, { color: colors.textSecondary }]}>
-            Monthly: {formatCurrency(item.monthlyRequired, defaultCurrency)}
-          </Text>
+
+        {/* Budget Info */}
+        <View style={styles.budgetInfo}>
+          <View>
+            <Text style={[styles.budgetLabel, { color: colors.textSecondary }]}>SPENT</Text>
+            <Text style={[styles.budgetValue, { color: item.isOverBudget ? colors.danger : colors.textPrimary }]}>
+              {formatCurrency(item.currentSpending, defaultCurrency)}
+            </Text>
+          </View>
+
+          <View style={{ alignItems: 'center' }}>
+            <Text style={[styles.percentageText, { color: statusColor }]}>
+              {item.percentageUsed?.toFixed(0) || '0'}%
+            </Text>
+          </View>
+
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={[styles.budgetLabel, { color: colors.textSecondary }]}>REMAINING</Text>
+            <Text style={[styles.budgetValue, { color: item.isOverBudget ? colors.danger : colors.success }]}>
+              {formatCurrency(Math.abs(item.remainingBalance), defaultCurrency)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Footer with limit and details */}
+        <View style={[styles.cardFooter, { borderTopColor: colors.border }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.limitText, { color: colors.textSecondary }]}>
+              Limit: {formatCurrency(item.limitAmount, defaultCurrency)}
+            </Text>
+            {item.daysRemaining !== undefined && item.daysRemaining > 0 && (
+              <Text style={[styles.daysText, { color: colors.textSecondary }]}>
+                {item.daysRemaining} day{item.daysRemaining !== 1 ? 's' : ''} left •
+                Avg: {formatCurrency(item.averageDailySpend, defaultCurrency)}/day
+              </Text>
+            )}
+          </View>
+          <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
+            <Pressable onPress={() => handleViewBudget(item.id!)} hitSlop={8}>
+              <Text style={[styles.detailsLink, { color: colors.primary }]}>Details ›</Text>
+            </Pressable>
+            <Pressable onPress={() => handleDeleteBudget(item.id!)} hitSlop={12}>
+              <Text style={[styles.deleteButton, { color: colors.textTertiary }]}>✕</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
+    );
+  };
 
-      {item.daysRemaining && item.daysRemaining > 0 && (
-        <Text style={[styles.daysText, { color: colors.textSecondary }]}>
-          {item.daysRemaining} day{item.daysRemaining !== 1 ? 's' : ''} until deadline
-        </Text>
-      )}
-      </Pressable>
-    </View>
-  );
+  const renderGoalItem = (item: GoalWithMetrics) => {
+    // Determine status
+    let statusText = 'On Track';
+    let statusColor = colors.primary;
+    let statusBgColor = colors.primary + '20';
+
+    if ((item.progressPercentage || 0) >= 100) {
+      statusText = 'Achieved';
+      statusColor = colors.success;
+      statusBgColor = colors.success + '20';
+    } else if (item.daysRemaining && item.daysRemaining < 0) {
+      statusText = 'Overdue';
+      statusColor = colors.danger;
+      statusBgColor = colors.danger + '20';
+    } else if (!item.onTrack) {
+      statusText = 'Behind';
+      statusColor = colors.warning;
+      statusBgColor = colors.warning + '20';
+    }
+
+    const badge = getMilestoneBadge(item.progressPercentage || 0);
+
+    return (
+      <View key={item.id} style={[styles.categoryCard, { backgroundColor: colors.card }]}>
+        {/* Header with name, milestone badge, and status */}
+        <View style={styles.categoryHeader}>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={[styles.categoryName, { color: colors.textPrimary }]}>
+                {item.name}
+              </Text>
+              {badge && <Text style={styles.milestoneBadge}>{badge}</Text>}
+            </View>
+            <Text style={[styles.categorySubtext, { color: colors.textSecondary }]}>
+              Target: {formatCurrency(item.targetAmount, defaultCurrency)}
+            </Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: statusBgColor }]}>
+            <Text style={[styles.statusBadgeText, { color: statusColor }]}>{statusText}</Text>
+          </View>
+        </View>
+
+        {/* Progress Bar */}
+        <View style={[styles.progressContainer, { backgroundColor: colors.border }]}>
+          <View
+            style={[
+              styles.progressBar,
+              {
+                width: `${Math.min(item.progressPercentage || 0, 100)}%`,
+                backgroundColor: statusColor,
+              },
+            ]}
+          />
+        </View>
+
+        {/* Goal Info */}
+        <View style={styles.budgetInfo}>
+          <View>
+            <Text style={[styles.budgetLabel, { color: colors.textSecondary }]}>PROGRESS</Text>
+            <Text style={[styles.budgetValue, { color: colors.textPrimary }]}>
+              {formatCurrency(item.currentProgress, defaultCurrency)}
+            </Text>
+          </View>
+
+          <View style={{ alignItems: 'center' }}>
+            <Text style={[styles.percentageText, { color: statusColor }]}>
+              {item.progressPercentage?.toFixed(0) || '0'}%
+            </Text>
+          </View>
+
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={[styles.budgetLabel, { color: colors.textSecondary }]}>MONTHLY</Text>
+            <Text style={[styles.budgetValue, { color: colors.textPrimary }]}>
+              {formatCurrency(item.monthlyRequired, defaultCurrency)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Footer with deadline and details */}
+        <View style={[styles.cardFooter, { borderTopColor: colors.border }]}>
+          <View style={{ flex: 1 }}>
+            {item.daysRemaining && item.daysRemaining > 0 && (
+              <Text style={[styles.daysText, { color: colors.textSecondary }]}>
+                {item.daysRemaining} day{item.daysRemaining !== 1 ? 's' : ''} until deadline
+              </Text>
+            )}
+          </View>
+          <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
+            <Pressable onPress={() => handleEditGoal(item.id!)} hitSlop={8}>
+              <Text style={[styles.detailsLink, { color: colors.primary }]}>Details ›</Text>
+            </Pressable>
+            <Pressable onPress={() => handleDeleteGoal(item.id!)} hitSlop={12}>
+              <Text style={[styles.deleteButton, { color: colors.textTertiary }]}>✕</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView
@@ -376,10 +433,12 @@ export default function BudgetGoalsScreen() {
       style={[styles.container, { backgroundColor: colors.background }]}
     >
       <View style={[styles.header, { paddingTop: 12, paddingHorizontal: 16, paddingBottom: 8 }]}>
-        <Pressable onPress={() => router.push('/(tabs)/settings')} hitSlop={8}>
-          <Text style={[styles.backText, { color: colors.primary }]}>← Back</Text>
+        <Pressable onPress={() => router.push('/(tabs)/settings')} hitSlop={12} style={styles.backButton}>
+          <Text style={[styles.backIcon, { color: colors.primary }]}>‹</Text>
+          <Text style={[styles.backText, { color: colors.primary }]}>Settings</Text>
         </Pressable>
-        <View style={{ width: 30 }} />
+        <Text style={[styles.screenTitle, { color: colors.textPrimary }]}>Planning</Text>
+        <View style={{ width: 44 }} />
       </View>
 
       <View
@@ -431,229 +490,225 @@ export default function BudgetGoalsScreen() {
       <View style={{ flex: 1 }}>
         <GestureDetector gesture={pan}>
           <Animated.View style={[{ flexDirection: 'row', width: SCREEN_WIDTH * 2, height: '100%' }, animatedStyle]}>
-          {/* Budget Tab Content */}
-          <View style={{ width: SCREEN_WIDTH, height: '100%' }}>
-            <ScrollView
-              style={styles.content}
-              scrollEventThrottle={400}
-              showsVerticalScrollIndicator={true}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={loadData}
-                  colors={[colors.primary]}
-                  tintColor={colors.primary}
-                />
-              }
-            >
-              {loading ? (
-                <View style={styles.emptyState}>
-                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Loading...</Text>
-                </View>
-              ) : budgets.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                    No budgets yet
-                  </Text>
-                  <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
-                    Track your spending by setting category budgets
-                  </Text>
-                  <Pressable
-                    onPress={() => router.push('/budgets/create')}
-                    style={[styles.createButton, { backgroundColor: colors.primary }]}
-                  >
-                    <Text style={[styles.createButtonText, { color: colors.background }]}>
-                      Create Your First Budget
-                    </Text>
-                  </Pressable>
-                </View>
-              ) : (
-                <>
-                  {/* Financial Summary Card */}
-                  <FinancialSummaryCard
-                    budgets={budgets}
-                    goals={[]}
-                    colors={colors}
-                    defaultCurrency={defaultCurrency}
-                    formatCurrency={formatCurrency}
-                    type="budget"
+            {/* Budget Tab Content */}
+            <View style={{ width: SCREEN_WIDTH, height: '100%' }}>
+              <ScrollView
+                style={styles.content}
+                scrollEventThrottle={400}
+                showsVerticalScrollIndicator={true}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={loadData}
+                    colors={[colors.primary]}
+                    tintColor={colors.primary}
                   />
-
-                  {/* Budget Alerts */}
-                  <BudgetAlertBanner 
-                    budgets={budgets} 
-                    colors={colors}
-                    defaultCurrency={defaultCurrency}
-                    formatCurrency={formatCurrency}
-                  />
-
-                  {/* Budget Dashboard Summary */}
-                  <View style={[styles.dashboardCard, { backgroundColor: colors.card }]}>
-                    <Text style={[styles.dashboardTitle, { color: colors.textPrimary }]}>
-                      Budget Status
+                }
+              >
+                {loading ? (
+                  <View style={styles.emptyState}>
+                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Loading...</Text>
+                  </View>
+                ) : budgets.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <EmptyBudgetIcon size={80} color={colors.textTertiary} />
+                    <Text style={[styles.emptyText, { color: colors.textPrimary }]}>
+                      No budgets yet
                     </Text>
-                    <View style={styles.dashboardStats}>
-                      <View style={styles.dashboardStat}>
-                        <Text style={[styles.dashboardStatValue, { color: colors.textPrimary }]}>
-                          {budgets.length}
-                        </Text>
-                        <Text style={[styles.dashboardStatLabel, { color: colors.textSecondary }]}>
-                          Total
-                        </Text>
+                    <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                      Set spending limits for categories like groceries, dining, or entertainment to stay on track
+                    </Text>
+                    <View style={styles.emptyBenefits}>
+                      <View style={styles.benefitItem}>
+                        <CheckCircleIcon size={16} color={colors.success} />
+                        <Text style={[styles.benefitText, { color: colors.textSecondary }]}>Track real-time spending</Text>
                       </View>
-                      <View style={styles.dashboardStat}>
-                        <Text style={[styles.dashboardStatValue, { color: colors.danger }]}>
-                          {budgets.filter(b => b.isOverBudget).length}
-                        </Text>
-                        <Text style={[styles.dashboardStatLabel, { color: colors.textSecondary }]}>
-                          Over
-                        </Text>
+                      <View style={styles.benefitItem}>
+                        <CheckCircleIcon size={16} color={colors.success} />
+                        <Text style={[styles.benefitText, { color: colors.textSecondary }]}>Get alerts when limits are reached</Text>
                       </View>
-                      <View style={styles.dashboardStat}>
-                        <Text style={[styles.dashboardStatValue, { color: colors.primary }]}>
-                          {budgets.filter(b => !b.isOverBudget && (b.percentageUsed || 0) > 75).length}
-                        </Text>
-                        <Text style={[styles.dashboardStatLabel, { color: colors.textSecondary }]}>
-                          Warning
-                        </Text>
-                      </View>
-                      <View style={styles.dashboardStat}>
-                        <Text style={[styles.dashboardStatValue, { color: colors.success }]}>
-                          {budgets.filter(b => !b.isOverBudget && (b.percentageUsed || 0) <= 75).length}
-                        </Text>
-                        <Text style={[styles.dashboardStatLabel, { color: colors.textSecondary }]}>
-                          On Track
-                        </Text>
+                      <View style={styles.benefitItem}>
+                        <CheckCircleIcon size={16} color={colors.success} />
+                        <Text style={[styles.benefitText, { color: colors.textSecondary }]}>Weekly or monthly periods</Text>
                       </View>
                     </View>
+                    <Pressable
+                      onPress={() => router.push('/budgets/create')}
+                      style={[styles.createButton, { backgroundColor: colors.primary }]}
+                    >
+                      <Text style={[styles.createButtonText, { color: colors.background }]}>
+                        Create Your First Budget
+                      </Text>
+                    </Pressable>
                   </View>
+                ) : (
+                  <>
+                    {/* Financial Summary Card */}
+                    <FinancialSummaryCard
+                      budgets={budgets}
+                      goals={[]}
+                      colors={colors}
+                      defaultCurrency={defaultCurrency}
+                      formatCurrency={formatCurrency}
+                      type="budget"
+                    />
 
-                  {budgets.map(renderBudgetItem)}
-                  <Pressable
-                    onPress={() => router.push('/budgets/create')}
-                    style={[styles.addButton, { backgroundColor: colors.primary }]}
-                  >
-                    <Text style={[styles.addButtonText, { color: colors.background }]}>
-                      + Add Budget
-                    </Text>
-                  </Pressable>
-                </>
-              )}
-            </ScrollView>
-          </View>
+                    {/* Budget Alerts */}
+                    <BudgetAlertBanner
+                      budgets={budgets}
+                      colors={colors}
+                      defaultCurrency={defaultCurrency}
+                      formatCurrency={formatCurrency}
+                    />
 
-          {/* Goals Tab Content */}
-          <View style={{ width: SCREEN_WIDTH, height: '100%' }}>
-            <ScrollView
-              style={styles.content}
-              scrollEventThrottle={400}
-              showsVerticalScrollIndicator={true}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={loadData}
-                  colors={[colors.primary]}
-                  tintColor={colors.primary}
-                />
-              }
-            >
-              {loading ? (
-                <View style={styles.emptyState}>
-                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Loading...</Text>
-                </View>
-              ) : goals.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                    No goals yet
-                  </Text>
-                  <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
-                    Set savings goals and track your progress
-                  </Text>
-                  <Pressable
-                    onPress={() => router.push('/goals/create')}
-                    style={[styles.createButton, { backgroundColor: colors.primary }]}
-                  >
-                    <Text style={[styles.createButtonText, { color: colors.background }]}>
-                      Create Your First Goal
-                    </Text>
-                  </Pressable>
-                </View>
-              ) : (
-                <>
-                  {/* Financial Summary Card */}
-                  <FinancialSummaryCard
-                    budgets={[]}
-                    goals={goals}
-                    colors={colors}
-                    defaultCurrency={defaultCurrency}
-                    formatCurrency={formatCurrency}
-                    type="goal"
-                  />
-
-                  {/* Goal Alerts */}
-                  <GoalAlertBanner 
-                    goals={goals} 
-                    colors={colors}
-                    defaultCurrency={defaultCurrency}
-                    formatCurrency={formatCurrency}
-                  />
-
-                  {/* Goals Dashboard Summary */}
-                  <View style={[styles.dashboardCard, { backgroundColor: colors.card }]}>
-                    <Text style={[styles.dashboardTitle, { color: colors.textPrimary }]}>
-                      Goal Status
-                    </Text>
-                    <View style={styles.dashboardStats}>
-                      <View style={styles.dashboardStat}>
-                        <Text style={[styles.dashboardStatValue, { color: colors.textPrimary }]}>
-                          {goals.length}
-                        </Text>
-                        <Text style={[styles.dashboardStatLabel, { color: colors.textSecondary }]}>
-                          Total
-                        </Text>
-                      </View>
-                      <View style={styles.dashboardStat}>
-                        <Text style={[styles.dashboardStatValue, { color: colors.success }]}>
-                          {goals.filter(g => (g.progressPercentage || 0) >= 100).length}
-                        </Text>
-                        <Text style={[styles.dashboardStatLabel, { color: colors.textSecondary }]}>
-                          Achieved
-                        </Text>
-                      </View>
-                      <View style={styles.dashboardStat}>
-                        <Text style={[styles.dashboardStatValue, { color: colors.success }]}>
-                          {goals.filter(g => g.onTrack && (g.progressPercentage || 0) < 100).length}
-                        </Text>
-                        <Text style={[styles.dashboardStatLabel, { color: colors.textSecondary }]}>
-                          On Track
-                        </Text>
-                      </View>
-                      <View style={styles.dashboardStat}>
-                        <Text style={[styles.dashboardStatValue, { color: colors.primary }]}>
-                          {goals.filter(g => !g.onTrack && (g.progressPercentage || 0) < 100).length}
-                        </Text>
-                        <Text style={[styles.dashboardStatLabel, { color: colors.textSecondary }]}>
-                          Behind
-                        </Text>
+                    {/* Budget Dashboard Summary */}
+                    <View style={[styles.dashboardCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                      <Text style={[styles.dashboardTitle, { color: colors.textPrimary }]}>
+                        Budget Overview
+                      </Text>
+                      <View style={styles.dashboardGrid}>
+                        <View style={[styles.dashboardStatCard, { backgroundColor: colors.background }]}>
+                          <Text style={[styles.dashboardStatLabel, { color: colors.textSecondary }]}>TOTAL</Text>
+                          <Text style={[styles.dashboardStatValue, { color: colors.textPrimary }]}>{budgets.length}</Text>
+                        </View>
+                        <View style={[styles.dashboardStatCard, { backgroundColor: colors.success + '15' }]}>
+                          <Text style={[styles.dashboardStatLabel, { color: colors.success }]}>ON TRACK</Text>
+                          <Text style={[styles.dashboardStatValue, { color: colors.success }]}>
+                            {budgets.filter(b => !b.isOverBudget && (b.percentageUsed || 0) <= 75).length}
+                          </Text>
+                        </View>
+                        <View style={[styles.dashboardStatCard, { backgroundColor: colors.warning + '15' }]}>
+                          <Text style={[styles.dashboardStatLabel, { color: colors.warning }]}>WARNING</Text>
+                          <Text style={[styles.dashboardStatValue, { color: colors.warning }]}>
+                            {budgets.filter(b => !b.isOverBudget && (b.percentageUsed || 0) > 75).length}
+                          </Text>
+                        </View>
+                        <View style={[styles.dashboardStatCard, { backgroundColor: colors.danger + '15' }]}>
+                          <Text style={[styles.dashboardStatLabel, { color: colors.danger }]}>OVER</Text>
+                          <Text style={[styles.dashboardStatValue, { color: colors.danger }]}>
+                            {budgets.filter(b => b.isOverBudget).length}
+                          </Text>
+                        </View>
                       </View>
                     </View>
-                  </View>
 
-                  {goals.map(renderGoalItem)}
-                  <Pressable
-                    onPress={() => router.push('/goals/create')}
-                    style={[styles.addButton, { backgroundColor: colors.primary }]}
-                  >
-                    <Text style={[styles.addButtonText, { color: colors.background }]}>
-                      + Add Goal
+                    {budgets.map(renderBudgetItem)}
+                    <View style={{ height: 100 }} />
+                  </>
+                )}
+              </ScrollView>
+            </View>
+
+            {/* Goals Tab Content */}
+            <View style={{ width: SCREEN_WIDTH, height: '100%' }}>
+              <ScrollView
+                style={styles.content}
+                scrollEventThrottle={400}
+                showsVerticalScrollIndicator={true}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={loadData}
+                    colors={[colors.primary]}
+                    tintColor={colors.primary}
+                  />
+                }
+              >
+                {loading ? (
+                  <View style={styles.emptyState}>
+                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Loading...</Text>
+                  </View>
+                ) : goals.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <EmptyGoalIcon size={80} color={colors.textTertiary} />
+                    <Text style={[styles.emptyText, { color: colors.textPrimary }]}>
+                      No goals yet
                     </Text>
-                  </Pressable>
-                </>
-              )}
-            </ScrollView>
-          </View>
-        </Animated.View>
-      </GestureDetector>
+                    <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                      Set savings goals like emergency funds, vacations, or big purchases to build financial security
+                    </Text>
+                    <View style={styles.emptyBenefits}>
+                      <View style={styles.benefitItem}>
+                        <CheckCircleIcon size={16} color={colors.success} />
+                        <Text style={[styles.benefitText, { color: colors.textSecondary }]}>Track progress automatically</Text>
+                      </View>
+                      <View style={styles.benefitItem}>
+                        <CheckCircleIcon size={16} color={colors.success} />
+                        <Text style={[styles.benefitText, { color: colors.textSecondary }]}>See required monthly savings</Text>
+                      </View>
+                      <View style={styles.benefitItem}>
+                        <CheckCircleIcon size={16} color={colors.success} />
+                        <Text style={[styles.benefitText, { color: colors.textSecondary }]}>Stay motivated with milestones</Text>
+                      </View>
+                    </View>
+                    <Pressable
+                      onPress={() => router.push('/goals/create')}
+                      style={[styles.createButton, { backgroundColor: colors.primary }]}
+                    >
+                      <Text style={[styles.createButtonText, { color: colors.background }]}>
+                        Create Your First Goal
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <>
+                    {/* Financial Summary Card */}
+                    <FinancialSummaryCard
+                      budgets={[]}
+                      goals={goals}
+                      colors={colors}
+                      defaultCurrency={defaultCurrency}
+                      formatCurrency={formatCurrency}
+                      type="goal"
+                    />
+
+                    {/* Goal Alerts */}
+                    <GoalAlertBanner
+                      goals={goals}
+                      colors={colors}
+                      defaultCurrency={defaultCurrency}
+                      formatCurrency={formatCurrency}
+                    />
+
+                    {/* Goals Dashboard Summary */}
+                    <View style={[styles.dashboardCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                      <Text style={[styles.dashboardTitle, { color: colors.textPrimary }]}>
+                        Goal Overview
+                      </Text>
+                      <View style={styles.dashboardGrid}>
+                        <View style={[styles.dashboardStatCard, { backgroundColor: colors.background }]}>
+                          <Text style={[styles.dashboardStatLabel, { color: colors.textSecondary }]}>TOTAL</Text>
+                          <Text style={[styles.dashboardStatValue, { color: colors.textPrimary }]}>{goals.length}</Text>
+                        </View>
+                        <View style={[styles.dashboardStatCard, { backgroundColor: colors.success + '15' }]}>
+                          <Text style={[styles.dashboardStatLabel, { color: colors.success }]}>ACHIEVED</Text>
+                          <Text style={[styles.dashboardStatValue, { color: colors.success }]}>
+                            {goals.filter(g => (g.progressPercentage || 0) >= 100).length}
+                          </Text>
+                        </View>
+                        <View style={[styles.dashboardStatCard, { backgroundColor: colors.primary + '15' }]}>
+                          <Text style={[styles.dashboardStatLabel, { color: colors.primary }]}>ON TRACK</Text>
+                          <Text style={[styles.dashboardStatValue, { color: colors.primary }]}>
+                            {goals.filter(g => g.onTrack && (g.progressPercentage || 0) < 100).length}
+                          </Text>
+                        </View>
+                        <View style={[styles.dashboardStatCard, { backgroundColor: colors.warning + '15' }]}>
+                          <Text style={[styles.dashboardStatLabel, { color: colors.warning }]}>BEHIND</Text>
+                          <Text style={[styles.dashboardStatValue, { color: colors.warning }]}>
+                            {goals.filter(g => !g.onTrack && (g.progressPercentage || 0) < 100).length}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    {goals.map(renderGoalItem)}
+                    <View style={{ height: 100 }} />
+                  </>
+                )}
+              </ScrollView>
+            </View>
+          </Animated.View>
+        </GestureDetector>
       </View>
 
       {/* Themed Alert Component */}
@@ -666,6 +721,16 @@ export default function BudgetGoalsScreen() {
         themeMode={themeMode}
         systemColorScheme={systemColorScheme || 'light'}
       />
+
+      {/* Floating Action Button */}
+      {!loading && (
+        <Pressable
+          style={[styles.fab, { backgroundColor: colors.primary }]}
+          onPress={activeTab === 'budget' ? handleCreateBudget : handleCreateGoal}
+        >
+          <PlusIcon size={24} color={colors.background} />
+        </Pressable>
+      )}
     </SafeAreaView>
   );
 }
@@ -678,10 +743,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    height: 56,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backIcon: {
+    fontSize: 28,
+    fontWeight: '300',
+    marginRight: 4,
   },
   backText: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  screenTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    zIndex: -1,
   },
   tabBar: {
     flexDirection: 'row',
@@ -689,57 +773,88 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 14,
     alignItems: 'center',
   },
   tabText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   content: {
     flex: 1,
-    padding: 12,
-    paddingTop: 20,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingTop: 16,
+    paddingBottom: 20,
   },
   categoryCard: {
-    marginBottom: 12,
-    padding: 12,
-    borderRadius: 8,
+    marginBottom: 16,
+    marginHorizontal: 5,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    position: 'relative',
   },
   categoryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   categoryName: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '800',
     marginBottom: 4,
   },
   categorySubtext: {
     fontSize: 12,
-    fontWeight: '400',
+    fontWeight: '500',
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   deleteButton: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '600',
+    opacity: 0.5,
   },
   progressContainer: {
-    height: 6,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 3,
-    marginVertical: 8,
+    height: 12,
+    borderRadius: 6,
+    marginVertical: 12,
     overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 6,
   },
   budgetInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: 12,
+  },
+  budgetLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
     marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  budgetValue: {
+    fontSize: 15,
+    fontWeight: '800',
   },
   budgetText: {
     fontSize: 12,
@@ -751,14 +866,28 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   percentageText: {
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+  },
+  limitText: {
     fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
+    fontWeight: '500',
+    marginBottom: 2,
   },
   daysText: {
     fontSize: 11,
-    fontWeight: '400',
-    marginTop: 4,
+    fontWeight: '500',
+  },
+  detailsLink: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   paceIndicator: {
     marginTop: 8,
@@ -771,24 +900,39 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   milestoneBadge: {
-    fontSize: 16,
+    fontSize: 18,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 16,
+    paddingVertical: 48,
+    paddingHorizontal: 24,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '700',
     marginBottom: 8,
-    fontWeight: '600',
+    marginTop: 16,
     textAlign: 'center',
   },
   emptySubtext: {
-    fontSize: 13,
-    marginBottom: 20,
+    fontSize: 14,
+    marginBottom: 24,
     textAlign: 'center',
-    opacity: 0.8,
+    lineHeight: 20,
+  },
+  emptyBenefits: {
+    alignSelf: 'stretch',
+    marginBottom: 24,
+    gap: 12,
+  },
+  benefitItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  benefitText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
   createButton: {
     paddingHorizontal: 24,
@@ -802,13 +946,30 @@ const styles = StyleSheet.create({
   },
   dashboardCard: {
     marginBottom: 16,
+    marginHorizontal: 5,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 16,
+    borderWidth: 1,
   },
   dashboardTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
-    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  dashboardGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  dashboardStatCard: {
+    flex: 1,
+    minWidth: '45%',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
   },
   dashboardStats: {
     flexDirection: 'row',
@@ -821,13 +982,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   dashboardStatValue: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 28,
+    fontWeight: '800',
     marginBottom: 4,
   },
   dashboardStatLabel: {
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: 10,
+    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -841,5 +1002,20 @@ const styles = StyleSheet.create({
   addButtonText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
 });

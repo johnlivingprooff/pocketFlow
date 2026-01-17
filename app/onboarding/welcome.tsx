@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, useColorScheme, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, useColorScheme, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { theme, shadows } from '../../src/theme/theme';
@@ -76,7 +76,11 @@ export default function WelcomeScreen() {
         {/* Hero Section */}
         <View style={styles.hero}>
           <View style={[styles.logoContainer, { backgroundColor: colors.deepGold + '20' }]}>
-            <Text style={styles.logoEmoji}>💰</Text>
+            <Image
+              source={require('../../assets/logo.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
           <Text style={[styles.title, { color: t.textPrimary }]}>
             Welcome to pocketFlow
@@ -88,25 +92,25 @@ export default function WelcomeScreen() {
 
         {/* Features List */}
         <View style={styles.features}>
-          <FeatureItem 
+          <FeatureItem
             icon={<WalletIcon size={24} color={colors.deepGold} />}
             title="Multiple Wallets"
             description="Track cash, bank accounts, and crypto all in one place"
             themeColors={t}
           />
-          <FeatureItem 
+          <FeatureItem
             icon={<ChartIcon size={24} color={colors.deepGold} />}
             title="Smart Analytics"
             description="Visualize your spending and income patterns"
             themeColors={t}
           />
-          <FeatureItem 
+          <FeatureItem
             icon={<SettingsIcon size={24} color={colors.deepGold} />}
             title="Budgets & Goals"
             description="Set financial targets and track your progress"
             themeColors={t}
           />
-          <FeatureItem 
+          <FeatureItem
             icon={<View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 16 }}>🔒</Text></View>}
             title="Offline & Private"
             description="All your data stays on your device"
@@ -117,7 +121,7 @@ export default function WelcomeScreen() {
         {/* CTA Button */}
         <View style={styles.footer}>
           <Pressable
-            style={[styles.button, { backgroundColor: colors.deepGold }, shadows.md]}
+            style={[styles.button, { backgroundColor: t.primary }]}
             onPress={handleStart}
             disabled={isSkipping}
           >
@@ -164,8 +168,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 20,
   },
-  logoEmoji: {
-    fontSize: 48,
+  logoImage: {
+    width: 60,
+    height: 60,
   },
   title: {
     fontSize: 32,

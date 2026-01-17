@@ -7,7 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useSettings } from '../../src/store/useStore';
 import { useUI } from '../../src/store/useStore';
-import { theme, shadows } from '../../src/theme/theme';
+import { theme } from '../../src/theme/theme';
 import { addTransaction, transferBetweenWallets, updateTransaction, getById } from '../../src/lib/db/transactions';
 import { CalendarModal } from '@/components/CalendarModal';
 import { formatShortDate } from '../../src/utils/date';
@@ -24,7 +24,7 @@ import { error as logError } from '../../src/utils/logger';
 
 export default function AddTransactionScreen() {
   const router = useRouter();
-  const { themeMode, defaultCurrency, setImagePickingStartTime } = useSettings();
+  const { themeMode, defaultCurrency, setImagePickingStartTime, lastUsedWalletId, lastUsedCategory, setLastUsedWalletId, setLastUsedCategory } = useSettings();
   const { setIsPickingImage } = useUI();
   const systemColorScheme = useColorScheme();
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
@@ -59,6 +59,7 @@ export default function AddTransactionScreen() {
     message: string;
     buttons: Array<{ text: string; onPress?: () => void }>;
   }>({ visible: false, title: '', message: '', buttons: [] });
+  const [showMore, setShowMore] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Keyboard state for floating button
@@ -79,11 +80,14 @@ export default function AddTransactionScreen() {
       const preselectedWalletId = paramWalletId ? Number(paramWalletId) : null;
       if (preselectedWalletId && wallets.find(w => w.id === preselectedWalletId)) {
         setWalletId(preselectedWalletId);
+      } else if (lastUsedWalletId && wallets.find(w => w.id === lastUsedWalletId)) {
+        // Auto-select last used wallet
+        setWalletId(lastUsedWalletId);
       } else {
         setWalletId(wallets[0].id!);
       }
     }
-  }, [wallets, walletId, isEditMode, paramWalletId]);
+  }, [wallets, walletId, isEditMode, paramWalletId, lastUsedWalletId]);
 
   useEffect(() => {
     if (type === 'transfer') {
@@ -159,7 +163,7 @@ export default function AddTransactionScreen() {
       (e) => {
         setKeyboardVisible(true);
         setKeyboardHeight(e.endCoordinates.height);
-        
+
         // Animate button in
         Animated.parallel([
           Animated.timing(floatingButtonOpacity, {
@@ -217,7 +221,12 @@ export default function AddTransactionScreen() {
 
       if (flatCats.length > 0) {
         const hasCurrent = category && flatCats.some((c) => c.name === category);
-        setCategory(hasCurrent ? category : flatCats[0].name);
+        // Auto-select last used category if available and valid
+        if (!hasCurrent && lastUsedCategory && flatCats.some(c => c.name === lastUsedCategory)) {
+          setCategory(lastUsedCategory);
+        } else {
+          setCategory(hasCurrent ? category : flatCats[0].name);
+        }
       }
     } catch (err) {
       logError('Failed to load categories:', { error: err });
@@ -507,6 +516,11 @@ export default function AddTransactionScreen() {
             recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate.toISOString() : undefined
           });
         }
+
+        // Save smart defaults for next transaction
+        setLastUsedWalletId(walletId);
+        setLastUsedCategory(category);
+
         router.back();
       } catch (err: any) {
         logError(`[Transaction] Failed to ${isEditMode ? 'update' : 'add'} transaction:`, { error: err });
@@ -625,7 +639,7 @@ export default function AddTransactionScreen() {
         <View style={{ flex: 1 }}>
           <ScrollView
             style={{ flex: 1 }}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 140 }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 0, paddingBottom: 140 }}
             keyboardShouldPersistTaps="handled"
           >
             <TypeTabs current={type} onChange={setType} colors={t} />
@@ -689,40 +703,55 @@ export default function AddTransactionScreen() {
               </>
             )}
 
-            <SectionLabel text="Date & Time" colors={t} />
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <View style={{ flex: 1 }}>
-                <RowButton label={formatShortDate(date)} onPress={() => setShowDatePicker(true)} colors={t} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <TimeInput date={date} onChange={(d) => setDate(d)} colors={t} />
-              </View>
-            </View>
+            {/* More Options Toggle */}
+            <TouchableOpacity
+              onPress={() => setShowMore(!showMore)}
+              style={{ paddingVertical: 16, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}
+            >
+              <Text style={{ color: t.accent, fontWeight: '600' }}>
+                {showMore ? 'Hide Details' : 'Add Details (Date, Notes, Receipt)'}
+              </Text>
+              <Text style={{ color: t.accent, fontSize: 12 }}>{showMore ? '▲' : '▼'}</Text>
+            </TouchableOpacity>
 
-            <SectionLabel text="Notes" colors={t} />
-            <NotesInput value={notes} onChange={setNotes} colors={t} />
+            {showMore && (
+              <>
+                <SectionLabel text="Date & Time" colors={t} />
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <View style={{ flex: 1 }}>
+                    <RowButton label={formatShortDate(date)} onPress={() => setShowDatePicker(true)} colors={t} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <TimeInput date={date} onChange={(d) => setDate(d)} colors={t} />
+                  </View>
+                </View>
 
-            {type !== 'transfer' && (
-              <RecurrenceCard
-                isRecurring={isRecurring}
-                onToggle={setIsRecurring}
-                frequency={recurrenceFrequency}
-                onChangeFrequency={setRecurrenceFrequency}
-                endDate={recurrenceEndDate}
-                onSelectEndDate={() => setShowRecurrenceEndDatePicker(true)}
-                onClearEndDate={() => setRecurrenceEndDate(null)}
-                colors={t}
-              />
-            )}
+                <SectionLabel text="Notes" colors={t} />
+                <NotesInput value={notes} onChange={setNotes} colors={t} />
 
-            {type !== 'transfer' && (
-              <ReceiptCard
-                onPick={pickImage}
-                onCapture={takePhoto}
-                previewUri={localUri}
-                onRemove={removeImage}
-                colors={t}
-              />
+                {type !== 'transfer' && (
+                  <RecurrenceCard
+                    isRecurring={isRecurring}
+                    onToggle={setIsRecurring}
+                    frequency={recurrenceFrequency}
+                    onChangeFrequency={setRecurrenceFrequency}
+                    endDate={recurrenceEndDate}
+                    onSelectEndDate={() => setShowRecurrenceEndDatePicker(true)}
+                    onClearEndDate={() => setRecurrenceEndDate(null)}
+                    colors={t}
+                  />
+                )}
+
+                {type !== 'transfer' && (
+                  <ReceiptCard
+                    onPick={pickImage}
+                    onCapture={takePhoto}
+                    previewUri={localUri}
+                    onRemove={removeImage}
+                    colors={t}
+                  />
+                )}
+              </>
             )}
 
             {transferSummary()}
@@ -738,7 +767,6 @@ export default function AddTransactionScreen() {
                 padding: 14,
                 borderRadius: 12,
                 marginTop: 12,
-                ...shadows.sm,
                 opacity: !isValidAmount || isSaving ? 0.7 : 1
               }}
             >
@@ -770,7 +798,6 @@ export default function AddTransactionScreen() {
                 borderRadius: 28,
                 justifyContent: 'center',
                 alignItems: 'center',
-                ...shadows.lg,
                 opacity: !isValidAmount || isSaving ? 0.7 : 1,
               }}
             >
@@ -785,7 +812,7 @@ export default function AddTransactionScreen() {
               {/* Header */}
               <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
                 <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Select Category</Text>
-                
+
                 {/* Search Bar */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: t.background, borderRadius: 8, borderWidth: 1, borderColor: t.border, paddingHorizontal: 12 }}>
                   <TextInput
@@ -806,7 +833,7 @@ export default function AddTransactionScreen() {
               {/* Categories List */}
               <ScrollView showsVerticalScrollIndicator={false}>
                 {categoryHierarchy
-                  .filter(item => 
+                  .filter(item =>
                     item.category.name.toLowerCase().includes(categorySearchQuery.toLowerCase()) ||
                     item.children.some(child => child.name.toLowerCase().includes(categorySearchQuery.toLowerCase()))
                   )
@@ -853,22 +880,22 @@ export default function AddTransactionScreen() {
                         ))}
                     </View>
                   ))}
-                {categoryHierarchy.filter(item => 
+                {categoryHierarchy.filter(item =>
                   item.category.name.toLowerCase().includes(categorySearchQuery.toLowerCase()) ||
                   item.children.some(child => child.name.toLowerCase().includes(categorySearchQuery.toLowerCase()))
                 ).length === 0 && categorySearchQuery.length > 0 && (
-                  <View style={{ padding: 20, alignItems: 'center' }}>
-                    <Text style={{ color: t.textSecondary, fontSize: 14 }}>No categories found</Text>
-                  </View>
-                )}
+                    <View style={{ padding: 20, alignItems: 'center' }}>
+                      <Text style={{ color: t.textSecondary, fontSize: 14 }}>No categories found</Text>
+                    </View>
+                  )}
               </ScrollView>
 
               {/* Close Button */}
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => {
                   setShowCategoryPicker(false);
                   setCategorySearchQuery('');
-                }} 
+                }}
                 style={{ padding: 16, borderTopWidth: 1, borderTopColor: t.border, alignItems: 'center' }}
               >
                 <Text style={{ color: t.primary, fontWeight: '700' }}>Close</Text>
@@ -948,7 +975,7 @@ function AmountDisplay({ amount, currency, colors, evaluated }: { amount: string
   const formatted = new Intl.NumberFormat(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(evaluated || 0);
   const displayText = (evaluated || 0) >= 1e9 ? (evaluated || 0).toExponential(2) : formatted;
   return (
-    <View style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 16, padding: 16, marginBottom: 14, ...shadows.sm }}>
+    <View style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 16, padding: 16, marginBottom: 14 }}>
       <Text style={{ color: colors.textSecondary, marginBottom: 6 }}>Amount</Text>
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <Text style={{ color: colors.textSecondary, fontSize: 20 }}>{currency}</Text>
@@ -974,7 +1001,6 @@ function WalletCarousel({ wallets, selectedId, onSelect, colors, projected }: { 
               borderRadius: 14,
               padding: 14,
               minWidth: 150,
-              ...shadows.sm
             }}
           >
             <Text style={{ color: isActive ? '#fff' : colors.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>
@@ -1159,7 +1185,7 @@ function ReceiptCard({ onPick, onCapture, previewUri, onRemove, colors }: { onPi
 function Keypad({ onPress, colors }: { onPress: (value: string) => void; colors: Colors }) {
   const keys = ['7', '8', '9', '÷', '4', '5', '6', '×', '1', '2', '3', '-', '.', '0', 'backspace', '+'];
   return (
-    <View style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 8, ...shadows.sm }}>
+    <View style={{ backgroundColor: colors.background }}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
         {keys.map((key) => {
           const isNumber = /^[0-9]$/.test(key);

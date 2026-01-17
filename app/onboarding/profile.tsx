@@ -237,7 +237,7 @@ export default function ProfileSetupScreen() {
         {/* Buttons */}
         <View style={styles.buttonContainer}>
           <Pressable
-            style={[styles.button, { backgroundColor: colors.deepGold }, shadows.md]}
+            style={[styles.button, { backgroundColor: t.primary }]}
             onPress={handleContinue}
           >
             <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>

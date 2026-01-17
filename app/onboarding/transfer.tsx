@@ -26,10 +26,10 @@ export default function TransferTutorialScreen() {
         {/* Progress Indicator */}
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '87.5%', backgroundColor: colors.deepGold }]} />
+            <View style={[styles.progressFill, { width: '85.7%', backgroundColor: colors.deepGold }]} />
           </View>
           <Text style={[styles.progressText, { color: t.textSecondary }]}>
-            Step 7 of 8
+            Step 6 of 7
           </Text>
         </View>
 
@@ -116,7 +116,7 @@ export default function TransferTutorialScreen() {
         {/* Buttons */}
         <View style={styles.buttonContainer}>
           <Pressable
-            style={[styles.button, { backgroundColor: colors.deepGold }, shadows.md]}
+            style={[styles.button, { backgroundColor: t.primary }]}
             onPress={handleContinue}
           >
             <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
@@ -149,6 +149,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
+    minHeight: 4,
     borderRadius: 2,
   },
   progressText: {

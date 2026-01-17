@@ -24,6 +24,9 @@ interface SettingsState {
   lastBackupAt: number | null;
   // Privacy
   hideBalances: boolean;
+  // Smart Defaults
+  lastUsedWalletId: number | null;
+  lastUsedCategory: string | null;
   // Image picking state for biometric auth delay
   imagePickingStartTime: number | null;
   // Actions
@@ -35,6 +38,8 @@ interface SettingsState {
   setLastAuthTime: (time: number | null) => void;
   setLastBackupAt: (time: number | null) => void;
   setHideBalances: (v: boolean) => void;
+  setLastUsedWalletId: (id: number | null) => void;
+  setLastUsedCategory: (category: string | null) => void;
   setImagePickingStartTime: (time: number | null) => void;
   resetSettings: () => void;
 }
@@ -53,6 +58,8 @@ const initialState = {
   lastAuthTime: null,
   lastBackupAt: null,
   hideBalances: false,
+  lastUsedWalletId: null,
+  lastUsedCategory: null,
   imagePickingStartTime: null,
 };
 
@@ -60,8 +67,8 @@ export const useSettings = create<SettingsState>()(
   persist(
     (set) => ({
       ...initialState,
-      setUserInfo: (info) => set((state) => ({ 
-        userInfo: { ...state.userInfo, ...info } 
+      setUserInfo: (info) => set((state) => ({
+        userInfo: { ...state.userInfo, ...info }
       })),
       setThemeMode: (mode) => set({ themeMode: mode }),
       setDefaultCurrency: (currency) => set({ defaultCurrency: currency }),
@@ -70,6 +77,8 @@ export const useSettings = create<SettingsState>()(
       setLastAuthTime: (lastAuthTime) => set({ lastAuthTime }),
       setLastBackupAt: (lastBackupAt) => set({ lastBackupAt }),
       setHideBalances: (hideBalances) => set({ hideBalances }),
+      setLastUsedWalletId: (lastUsedWalletId) => set({ lastUsedWalletId }),
+      setLastUsedCategory: (lastUsedCategory) => set({ lastUsedCategory }),
       setImagePickingStartTime: (imagePickingStartTime) => set({ imagePickingStartTime }),
       resetSettings: () => set(initialState),
     }),

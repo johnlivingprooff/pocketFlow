@@ -1,20 +1,22 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, useColorScheme, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, useColorScheme, RefreshControl, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
-import { useTransactions } from '../../src/lib/hooks/useTransactions';
+// Removed useTransactions hook
 import { useWallets } from '../../src/lib/hooks/useWallets';
 import { TransactionItem } from '../../src/components/TransactionItem';
 import { Link, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { formatDate, yyyyMmDd, formatShortDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { getCategories, Category, getCategoriesHierarchy } from '../../src/lib/db/categories';
+import { filterTransactions, getIncomeExpenseForPeriod } from '../../src/lib/db/transactions';
 import { invalidateTransactionCaches } from '../../src/lib/cache/queryCache';
 import { exportTransactionsToCSV } from '../../src/lib/export/csvExport';
 import { ExportIcon } from '../../src/assets/icons/ExportIcon';
 import { useAlert } from '../../src/lib/hooks/useAlert';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
+import TimePeriodSelector, { TimePeriod } from '../../src/components/TimePeriodSelector';
 import * as Sharing from 'expo-sharing';
 
 const SkeletonLoader = () => {
@@ -39,13 +41,6 @@ const SkeletonLoader = () => {
             <View style={{
               height: 16,
               width: 80,
-              backgroundColor: t.card,
-              borderRadius: 4,
-              opacity: 0.5
-            }} />
-            <View style={{
-              height: 14,
-              width: 60,
               backgroundColor: t.card,
               borderRadius: 4,
               opacity: 0.5
@@ -102,7 +97,17 @@ export default function HistoryScreen() {
   const { themeMode, defaultCurrency } = useSettings();
   const systemColorScheme = useColorScheme();
   const t = theme(themeMode, systemColorScheme || 'light');
-  const { transactions } = useTransactions(0, 1000);
+
+  // State for Infinite Scroll & Filtering
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [summary, setSummary] = useState({ income: 0, expense: 0 });
+  const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('30days');
+  const PAGE_SIZE = 20;
+
   const { wallets } = useWallets();
   const searchParams = useLocalSearchParams();
   const [filterCategory, setFilterCategory] = useState('');
@@ -113,14 +118,118 @@ export default function HistoryScreen() {
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [categoryHierarchy, setCategoryHierarchy] = useState<Array<{ category: Category; children: Category[] }>>([]);
-  const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
   const { alertConfig, showConfirmAlert, showErrorAlert, dismissAlert, setAlertConfig } = useAlert();
   const categoryScrollViewRef = useRef<ScrollView>(null);
+
+  // Update dates when period changes
+  const handlePeriodChange = useCallback((period: TimePeriod) => {
+    setSelectedPeriod(period);
+    const now = new Date();
+    let start: Date | null = null;
+    let end: Date | null = new Date(); // Default end is now
+
+    switch (period) {
+      case '7days':
+        start = new Date(now);
+        start.setDate(now.getDate() - 7);
+        break;
+      case '30days':
+        start = new Date(now);
+        start.setDate(now.getDate() - 30);
+        break;
+      case '3months':
+        start = new Date(now);
+        start.setMonth(now.getMonth() - 3);
+        break;
+      case '6months':
+        start = new Date(now);
+        start.setMonth(now.getMonth() - 6);
+        break;
+      case 'all':
+        start = null;
+        end = null;
+        break;
+    }
+
+    // Set start to beginning of day, end to end of day if not null
+    if (start) start.setHours(0, 0, 0, 0);
+    if (end) end.setHours(23, 59, 59, 999);
+
+    setStartDate(start);
+    setEndDate(end);
+  }, []);
+
+  // Ensure initial period is applied
+  useEffect(() => {
+    handlePeriodChange('30days');
+  }, [handlePeriodChange]);
+
+  const loadData = useCallback(async (isLoadMore = false) => {
+    if (isLoadMore) {
+      setIsLoadingMore(true);
+    } else {
+      setIsLoadingTransactions(true);
+    }
+
+    try {
+      const nextPage = isLoadMore ? page + 1 : 0;
+
+      const txs = await filterTransactions({
+        startDate: startDate?.toISOString(),
+        endDate: endDate?.toISOString(),
+        category: filterCategory || undefined,
+        search: searchQuery || undefined,
+        page: nextPage,
+        pageSize: PAGE_SIZE
+      });
+
+      if (isLoadMore) {
+        setTransactions(prev => [...prev, ...txs]);
+        setPage(nextPage);
+      } else {
+        setTransactions(txs);
+        setPage(0);
+
+        // Also load summary when resetting (new filter/refresh)
+        if (startDate && endDate) {
+          const sum = await getIncomeExpenseForPeriod(startDate, endDate);
+          setSummary(sum);
+        } else if (selectedPeriod === 'all' || (!startDate && !endDate)) {
+          // For 'all' we need a way to get total. getIncomeExpenseForPeriod handles arbitrary ranges, 
+          // but we need to pass reasonable bounds or update the function.
+          // As a fallback for 'all', we can pass a very wide range or make a new DB function.
+          // For now, let's use a wide range if dates are null.
+          const farPast = new Date(2000, 0, 1);
+          const farFuture = new Date(2100, 0, 1);
+          const sum = await getIncomeExpenseForPeriod(farPast, farFuture);
+          setSummary(sum);
+        }
+      }
+
+      setHasMore(txs.length === PAGE_SIZE);
+
+    } catch (error) {
+      console.error('Error loading transactions:', error);
+    } finally {
+      setIsLoadingTransactions(false);
+      setIsLoadingMore(false);
+    }
+  }, [page, startDate, endDate, filterCategory, searchQuery, selectedPeriod]);
+
+  // Load Initial Data & Reset when filters change
+  useEffect(() => {
+    loadData(false);
+  }, [startDate, endDate, filterCategory, searchQuery]);
+
+  const loadMore = () => {
+    if (!hasMore || isLoadingMore) return;
+    loadData(true);
+  };
 
   // Sort categories to put selected one first
   const sortedCategories = useMemo(() => {
     if (!filterCategory) return categories;
-    
+
     return [...categories].sort((a, b) => {
       if (a.name === filterCategory) return -1;
       if (b.name === filterCategory) return 1;
@@ -145,11 +254,11 @@ export default function HistoryScreen() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      // Clear transaction caches to force fresh data fetch
+      // Clear transaction caches 
       invalidateTransactionCaches();
-      // Brief delay for user feedback and to allow cache clear to propagate
-      await new Promise(resolve => setTimeout(resolve, 500));
-      console.log('Transaction history refreshed - cache cleared');
+      // Reload logical data
+      await loadData(false);
+      console.log('Transaction history refreshed');
     } catch (error) {
       console.error('Error refreshing transactions:', error);
     } finally {
@@ -200,6 +309,9 @@ export default function HistoryScreen() {
   useFocusEffect(
     useCallback(() => {
       loadCategories();
+      // Reload data when verifying screen focus (e.g. back from adding transaction)
+      // Check if we already have data to avoid double fetch with useEffect
+      // loadData(false); 
     }, [])
   );
 
@@ -208,7 +320,7 @@ export default function HistoryScreen() {
     setCategories(cats);
     const hierarchy = await getCategoriesHierarchy();
     setCategoryHierarchy(hierarchy);
-    setIsLoadingTransactions(false);
+    // don't turn off transaction loading here, it's handled in loadData
   };
 
   const getCategoryDisplayName = (tx: typeof transactions[number]) => {
@@ -264,13 +376,13 @@ export default function HistoryScreen() {
   const generateCalendarMonths = () => {
     const months = [];
     const today = new Date();
-    
+
     // Generate last 6 months including current month
     for (let i = 5; i >= 0; i--) {
       const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const monthName = date.toLocaleString('default', { month: 'long', year: 'numeric' });
       const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-      
+
       const days = [];
       for (let day = 1; day <= daysInMonth; day++) {
         days.push({
@@ -278,68 +390,12 @@ export default function HistoryScreen() {
           date: new Date(date.getFullYear(), date.getMonth(), day)
         });
       }
-      
+
       months.push({ name: monthName, days });
     }
-    
+
     return months;
   };
-
-  // Group transactions by date
-  const groupedTransactions: Record<string, typeof transactions> = {};
-
-  // Memoize allowed categories for the current filter to support main category filtering (including subcategories)
-  const allowedCategories = useMemo(() => {
-    if (!filterCategory) return null;
-    
-    const filterCatObj = categories.find(c => c.name === filterCategory);
-    if (!filterCatObj) return new Set([filterCategory]);
-    
-    const allowed = new Set([filterCategory]);
-    
-    // If it's a main category (no parent), add all its children
-    if (!filterCatObj.parent_category_id) {
-      categories.forEach(c => {
-        if (c.parent_category_id === filterCatObj.id) {
-          allowed.add(c.name);
-        }
-      });
-    }
-    
-    return allowed;
-  }, [filterCategory, categories]);
-
-  const filteredTransactions = transactions.filter(tx => {
-    const matchesCategory = !allowedCategories || (tx.category && allowedCategories.has(tx.category));
-    const matchesSearch = !searchQuery || 
-      (tx.category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-       tx.notes?.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    // Date range filter
-    const txDate = new Date(tx.date);
-    const matchesDateRange = (!startDate || txDate >= startDate) && (!endDate || txDate <= endDate);
-    
-    return matchesCategory && matchesSearch && matchesDateRange;
-  });
-
-  filteredTransactions.forEach(tx => {
-    const date = formatShortDate(tx.date);
-    if (!groupedTransactions[date]) {
-      groupedTransactions[date] = [];
-    }
-    groupedTransactions[date].push(tx);
-  });
-
-  // Group transactions hierarchically by category (date -> main category -> subcategories)
-  type HierarchicalGroup = {
-    parent: string;
-    parentColor?: string;
-    total: number;
-    transactions: typeof transactions;
-    children: Record<string, typeof transactions>;
-  };
-
-  const groupedByDateAndCategory: Record<string, Record<string, HierarchicalGroup>> = {};
 
   const getTransferLabel = (tx: typeof transactions[number]) => {
     if (tx.category !== 'Transfer') return tx.category || 'Uncategorized';
@@ -358,23 +414,14 @@ export default function HistoryScreen() {
     return 'Transfer';
   };
 
-  // Calculate daily totals in default currency
-  const dailyTotals: Record<string, number> = {};
-  Object.keys(groupedTransactions).forEach(date => {
-    dailyTotals[date] = groupedTransactions[date].reduce((sum, tx) => {
-      const rate = walletExchangeRate[tx.wallet_id] ?? 1.0;
-      return sum + (tx.type === 'expense' && tx.category !== 'Transfer' ? Math.abs(tx.amount * rate) : 0);
-    }, 0);
-  });
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
       {/* Header with Export Button */}
-      <View style={{ 
-        flexDirection: 'row', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        paddingHorizontal: 16, 
+      <View style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
         paddingVertical: 12,
         backgroundColor: t.background,
         borderBottomWidth: 1,
@@ -383,7 +430,7 @@ export default function HistoryScreen() {
         <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>Transaction History</Text>
         <TouchableOpacity
           onPress={handleExportCSV}
-          style={{ 
+          style={{
             padding: 8,
             borderRadius: 8,
             backgroundColor: t.card,
@@ -397,7 +444,7 @@ export default function HistoryScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={{ flex: 1, backgroundColor: t.background }}
         refreshControl={
           <RefreshControl
@@ -410,288 +457,370 @@ export default function HistoryScreen() {
       >
         <View style={{ padding: 16, paddingTop: 20 }}>
 
-        {/* Search Bar */}
-        <TextInput
-          style={{
-            backgroundColor: t.card,
-            borderWidth: 1,
-            borderColor: t.border,
-            borderRadius: 8,
-            padding: 12,
-            color: t.textPrimary,
-            marginBottom: 12
-          }}
-          placeholder="Search transactions..."
-          placeholderTextColor={t.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
+          {/* Time Period Selector */}
+          <View style={{ marginBottom: 16 }}>
+            <TimePeriodSelector
+              selectedPeriod={selectedPeriod}
+              onSelectPeriod={handlePeriodChange}
+              textColor={t.textPrimary}
+              backgroundColor={t.card}
+              primaryColor={t.primary}
+              borderColor={t.border}
+            />
+          </View>
 
-        {/* Date Range Filter */}
-        <View style={{ marginBottom: 12 }}>
-          <TouchableOpacity
-            onPress={() => setShowDatePicker(true)}
+          {/* Dynamic Summary Cards */}
+          {isLoadingTransactions && page === 0 ? (
+            // Minimal Skeleton for cards
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+              <View style={{ flex: 1, height: 80, backgroundColor: t.card, borderRadius: 12, opacity: 0.5 }} />
+              <View style={{ flex: 1, height: 80, backgroundColor: t.card, borderRadius: 12, opacity: 0.5 }} />
+            </View>
+          ) : (
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+              <View style={{
+                flex: 1,
+                backgroundColor: t.card,
+                padding: 16,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: t.border,
+                ...shadows.sm
+              }}>
+                <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 4, fontWeight: '600' }}>Income</Text>
+                <Text style={{ color: t.income, fontSize: 18, fontWeight: '800' }}>
+                  {formatCurrency(summary.income, defaultCurrency)}
+                </Text>
+              </View>
+              <View style={{
+                flex: 1,
+                backgroundColor: t.card,
+                padding: 16,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: t.border,
+                ...shadows.sm
+              }}>
+                <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 4, fontWeight: '600' }}>Expenses</Text>
+                <Text style={{ color: t.expense, fontSize: 18, fontWeight: '800' }}>
+                  {formatCurrency(summary.expense, defaultCurrency)}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Search Bar */}
+          <TextInput
             style={{
               backgroundColor: t.card,
               borderWidth: 1,
-              borderColor: startDate || endDate ? t.primary : t.border,
+              borderColor: t.border,
               borderRadius: 8,
               padding: 12,
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center'
+              color: t.textPrimary,
+              marginBottom: 12
             }}
-          >
-            <Text style={{ color: startDate || endDate ? t.textPrimary : t.textSecondary, fontSize: 14 }}>
-              {startDate && endDate 
-                ? `${formatShortDate(startDate)} - ${formatShortDate(endDate)}`
-                : startDate
-                ? `From ${formatShortDate(startDate)}`
-                : 'Select date range'}
-            </Text>
-            {(startDate || endDate) && (
-              <TouchableOpacity onPress={clearDateFilter} style={{ padding: 4 }}>
-                <Text style={{ color: t.textSecondary, fontSize: 18 }}>×</Text>
-              </TouchableOpacity>
-            )}
-          </TouchableOpacity>
-        </View>
+            placeholder="Search transactions..."
+            placeholderTextColor={t.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
 
-        {/* Category Filter */}
-        <ScrollView 
-          ref={categoryScrollViewRef}
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
-          style={{ marginBottom: 24 }}
-        >
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+          {/* Date Range Filter */}
+          <View style={{ marginBottom: 12 }}>
             <TouchableOpacity
-              onPress={() => setFilterCategory('')}
+              onPress={() => setShowDatePicker(true)}
               style={{
-                paddingHorizontal: 16,
-                paddingVertical: 8,
-                borderRadius: 20,
-                backgroundColor: !filterCategory ? t.primary : t.card,
+                backgroundColor: t.card,
                 borderWidth: 1,
-                borderColor: !filterCategory ? t.primary : t.border
+                borderColor: startDate || endDate ? t.primary : t.border,
+                borderRadius: 8,
+                padding: 12,
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center'
               }}
             >
-              <Text style={{ color: !filterCategory ? '#FFFFFF' : t.textPrimary, fontWeight: '600' }}>All</Text>
+              <Text style={{ color: startDate || endDate ? t.textPrimary : t.textSecondary, fontSize: 14 }}>
+                {startDate && endDate
+                  ? `${formatShortDate(startDate)} - ${formatShortDate(endDate)}`
+                  : startDate
+                    ? `From ${formatShortDate(startDate)}`
+                    : 'Custom Date Range'}
+              </Text>
+              {(startDate || endDate) && selectedPeriod === 'all' && (
+                <TouchableOpacity onPress={clearDateFilter} style={{ padding: 4 }}>
+                  <Text style={{ color: t.textSecondary, fontSize: 18 }}>×</Text>
+                </TouchableOpacity>
+              )}
             </TouchableOpacity>
-            {sortedCategories.map(cat => (
+          </View>
+
+          {/* Category Filter */}
+          <ScrollView
+            ref={categoryScrollViewRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ marginBottom: 24 }}
+          >
+            <View style={{ flexDirection: 'row', gap: 8 }}>
               <TouchableOpacity
-                key={cat.id}
-                onPress={() => setFilterCategory(cat.name)}
+                onPress={() => setFilterCategory('')}
                 style={{
                   paddingHorizontal: 16,
                   paddingVertical: 8,
                   borderRadius: 20,
-                  backgroundColor:
-                    filterCategory === cat.name
-                      ? t.primary
-                      : cat.type === 'income'
-                        ? `${t.success}20`
-                        : `${t.danger}20`,
+                  backgroundColor: !filterCategory ? t.primary : t.card,
                   borderWidth: 1,
-                  borderColor:
-                    filterCategory === cat.name
-                      ? t.primary
-                      : cat.type === 'income'
-                        ? `${t.success}40`
-                        : `${t.danger}40`
+                  borderColor: !filterCategory ? t.primary : t.border
                 }}
               >
-                <Text style={{
-                  color: filterCategory === cat.name
-                    ? '#FFFFFF'
-                    : cat.type === 'income'
-                      ? t.success
-                      : t.danger,
-                  fontWeight: '600'
-                }}>
-                  {cat.name}
-                </Text>
+                <Text style={{ color: !filterCategory ? '#FFFFFF' : t.textPrimary, fontWeight: '600' }}>All</Text>
               </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
+              {sortedCategories.map(cat => (
+                <TouchableOpacity
+                  key={cat.id}
+                  onPress={() => setFilterCategory(cat.name)}
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderRadius: 20,
+                    backgroundColor:
+                      filterCategory === cat.name
+                        ? t.primary
+                        : cat.type === 'income'
+                          ? `${t.success}20`
+                          : `${t.danger}20`,
+                    borderWidth: 1,
+                    borderColor:
+                      filterCategory === cat.name
+                        ? t.primary
+                        : cat.type === 'income'
+                          ? `${t.success}40`
+                          : `${t.danger}40`
+                  }}
+                >
+                  <Text style={{
+                    color: filterCategory === cat.name
+                      ? '#FFFFFF'
+                      : cat.type === 'income'
+                        ? t.success
+                        : t.danger,
+                    fontWeight: '600'
+                  }}>
+                    {cat.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
 
-        {/* Grouped Transactions */}
-        {isLoadingTransactions ? (
-          <SkeletonLoader />
-        ) : (
-          <>
-            {Object.keys(groupedTransactions).length === 0 && (
-              <View style={{ alignItems: 'center', paddingVertical: 48 }}>
-                <Text style={{ fontSize: 48, marginBottom: 16 }}>📝</Text>
-                <Text style={{ color: t.textSecondary, fontSize: 16 }}>No transactions found</Text>
-              </View>
-            )}
+          {/* Transactions List */}
+          {isLoadingTransactions && page === 0 ? (
+            <SkeletonLoader />
+          ) : (
+            <>
+              {transactions.length === 0 && !isLoadingTransactions ? (
+                <View style={{ alignItems: 'center', paddingVertical: 48 }}>
+                  <Text style={{ fontSize: 48, marginBottom: 16 }}>📝</Text>
+                  <Text style={{ color: t.textSecondary, fontSize: 16 }}>No transactions found</Text>
+                </View>
+              ) : (
+                <View style={{ gap: 24, paddingBottom: 40 }}>
+                  {/* Manually Group by Date for Display */}
+                  {(() => {
+                    const groups: JSX.Element[] = [];
+                    let currentDate = '';
+                    let currentGroup: typeof transactions = [];
 
-            {/* List View: Simple flat list grouped by date */}
-            {Object.keys(groupedTransactions).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()).map(date => (
-            <View key={date} style={{ marginBottom: 24 }}>
-              {/* Date Header with Daily Total */}
-              <View style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 12,
-                paddingBottom: 8,
-                borderBottomWidth: 1,
-                borderBottomColor: t.border
-              }}>
-                <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>{date}</Text>
-                <Text style={{ color: t.accent, fontSize: 14, fontWeight: '700' }}>
-                  {formatCurrency(dailyTotals[date], defaultCurrency)}
-                </Text>
-              </View>
-
-              {/* Transactions for this date */}
-              <View style={{ gap: 8 }}>
-                {groupedTransactions[date].map(tx => {
-                  const isTransfer = tx.category === 'Transfer';
-                  return (
-                  <Link key={tx.id} href={`/transactions/${tx.id}`} asChild>
-                    <TouchableOpacity style={{
-                      backgroundColor: t.card,
-                      borderWidth: 1,
-                      borderColor: isTransfer ? t.border : t.border,
-                      borderRadius: 12,
-                      padding: 12,
-                      opacity: isTransfer ? 0.6 : 1
-                    }}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>
-                            {getCategoryDisplayName(tx)}
-                          </Text>
-                          {getMainCategoryName(tx) && (
-                            <Text style={{ color: t.textSecondary, fontSize: 12, opacity: 0.4, marginTop: 2 }}>
-                              {getMainCategoryName(tx)}
-                            </Text>
-                          )}
-                          {tx.notes && (
-                            <Text style={{ color: isTransfer ? t.textTertiary : t.textSecondary, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
-                              {tx.notes}
-                            </Text>
-                          )}
+                    const renderGroup = (date: string, txs: typeof transactions) => (
+                      <View key={date} style={{ marginBottom: 24 }}>
+                        <View style={{
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: 12,
+                          paddingBottom: 8,
+                          borderBottomWidth: 1,
+                          borderBottomColor: t.border
+                        }}>
+                          <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>{date}</Text>
                         </View>
-                        <View style={{ alignItems: 'flex-end', marginLeft: 12 }}>
-                          <Text style={{
-                            color: isTransfer ? t.textSecondary : tx.type === 'income' ? t.income : t.expense,
-                            fontSize: 16,
-                            fontWeight: '700'
-                          }}>
-                            {tx.type === 'income' ? '+' : '-'}
-                            {formatCurrency(
-                              Math.abs(tx.amount * (walletExchangeRate[tx.wallet_id] ?? 1.0)),
-                              defaultCurrency
-                            )}
-                          </Text>
-                          {tx.receipt_path && (
-                            <Text style={{ color: t.textSecondary, fontSize: 10, marginTop: 2 }}>📎 Receipt</Text>
-                          )}
+                        <View style={{ gap: 8 }}>
+                          {txs.map(tx => {
+                            const isTransfer = tx.category === 'Transfer';
+                            return (
+                              <Link key={tx.id} href={`/transactions/${tx.id}`} asChild>
+                                <TouchableOpacity style={{
+                                  backgroundColor: t.card,
+                                  borderWidth: 1,
+                                  borderColor: t.border,
+                                  borderRadius: 12,
+                                  padding: 12,
+                                  opacity: isTransfer ? 0.8 : 1
+                                }}>
+                                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <View style={{ flex: 1 }}>
+                                      <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>
+                                        {getCategoryDisplayName(tx)}
+                                      </Text>
+                                      <Text style={{ color: t.textSecondary, fontSize: 12, opacity: 0.7, marginTop: 2 }}>
+                                        {getMainCategoryName(tx) || (isTransfer ? 'Transfer' : 'Uncategorized')}
+                                      </Text>
+                                      {tx.notes && (
+                                        <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
+                                          {tx.notes}
+                                        </Text>
+                                      )}
+                                    </View>
+                                    <View style={{ alignItems: 'flex-end', marginLeft: 12 }}>
+                                      <Text style={{
+                                        color: isTransfer ? t.textSecondary : tx.type === 'income' ? t.income : t.expense,
+                                        fontSize: 16,
+                                        fontWeight: '700'
+                                      }}>
+                                        {tx.type === 'income' ? '+' : '-'}
+                                        {formatCurrency(
+                                          Math.abs(tx.amount * (walletExchangeRate[tx.wallet_id] ?? 1.0)),
+                                          defaultCurrency
+                                        )}
+                                      </Text>
+                                      {tx.receipt_path && (
+                                        <Text style={{ color: t.textSecondary, fontSize: 10, marginTop: 2 }}>📎 Receipt</Text>
+                                      )}
+                                    </View>
+                                  </View>
+                                </TouchableOpacity>
+                              </Link>
+                            );
+                          })}
                         </View>
                       </View>
+                    );
+
+                    transactions.forEach((tx) => {
+                      const date = formatShortDate(tx.date);
+                      if (date !== currentDate) {
+                        if (currentGroup.length > 0) {
+                          groups.push(renderGroup(currentDate, currentGroup));
+                        }
+                        currentDate = date;
+                        currentGroup = [tx];
+                      } else {
+                        currentGroup.push(tx);
+                      }
+                    });
+                    if (currentGroup.length > 0) {
+                      groups.push(renderGroup(currentDate, currentGroup));
+                    }
+                    return groups;
+                  })()}
+
+                  {hasMore && (
+                    <TouchableOpacity
+                      onPress={() => loadMore()}
+                      style={{ padding: 16, alignItems: 'center' }}
+                    >
+                      {isLoadingMore ? (
+                        <Text style={{ color: t.textSecondary }}>Loading more...</Text>
+                      ) : (
+                        <Text style={{ color: t.primary, fontWeight: '600' }}>Load More</Text>
+                      )}
                     </TouchableOpacity>
-                  </Link>
-                  );
-                })}
-              </View>
-            </View>
-          ))}
-          </>
-        )}
-      </View>
-
-      {/* Date Range Picker Modal */}
-      <Modal visible={showDatePicker} transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 16 }}>
-          <View style={{ backgroundColor: t.card, borderRadius: 12, borderWidth: 1, borderColor: t.border, maxHeight: '80%' }}>
-            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <View>
-                <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Select Date Range</Text>
-                {startDate && (
-                  <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>
-                    {endDate ? `${yyyyMmDd(startDate)} - ${yyyyMmDd(endDate)}` : `From ${yyyyMmDd(startDate)}`}
-                  </Text>
-                )}
-              </View>
-              <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                <Text style={{ fontSize: 28, color: t.textSecondary, lineHeight: 28 }}>×</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 20 }}>
-              {generateCalendarMonths().map((month, monthIdx) => (
-                <View key={monthIdx} style={{ marginBottom: 24 }}>
-                  <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '800', marginBottom: 12 }}>
-                    {month.name}
-                  </Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                    {month.days.map((day, dayIdx) => {
-                      const isStart = startDate && day.date.toDateString() === startDate.toDateString();
-                      const isEnd = endDate && day.date.toDateString() === endDate.toDateString();
-                      const isInRange = startDate && endDate && day.date >= startDate && day.date <= endDate;
-                      const isFuture = day.date > new Date();
-
-                      return (
-                        <TouchableOpacity
-                          key={dayIdx}
-                          disabled={isFuture}
-                          onPress={() => handleDateSelect(day.date)}
-                          style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 20,
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            backgroundColor: isStart || isEnd ? t.primary : isInRange ? t.border : isFuture ? t.background : t.card,
-                            borderWidth: 1,
-                            borderColor: isStart || isEnd ? t.primary : t.border
-                          }}
-                        >
-                          <Text style={{
-                            color: isStart || isEnd ? '#FFFFFF' : isFuture ? t.textTertiary : t.textPrimary,
-                            fontSize: 14,
-                            fontWeight: isStart || isEnd ? '800' : '600'
-                          }}>
-                            {day.day}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
+                  )}
                 </View>
-              ))}
-            </ScrollView>
-            {(startDate || endDate) && (
-              <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: t.border }}>
-                <TouchableOpacity
-                  onPress={() => {
-                    clearDateFilter();
-                    setShowDatePicker(false);
-                  }}
-                  style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, padding: 12, borderRadius: 8, alignItems: 'center' }}
-                >
-                  <Text style={{ color: t.textPrimary, fontWeight: '600' }}>Clear Filter</Text>
+              )}
+            </>
+          )}
+        </View>
+
+        {/* Date Range Picker Modal */}
+        <Modal visible={showDatePicker} transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 16 }}>
+            <View style={{ backgroundColor: t.card, borderRadius: 12, borderWidth: 1, borderColor: t.border, maxHeight: '80%' }}>
+              <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View>
+                  <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Select Date Range</Text>
+                  {startDate && (
+                    <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>
+                      {endDate ? `${yyyyMmDd(startDate)} - ${yyyyMmDd(endDate)}` : `From ${yyyyMmDd(startDate)}`}
+                    </Text>
+                  )}
+                </View>
+                <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                  <Text style={{ fontSize: 28, color: t.textSecondary, lineHeight: 28 }}>×</Text>
                 </TouchableOpacity>
               </View>
-            )}
-          </View>
-        </View>
-      </Modal>
+              <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 20 }}>
+                {generateCalendarMonths().map((month, monthIdx) => (
+                  <View key={monthIdx} style={{ marginBottom: 24 }}>
+                    <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '800', marginBottom: 12 }}>
+                      {month.name}
+                    </Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                      {month.days.map((day, dayIdx) => {
+                        const isStart = startDate && day.date.toDateString() === startDate.toDateString();
+                        const isEnd = endDate && day.date.toDateString() === endDate.toDateString();
+                        const isInRange = startDate && endDate && day.date >= startDate && day.date <= endDate;
+                        const isFuture = day.date > new Date();
 
-      {/* Themed Alert Component */}
-      <ThemedAlert
-        visible={alertConfig.visible}
-        title={alertConfig.title}
-        message={alertConfig.message}
-        buttons={alertConfig.buttons}
-        onDismiss={dismissAlert}
-        themeMode={themeMode}
-        systemColorScheme={systemColorScheme || 'light'}
-      />
+                        return (
+                          <TouchableOpacity
+                            key={dayIdx}
+                            disabled={isFuture}
+                            onPress={() => handleDateSelect(day.date)}
+                            style={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: 20,
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                              backgroundColor: isStart || isEnd ? t.primary : isInRange ? t.border : isFuture ? t.background : t.card,
+                              borderWidth: 1,
+                              borderColor: isStart || isEnd ? t.primary : t.border
+                            }}
+                          >
+                            <Text style={{
+                              color: isStart || isEnd ? '#FFFFFF' : isFuture ? t.textTertiary : t.textPrimary,
+                              fontSize: 14,
+                              fontWeight: isStart || isEnd ? '800' : '600'
+                            }}>
+                              {day.day}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+              {(startDate || endDate) && (
+                <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: t.border }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      clearDateFilter();
+                      setShowDatePicker(false);
+                    }}
+                    style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, padding: 12, borderRadius: 8, alignItems: 'center' }}
+                  >
+                    <Text style={{ color: t.textPrimary, fontWeight: '600' }}>Clear Filter</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </View>
+        </Modal>
+
+        {/* Themed Alert Component */}
+        <ThemedAlert
+          visible={alertConfig.visible}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          buttons={alertConfig.buttons}
+          onDismiss={dismissAlert}
+          themeMode={themeMode}
+          systemColorScheme={systemColorScheme || 'light'}
+        />
       </ScrollView>
     </SafeAreaView>
   );

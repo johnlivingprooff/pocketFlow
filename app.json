@@ -9,7 +9,11 @@
     "splash": {
       "image": "./assets/logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#B3B09E"
+      "backgroundColor": "#F0FDFA",
+      "dark": {
+        "image": "./assets/logo.png",
+        "backgroundColor": "#041C1F"
+      }
     },
     "assetBundlePatterns": [
       "**/*"
@@ -21,7 +25,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/app_icon.png",
-        "backgroundColor": "#B3B09E"
+        "backgroundColor": "#F0FDFA"
       },
       "permissions": [
         "android.permission.USE_BIOMETRIC",

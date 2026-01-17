@@ -189,8 +189,7 @@ export default function WalletTutorialScreen() {
           <Pressable
             style={[
               styles.button,
-              { backgroundColor: colors.deepGold, opacity: isCreating ? 0.6 : 1 },
-              shadows.md,
+              { backgroundColor: t.primary, opacity: isCreating ? 0.6 : 1 },
             ]}
             onPress={handleCreateWallet}
             disabled={isCreating}
@@ -225,6 +224,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
+    minHeight: 4,
     borderRadius: 2,
   },
   progressText: {

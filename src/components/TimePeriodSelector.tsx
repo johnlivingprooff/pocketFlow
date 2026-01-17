@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 
-export type TimePeriod = '7days' | '30days' | '3months' | '6months';
+export type TimePeriod = '7days' | '30days' | '3months' | '6months' | 'all';
 
 interface TimePeriodSelectorProps {
   selectedPeriod: TimePeriod;
@@ -21,16 +21,17 @@ export default function TimePeriodSelector({
   borderColor,
 }: TimePeriodSelectorProps) {
   const periods: { value: TimePeriod; label: string }[] = [
-    { value: '7days', label: 'last 7 days' },
-    { value: '30days', label: 'last 30 days' },
-    { value: '3months', label: 'last 3 months' },
-    { value: '6months', label: 'last 6 months' },
+    { value: '7days', label: 'Last 7 days' },
+    { value: '30days', label: 'Last 30 days' },
+    { value: '3months', label: 'Last 3 months' },
+    { value: '6months', label: 'Last 6 months' },
+    { value: 'all', label: 'All Time' },
   ];
 
   return (
     <View style={{ marginBottom: 16 }}>
-      <ScrollView 
-        horizontal 
+      <ScrollView
+        horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ gap: 8 }}
       >

@@ -178,6 +178,8 @@ export default function CategoryTutorialScreen() {
                       fontWeight: categoryType === 'expense' ? '700' : '500',
                     },
                   ]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
                 >
                   💸 Expense
                 </Text>
@@ -200,6 +202,8 @@ export default function CategoryTutorialScreen() {
                       fontWeight: categoryType === 'income' ? '700' : '500',
                     },
                   ]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
                 >
                   💰 Income
                 </Text>
@@ -254,15 +258,15 @@ export default function CategoryTutorialScreen() {
             <Pressable
               style={[
                 styles.iconButton,
-                { backgroundColor: t.card, borderColor: t.border },
+                { backgroundColor: t.card, borderColor: t.primary, borderWidth: 2 },
               ]}
               onPress={() => iconType === 'emoji' ? setShowEmojiPicker(true) : setShowSvgPicker(true)}
             >
               <View style={styles.selectedIconDisplay}>
                 {iconType === 'emoji' ? (
-                  <Text style={{ fontSize: 40 }}>{selectedEmoji}</Text>
+                  <Text style={{ fontSize: 32 }}>{selectedEmoji}</Text>
                 ) : (
-                  renderCategoryIcon(selectedSvg, 40, t.textPrimary)
+                  renderCategoryIcon(selectedSvg, 32, t.textPrimary)
                 )}
               </View>
               <Text style={[styles.iconButtonText, { color: t.textSecondary }]}>
@@ -304,8 +308,7 @@ export default function CategoryTutorialScreen() {
           <Pressable
             style={[
               styles.button,
-              { backgroundColor: colors.deepGold, opacity: isCreating ? 0.6 : 1 },
-              shadows.md,
+              { backgroundColor: t.primary, opacity: isCreating ? 0.6 : 1 },
             ]}
             onPress={handleCreateCategory}
             disabled={isCreating}
@@ -324,41 +327,54 @@ export default function CategoryTutorialScreen() {
 
       {/* Emoji Picker Modal */}
       {showEmojiPicker && (
-        <EmojiPicker
-          selectedEmoji={selectedEmoji}
-          onEmojiSelected={(selected) => {
-            setSelectedEmoji(selected);
-            setShowEmojiPicker(false);
-          }}
-          themeColors={t}
-        />
+        <Modal visible={showEmojiPicker} animationType="slide" transparent={true}>
+          <SafeAreaView style={[styles.pickerModalContainer, { backgroundColor: t.background }]} edges={['top']}>
+            <View style={[styles.pickerModalHeader, { borderBottomColor: t.border }]}>
+              <Text style={[styles.pickerModalTitle, { color: t.textPrimary }]}>Select Emoji</Text>
+              <Pressable onPress={() => setShowEmojiPicker(false)} style={styles.pickerModalCloseButton}>
+                <Text style={[styles.pickerModalCloseText, { color: t.textPrimary }]}>Done</Text>
+              </Pressable>
+            </View>
+            <EmojiPicker
+              selectedEmoji={selectedEmoji}
+              onEmojiSelected={(selected) => {
+                setSelectedEmoji(selected);
+                setShowEmojiPicker(false);
+              }}
+              themeColors={t}
+            />
+          </SafeAreaView>
+        </Modal>
       )}
 
       {/* SVG Icon Picker Modal */}
       <Modal visible={showSvgPicker} animationType="slide" transparent={true}>
-        <SafeAreaView style={[styles.modalContainer, { backgroundColor: t.background }]} edges={['top']}>
-          <View style={[styles.modalHeader, { borderBottomColor: t.border }]}>
-            <Text style={[styles.modalTitle, { color: t.textPrimary }]}>Select Icon</Text>
-            <Pressable onPress={() => setShowSvgPicker(false)} style={styles.modalCloseButton}>
-              <Text style={[styles.modalCloseText, { color: t.textPrimary }]}>Done</Text>
+        <SafeAreaView style={[styles.pickerModalContainer, { backgroundColor: t.background }]} edges={['top']}>
+          <View style={[styles.pickerModalHeader, { borderBottomColor: t.border }]}>
+            <Text style={[styles.pickerModalTitle, { color: t.textPrimary }]}>Select Icon</Text>
+            <Pressable onPress={() => setShowSvgPicker(false)} style={styles.pickerModalCloseButton}>
+              <Text style={[styles.pickerModalCloseText, { color: t.textPrimary }]}>Done</Text>
             </Pressable>
           </View>
           <FlatList
             data={SVG_ICON_NAMES}
-            numColumns={4}
-            contentContainerStyle={styles.iconGridContainer}
+            numColumns={5}
+            contentContainerStyle={styles.pickerIconGridContainer}
             renderItem={({ item }) => (
               <Pressable
                 style={[
-                  styles.iconGridItem,
+                  styles.pickerIconGridItem,
                   {
                     backgroundColor: selectedSvg === item ? t.primary : t.card,
                     borderColor: selectedSvg === item ? t.primary : t.border,
                   },
                 ]}
-                onPress={() => setSelectedSvg(item)}
+                onPress={() => {
+                  setSelectedSvg(item);
+                  setShowSvgPicker(false);
+                }}
               >
-                {renderCategoryIcon(item, 32, selectedSvg === item ? '#FFFFFF' : t.textPrimary)}
+                {renderCategoryIcon(item, 24, selectedSvg === item ? '#FFFFFF' : t.textPrimary)}
               </Pressable>
             )}
             keyExtractor={(item) => item}
@@ -389,6 +405,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
+    minHeight: 4,
     borderRadius: 2,
   },
   progressText: {
@@ -431,29 +448,36 @@ const styles = StyleSheet.create({
   },
   typeButton: {
     flex: 1,
+    minHeight: 44,
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   typeButtonText: {
     fontSize: 15,
   },
   iconButton: {
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: 2,
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    gap: 12,
+    flexDirection: 'row',
   },
   selectedIconDisplay: {
     alignItems: 'center',
     justifyContent: 'center',
     height: 50,
+    width: 50,
+    borderRadius: 8,
   },
   iconButtonText: {
-    fontSize: 13,
+    fontSize: 11,
   },
   input: {
     padding: 14,
@@ -488,6 +512,42 @@ const styles = StyleSheet.create({
   },
   skipText: {
     fontSize: 16,
+  },
+  pickerModalContainer: {
+    flex: 1,
+  },
+  pickerModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+  },
+  pickerModalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  pickerModalCloseButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  pickerModalCloseText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  pickerIconGridContainer: {
+    padding: 8,
+    gap: 4,
+  },
+  pickerIconGridItem: {
+    flex: 0.18,
+    aspectRatio: 1,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: 2,
   },
   modalContainer: {
     flex: 1,

@@ -155,6 +155,7 @@ export function FinancialSummaryCard({
 const styles = StyleSheet.create({
   card: {
     marginBottom: 16,
+    marginHorizontal: 5,
     padding: 16,
     borderRadius: 12,
   },
@@ -164,6 +165,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 12,
+    textAlign: 'center',
   },
   mainAmount: {
     alignItems: 'center',

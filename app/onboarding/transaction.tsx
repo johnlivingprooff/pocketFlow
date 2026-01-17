@@ -147,8 +147,8 @@ export default function TransactionTutorialScreen() {
         {/* Form */}
         <View style={styles.form}>
           {/* Transaction Type */}
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: t.textPrimary }]}>
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: t.textPrimary }]}>
               Transaction Type
             </Text>
             <View style={styles.typeRow}>
@@ -173,6 +173,8 @@ export default function TransactionTutorialScreen() {
                       fontWeight: transactionType === 'expense' ? '700' : '500',
                     },
                   ]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
                 >
                   💸 Expense
                 </Text>
@@ -198,6 +200,8 @@ export default function TransactionTutorialScreen() {
                       fontWeight: transactionType === 'income' ? '700' : '500',
                     },
                   ]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
                 >
                   💰 Income
                 </Text>
@@ -206,8 +210,8 @@ export default function TransactionTutorialScreen() {
           </View>
 
           {/* Amount */}
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: t.textPrimary }]}>
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: t.textPrimary }]}>
               Amount ({defaultCurrency}) <Text style={{ color: colors.negativeRed }}>*</Text>
             </Text>
             <TextInput
@@ -225,11 +229,14 @@ export default function TransactionTutorialScreen() {
               onChangeText={setAmount}
               keyboardType="decimal-pad"
             />
+            <Text style={[styles.helperText, { color: t.textSecondary }]}>
+              💡 Enter just the number, we'll track the rest
+            </Text>
           </View>
 
           {/* Category */}
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: t.textPrimary }]}>
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: t.textPrimary }]}>
               Category <Text style={{ color: colors.negativeRed }}>*</Text>
             </Text>
             <Pressable
@@ -247,11 +254,14 @@ export default function TransactionTutorialScreen() {
                 {categories.find(c => c.id !== undefined && c.id.toString() === selectedCategory)?.name || 'Select a category'}
               </Text>
             </Pressable>
+            <Text style={[styles.helperText, { color: t.textSecondary }]}>
+              💡 Categories help organize your spending
+            </Text>
           </View>
 
           {/* Date */}
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: t.textPrimary }]}>
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: t.textPrimary }]}>
               Date
             </Text>
             <Pressable
@@ -269,11 +279,14 @@ export default function TransactionTutorialScreen() {
                 {formatShortDate(date)}
               </Text>
             </Pressable>
+            <Text style={[styles.helperText, { color: t.textSecondary }]}>
+              💡 When did this transaction happen?
+            </Text>
           </View>
 
           {/* Notes */}
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: t.textPrimary }]}>
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: t.textPrimary }]}>
               Notes (optional)
             </Text>
             <TextInput
@@ -292,14 +305,10 @@ export default function TransactionTutorialScreen() {
               multiline
               numberOfLines={2}
             />
+            <Text style={[styles.helperText, { color: t.textSecondary }]}>
+              💡 Add details to remember later
+            </Text>
           </View>
-        </View>
-
-        {/* Info Box */}
-        <View style={[styles.infoBox, { backgroundColor: colors.deepGold + '10' }]}>
-          <Text style={[styles.infoText, { color: t.textPrimary }]}>
-            💡 <Text style={{ fontWeight: '600' }}>Tip:</Text> You can add more details like receipt photos later!
-          </Text>
         </View>
 
         {/* Buttons */}
@@ -307,8 +316,7 @@ export default function TransactionTutorialScreen() {
           <Pressable
             style={[
               styles.button,
-              { backgroundColor: colors.deepGold, opacity: isCreating ? 0.6 : 1 },
-              shadows.md,
+              { backgroundColor: t.primary, opacity: isCreating ? 0.6 : 1 },
             ]}
             onPress={handleCreateTransaction}
             disabled={isCreating}
@@ -371,6 +379,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
+    minHeight: 4,
     borderRadius: 2,
   },
   progressText: {
@@ -400,6 +409,14 @@ const styles = StyleSheet.create({
     gap: 20,
     marginBottom: 24,
   },
+  section: {
+    gap: 8,
+  },
+  sectionLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
   field: {
     gap: 8,
   },
@@ -407,17 +424,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  helperText: {
+    fontSize: 12,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
   typeRow: {
     flexDirection: 'row',
     gap: 12,
   },
   typeButton: {
     flex: 1,
+    minHeight: 44,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   typeButtonText: {
     fontSize: 15,

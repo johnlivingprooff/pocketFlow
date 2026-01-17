@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity } from 'react-native';
-import { theme as getTheme } from '../theme/theme';
+import { theme as getTheme, ThemeMode } from '../theme/theme';
 
 interface ThemedAlertProps {
   visible: boolean;
@@ -12,7 +12,7 @@ interface ThemedAlertProps {
     style?: 'default' | 'cancel' | 'destructive' | 'success';
   }>;
   onDismiss?: () => void;
-  themeMode: 'light' | 'dark' | 'system';
+  themeMode: ThemeMode;
   systemColorScheme?: 'light' | 'dark';
 }
 
@@ -80,7 +80,7 @@ export function ThemedAlert({
               const isDestructive = button.style === 'destructive';
               const isCancel = button.style === 'cancel';
               const isSuccess = button.style === 'success';
-              
+
               return (
                 <TouchableOpacity
                   key={index}

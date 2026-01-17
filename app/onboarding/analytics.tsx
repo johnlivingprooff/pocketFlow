@@ -28,7 +28,7 @@ export default function AnalyticsTutorialScreen() {
             <View style={[styles.progressFill, { width: '100%', backgroundColor: colors.positiveGreen }]} />
           </View>
           <Text style={[styles.progressText, { color: t.textSecondary }]}>
-            Step 8 of 8 - Complete! 🎉
+            Step 7 of 7 - Complete! 🎉
           </Text>
         </View>
 
@@ -117,7 +117,7 @@ export default function AnalyticsTutorialScreen() {
         {/* Buttons */}
         <View style={styles.buttonContainer}>
           <Pressable
-            style={[styles.button, { backgroundColor: colors.deepGold }, shadows.md]}
+            style={[styles.button, { backgroundColor: t.primary }]}
             onPress={handleFinish}
           >
             <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
@@ -175,6 +175,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
+    minHeight: 4,
     borderRadius: 2,
   },
   progressText: {

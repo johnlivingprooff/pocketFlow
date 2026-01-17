@@ -82,8 +82,8 @@ export default function GoalTutorialScreen() {
         />
 
         completeStep('goal');
-      setCurrentStep('transaction');
-      router.push('/onboarding/transaction');
+      setCurrentStep('transfer');
+      router.push('/onboarding/transfer');
     } catch (error) {
       console.error('Failed to create goal:', error);
       Alert.alert('Error', 'Could not create goal. Please try again.');
@@ -94,8 +94,8 @@ export default function GoalTutorialScreen() {
 
   const handleSkip = () => {
     completeStep('goal');
-    setCurrentStep('transaction');
-    router.push('/onboarding/transaction');
+    setCurrentStep('transfer');
+    router.push('/onboarding/transfer');
   };
 
   return (
@@ -107,7 +107,7 @@ export default function GoalTutorialScreen() {
             <View style={[styles.progressFill, { width: '62.5%', backgroundColor: colors.deepGold }]} />
           </View>
           <Text style={[styles.progressText, { color: t.textSecondary }]}>
-            Step 5 of 8
+            Step 5 of 7
           </Text>
         </View>
 
@@ -199,8 +199,7 @@ export default function GoalTutorialScreen() {
           <Pressable
             style={[
               styles.button,
-              { backgroundColor: colors.deepGold, opacity: isCreating ? 0.6 : 1 },
-              shadows.md,
+              { backgroundColor: t.primary, opacity: isCreating ? 0.6 : 1 },
             ]}
             onPress={handleCreateGoal}
             disabled={isCreating}
@@ -240,6 +239,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
+    minHeight: 4,
     borderRadius: 2,
   },
   progressText: {

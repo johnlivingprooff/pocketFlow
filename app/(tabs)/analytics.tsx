@@ -4,9 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
-import { 
-  monthSpend, 
-  todaySpend, 
+import {
+  monthSpend,
+  todaySpend,
   categoryBreakdown,
   weekOverWeekComparison,
   incomeVsExpenseAnalysis,
@@ -86,7 +86,7 @@ export default function AnalyticsPage() {
     '3months': 0,
     '6months': 0
   });
-  
+
   // Phase 1: Enhanced Analytics State
   const [weekComparison, setWeekComparison] = useState<{ thisWeek: number; lastWeek: number; change: number } | null>(null);
   const [incomeExpense, setIncomeExpense] = useState<{ income: number; expense: number; netSavings: number; savingsRate: number } | null>(null);
@@ -116,6 +116,7 @@ export default function AnalyticsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [categoryTransactions, setCategoryTransactions] = useState<Array<{ id: number; amount: number; date: string; notes?: string }>>([]);
   const [showCategoryDrillDown, setShowCategoryDrillDown] = useState(false);
+  const [showAllCategories, setShowAllCategories] = useState(false);
 
   const { alertConfig, showSuccessAlert, dismissAlert } = useAlert();
   const [refreshing, setRefreshing] = useState(false);
@@ -124,163 +125,163 @@ export default function AnalyticsPage() {
   const loadData = useCallback(async (period: TimePeriod = '30days') => {
     setIsLoading(true);
     try {
-    if (Platform.OS !== 'web') {
-      const month = await monthSpend();
-      const today = await todaySpend();
-      const breakdown = await getCategorySpendingForPeriod(period);
-      
-      setMonthTotal(month);
-      setTodayTotal(today);
-      setCategories(breakdown);
-      
-      // Calculate average daily spend (simplified)
-      const daysInMonth = new Date().getDate();
-      setAvgDailySpend(month / daysInMonth);
-      
-      // Find largest purchase (simplified - using category totals)
-      const largest = Math.max(...breakdown.map(c => c.total), 0);
-      setLargestPurchase(largest);
+      if (Platform.OS !== 'web') {
+        const month = await monthSpend();
+        const today = await todaySpend();
+        const breakdown = await getCategorySpendingForPeriod(period);
 
-      // Load period-specific metrics for cards
-      const incomeData: Record<string, number> = {};
-      const spendingData: Record<string, number> = {};
-      const largestPurchaseData: Record<string, number> = {};
-      
-      const periods: Array<{ key: TimePeriod; days: number }> = [
-        { key: '7days', days: 7 },
-        { key: '30days', days: 30 },
-        { key: '3months', days: 90 },
-        { key: '6months', days: 180 }
-      ];
-      
-      for (const { key, days } of periods) {
-        try {
-          // Calculate income and expense for this specific period
-          const now = new Date();
-          const startDate = new Date(now);
-          startDate.setDate(now.getDate() - days);
-          const start = startDate.toISOString();
-          const end = now.toISOString();
-          
-          // Query income for this period
-          const incomeResult = await exec<{ total: number }>(
-            `SELECT COALESCE(SUM(t.amount * COALESCE(w.exchange_rate, 1.0)),0) as total 
+        setMonthTotal(month);
+        setTodayTotal(today);
+        setCategories(breakdown);
+
+        // Calculate average daily spend (simplified)
+        const daysInMonth = new Date().getDate();
+        setAvgDailySpend(month / daysInMonth);
+
+        // Find largest purchase (simplified - using category totals)
+        const largest = Math.max(...breakdown.map(c => c.total), 0);
+        setLargestPurchase(largest);
+
+        // Load period-specific metrics for cards
+        const incomeData: Record<string, number> = {};
+        const spendingData: Record<string, number> = {};
+        const largestPurchaseData: Record<string, number> = {};
+
+        const periods: Array<{ key: TimePeriod; days: number }> = [
+          { key: '7days', days: 7 },
+          { key: '30days', days: 30 },
+          { key: '3months', days: 90 },
+          { key: '6months', days: 180 }
+        ];
+
+        for (const { key, days } of periods) {
+          try {
+            // Calculate income and expense for this specific period
+            const now = new Date();
+            const startDate = new Date(now);
+            startDate.setDate(now.getDate() - days);
+            const start = startDate.toISOString();
+            const end = now.toISOString();
+
+            // Query income for this period
+            const incomeResult = await exec<{ total: number }>(
+              `SELECT COALESCE(SUM(t.amount * COALESCE(w.exchange_rate, 1.0)),0) as total 
              FROM transactions t 
              LEFT JOIN wallets w ON t.wallet_id = w.id
              WHERE t.type = 'income' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
-            [start, end]
-          );
-          
-          // Query expense for this period
-          const expenseResult = await exec<{ total: number }>(
-            `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
+              [start, end]
+            );
+
+            // Query expense for this period
+            const expenseResult = await exec<{ total: number }>(
+              `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
              FROM transactions t 
              LEFT JOIN wallets w ON t.wallet_id = w.id
              WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
-            [start, end]
-          );
-          
-          // Query largest single transaction for this period
-          const largestResult = await exec<{ amount: number }>(
-            `SELECT ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) as amount
+              [start, end]
+            );
+
+            // Query largest single transaction for this period
+            const largestResult = await exec<{ amount: number }>(
+              `SELECT ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) as amount
              FROM transactions t 
              LEFT JOIN wallets w ON t.wallet_id = w.id
              WHERE t.date BETWEEN ? AND ? AND t.type = 'expense' AND (t.category IS NULL OR t.category <> 'Transfer')
              ORDER BY ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) DESC
              LIMIT 1;`,
-            [start, end]
-          );
-          
-          incomeData[key] = incomeResult[0]?.total ?? 0;
-          spendingData[key] = expenseResult[0]?.total ?? 0;
-          largestPurchaseData[key] = largestResult[0]?.amount ?? 0;
-        } catch (err) {
-          console.error(`Error loading metrics for period ${key}:`, err);
-          incomeData[key] = 0;
-          spendingData[key] = 0;
-          largestPurchaseData[key] = 0;
+              [start, end]
+            );
+
+            incomeData[key] = incomeResult[0]?.total ?? 0;
+            spendingData[key] = expenseResult[0]?.total ?? 0;
+            largestPurchaseData[key] = largestResult[0]?.amount ?? 0;
+          } catch (err) {
+            console.error(`Error loading metrics for period ${key}:`, err);
+            incomeData[key] = 0;
+            spendingData[key] = 0;
+            largestPurchaseData[key] = 0;
+          }
+        }
+
+        setIncomeByPeriod(incomeData);
+        setSpendingRateByPeriod(spendingData);
+        setLargestPurchaseByPeriod(largestPurchaseData);
+
+        // Phase 1: Load enhanced analytics
+        const weekComp = await weekOverWeekComparison();
+        setWeekComparison(weekComp);
+
+        const incExpAnalysis = await incomeVsExpenseAnalysis(incomeExpensePeriod);
+        setIncomeExpense(incExpAnalysis);
+
+        const streak = await getSpendingStreak();
+        setSpendingStreak(streak);
+
+        const progress = await getMonthProgress();
+        setMonthProgress(progress);
+
+        const topDay = await getTopSpendingDay();
+        setTopSpendingDay(topDay);
+
+        const counts = await getTransactionCounts();
+        setTransactionCounts(counts);
+
+        const avgPurch = await getAveragePurchaseSize();
+        setAvgPurchase(avgPurch);
+
+        // Phase 2: Load chart data
+        const sevenDay = await getSevenDaySpendingTrend();
+        setSevenDayTrend(sevenDay);
+
+        const daily = await getDailySpendingForMonth();
+        setDailySpending(daily);
+
+        const comparison = await getMonthlyComparison(period);
+        setMonthlyComparison(comparison);
+
+        const pieData = await getCategorySpendingForPieChart();
+        setCategoryPieData(breakdown);
+
+        // Fetch category colors
+        const allCategories = await getCategories();
+        const colorMap: Record<string, string> = {};
+        allCategories.forEach(cat => {
+          if (cat.name && cat.color) {
+            colorMap[cat.name] = cat.color;
+          }
+        });
+        setCategoryColorMap(colorMap);
+
+        // Phase 3: Generate insights and financial health score
+        const healthScore = calculateFinancialHealthScore({
+          incomeExpense: incExpAnalysis,
+          spendingStreak: streak,
+          weekComparison: weekComp,
+          dailySpending: daily
+        });
+        setFinancialHealth(healthScore);
+
+        // Phase 3.5: Load budgets and goals for the selected period
+        try {
+          const daysMap: Record<TimePeriod, number> = {
+            '7days': 7,
+            '30days': 30,
+            '3months': 90,
+            '6months': 180
+          };
+
+          const days = daysMap[period];
+          const periodBudgets = await getBudgetsForPeriod(days);
+          const periodGoals = await getGoalsForPeriod(days);
+
+          setBudgets(periodBudgets);
+          setGoals(periodGoals);
+        } catch (error) {
+          console.error('Failed to load budgets/goals:', error);
+          setBudgets([]);
+          setGoals([]);
         }
       }
-      
-      setIncomeByPeriod(incomeData);
-      setSpendingRateByPeriod(spendingData);
-      setLargestPurchaseByPeriod(largestPurchaseData);
-
-      // Phase 1: Load enhanced analytics
-      const weekComp = await weekOverWeekComparison();
-      setWeekComparison(weekComp);
-
-      const incExpAnalysis = await incomeVsExpenseAnalysis(incomeExpensePeriod);
-      setIncomeExpense(incExpAnalysis);
-
-      const streak = await getSpendingStreak();
-      setSpendingStreak(streak);
-
-      const progress = await getMonthProgress();
-      setMonthProgress(progress);
-
-      const topDay = await getTopSpendingDay();
-      setTopSpendingDay(topDay);
-
-      const counts = await getTransactionCounts();
-      setTransactionCounts(counts);
-
-      const avgPurch = await getAveragePurchaseSize();
-      setAvgPurchase(avgPurch);
-
-      // Phase 2: Load chart data
-      const sevenDay = await getSevenDaySpendingTrend();
-      setSevenDayTrend(sevenDay);
-
-      const daily = await getDailySpendingForMonth();
-      setDailySpending(daily);
-
-      const comparison = await getMonthlyComparison(period);
-      setMonthlyComparison(comparison);
-
-      const pieData = await getCategorySpendingForPieChart();
-      setCategoryPieData(breakdown);
-
-      // Fetch category colors
-      const allCategories = await getCategories();
-      const colorMap: Record<string, string> = {};
-      allCategories.forEach(cat => {
-        if (cat.name && cat.color) {
-          colorMap[cat.name] = cat.color;
-        }
-      });
-      setCategoryColorMap(colorMap);
-
-      // Phase 3: Generate insights and financial health score
-      const healthScore = calculateFinancialHealthScore({
-        incomeExpense: incExpAnalysis,
-        spendingStreak: streak,
-        weekComparison: weekComp,
-        dailySpending: daily
-      });
-      setFinancialHealth(healthScore);
-
-      // Phase 3.5: Load budgets and goals for the selected period
-      try {
-        const daysMap: Record<TimePeriod, number> = {
-          '7days': 7,
-          '30days': 30,
-          '3months': 90,
-          '6months': 180
-        };
-        
-        const days = daysMap[period];
-        const periodBudgets = await getBudgetsForPeriod(days);
-        const periodGoals = await getGoalsForPeriod(days);
-        
-        setBudgets(periodBudgets);
-        setGoals(periodGoals);
-      } catch (error) {
-        console.error('Failed to load budgets/goals:', error);
-        setBudgets([]);
-        setGoals([]);
-      }
-    }
     } finally {
       setIsLoading(false);
     }
@@ -350,64 +351,38 @@ export default function AnalyticsPage() {
   // Use actual category colors, fallback to theme colors
   const fallbackColors = ['#C1A12F', '#84670B', '#B3B09E', '#6B6658', '#332D23', '#8B7355', '#A67C52', '#D4AF37'];
 
-  // Skeleton Loader Component
-  const SkeletonLoader = () => (
-    <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 80 }}>
-      {/* Header Section */}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingTop: 20 }}>
-        <View>
-          <View style={{ height: 24, width: 120, backgroundColor: t.card, borderRadius: 4, marginBottom: 6, opacity: 0.5 }} />
-          <View style={{ height: 13, width: 180, backgroundColor: t.card, borderRadius: 4, opacity: 0.4 }} />
-        </View>
-        <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.card, opacity: 0.5 }} />
+  // Skeleton Components for Granular Loading
+  const KPISkeleton = () => (
+    <View style={{ marginBottom: 24 }}>
+      <View style={{ height: 18, width: 100, backgroundColor: t.card, borderRadius: 4, marginBottom: 12, opacity: 0.5 }} />
+      <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+        <View style={{ flex: 1, height: 100, backgroundColor: t.card, borderRadius: 14, opacity: 0.5 }} />
+        <View style={{ flex: 1, height: 100, backgroundColor: t.card, borderRadius: 14, opacity: 0.5 }} />
       </View>
-
-      {/* Filter Pills */}
-      <View style={{ marginBottom: 20, flexDirection: 'row', gap: 8 }}>
-        {[1, 2, 3, 4].map((i) => (
-          <View key={i} style={{ height: 32, width: 80, backgroundColor: t.card, borderRadius: 16, opacity: 0.5 }} />
-        ))}
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <View style={{ flex: 1, height: 100, backgroundColor: t.card, borderRadius: 14, opacity: 0.5 }} />
+        <View style={{ flex: 1, height: 100, backgroundColor: t.card, borderRadius: 14, opacity: 0.5 }} />
       </View>
-
-      {/* Overview Cards */}
-      <View style={{ marginBottom: 24 }}>
-        <View style={{ height: 18, width: 100, backgroundColor: t.card, borderRadius: 4, marginBottom: 12, opacity: 0.5 }} />
-        {[1, 2].map((i) => (
-          <View key={i} style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
-            {[1, 2].map((j) => (
-              <View key={j} style={{ flex: 1, height: 100, backgroundColor: t.card, borderRadius: 14, opacity: 0.5 }} />
-            ))}
-          </View>
-        ))}
-      </View>
-
-      {/* Chart Section */}
-      <View style={{ marginBottom: 24 }}>
-        <View style={{ height: 18, width: 150, backgroundColor: t.card, borderRadius: 4, marginBottom: 12, opacity: 0.5 }} />
-        <View style={{ height: 200, backgroundColor: t.card, borderRadius: 14, opacity: 0.5 }} />
-      </View>
-
-      {/* Category Breakdown */}
-      <View style={{ marginBottom: 24 }}>
-        <View style={{ height: 18, width: 180, backgroundColor: t.card, borderRadius: 4, marginBottom: 12, opacity: 0.5 }} />
-        {[1, 2, 3].map((i) => (
-          <View key={i} style={{ height: 60, backgroundColor: t.card, borderRadius: 12, marginBottom: 12, opacity: 0.5 }} />
-        ))}
-      </View>
-    </ScrollView>
+    </View>
   );
 
-  if (isLoading) {
-    return (
-      <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
-        <SkeletonLoader />
-      </SafeAreaView>
-    );
-  }
+  const ChartSkeleton = ({ height = 220, titleWidth = 150 }) => (
+    <View style={{ marginBottom: 24 }}>
+      <View style={{ height: 18, width: titleWidth, backgroundColor: t.card, borderRadius: 4, marginBottom: 12, opacity: 0.5 }} />
+      <View style={{ height: height, backgroundColor: t.card, borderRadius: 14, opacity: 0.5 }} />
+    </View>
+  );
+
+  const MonthProgressSkeleton = () => (
+    <View style={{ marginBottom: 24 }}>
+      <View style={{ height: 18, width: 180, backgroundColor: t.card, borderRadius: 4, marginBottom: 12, opacity: 0.5 }} />
+      <View style={{ height: 60, backgroundColor: t.card, borderRadius: 12, marginBottom: 12, opacity: 0.5 }} />
+    </View>
+  );
 
   return (
     <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 80 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={t.primary} colors={[t.primary]} />}
       >
@@ -445,39 +420,72 @@ export default function AnalyticsPage() {
         </View>
 
         {/* SECTION 1: KEY PERFORMANCE INDICATORS (KPIs) */}
-        <View style={{ marginBottom: 24 }}>
-          <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Overview</Text>
-          
-          {/* Net Flow + Income */}
-          {incomeExpense && (
-            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
-              <View style={{
-                flex: 1,
-                backgroundColor: t.card,
-                borderWidth: 1,
-                borderColor: t.border,
-                borderRadius: 14,
-                padding: 16,
-                ...shadows.sm
-              }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                  <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>Net Flow</Text>
-                  <HelpIcon
-                    onPress={() => showSuccessAlert(
-                      'Net Flow',
-                      'Your net savings (income minus expenses). Positive values show you\'re saving money, while negative values indicate you\'re spending more than you earn.'
-                    )}
-                    color={t.textSecondary}
-                  />
-                </View>
-                <Text style={{ color: incomeExpense.netSavings >= 0 ? t.success : t.danger, fontSize: 20, fontWeight: '800' }}>
-                  {abbreviateNumber(incomeExpense.netSavings)}
-                </Text>
-                <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 4 }}>
-                  {incomeExpense.savingsRate.toFixed(1)}% savings rate
-                </Text>
-              </View>
+        {isLoading ? (
+          <KPISkeleton />
+        ) : (
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Overview</Text>
 
+            {/* Net Flow + Income */}
+            {incomeExpense && (
+              <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+                <View style={{
+                  flex: 1,
+                  backgroundColor: t.card,
+                  borderWidth: 1,
+                  borderColor: t.border,
+                  borderRadius: 14,
+                  padding: 16,
+                  ...shadows.sm
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                    <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>Net Flow</Text>
+                    <HelpIcon
+                      onPress={() => showSuccessAlert(
+                        'Net Flow',
+                        'Your net savings (income minus expenses). Positive values show you\'re saving money, while negative values indicate you\'re spending more than you earn.'
+                      )}
+                      color={t.textSecondary}
+                    />
+                  </View>
+                  <Text style={{ color: incomeExpense.netSavings >= 0 ? t.success : t.danger, fontSize: 20, fontWeight: '800' }}>
+                    {abbreviateNumber(incomeExpense.netSavings)}
+                  </Text>
+                  <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 4 }}>
+                    {incomeExpense.savingsRate.toFixed(1)}% savings rate
+                  </Text>
+                </View>
+
+                <View style={{
+                  flex: 1,
+                  backgroundColor: t.card,
+                  borderWidth: 1,
+                  borderColor: t.border,
+                  borderRadius: 14,
+                  padding: 16,
+                  ...shadows.sm
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                    <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>
+                      {selectedPeriod === '7days' ? 'Income (Week)' : selectedPeriod === '30days' ? 'Income (Month)' : selectedPeriod === '3months' ? 'Income (3M)' : 'Income (6M)'}
+                    </Text>
+                    <HelpIcon
+                      onPress={() => showSuccessAlert(
+                        'Income',
+                        'Total income received during the selected period from all sources.'
+                      )}
+                      color={t.textSecondary}
+                    />
+                  </View>
+                  <Text style={{ color: t.success, fontSize: 20, fontWeight: '800' }}>
+                    {abbreviateNumber(incomeByPeriod[selectedPeriod] || 0)}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Spending Rate + Largest Purchase */}
+            <View style={{ flexDirection: 'row', gap: 12 }}>
               <View style={{
                 flex: 1,
                 backgroundColor: t.card,
@@ -489,266 +497,281 @@ export default function AnalyticsPage() {
               }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
                   <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>
-                    {selectedPeriod === '7days' ? 'Income (Week)' : selectedPeriod === '30days' ? 'Income (Month)' : selectedPeriod === '3months' ? 'Income (3M)' : 'Income (6M)'}
+                    {selectedPeriod === '7days' ? 'Spending (Week)' : selectedPeriod === '30days' ? 'Spending (Month)' : selectedPeriod === '3months' ? 'Spending (3M)' : 'Spending (6M)'}
                   </Text>
                   <HelpIcon
                     onPress={() => showSuccessAlert(
-                      'Income',
-                      'Total income received during the selected period from all sources.'
+                      'Spending Rate',
+                      'Total expenses during the selected period.'
                     )}
                     color={t.textSecondary}
                   />
                 </View>
-                <Text style={{ color: t.success, fontSize: 20, fontWeight: '800' }}>
-                  {abbreviateNumber(incomeByPeriod[selectedPeriod] || 0)}
+                <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800' }}>
+                  {abbreviateNumber(spendingRateByPeriod[selectedPeriod] || 0)}
                 </Text>
               </View>
-            </View>
-          )}
 
-          {/* Spending Rate + Largest Purchase */}
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <View style={{
-              flex: 1,
-              backgroundColor: t.card,
-              borderWidth: 1,
-              borderColor: t.border,
-              borderRadius: 14,
-              padding: 16,
-              ...shadows.sm
-            }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>
-                  {selectedPeriod === '7days' ? 'Spending (Week)' : selectedPeriod === '30days' ? 'Spending (Month)' : selectedPeriod === '3months' ? 'Spending (3M)' : 'Spending (6M)'}
+              <View style={{
+                flex: 1,
+                backgroundColor: t.card,
+                borderWidth: 1,
+                borderColor: t.border,
+                borderRadius: 14,
+                padding: 16,
+                ...shadows.sm
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>Largest Purchase</Text>
+                  <HelpIcon
+                    onPress={() => showSuccessAlert(
+                      'Largest Purchase',
+                      'The highest amount spent on a single transaction during the selected period.'
+                    )}
+                    color={t.textSecondary}
+                  />
+                </View>
+                <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800' }}>
+                  {abbreviateNumber(largestPurchaseByPeriod[selectedPeriod] || 0)}
                 </Text>
-                <HelpIcon
-                  onPress={() => showSuccessAlert(
-                    'Spending Rate',
-                    'Total expenses during the selected period.'
-                  )}
-                  color={t.textSecondary}
-                />
               </View>
-              <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800' }}>
-                {abbreviateNumber(spendingRateByPeriod[selectedPeriod] || 0)}
-              </Text>
-            </View>
-
-            <View style={{
-              flex: 1,
-              backgroundColor: t.card,
-              borderWidth: 1,
-              borderColor: t.border,
-              borderRadius: 14,
-              padding: 16,
-              ...shadows.sm
-            }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>Largest Purchase</Text>
-                <HelpIcon
-                  onPress={() => showSuccessAlert(
-                    'Largest Purchase',
-                    'The highest amount spent on a single transaction during the selected period.'
-                  )}
-                  color={t.textSecondary}
-                />
-              </View>
-              <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800' }}>
-                {abbreviateNumber(largestPurchaseByPeriod[selectedPeriod] || 0)}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* SECTION 2: MONTH PROGRESS */}
-        {monthProgress && (
-          <View style={{ marginBottom: 24 }}>
-            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Month Progress</Text>
-            
-            <View style={{
-              backgroundColor: t.card,
-              borderWidth: 1,
-              borderColor: t.border,
-              borderRadius: 14,
-              padding: 16,
-              ...shadows.sm
-            }}>
-              <AnimatedProgressBar
-                progress={monthProgress.progressPercentage}
-                label={`Day ${monthProgress.currentDay}/${monthProgress.daysInMonth}`}
-                value={`${monthProgress.progressPercentage.toFixed(0)}%`}
-                color={t.primary}
-                backgroundColor={t.background}
-                textColor={t.textPrimary}
-              />
-              <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 8 }}>
-                {monthProgress.daysRemaining} day{monthProgress.daysRemaining !== 1 ? 's' : ''} remaining
-              </Text>
             </View>
           </View>
         )}
 
+        {/* SECTION 2: MONTH PROGRESS */}
+        {isLoading ? (
+          <MonthProgressSkeleton />
+        ) : (
+          monthProgress && (
+            <View style={{ marginBottom: 24 }}>
+              <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Month Progress</Text>
+
+              <View style={{
+                backgroundColor: t.card,
+                borderWidth: 1,
+                borderColor: t.border,
+                borderRadius: 14,
+                padding: 16,
+                ...shadows.sm
+              }}>
+                <AnimatedProgressBar
+                  progress={monthProgress.progressPercentage}
+                  label={`Day ${monthProgress.currentDay}/${monthProgress.daysInMonth}`}
+                  value={`${monthProgress.progressPercentage.toFixed(0)}%`}
+                  color={t.primary}
+                  backgroundColor={t.background}
+                  textColor={t.textPrimary}
+                />
+                <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 8 }}>
+                  {monthProgress.daysRemaining} day{monthProgress.daysRemaining !== 1 ? 's' : ''} remaining
+                </Text>
+              </View>
+            </View>
+          )
+        )}
+
         {/* SECTION 3: TRENDS (Forex-style Candlestick Chart) */}
-        {monthlyComparison && selectedPeriod !== '7days' && (
-          <View style={{ marginBottom: 24 }}>
-            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>
-              {selectedPeriod === '3months' ? '3-Month Trends' : selectedPeriod === '6months' ? '6-Month Trends' : 'Monthly Trends'}
-            </Text>
-            
-            <View style={{
-              backgroundColor: t.card,
-              borderWidth: 1,
-              borderColor: t.border,
-              borderRadius: 14,
-              padding: 16,
-              ...shadows.sm
-            }}>
-              <CandlestickChart
-                data={
-                  (() => {
-                    const now = new Date();
-                    return selectedPeriod === '3months' && monthlyComparison.threeMonths
-                      ? monthlyComparison.threeMonths.map((monthData: any, index: number) => ({
+        {isLoading ? (
+          selectedPeriod !== '7days' && <ChartSkeleton height={250} titleWidth={160} />
+        ) : (
+          monthlyComparison && selectedPeriod !== '7days' && (
+            <View style={{ marginBottom: 24 }}>
+              <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>
+                {selectedPeriod === '3months' ? '3-Month Trends' : selectedPeriod === '6months' ? '6-Month Trends' : 'Monthly Trends'}
+              </Text>
+
+              <View style={{
+                backgroundColor: t.card,
+                borderWidth: 1,
+                borderColor: t.border,
+                borderRadius: 14,
+                padding: 16,
+                ...shadows.sm
+              }}>
+                <CandlestickChart
+                  data={
+                    (() => {
+                      const now = new Date();
+                      return selectedPeriod === '3months' && monthlyComparison.threeMonths
+                        ? monthlyComparison.threeMonths.map((monthData: any, index: number) => ({
                           label: new Date(now.getFullYear(), now.getMonth() - (2 - index), 1).toLocaleString('default', { month: 'short' }),
                           income: monthData.income,
                           expense: monthData.expense,
                           net: monthData.net
                         }))
-                      : selectedPeriod === '6months' && monthlyComparison.sixMonths
-                      ? monthlyComparison.sixMonths.map((monthData: any, index: number) => ({
-                          label: new Date(now.getFullYear(), now.getMonth() - (5 - index), 1).toLocaleString('default', { month: 'short' }),
-                          income: monthData.income,
-                          expense: monthData.expense,
-                          net: monthData.net
-                        }))
-                      : selectedPeriod === '30days' && monthlyComparison.thisMonth && monthlyComparison.lastMonth
-                      ? [
-                          {
-                            label: 'Last Month',
-                            income: monthlyComparison.lastMonth.income,
-                            expense: monthlyComparison.lastMonth.expense,
-                            net: monthlyComparison.lastMonth.net
-                          },
-                          {
-                            label: 'This Month',
-                            income: monthlyComparison.thisMonth.income,
-                            expense: monthlyComparison.thisMonth.expense,
-                            net: monthlyComparison.thisMonth.net
-                          }
-                        ]
-                      : [];
-                  })()
-                }
-                positiveColor={t.success}
-                negativeColor={t.danger}
-                textColor={t.textPrimary}
-                backgroundColor={t.card}
-                formatCurrency={(amount) => abbreviateNumber(amount)}
-              />
+                        : selectedPeriod === '6months' && monthlyComparison.sixMonths
+                          ? monthlyComparison.sixMonths.map((monthData: any, index: number) => ({
+                            label: new Date(now.getFullYear(), now.getMonth() - (5 - index), 1).toLocaleString('default', { month: 'short' }),
+                            income: monthData.income,
+                            expense: monthData.expense,
+                            net: monthData.net
+                          }))
+                          : selectedPeriod === '30days' && monthlyComparison.thisMonth && monthlyComparison.lastMonth
+                            ? [
+                              {
+                                label: 'Last Month',
+                                income: monthlyComparison.lastMonth.income,
+                                expense: monthlyComparison.lastMonth.expense,
+                                net: monthlyComparison.lastMonth.net
+                              },
+                              {
+                                label: 'This Month',
+                                income: monthlyComparison.thisMonth.income,
+                                expense: monthlyComparison.thisMonth.expense,
+                                net: monthlyComparison.thisMonth.net
+                              }
+                            ]
+                            : [];
+                    })()
+                  }
+                  positiveColor={t.success}
+                  negativeColor={t.danger}
+                  textColor={t.textPrimary}
+                  backgroundColor={t.card}
+                  formatCurrency={(amount) => abbreviateNumber(amount)}
+                />
+              </View>
             </View>
-          </View>
+          )
         )}
 
         {/* SECTION 4: 7-DAY TREND */}
-        {selectedPeriod === '7days' && (
-          <View style={{ marginBottom: 24 }}>
-            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>7-Day Spending</Text>
-            
-            <View style={{
-              backgroundColor: t.card,
-              borderWidth: 1,
-              borderColor: t.border,
-              borderRadius: 14,
-              padding: 16,
-              ...shadows.sm
-            }}>
-              <SevenDayTrendChart
-                data={sevenDayTrend}
-                color={t.primary}
-                textColor={t.textPrimary}
-                backgroundColor={t.card}
-                gridColor={t.border}
-                formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
-              />
+        {isLoading ? (
+          selectedPeriod === '7days' && <ChartSkeleton height={250} titleWidth={150} />
+        ) : (
+          selectedPeriod === '7days' && (
+            <View style={{ marginBottom: 24 }}>
+              <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>7-Day Spending</Text>
+
+              <View style={{
+                backgroundColor: t.card,
+                borderWidth: 1,
+                borderColor: t.border,
+                borderRadius: 14,
+                padding: 16,
+                ...shadows.sm
+              }}>
+                <SevenDayTrendChart
+                  data={sevenDayTrend}
+                  color={t.primary}
+                  textColor={t.textPrimary}
+                  backgroundColor={t.card}
+                  gridColor={t.border}
+                  formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
+                />
+              </View>
             </View>
-          </View>
+          )
         )}
 
         {/* SECTION 5: CATEGORY BREAKDOWN (Horizontal Bar Chart) */}
-        {chartData.length > 0 ? (
-          <View style={{ marginBottom: 24 }}>
-            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>
-              {selectedPeriod === '7days' ? 'Spending by Category (7D)' : selectedPeriod === '30days' ? 'Spending by Category (30D)' : selectedPeriod === '3months' ? 'Spending by Category (3M)' : 'Spending by Category (6M)'}
-            </Text>
-            
-            <View style={{
-              backgroundColor: t.card,
-              borderWidth: 1,
-              borderColor: t.border,
-              borderRadius: 14,
-              padding: 16,
-              ...shadows.sm
-            }}>
-              
-              <HorizontalBarChart
-                data={
-                  chartData.map((cat, index) => ({
-                    category: cat.category,
-                    total: cat.total,
-                    percentage: cat.percentage,
-                    color: categoryColorMap[cat.category] || fallbackColors[index % fallbackColors.length]
-                  }))
-                }
-                textColor={t.textPrimary}
-                backgroundColor={t.card}
-                formatCurrency={(amount) => abbreviateNumber(amount)}
-                onCategoryPress={handleCategoryClick}
-              />
+        {isLoading ? (
+          <ChartSkeleton height={300} titleWidth={200} />
+        ) : (
+          chartData.length > 0 ? (
+            <View style={{ marginBottom: 24 }}>
+              <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>
+                {selectedPeriod === '7days' ? 'Spending by Category (7D)' : selectedPeriod === '30days' ? 'Spending by Category (30D)' : selectedPeriod === '3months' ? 'Spending by Category (3M)' : 'Spending by Category (6M)'}
+              </Text>
+
+              <View style={{
+                backgroundColor: t.card,
+                borderWidth: 1,
+                borderColor: t.border,
+                borderRadius: 14,
+                padding: 16,
+                ...shadows.sm
+              }}>
+
+                <HorizontalBarChart
+                  data={
+                    (showAllCategories ? chartData : chartData.slice(0, 5)).map((cat, index) => ({
+                      category: cat.category,
+                      total: cat.total,
+                      percentage: cat.percentage,
+                      color: categoryColorMap[cat.category] || fallbackColors[index % fallbackColors.length]
+                    }))
+                  }
+                  textColor={t.textPrimary}
+                  backgroundColor={t.card}
+                  formatCurrency={(amount) => abbreviateNumber(amount)}
+                  onCategoryPress={handleCategoryClick}
+                />
+
+                {chartData.length > 5 && (
+                  <TouchableOpacity
+                    onPress={() => setShowAllCategories(!showAllCategories)}
+                    style={{
+                      marginTop: 16,
+                      paddingVertical: 12,
+                      alignItems: 'center',
+                      borderTopWidth: 1,
+                      borderTopColor: t.border
+                    }}
+                  >
+                    <Text style={{ color: t.primary, fontWeight: '600', fontSize: 14 }}>
+                      {showAllCategories ? 'Show Less' : `Show ${chartData.length - 5} More`}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
-          </View>
-        ) : null}
+          ) : null
+        )}
 
         {/* SECTION 5.5: BUDGETS & GOALS */}
-        {(budgets.length > 0 || goals.length > 0) && (
-          <View style={{ marginBottom: 24 }}>
-            {/* Budgets Section */}
-            {budgets.length > 0 && (
-              <View style={{ marginBottom: 24 }}>
-                <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>
-                  Budgets
-                  <Text style={{ color: t.textSecondary, fontSize: 14 }}> ({budgets.length})</Text>
-                </Text>
-                {budgets.map((budget) => (
-                  <BudgetCard key={budget.id} budget={budget} />
-                ))}
-              </View>
-            )}
-
-            {/* Goals Section */}
-            {goals.length > 0 && (
-              <View>
-                <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>
-                  Goals
-                  <Text style={{ color: t.textSecondary, fontSize: 14 }}> ({goals.length})</Text>
-                </Text>
-                {goals.map((goal) => (
-                  <GoalCard key={goal.id} goal={goal} />
-                ))}
-              </View>
-            )}
+        {isLoading ? (
+          <View>
+            <ChartSkeleton height={150} titleWidth={100} />
+            <ChartSkeleton height={150} titleWidth={100} />
           </View>
+        ) : (
+          (budgets.length > 0 || goals.length > 0) && (
+            <View style={{ marginBottom: 24 }}>
+              {/* Budgets Section */}
+              {budgets.length > 0 && (
+                <View style={{ marginBottom: 24 }}>
+                  <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>
+                    Budgets
+                    <Text style={{ color: t.textSecondary, fontSize: 14 }}> ({budgets.length})</Text>
+                  </Text>
+                  {budgets.map((budget) => (
+                    <BudgetCard key={budget.id} budget={budget} />
+                  ))}
+                </View>
+              )}
+
+              {/* Goals Section */}
+              {goals.length > 0 && (
+                <View>
+                  <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>
+                    Goals
+                    <Text style={{ color: t.textSecondary, fontSize: 14 }}> ({goals.length})</Text>
+                  </Text>
+                  {goals.map((goal) => (
+                    <GoalCard key={goal.id} goal={goal} />
+                  ))}
+                </View>
+              )}
+            </View>
+          )
         )}
 
         {/* SECTION 6: FINANCIAL HEALTH & INSIGHTS */}
-        {financialHealth && (
-          <View style={{ marginBottom: 24 }}>
-            <FinancialHealthRing
-              healthScore={financialHealth}
-              textColor={t.textPrimary}
-              backgroundColor={t.card}
-              primaryColor={t.primary}
-            />
-          </View>
+        {isLoading ? (
+          <ChartSkeleton height={200} />
+        ) : (
+          financialHealth && (
+            <View style={{ marginBottom: 24 }}>
+              <FinancialHealthRing
+                healthScore={financialHealth}
+                textColor={t.textPrimary}
+                backgroundColor={t.card}
+                primaryColor={t.primary}
+              />
+            </View>
+          )
         )}
       </ScrollView>
 

@@ -7,6 +7,7 @@ import { theme, shadows } from '../../src/theme/theme';
 import * as ImagePicker from 'expo-image-picker';
 import { useAlert } from '../../src/lib/hooks/useAlert';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
+import { PlusIcon } from '../../src/assets/icons/PlusIcon';
 
 export default function ProfilePage() {
   const { themeMode, userInfo, setUserInfo } = useSettings();
@@ -118,7 +119,7 @@ export default function ProfilePage() {
               borderColor: t.background,
               ...shadows.sm
             }}>
-              <Text style={{ fontSize: 18 }}>📷</Text>
+              <PlusIcon size={20} color="#FFFFFF" />
             </View>
           </TouchableOpacity>
           <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 12 }}>
