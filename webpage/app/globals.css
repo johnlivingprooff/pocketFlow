@@ -11,8 +11,7 @@
 }
 
 body {
-  @apply bg-ink-900 text-sand-100 antialiased;
-  background-image: 
+  background-image:
     radial-gradient(circle at 20% 50%, rgba(132, 103, 11, 0.05) 0%, transparent 50%),
     radial-gradient(circle at 80% 80%, rgba(132, 103, 11, 0.03) 0%, transparent 50%);
 }

@@ -28,8 +28,8 @@ export const metadata: Metadata = {
   },
   metadataBase: new URL('https://pf.eiteone.org'),
   icons: {
-    icon: '/assets/logo.svg',
-    apple: '/assets/logo.png',
+    icon: '/assets/app_icon.png',
+    apple: '/assets/app_icon.png',
   },
 };
 
