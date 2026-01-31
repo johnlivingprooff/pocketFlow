@@ -17,7 +17,7 @@ import { useAlert } from '../../src/lib/hooks/useAlert';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
 import appPackage from '../../package.json';
 
-const APP_VERSION = appPackage.version;
+const APP_VERSION = "2.0.1"; // Manually overridden for v2.0.1 release
 
 export default function SettingsScreen() {
   const {

@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, Dimensions } from 'react-native';
-import Svg, { Circle, Text as SvgText } from 'react-native-svg';
+import { View, Text, Dimensions, StyleSheet } from 'react-native';
+import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 interface FinancialHealthRingProps {
   healthScore: {
@@ -25,148 +25,175 @@ export default function FinancialHealthRing({
   primaryColor,
 }: FinancialHealthRingProps) {
   const screenWidth = Dimensions.get('window').width;
-  const size = Math.min(screenWidth * 0.6, 200);
-  const strokeWidth = 12;
+  const size = 160; // Slightly smaller and more compact
+  const strokeWidth = 10;
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const center = size / 2;
 
-  const getRatingColor = (rating: string) => {
+  const getRatingColors = (rating: string) => {
     switch (rating) {
       case 'Excellent':
-        return '#27AE60';
+        return ['#00C853', '#B2FF59'];
       case 'Good':
-        return '#3498DB';
+        return ['#2979FF', '#00E5FF'];
       case 'Fair':
-        return '#F39C12';
+        return ['#FF9100', '#FFD740'];
       case 'Poor':
-        return '#E74C3C';
+        return ['#FF1744', '#FF5252'];
       default:
-        return primaryColor;
+        return [primaryColor, primaryColor + '99'];
     }
   };
 
-  const ratingColor = getRatingColor(healthScore.rating);
+  const colors = getRatingColors(healthScore.rating);
   const progress = healthScore.score / 100;
-  const strokeDasharray = circumference;
   const strokeDashoffset = circumference - (progress * circumference);
 
   return (
-    <View
-      style={{
-        backgroundColor,
-        borderRadius: 12,
-        padding: 20,
-        alignItems: 'center',
-      }}
-    >
-      <View style={{ position: 'relative' }}>
-        <Svg width={size} height={size}>
-          {/* Background circle */}
-          <Circle
-            cx={center}
-            cy={center}
-            r={radius}
-            stroke={`${ratingColor}20`}
-            strokeWidth={strokeWidth}
-            fill="none"
-          />
+    <View style={[styles.container, { backgroundColor, borderColor: primaryColor + '20' }]}>
+      <View style={styles.content}>
+        <View style={styles.chartWrapper}>
+          <Svg width={size} height={size}>
+            <Defs>
+              <LinearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <Stop offset="0%" stopColor={colors[0]} />
+                <Stop offset="100%" stopColor={colors[1]} />
+              </LinearGradient>
+            </Defs>
+            {/* Track */}
+            <Circle
+              cx={center}
+              cy={center}
+              r={radius}
+              stroke={primaryColor + '10'}
+              strokeWidth={strokeWidth}
+              fill="none"
+            />
+            {/* Progress */}
+            <Circle
+              cx={center}
+              cy={center}
+              r={radius}
+              stroke="url(#grad)"
+              strokeWidth={strokeWidth}
+              fill="none"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDashoffset}
+              strokeLinecap="round"
+              transform={`rotate(-90 ${center} ${center})`}
+            />
+          </Svg>
 
-          {/* Progress circle */}
-          <Circle
-            cx={center}
-            cy={center}
-            r={radius}
-            stroke={ratingColor}
-            strokeWidth={strokeWidth}
-            fill="none"
-            strokeDasharray={strokeDasharray}
-            strokeDashoffset={strokeDashoffset}
-            strokeLinecap="round"
-            transform={`rotate(-90 ${center} ${center})`}
-          />
-        </Svg>
-
-        {/* Center text */}
-        <View
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
-        >
-          <Text
-            style={{
-              color: ratingColor,
-              fontSize: 36,
-              fontWeight: '800',
-            }}
-          >
-            {healthScore.score}
-          </Text>
-          <Text
-            style={{
-              color: textColor,
-              fontSize: 14,
-              opacity: 0.7,
-              marginTop: 2,
-            }}
-          >
-            /100
-          </Text>
-          <Text
-            style={{
-              color: ratingColor,
-              fontSize: 16,
-              fontWeight: '700',
-              marginTop: 4,
-            }}
-          >
-            {healthScore.rating}
-          </Text>
+          <View style={styles.scoreTextWrapper}>
+            <Text style={[styles.scoreText, { color: colors[0] }]}>{healthScore.score}</Text>
+            <Text style={[styles.scoreLabel, { color: textColor }]}>SCORE</Text>
+          </View>
         </View>
-      </View>
 
-      {/* Factor breakdown */}
-      <View style={{ marginTop: 20, width: '100%' }}>
-        <Text style={{ color: textColor, fontSize: 14, fontWeight: '600', marginBottom: 12, textAlign: 'center' }}>
-          Score Breakdown
-        </Text>
-
-        <View style={{ gap: 8 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ color: textColor, fontSize: 12 }}>Savings Rate</Text>
-            <Text style={{ color: textColor, fontSize: 12, fontWeight: '600' }}>
-              {healthScore.factors.savingsRate}/30
-            </Text>
+        <View style={styles.infoWrapper}>
+          <View>
+            <Text style={[styles.ratingText, { color: colors[0] }]}>{healthScore.rating.toUpperCase()}</Text>
+            <Text style={[styles.subtitle, { color: textColor }]}>Financial IQ</Text>
           </View>
 
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ color: textColor, fontSize: 12 }}>Spending Consistency</Text>
-            <Text style={{ color: textColor, fontSize: 12, fontWeight: '600' }}>
-              {healthScore.factors.spendingConsistency}/25
-            </Text>
-          </View>
+          <View style={styles.divider} />
 
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ color: textColor, fontSize: 12 }}>Budget Adherence</Text>
-            <Text style={{ color: textColor, fontSize: 12, fontWeight: '600' }}>
-              {healthScore.factors.budgetAdherence}/25
-            </Text>
-          </View>
-
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ color: textColor, fontSize: 12 }}>Income Stability</Text>
-            <Text style={{ color: textColor, fontSize: 12, fontWeight: '600' }}>
-              {healthScore.factors.incomeStability}/20
-            </Text>
+          <View style={styles.factorsGrid}>
+            <View style={styles.factorItem}>
+              <Text style={[styles.factorValue, { color: textColor }]}>{healthScore.factors.savingsRate}/30</Text>
+              <Text style={[styles.factorLabel, { color: textColor }]}>Savings</Text>
+            </View>
+            <View style={styles.factorItem}>
+              <Text style={[styles.factorValue, { color: textColor }]}>{healthScore.factors.budgetAdherence}/25</Text>
+              <Text style={[styles.factorLabel, { color: textColor }]}>Budget</Text>
+            </View>
+            <View style={styles.factorItem}>
+              <Text style={[styles.factorValue, { color: textColor }]}>{healthScore.factors.spendingConsistency}/25</Text>
+              <Text style={[styles.factorLabel, { color: textColor }]}>Habits</Text>
+            </View>
+            <View style={styles.factorItem}>
+              <Text style={[styles.factorValue, { color: textColor }]}>{healthScore.factors.incomeStability}/20</Text>
+              <Text style={[styles.factorLabel, { color: textColor }]}>Stability</Text>
+            </View>
           </View>
         </View>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+  },
+  chartWrapper: {
+    width: 160,
+    height: 160,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scoreTextWrapper: {
+    position: 'absolute',
+    alignItems: 'center',
+  },
+  scoreText: {
+    fontSize: 42,
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
+  scoreLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    opacity: 0.5,
+    marginTop: -4,
+  },
+  infoWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  ratingText: {
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  subtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    opacity: 0.6,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    marginVertical: 12,
+  },
+  factorsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  factorItem: {
+    width: '45%',
+  },
+  factorValue: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  factorLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    opacity: 0.5,
+  }
+});

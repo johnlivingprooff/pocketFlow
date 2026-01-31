@@ -110,6 +110,8 @@ export default function AnalyticsPage() {
   // Phase 3.5: Budgets & Goals State
   const [budgets, setBudgets] = useState<any[]>([]);
   const [goals, setGoals] = useState<any[]>([]);
+  const [selectedBudgetId, setSelectedBudgetId] = useState<number | 'all'>('all');
+  const [selectedGoalId, setSelectedGoalId] = useState<number | 'all'>('all');
 
   // Phase 4: Interactivity & Customization State
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('30days');
@@ -128,7 +130,7 @@ export default function AnalyticsPage() {
       if (Platform.OS !== 'web') {
         const month = await monthSpend();
         const today = await todaySpend();
-        const breakdown = await getCategorySpendingForPeriod(period);
+        const breakdown = await getCategorySpendingForPeriod(period as any);
 
         setMonthTotal(month);
         setTodayTotal(today);
@@ -236,7 +238,7 @@ export default function AnalyticsPage() {
         const daily = await getDailySpendingForMonth();
         setDailySpending(daily);
 
-        const comparison = await getMonthlyComparison(period);
+        const comparison = await getMonthlyComparison(period as any);
         setMonthlyComparison(comparison);
 
         const pieData = await getCategorySpendingForPieChart();
@@ -267,7 +269,8 @@ export default function AnalyticsPage() {
             '7days': 7,
             '30days': 30,
             '3months': 90,
-            '6months': 180
+            '6months': 180,
+            'all': 3650 // 10 years
           };
 
           const days = daysMap[period];
@@ -330,7 +333,7 @@ export default function AnalyticsPage() {
   const handleCategoryClick = useCallback(async (category: string) => {
     if (Platform.OS !== 'web') {
       setSelectedCategory(category);
-      const transactions = await getTransactionsByCategory(category, selectedPeriod);
+      const transactions = await getTransactionsByCategory(category, selectedPeriod as any);
       // Map null notes to undefined to match the component's type
       setCategoryTransactions(transactions.map(t => ({ ...t, notes: t.notes ?? undefined })));
       setShowCategoryDrillDown(true);
@@ -539,6 +542,18 @@ export default function AnalyticsPage() {
           </View>
         )}
 
+        {/* SECTION 1.5: FINANCIAL HEALTH (Repositioned) */}
+        {!isLoading && financialHealth && (
+          <View style={{ marginBottom: 24 }}>
+            <FinancialHealthRing
+              healthScore={financialHealth}
+              textColor={t.textPrimary}
+              backgroundColor={t.card}
+              primaryColor={t.primary}
+            />
+          </View>
+        )}
+
         {/* SECTION 2: MONTH PROGRESS */}
         {isLoading ? (
           <MonthProgressSkeleton />
@@ -732,47 +747,70 @@ export default function AnalyticsPage() {
               {/* Budgets Section */}
               {budgets.length > 0 && (
                 <View style={{ marginBottom: 24 }}>
-                  <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>
-                    Budgets
-                    <Text style={{ color: t.textSecondary, fontSize: 14 }}> ({budgets.length})</Text>
-                  </Text>
-                  {budgets.map((budget) => (
-                    <BudgetCard key={budget.id} budget={budget} />
-                  ))}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>
+                      Budgets
+                    </Text>
+                    {budgets.length > 1 && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          const options = ['all', ...budgets.map(b => b.id)];
+                          const currentIndex = options.indexOf(selectedBudgetId as any);
+                          const nextIndex = (currentIndex + 1) % options.length;
+                          setSelectedBudgetId(options[nextIndex]);
+                        }}
+                        style={{ backgroundColor: t.card, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: t.border }}
+                      >
+                        <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                          {selectedBudgetId === 'all' ? 'All Budgets ▼' : budgets.find(b => b.id === selectedBudgetId)?.name + ' ▼'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  {budgets
+                    .filter(b => selectedBudgetId === 'all' || b.id === selectedBudgetId)
+                    .map((budget) => (
+                      <BudgetCard key={budget.id} budget={budget} />
+                    ))}
                 </View>
               )}
 
               {/* Goals Section */}
               {goals.length > 0 && (
                 <View>
-                  <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>
-                    Goals
-                    <Text style={{ color: t.textSecondary, fontSize: 14 }}> ({goals.length})</Text>
-                  </Text>
-                  {goals.map((goal) => (
-                    <GoalCard key={goal.id} goal={goal} />
-                  ))}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>
+                      Goals
+                    </Text>
+                    {goals.length > 1 && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          const options = ['all', ...goals.map(g => g.id)];
+                          const currentIndex = options.indexOf(selectedGoalId as any);
+                          const nextIndex = (currentIndex + 1) % options.length;
+                          setSelectedGoalId(options[nextIndex]);
+                        }}
+                        style={{ backgroundColor: t.card, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: t.border }}
+                      >
+                        <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                          {selectedGoalId === 'all' ? 'All Goals ▼' : goals.find(g => g.id === selectedGoalId)?.name + ' ▼'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  {goals
+                    .filter(g => selectedGoalId === 'all' || g.id === selectedGoalId)
+                    .map((goal) => (
+                      <GoalCard key={goal.id} goal={goal} />
+                    ))}
                 </View>
               )}
             </View>
           )
         )}
 
-        {/* SECTION 6: FINANCIAL HEALTH & INSIGHTS */}
-        {isLoading ? (
-          <ChartSkeleton height={200} />
-        ) : (
-          financialHealth && (
-            <View style={{ marginBottom: 24 }}>
-              <FinancialHealthRing
-                healthScore={financialHealth}
-                textColor={t.textPrimary}
-                backgroundColor={t.card}
-                primaryColor={t.primary}
-              />
-            </View>
-          )
-        )}
+        {/* SECTION 6: FINANCIAL HEALTH & INSIGHTS (Removed from bottom) */}
+
       </ScrollView>
 
       {/* Phase 4: Category Drill-Down Modal */}

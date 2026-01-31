@@ -4,7 +4,7 @@ import { View, Text, ScrollView, Platform, TouchableOpacity, Modal, useColorSche
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { useWallets } from '../../src/lib/hooks/useWallets';
 import { useTransactions } from '../../src/lib/hooks/useTransactions';
 import { exec } from '../../src/lib/db';
@@ -225,6 +225,10 @@ export default function Home() {
   const [activeBudgets, setActiveBudgets] = useState<BudgetWithMetrics[]>([]);
   const [goals, setGoals] = useState<GoalWithMetrics[]>([]);
   const [budgetLoading, setBudgetLoading] = useState(true);
+
+  // Wallet Actions Modal State
+  const [selectedWalletForAction, setSelectedWalletForAction] = useState<any>(null);
+  const [showWalletActionModal, setShowWalletActionModal] = useState(false);
 
   const loadFinancialData = async () => {
     try {
@@ -642,6 +646,32 @@ export default function Home() {
     return () => subscription.remove();
   }, []);
 
+  const handleWalletLongPress = (wallet: any) => {
+    setSelectedWalletForAction(wallet);
+    setShowWalletActionModal(true);
+  };
+
+  const handleModalEdit = () => {
+    setShowWalletActionModal(false);
+    if (selectedWalletForAction) {
+      router.push({ pathname: '/wallets/edit', params: { id: String(selectedWalletForAction.id) } });
+    }
+  };
+
+  const handleModalTransact = () => {
+    setShowWalletActionModal(false);
+    if (selectedWalletForAction) {
+      router.push({ pathname: '/transactions/add', params: { walletId: String(selectedWalletForAction.id) } });
+    }
+  };
+
+  const handleModalView = () => {
+    setShowWalletActionModal(false);
+    if (selectedWalletForAction) {
+      router.push(`/wallets/${selectedWalletForAction.id}`);
+    }
+  };
+
   if (Platform.OS === 'web') {
     return (
       <ScrollView style={{ flex: 1, backgroundColor: t.background }} contentContainerStyle={{ padding: 16, alignItems: 'center', justifyContent: 'center' }}>
@@ -768,38 +798,113 @@ export default function Home() {
                   return bDate - aDate;
                 });
                 return byRecent.map((w: any) => (
-                  <Link key={w.id} href={`/wallets/${w.id}`} asChild>
-                    <TouchableOpacity>
-                      <View
-                        style={{
-                          backgroundColor: t.card,
-                          borderRadius: 22,
-                          padding: 16,
-                          minWidth: 240,
-                          borderWidth: 1,
-                          borderColor: t.border,
-                        }}
-                      >
-                        <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '800' }}>{w.name}</Text>
-                        <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>{w.currency}</Text>
-                        <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '900', marginTop: 8 }}>
-                          {hideBalances
-                            ? '******'
-                            : formatCurrency(balances[w.id!], w.currency || defaultCurrency)}
-                        </Text>
-                        {/* Mini indicator placeholder */}
-                        <View style={{ marginTop: 8, flexDirection: 'row', gap: 8 }}>
-                          <View style={{ backgroundColor: t.primary + '20', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}>
-                            <Text style={{ color: t.primary, fontSize: 12, fontWeight: '700' }}>{w.type || 'Wallet'}</Text>
-                          </View>
+                  <TouchableOpacity
+                    key={w.id}
+                    activeOpacity={0.7}
+                    onPress={() => router.push(`/wallets/${w.id}`)}
+                    onLongPress={() => handleWalletLongPress(w)}
+                    delayLongPress={500}
+                  >
+                    <View
+                      style={{
+                        backgroundColor: t.card,
+                        borderRadius: 22,
+                        padding: 16,
+                        minWidth: 240,
+                        borderWidth: 1,
+                        borderColor: t.border,
+                      }}
+                    >
+                      <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '800' }}>{w.name}</Text>
+                      <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>{w.currency}</Text>
+                      <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '900', marginTop: 8 }}>
+                        {hideBalances
+                          ? '******'
+                          : formatCurrency(balances[w.id!], w.currency || defaultCurrency)}
+                      </Text>
+                      {/* Mini indicator placeholder */}
+                      <View style={{ marginTop: 8, flexDirection: 'row', gap: 8 }}>
+                        <View style={{ backgroundColor: t.primary + '20', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}>
+                          <Text style={{ color: t.primary, fontSize: 12, fontWeight: '700' }}>{w.type || 'Wallet'}</Text>
                         </View>
                       </View>
-                    </TouchableOpacity>
-                  </Link>
+                    </View>
+                  </TouchableOpacity>
                 ))
               })()
             )}
           </ScrollView>
+
+          {/* Wallet Actions Modal */}
+          <Modal
+            visible={showWalletActionModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowWalletActionModal(false)}
+          >
+            <TouchableOpacity
+              style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end', padding: 20 }}
+              activeOpacity={1}
+              onPress={() => setShowWalletActionModal(false)}
+            >
+              <View style={{ backgroundColor: t.card, borderRadius: 24, padding: 24, paddingBottom: 32, borderWidth: 1, borderColor: t.border }}>
+                <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 6 }}>
+                  {selectedWalletForAction?.name}
+                </Text>
+                <Text style={{ color: t.textSecondary, fontSize: 14, marginBottom: 24 }}>
+                  Quick Actions
+                </Text>
+
+                <View style={{ gap: 12 }}>
+                  <TouchableOpacity
+                    onPress={handleModalView}
+                    style={{ backgroundColor: t.primary + '15', padding: 16, borderRadius: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                  >
+                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center' }}>
+                      <Text style={{ color: '#fff', fontSize: 20 }}>👁</Text>
+                    </View>
+                    <View>
+                      <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>View Details</Text>
+                      <Text style={{ color: t.textSecondary, fontSize: 12 }}>See full history & stats</Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={handleModalTransact}
+                    style={{ backgroundColor: t.card, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: t.border, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                  >
+                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: t.success, justifyContent: 'center', alignItems: 'center' }}>
+                      <Text style={{ color: '#fff', fontSize: 20 }}>＋</Text>
+                    </View>
+                    <View>
+                      <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>Add Transaction</Text>
+                      <Text style={{ color: t.textSecondary, fontSize: 12 }}>Quickly record spend/income</Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={handleModalEdit}
+                    style={{ backgroundColor: t.card, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: t.border, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                  >
+                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: t.warning, justifyContent: 'center', alignItems: 'center' }}>
+                      <Text style={{ color: '#fff', fontSize: 18 }}>✎</Text>
+                    </View>
+                    <View>
+                      <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>Edit Wallet</Text>
+                      <Text style={{ color: t.textSecondary, fontSize: 12 }}>Change name or type</Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => setShowWalletActionModal(false)}
+                  style={{ marginTop: 24, padding: 16, alignItems: 'center' }}
+                >
+                  <Text style={{ color: t.textSecondary, fontWeight: '700' }}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </Modal>
           {/* Dots indicator */}
           {wallets.length > 1 && (
             <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 16 }}>
@@ -809,16 +914,7 @@ export default function Home() {
             </View>
           )}
 
-          {/* Financial Health Widget (Budgets & Goals) */}
-          <View style={{ marginTop: 4 }}>
-            <FinancialHealthWidget
-              budgets={activeBudgets}
-              goals={goals}
-              isLoading={budgetLoading}
-              hideBalances={hideBalances}
-              colors={t}
-            />
-          </View>
+         
 
           {/* Removed extra draggable wallet list to keep original carousel */}
 
@@ -889,6 +985,18 @@ export default function Home() {
             </View>
           </ScrollView>
 
+           {/* Financial Health Widget (Goals) */}
+          <View style={{ marginTop: 4 }}>
+            {/* <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Goal Progress</Text> */}
+            <FinancialHealthWidget
+              type="goal"
+              data={goals}
+              isLoading={budgetLoading}
+              hideBalances={hideBalances}
+              colors={t}
+            />
+          </View>
+
           {/* Upcoming Transactions */}
           {upcomingTransactions.length > 0 && (
             <View style={{ marginBottom: 24 }}>
@@ -954,6 +1062,18 @@ export default function Home() {
                 </Link>
               );
             })}
+          </View>
+
+          {/* Budget Widget (New Position) */}
+          <View style={{ marginBottom: 24 }}>
+            {/* <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Budget Status</Text> */}
+            <FinancialHealthWidget
+              type="budget"
+              data={activeBudgets}
+              isLoading={budgetLoading}
+              hideBalances={hideBalances}
+              colors={t}
+            />
           </View>
 
           {/* Income vs Expense Trend */}

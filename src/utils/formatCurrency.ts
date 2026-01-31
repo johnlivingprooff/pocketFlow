@@ -1,4 +1,9 @@
+import { useSettings } from '@/store/useStore';
+
 export const formatCurrency = (amount: number | undefined, currency = 'USD') => {
+  const { hideBalances } = useSettings.getState();
+  if (hideBalances) return '******';
+
   // Handle undefined or null amounts
   if (amount === undefined || amount === null || isNaN(amount)) {
     amount = 0;
@@ -16,6 +21,9 @@ export const formatCurrency = (amount: number | undefined, currency = 'USD') => 
 };
 
 export const formatLargeNumber = (amount: number | undefined) => {
+  const { hideBalances } = useSettings.getState();
+  if (hideBalances) return '***';
+
   // Handle undefined or null amounts
   if (amount === undefined || amount === null || isNaN(amount)) {
     amount = 0;

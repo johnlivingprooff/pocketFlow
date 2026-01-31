@@ -30,13 +30,13 @@ export default function AddTransactionScreen() {
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const t = theme(effectiveMode);
   const { wallets, balances } = useWallets();
-  const { id, walletId: paramWalletId } = useLocalSearchParams();
+  const { id, walletId: paramWalletId, type: paramType } = useLocalSearchParams();
 
   // Check if we're in edit mode
   const isEditMode = !!id;
   const [loading, setLoading] = useState(isEditMode);
 
-  const [type, setType] = useState<'income' | 'expense' | 'transfer'>('expense');
+  const [type, setType] = useState<'income' | 'expense' | 'transfer'>((paramType as any) || 'expense');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState<Date>(new Date());
   const [category, setCategory] = useState('');

@@ -326,20 +326,31 @@ export default function WalletDetail() {
         />
       </View>
 
-      {/* Income/Expense Summary */}
-      <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
-        <View style={{ flex: 1, backgroundColor: t.card, padding: 16, borderRadius: 12, borderLeftWidth: 4, borderLeftColor: t.success, ...shadows.sm }}>
-          <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 4 }}>Income</Text>
-          <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>
+      {/* Income/Expense/Transfer Summary */}
+      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
+        <View style={{ flex: 1, backgroundColor: t.card, padding: 12, borderRadius: 12, borderLeftWidth: 4, borderLeftColor: t.success, ...shadows.sm }}>
+          <Text style={{ color: t.textSecondary, fontSize: 11, marginBottom: 4 }}>Income</Text>
+          <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>
             {income.toLocaleString()}
           </Text>
         </View>
-        <View style={{ flex: 1, backgroundColor: t.card, padding: 16, borderRadius: 12, borderLeftWidth: 4, borderLeftColor: t.danger, ...shadows.sm }}>
-          <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 4 }}>Expenses</Text>
-          <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>
+
+        <View style={{ flex: 1, backgroundColor: t.card, padding: 12, borderRadius: 12, borderLeftWidth: 4, borderLeftColor: t.danger, ...shadows.sm }}>
+          <Text style={{ color: t.textSecondary, fontSize: 11, marginBottom: 4 }}>Expenses</Text>
+          <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>
             {expenses.toLocaleString()}
           </Text>
         </View>
+
+        <Link href={{ pathname: '/transactions/add', params: { walletId: String(walletId), type: 'transfer' } }} asChild>
+          <TouchableOpacity style={{ flex: 1, backgroundColor: t.card, padding: 12, borderRadius: 12, borderLeftWidth: 4, borderLeftColor: t.primary, ...shadows.sm }}>
+            <Text style={{ color: t.textSecondary, fontSize: 11, marginBottom: 4 }}>Transfer</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '800' }}>⇄</Text>
+              <Text style={{ color: t.primary, fontSize: 12, fontWeight: '700', marginLeft: 4 }}>Send</Text>
+            </View>
+          </TouchableOpacity>
+        </Link>
       </View>
 
       {/* Header for List */}
@@ -358,7 +369,7 @@ export default function WalletDetail() {
       <TransactionItem
         item={item}
         currency={currency}
-        mode={themeMode === 'system' ? systemColorScheme || 'light' : themeMode}
+        mode={(themeMode === 'system' ? systemColorScheme || 'light' : (themeMode === 'dark-teal' ? 'dark' : themeMode)) as 'light' | 'dark'}
       />
     </TouchableOpacity>
   );
@@ -404,7 +415,7 @@ export default function WalletDetail() {
         message={alertConfig.message}
         buttons={alertConfig.buttons}
         onDismiss={dismissAlert}
-        themeMode={themeMode}
+        themeMode={(effectiveMode === 'dark-teal' ? 'dark' : effectiveMode) as 'light' | 'dark'}
         systemColorScheme={systemColorScheme || 'light'}
       />
     </SafeAreaView>
