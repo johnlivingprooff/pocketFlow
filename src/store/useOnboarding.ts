@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export type OnboardingStep = 
   | 'welcome'
   | 'profile'
+  | 'reminders'
   | 'wallet'
   | 'category'
   | 'budget'
@@ -17,6 +18,7 @@ export type OnboardingStep =
 export const ONBOARDING_STEPS: OnboardingStep[] = [
   'welcome',
   'profile',
+  'reminders',
   'wallet',
   'category',
   'budget',
@@ -34,6 +36,12 @@ export interface OnboardingFormData {
     email?: string;
     phone?: string;
     currency?: string;
+  };
+  reminders?: {
+    enabled?: boolean;
+    preferredTimeLocal?: string;
+    quietHoursStart?: string | null;
+    quietHoursEnd?: string | null;
   };
   wallet?: {
     name?: string;

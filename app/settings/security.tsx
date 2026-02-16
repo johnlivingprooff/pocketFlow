@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useColorScheme } from 'react';
-import { View, Text, ScrollView, Switch, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, Switch, TouchableOpacity, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
@@ -11,9 +11,9 @@ import { ThemedAlert } from '../../src/components/ThemedAlert';
 
 export default function SecuritySettings() {
   const router = useRouter();
-  const { 
-    themeMode, 
-    biometricEnabled, 
+  const {
+    themeMode,
+    biometricEnabled,
     setBiometricEnabled,
     setBiometricSetupComplete,
     setLastAuthTime,
@@ -41,7 +41,7 @@ export default function SecuritySettings() {
   const handleBiometricToggle = async (value: boolean) => {
     if (value) {
       const availability = await checkBiometricAvailability();
-      
+
       if (!availability.isAvailable) {
         showErrorAlert(
           'Biometric Not Available',
@@ -51,7 +51,7 @@ export default function SecuritySettings() {
       }
 
       const auth = await authenticateWithBiometrics('Authenticate to enable biometric lock');
-      
+
       if (auth.success) {
         setBiometricEnabled(true);
         setBiometricSetupComplete(true);
@@ -125,146 +125,146 @@ export default function SecuritySettings() {
           Security Settings
         </Text>
 
-      {/* Biometric Authentication */}
-      <View style={{ marginBottom: 24 }}>
-        <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 12 }}>
-          AUTHENTICATION
-        </Text>
-        
-        <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, overflow: 'hidden' }}>
-          {/* Biometric Toggle */}
-          <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <View style={{ flex: 1, marginRight: 12 }}>
-                <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>
-                  {biometricType} Lock
-                </Text>
-                <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>
-                  {biometricAvailable 
-                    ? `Require ${biometricType} to open app` 
-                    : 'Not available on this device'}
-                </Text>
+        {/* Biometric Authentication */}
+        <View style={{ marginBottom: 24 }}>
+          <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 12 }}>
+            AUTHENTICATION
+          </Text>
+
+          <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, overflow: 'hidden' }}>
+            {/* Biometric Toggle */}
+            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View style={{ flex: 1, marginRight: 12 }}>
+                  <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>
+                    {biometricType} Lock
+                  </Text>
+                  <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>
+                    {biometricAvailable
+                      ? `Require ${biometricType} to open app`
+                      : 'Not available on this device'}
+                  </Text>
+                </View>
+                <Switch
+                  value={biometricEnabled}
+                  onValueChange={handleBiometricToggle}
+                  disabled={!biometricAvailable}
+                />
               </View>
-              <Switch 
-                value={biometricEnabled} 
-                onValueChange={handleBiometricToggle}
-                disabled={!biometricAvailable}
-              />
             </View>
+
+            {/* Test Biometric */}
+            {biometricAvailable && (
+              <TouchableOpacity
+                onPress={handleTestBiometric}
+                style={{ padding: 16 }}
+              >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View>
+                    <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>
+                      Test {biometricType}
+                    </Text>
+                    <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>
+                      Verify authentication is working
+                    </Text>
+                  </View>
+                  <Text style={{ color: t.textSecondary, fontSize: 20 }}>›</Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
 
-          {/* Test Biometric */}
-          {biometricAvailable && (
-            <TouchableOpacity 
-              onPress={handleTestBiometric}
+          {biometricEnabled && (
+            <View style={{
+              marginTop: 12,
+              backgroundColor: t.success + '20',
+              borderWidth: 1,
+              borderColor: t.success,
+              borderRadius: 8,
+              padding: 12
+            }}>
+              <Text style={{ color: t.success, fontSize: 12, fontWeight: '600' }}>
+                🔒 Your app is protected with {biometricType}
+              </Text>
+              <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 4 }}>
+                You'll be asked to authenticate after 5 minutes of inactivity
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Privacy & Data */}
+        <View style={{ marginBottom: 24 }}>
+          <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 12 }}>
+            PRIVACY & DATA
+          </Text>
+
+          <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, overflow: 'hidden' }}>
+            <TouchableOpacity
+              onPress={handleClearAllData}
               style={{ padding: 16 }}
             >
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <View>
-                  <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>
-                    Test {biometricType}
+                  <Text style={{ color: t.danger, fontSize: 16, fontWeight: '600' }}>
+                    Clear All Data
                   </Text>
                   <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>
-                    Verify authentication is working
+                    Delete all wallets, transactions, and settings
                   </Text>
                 </View>
-                <Text style={{ color: t.textSecondary, fontSize: 20 }}>›</Text>
+                <Text style={{ fontSize: 20 }}>🗑️</Text>
               </View>
             </TouchableOpacity>
-          )}
-        </View>
+          </View>
 
-        {biometricEnabled && (
-          <View style={{ 
-            marginTop: 12, 
-            backgroundColor: t.success + '20', 
-            borderWidth: 1, 
-            borderColor: t.success, 
-            borderRadius: 8, 
-            padding: 12 
+          <View style={{
+            marginTop: 12,
+            backgroundColor: t.danger + '20',
+            borderWidth: 1,
+            borderColor: t.danger,
+            borderRadius: 8,
+            padding: 12
           }}>
-            <Text style={{ color: t.success, fontSize: 12, fontWeight: '600' }}>
-              🔒 Your app is protected with {biometricType}
+            <Text style={{ color: t.danger, fontSize: 12, fontWeight: '600' }}>
+              ⚠️ Warning
             </Text>
             <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 4 }}>
-              You'll be asked to authenticate after 5 minutes of inactivity
+              Clearing data is permanent and cannot be undone. Make sure to backup your data first.
             </Text>
           </View>
-        )}
-      </View>
-
-      {/* Privacy & Data */}
-      <View style={{ marginBottom: 24 }}>
-        <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 12 }}>
-          PRIVACY & DATA
-        </Text>
-        
-        <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, overflow: 'hidden' }}>
-          <TouchableOpacity 
-            onPress={handleClearAllData}
-            style={{ padding: 16 }}
-          >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <View>
-                <Text style={{ color: t.danger, fontSize: 16, fontWeight: '600' }}>
-                  Clear All Data
-                </Text>
-                <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>
-                  Delete all wallets, transactions, and settings
-                </Text>
-              </View>
-              <Text style={{ fontSize: 20 }}>🗑️</Text>
-            </View>
-          </TouchableOpacity>
         </View>
 
-        <View style={{ 
-          marginTop: 12, 
-          backgroundColor: t.danger + '20', 
-          borderWidth: 1, 
-          borderColor: t.danger, 
-          borderRadius: 8, 
-          padding: 12 
-        }}>
-          <Text style={{ color: t.danger, fontSize: 12, fontWeight: '600' }}>
-            ⚠️ Warning
+        {/* Security Tips */}
+        <View style={{ marginBottom: 32 }}>
+          <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 12 }}>
+            SECURITY TIPS
           </Text>
-          <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 4 }}>
-            Clearing data is permanent and cannot be undone. Make sure to backup your data first.
-          </Text>
-        </View>
-      </View>
 
-      {/* Security Tips */}
-      <View style={{ marginBottom: 32 }}>
-        <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 12 }}>
-          SECURITY TIPS
-        </Text>
-        
-        <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 16 }}>
-          <Text style={{ color: t.textPrimary, fontSize: 14, marginBottom: 8 }}>
-            💡 Keep your data safe:
-          </Text>
-          <Text style={{ color: t.textSecondary, fontSize: 12, lineHeight: 18 }}>
-            • Enable biometric lock for added security{'\n'}
-            • Regularly backup your data{'\n'}
-            • Never share your device PIN or biometrics{'\n'}
-            • Keep your device OS updated
-          </Text>
+          <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 16 }}>
+            <Text style={{ color: t.textPrimary, fontSize: 14, marginBottom: 8 }}>
+              💡 Keep your data safe:
+            </Text>
+            <Text style={{ color: t.textSecondary, fontSize: 12, lineHeight: 18 }}>
+              • Enable biometric lock for added security{'\n'}
+              • Regularly backup your data{'\n'}
+              • Never share your device PIN or biometrics{'\n'}
+              • Keep your device OS updated
+            </Text>
+          </View>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
 
-    {/* Themed Alert Component */}
-    <ThemedAlert
-      visible={alertConfig.visible}
-      title={alertConfig.title}
-      message={alertConfig.message}
-      buttons={alertConfig.buttons}
-      onDismiss={dismissAlert}
-      themeMode={themeMode}
-      systemColorScheme={systemColorScheme || 'light'}
-    />
+      {/* Themed Alert Component */}
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={dismissAlert}
+        themeMode={themeMode}
+        systemColorScheme={systemColorScheme || 'light'}
+      />
     </SafeAreaView>
   );
 }

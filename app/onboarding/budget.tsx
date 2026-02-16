@@ -23,6 +23,7 @@ export default function BudgetTutorialScreen() {
   const stepRoutes: Record<string, string> = {
     welcome: '/onboarding/welcome',
     profile: '/onboarding/profile',
+    reminders: '/onboarding/reminders',
     wallet: '/onboarding/wallet',
     category: '/onboarding/category',
     budget: '/onboarding/budget',
@@ -105,12 +106,7 @@ export default function BudgetTutorialScreen() {
         linkedWalletIds: createdWalletId ? [createdWalletId] : [],
       });
 
-      <OnboardingHeader 
-          canGoBack={previousSteps.length > 0}
-          onBack={handleBack}
-        />
-
-        completeStep('budget');
+      completeStep('budget');
       setCurrentStep('goal');
       router.push('/onboarding/goal');
     } catch (error) {
@@ -130,13 +126,18 @@ export default function BudgetTutorialScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <OnboardingHeader
+          canGoBack={previousSteps.length > 0}
+          onBack={handleBack}
+        />
+
         {/* Progress Indicator */}
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '50%', backgroundColor: colors.deepGold }]} />
+            <View style={[styles.progressFill, { width: '56%', backgroundColor: colors.deepGold }]} />
           </View>
           <Text style={[styles.progressText, { color: t.textSecondary }]}>
-            Step 4 of 8
+            Step 5 of 9
           </Text>
         </View>
 

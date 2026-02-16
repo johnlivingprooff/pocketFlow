@@ -229,6 +229,7 @@ export default function Home() {
   // Wallet Actions Modal State
   const [selectedWalletForAction, setSelectedWalletForAction] = useState<any>(null);
   const [showWalletActionModal, setShowWalletActionModal] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   const loadFinancialData = async () => {
     try {
@@ -714,13 +715,32 @@ export default function Home() {
               <Text style={{ color: t.textTertiary, fontSize: 12, marginTop: 2 }}>{formatFullDate(new Date())}</Text>
             </View>
             <Link href="/profile" asChild>
-              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
-                {userInfo?.profileImage ? (
-                  <Image source={{ uri: userInfo.profileImage }} style={{ width: 48, height: 48, borderRadius: 24 }} />
+              <TouchableOpacity
+                activeOpacity={0.7}
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: t.primary,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  overflow: 'hidden',
+                  borderWidth: 1.5,
+                  borderColor: t.card
+                }}
+              >
+                {userInfo?.profileImage && !imageError ? (
+                  <Image
+                    source={{ uri: userInfo.profileImage }}
+                    style={{ width: 48, height: 48, borderRadius: 24 }}
+                    onError={() => setImageError(true)}
+                  />
                 ) : (
-                  <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700' }}>
-                    {(userInfo?.name || 'U').charAt(0).toUpperCase()}
-                  </Text>
+                  <View style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}>
+                    <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '800' }}>
+                      {(userInfo?.name || 'U').charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
                 )}
               </TouchableOpacity>
             </Link>
@@ -914,7 +934,7 @@ export default function Home() {
             </View>
           )}
 
-         
+
 
           {/* Removed extra draggable wallet list to keep original carousel */}
 
@@ -985,7 +1005,7 @@ export default function Home() {
             </View>
           </ScrollView>
 
-           {/* Financial Health Widget (Goals) */}
+          {/* Financial Health Widget (Goals) */}
           <View style={{ marginTop: 4 }}>
             {/* <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Goal Progress</Text> */}
             <FinancialHealthWidget

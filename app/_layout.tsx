@@ -2,12 +2,18 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { Platform, View, ActivityIndicator, useColorScheme, AppState, AppStateStatus, Text, TouchableOpacity, StyleSheet, Image, TextStyle } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 import { useSettings } from '../src/store/useStore';
 import { useUI } from '../src/store/useStore';
 import { useOnboarding } from '../src/store/useOnboarding';
 import { ensureTables, initDb } from '../src/lib/db';
 // Removed legacy write queue import (migrated to Nitro SQLite)
 import { processRecurringTransactions } from '../src/lib/services/recurringTransactionService';
+import {
+  extractReminderDeepLink,
+  initializeReminderNotifications,
+  runReminderRuntimeGateCheck,
+} from '../src/lib/services/reminderNotificationService';
 import { theme, shadows } from '../src/theme/theme';
 import { authenticateWithBiometrics, shouldRequireAuth } from '../src/lib/services/biometricService';
 import { FingerprintIcon } from '../src/assets/icons/FingerprintIcon';
@@ -49,6 +55,9 @@ export default function RootLayout() {
           await ensureTables();
           // Process recurring transactions after DB is ready
           await processRecurringTransactions();
+          // Reuse existing startup task hook (used by recurring processing) to gate reminders.
+          await initializeReminderNotifications();
+          await runReminderRuntimeGateCheck('app_start');
           await maybeRunAutoBackup();
           setDbReady(true);
         } catch (err: unknown) {
@@ -93,6 +102,24 @@ export default function RootLayout() {
     return () => subscription.remove();
   }, [biometricEnabled, biometricSetupComplete, lastAuthTime]);
 
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      return;
+    }
+
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      (response: Notifications.NotificationResponse) => {
+      const deepLink = extractReminderDeepLink(response);
+      if (!deepLink) {
+        return;
+      }
+      router.push(deepLink as never);
+      }
+    );
+
+    return () => subscription.remove();
+  }, [router]);
+
   const handleAppStateChange = async (nextAppState: AppStateStatus) => {
     if (nextAppState === 'active') {
       // App came to foreground, process recurring transactions
@@ -103,6 +130,8 @@ export default function RootLayout() {
         invalidateTransactionCaches();
         
         await processRecurringTransactions();
+        // Reuse existing app-resume lifecycle gate to keep reminder scheduling deterministic.
+        await runReminderRuntimeGateCheck('app_active');
         await maybeRunAutoBackup();
       }
       
@@ -357,6 +386,7 @@ export default function RootLayout() {
       <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
       <Stack.Screen name="onboarding/welcome" options={{ headerShown: false }} />
       <Stack.Screen name="onboarding/profile" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding/reminders" options={{ headerShown: false }} />
       <Stack.Screen name="onboarding/wallet" options={{ headerShown: false }} />
       <Stack.Screen name="onboarding/category" options={{ headerShown: false }} />
       <Stack.Screen name="onboarding/budget" options={{ headerShown: false }} />
@@ -364,6 +394,19 @@ export default function RootLayout() {
       <Stack.Screen name="onboarding/transaction" options={{ headerShown: false }} />
       <Stack.Screen name="onboarding/transfer" options={{ headerShown: false }} />
       <Stack.Screen name="onboarding/analytics" options={{ headerShown: false }} />
+      <Stack.Screen name="settings/reminders" options={{
+        headerShown: true,
+        title: 'Reminder Settings',
+        headerStyle: {
+          backgroundColor: t.background,
+        },
+        headerTintColor: t.textPrimary,
+        headerTitleStyle: {
+          color: t.textPrimary,
+          fontWeight: '700' as TextStyle['fontWeight'],
+        },
+        headerShadowVisible: false,
+      }} />
     </Stack>
   );
 

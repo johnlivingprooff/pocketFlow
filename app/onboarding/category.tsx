@@ -44,6 +44,7 @@ export default function CategoryTutorialScreen() {
   const stepRoutes: Record<string, string> = {
     welcome: '/onboarding/welcome',
     profile: '/onboarding/profile',
+    reminders: '/onboarding/reminders',
     wallet: '/onboarding/wallet',
     category: '/onboarding/category',
     budget: '/onboarding/budget',
@@ -135,10 +136,10 @@ export default function CategoryTutorialScreen() {
         {/* Progress Indicator */}
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '37.5%', backgroundColor: colors.deepGold }]} />
+            <View style={[styles.progressFill, { width: '44%', backgroundColor: colors.deepGold }]} />
           </View>
           <Text style={[styles.progressText, { color: t.textSecondary }]}>
-            Step 3 of 8
+            Step 4 of 9
           </Text>
         </View>
 

@@ -19,6 +19,7 @@ export default function GoalTutorialScreen() {
   const stepRoutes: Record<string, string> = {
     welcome: '/onboarding/welcome',
     profile: '/onboarding/profile',
+    reminders: '/onboarding/reminders',
     wallet: '/onboarding/wallet',
     category: '/onboarding/category',
     budget: '/onboarding/budget',
@@ -76,14 +77,9 @@ export default function GoalTutorialScreen() {
         linkedWalletIds: createdWalletId ? [createdWalletId] : [],
       });
 
-      <OnboardingHeader 
-          canGoBack={previousSteps.length > 0}
-          onBack={handleBack}
-        />
-
-        completeStep('goal');
-      setCurrentStep('transfer');
-      router.push('/onboarding/transfer');
+      completeStep('goal');
+      setCurrentStep('transaction');
+      router.push('/onboarding/transaction');
     } catch (error) {
       console.error('Failed to create goal:', error);
       Alert.alert('Error', 'Could not create goal. Please try again.');
@@ -94,20 +90,25 @@ export default function GoalTutorialScreen() {
 
   const handleSkip = () => {
     completeStep('goal');
-    setCurrentStep('transfer');
-    router.push('/onboarding/transfer');
+    setCurrentStep('transaction');
+    router.push('/onboarding/transaction');
   };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <OnboardingHeader
+          canGoBack={previousSteps.length > 0}
+          onBack={handleBack}
+        />
+
         {/* Progress Indicator */}
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '62.5%', backgroundColor: colors.deepGold }]} />
+            <View style={[styles.progressFill, { width: '67%', backgroundColor: colors.deepGold }]} />
           </View>
           <Text style={[styles.progressText, { color: t.textSecondary }]}>
-            Step 5 of 7
+            Step 6 of 9
           </Text>
         </View>
 

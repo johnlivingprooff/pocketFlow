@@ -28,6 +28,7 @@
         "backgroundColor": "#F0FDFA"
       },
       "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT"
       ],
@@ -44,6 +45,14 @@
         "expo-local-authentication",
         {
           "faceIDPermission": "Allow pocketFlow to use Face ID."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/app_icon.png",
+          "color": "#84670B",
+          "sounds": []
         }
       ]
     ],

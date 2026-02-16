@@ -28,7 +28,7 @@ export default function AnalyticsTutorialScreen() {
             <View style={[styles.progressFill, { width: '100%', backgroundColor: colors.positiveGreen }]} />
           </View>
           <Text style={[styles.progressText, { color: t.textSecondary }]}>
-            Step 7 of 7 - Complete! 🎉
+            Step 9 of 9 - Complete! 🎉
           </Text>
         </View>
 
@@ -49,6 +49,12 @@ export default function AnalyticsTutorialScreen() {
             icon={<Text style={{ fontSize: 24 }}>✅</Text>}
             title="Profile Created"
             description="Your account is ready"
+            t={t}
+          />
+          <AchievementItem
+            icon={<Text style={{ fontSize: 24 }}>🔔</Text>}
+            title="Reminders Configured"
+            description="Daily cadence set your way"
             t={t}
           />
           <AchievementItem

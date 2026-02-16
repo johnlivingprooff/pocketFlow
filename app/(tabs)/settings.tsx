@@ -301,6 +301,15 @@ export default function SettingsScreen() {
         <View style={{ marginBottom: 24 }}>
           <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 12 }}>TRANSACTIONS</Text>
           <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, overflow: 'hidden' }}>
+            <Link href="/settings/reminders" asChild>
+              <TouchableOpacity style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: t.border }}>
+                <View>
+                  <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>Reminder Settings</Text>
+                  <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>Daily expense logging reminder</Text>
+                </View>
+                <Text style={{ color: t.textSecondary, fontSize: 20 }}>›</Text>
+              </TouchableOpacity>
+            </Link>
             <Link href="/categories" asChild>
               <TouchableOpacity style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: t.border }}>
                 <View>

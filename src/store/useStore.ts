@@ -10,12 +10,23 @@ interface UserInfo {
   profileImage: string | null;
 }
 
+export type ReminderPermissionStatus = 'granted' | 'denied' | 'undetermined';
+
 interface SettingsState {
   // User Info
   userInfo: UserInfo;
   // Preferences
   themeMode: ThemeMode;
   defaultCurrency: string;
+  // Reminders
+  remindersEnabled: boolean;
+  reminderPreferredTimeLocal: string; // HH:MM in device local time
+  reminderQuietHoursStart: string | null; // HH:MM
+  reminderQuietHoursEnd: string | null; // HH:MM
+  reminderLastDeliveredAtUtc: string | null; // ISO timestamp in UTC
+  reminderLastDeliveredLocalDate: string | null; // YYYY-MM-DD at delivery time
+  reminderNextScheduledAtUtc: string | null; // ISO timestamp in UTC
+  reminderPermissionStatus: ReminderPermissionStatus;
   // Security
   biometricEnabled: boolean;
   biometricSetupComplete: boolean;
@@ -33,6 +44,12 @@ interface SettingsState {
   setUserInfo: (info: Partial<UserInfo>) => void;
   setThemeMode: (m: ThemeMode) => void;
   setDefaultCurrency: (c: string) => void;
+  setRemindersEnabled: (enabled: boolean) => void;
+  setReminderPreferredTimeLocal: (time: string) => void;
+  setReminderQuietHours: (start: string | null, end: string | null) => void;
+  setReminderLastDelivered: (deliveredAtUtc: string | null, deliveredLocalDate: string | null) => void;
+  setReminderNextScheduledAtUtc: (nextScheduledAtUtc: string | null) => void;
+  setReminderPermissionStatus: (status: ReminderPermissionStatus) => void;
   setBiometricEnabled: (v: boolean) => void;
   setBiometricSetupComplete: (v: boolean) => void;
   setLastAuthTime: (time: number | null) => void;
@@ -53,6 +70,14 @@ const initialState = {
   },
   themeMode: 'system' as ThemeMode,
   defaultCurrency: 'MWK',
+  remindersEnabled: false,
+  reminderPreferredTimeLocal: '20:00',
+  reminderQuietHoursStart: null,
+  reminderQuietHoursEnd: null,
+  reminderLastDeliveredAtUtc: null,
+  reminderLastDeliveredLocalDate: null,
+  reminderNextScheduledAtUtc: null,
+  reminderPermissionStatus: 'undetermined' as ReminderPermissionStatus,
   biometricEnabled: false,
   biometricSetupComplete: false,
   lastAuthTime: null,
@@ -72,6 +97,14 @@ export const useSettings = create<SettingsState>()(
       })),
       setThemeMode: (mode) => set({ themeMode: mode }),
       setDefaultCurrency: (currency) => set({ defaultCurrency: currency }),
+      setRemindersEnabled: (remindersEnabled) => set({ remindersEnabled }),
+      setReminderPreferredTimeLocal: (reminderPreferredTimeLocal) => set({ reminderPreferredTimeLocal }),
+      setReminderQuietHours: (reminderQuietHoursStart, reminderQuietHoursEnd) =>
+        set({ reminderQuietHoursStart, reminderQuietHoursEnd }),
+      setReminderLastDelivered: (reminderLastDeliveredAtUtc, reminderLastDeliveredLocalDate) =>
+        set({ reminderLastDeliveredAtUtc, reminderLastDeliveredLocalDate }),
+      setReminderNextScheduledAtUtc: (reminderNextScheduledAtUtc) => set({ reminderNextScheduledAtUtc }),
+      setReminderPermissionStatus: (reminderPermissionStatus) => set({ reminderPermissionStatus }),
       setBiometricEnabled: (biometricEnabled) => set({ biometricEnabled }),
       setBiometricSetupComplete: (biometricSetupComplete) => set({ biometricSetupComplete }),
       setLastAuthTime: (lastAuthTime) => set({ lastAuthTime }),

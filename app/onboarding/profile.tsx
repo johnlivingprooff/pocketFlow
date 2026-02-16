@@ -61,6 +61,7 @@ export default function ProfileSetupScreen() {
   const stepRoutes: Record<string, string> = {
     welcome: '/onboarding/welcome',
     profile: '/onboarding/profile',
+    reminders: '/onboarding/reminders',
     wallet: '/onboarding/wallet',
     category: '/onboarding/category',
     budget: '/onboarding/budget',
@@ -94,16 +95,16 @@ export default function ProfileSetupScreen() {
     setDefaultCurrency(currency);
 
     completeStep('profile');
-    setCurrentStep('wallet');
-    router.push('/onboarding/wallet');
+    setCurrentStep('reminders');
+    router.push('/onboarding/reminders');
   };
 
   const handleSkip = () => {
     setUserInfo({ name: 'pFlowr' });
     setDefaultCurrency(currency);
     completeStep('profile');
-    setCurrentStep('wallet');
-    router.push('/onboarding/wallet');
+    setCurrentStep('reminders');
+    router.push('/onboarding/reminders');
   };
 
   return (

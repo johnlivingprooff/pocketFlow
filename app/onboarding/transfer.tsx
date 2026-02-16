@@ -26,10 +26,10 @@ export default function TransferTutorialScreen() {
         {/* Progress Indicator */}
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '85.7%', backgroundColor: colors.deepGold }]} />
+            <View style={[styles.progressFill, { width: '89%', backgroundColor: colors.deepGold }]} />
           </View>
           <Text style={[styles.progressText, { color: t.textSecondary }]}>
-            Step 6 of 7
+            Step 8 of 9
           </Text>
         </View>
 
