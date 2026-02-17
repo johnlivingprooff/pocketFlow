@@ -50,13 +50,6 @@ function abbreviateNumber(num: number): string {
 
 type MetricsPeriod = '7days' | '30days' | '3months' | '6months';
 
-const METRIC_PERIODS: Array<{ key: MetricsPeriod; days: number }> = [
-  { key: '7days', days: 7 },
-  { key: '30days', days: 30 },
-  { key: '3months', days: 90 },
-  { key: '6months', days: 180 },
-];
-
 const PERIOD_DAYS_MAP: Record<TimePeriod, number> = {
   '7days': 7,
   '30days': 30,
@@ -135,52 +128,36 @@ export default function AnalyticsPage() {
       const selectedDays = PERIOD_DAYS_MAP[period];
       const activeIncomeExpensePeriod: 'current' | 'last' = 'current';
 
-      const periodMetricsPromise = Promise.all(
-        METRIC_PERIODS.map(async ({ key, days }) => {
-          try {
-            const startDate = new Date(now);
-            startDate.setDate(now.getDate() - days);
-            const start = startDate.toISOString();
-            const end = now.toISOString();
+      const metricStartDate = new Date(now);
+      metricStartDate.setDate(now.getDate() - PERIOD_DAYS_MAP[analyticsPeriod]);
+      const metricStart = metricStartDate.toISOString();
+      const metricEnd = now.toISOString();
 
-            const [incomeResult, expenseResult, largestResult] = await Promise.all([
-              exec<{ total: number }>(
-                `SELECT COALESCE(SUM(t.amount * COALESCE(w.exchange_rate, 1.0)),0) as total
-                 FROM transactions t
-                 LEFT JOIN wallets w ON t.wallet_id = w.id
-                 WHERE t.type = 'income' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
-                [start, end]
-              ),
-              exec<{ total: number }>(
-                `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total
-                 FROM transactions t
-                 LEFT JOIN wallets w ON t.wallet_id = w.id
-                 WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
-                [start, end]
-              ),
-              exec<{ amount: number }>(
-                `SELECT ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) as amount
-                 FROM transactions t
-                 LEFT JOIN wallets w ON t.wallet_id = w.id
-                 WHERE t.date BETWEEN ? AND ? AND t.type = 'expense' AND (t.category IS NULL OR t.category <> 'Transfer')
-                 ORDER BY ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) DESC
-                 LIMIT 1;`,
-                [start, end]
-              ),
-            ]);
-
-            return {
-              key,
-              income: incomeResult[0]?.total ?? 0,
-              expense: expenseResult[0]?.total ?? 0,
-              largestPurchase: largestResult[0]?.amount ?? 0,
-            };
-          } catch (error) {
-            console.error(`Error loading metrics for period ${key}:`, error);
-            return { key, income: 0, expense: 0, largestPurchase: 0 };
-          }
-        })
-      );
+      const selectedPeriodMetricsPromise = Promise.all([
+        exec<{ total: number }>(
+          `SELECT COALESCE(SUM(t.amount * COALESCE(w.exchange_rate, 1.0)),0) as total
+           FROM transactions t
+           LEFT JOIN wallets w ON t.wallet_id = w.id
+           WHERE t.type = 'income' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
+          [metricStart, metricEnd]
+        ),
+        exec<{ total: number }>(
+          `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total
+           FROM transactions t
+           LEFT JOIN wallets w ON t.wallet_id = w.id
+           WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
+          [metricStart, metricEnd]
+        ),
+        exec<{ amount: number }>(
+          `SELECT ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) as amount
+           FROM transactions t
+           LEFT JOIN wallets w ON t.wallet_id = w.id
+           WHERE t.date BETWEEN ? AND ? AND t.type = 'expense' AND (t.category IS NULL OR t.category <> 'Transfer')
+           ORDER BY ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) DESC
+           LIMIT 1;`,
+          [metricStart, metricEnd]
+        ),
+      ]);
 
       const budgetsPromise = getBudgetsForPeriod(selectedDays).catch((error) => {
         console.error('Failed to load budgets:', error);
@@ -193,7 +170,7 @@ export default function AnalyticsPage() {
 
       const [
         breakdown,
-        periodMetrics,
+        [incomeResult, expenseResult, largestResult],
         weekComp,
         incExpAnalysis,
         streak,
@@ -206,7 +183,7 @@ export default function AnalyticsPage() {
         periodGoals,
       ] = await Promise.all([
         getCategorySpendingForPeriod(analyticsPeriod),
-        periodMetricsPromise,
+        selectedPeriodMetricsPromise,
         weekOverWeekComparison(),
         incomeVsExpenseAnalysis(activeIncomeExpensePeriod),
         getSpendingStreak(),
@@ -223,30 +200,9 @@ export default function AnalyticsPage() {
         return;
       }
 
-      const incomeData: Record<MetricsPeriod, number> = {
-        '7days': 0,
-        '30days': 0,
-        '3months': 0,
-        '6months': 0,
-      };
-      const spendingData: Record<MetricsPeriod, number> = {
-        '7days': 0,
-        '30days': 0,
-        '3months': 0,
-        '6months': 0,
-      };
-      const largestPurchaseData: Record<MetricsPeriod, number> = {
-        '7days': 0,
-        '30days': 0,
-        '3months': 0,
-        '6months': 0,
-      };
-
-      periodMetrics.forEach((metric) => {
-        incomeData[metric.key] = metric.income;
-        spendingData[metric.key] = metric.expense;
-        largestPurchaseData[metric.key] = metric.largestPurchase;
-      });
+      const incomeForPeriod = incomeResult[0]?.total ?? 0;
+      const spendingForPeriod = expenseResult[0]?.total ?? 0;
+      const largestPurchaseForPeriod = largestResult[0]?.amount ?? 0;
 
       const colorMap: Record<string, string> = {};
       allCategories.forEach((cat) => {
@@ -263,9 +219,9 @@ export default function AnalyticsPage() {
       });
 
       setCategories(breakdown);
-      setIncomeByPeriod(incomeData);
-      setSpendingRateByPeriod(spendingData);
-      setLargestPurchaseByPeriod(largestPurchaseData);
+      setIncomeByPeriod((prev) => ({ ...prev, [analyticsPeriod]: incomeForPeriod }));
+      setSpendingRateByPeriod((prev) => ({ ...prev, [analyticsPeriod]: spendingForPeriod }));
+      setLargestPurchaseByPeriod((prev) => ({ ...prev, [analyticsPeriod]: largestPurchaseForPeriod }));
 
       setIncomeExpense(incExpAnalysis);
       setMonthProgress(progress);
