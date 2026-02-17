@@ -49,6 +49,7 @@ export default function TabsLayout() {
           name="index"
           options={{
             title: 'Home',
+            tabBarAccessibilityLabel: 'Home tab - view dashboard and recent activity',
             tabBarIcon: ({ color, focused }) => (
               <HomeIcon color={color} focused={focused} />
             ),
@@ -58,6 +59,7 @@ export default function TabsLayout() {
           name="wallets"
           options={{
             title: 'Wallets',
+            tabBarAccessibilityLabel: 'Wallets tab - manage your accounts and balances',
             tabBarIcon: ({ color, focused }) => (
               <WalletsIcon color={color} focused={focused} />
             ),
@@ -69,36 +71,39 @@ export default function TabsLayout() {
             title: '',
             tabBarIcon: () => null,
             tabBarButton: (props) => (
-              <Pressable
-                onPress={() => {
-                  if (wallets.length === 0) {
-                    showConfirmAlert(
-                      'No Wallet Created',
-                      'Please create a wallet first before adding a transaction.',
-                      () => router.push('/wallets/create')
-                    );
-                  } else {
-                    router.push('/transactions/add');
-                  }
-                }}
-                style={({ pressed }) => ({
-                  top: -20,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  width: 70,
-                  height: 70,
-                  borderRadius: 35,
-                  backgroundColor: t.primary,
-                  shadowColor: '#000',
-                  shadowOpacity: 0.2,
-                  shadowRadius: 4,
-                  shadowOffset: { width: 0, height: 2 },
-                  elevation: 4,
-                  opacity: pressed ? 0.8 : 1,
-                })}
-              >
-                <PlusIcon />
-              </Pressable>
+                <Pressable
+                  onPress={() => {
+                    if (wallets.length === 0) {
+                      showConfirmAlert(
+                        'No Wallet Created',
+                        'Please create a wallet first before adding a transaction.',
+                        () => router.push('/wallets/create')
+                      );
+                    } else {
+                      router.push('/transactions/add');
+                    }
+                  }}
+                  accessibilityLabel="Add new transaction"
+                  accessibilityHint="Opens form to add income, expense, or transfer"
+                  accessibilityRole="button"
+                  style={({ pressed }) => ({
+                    top: -20,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    width: 70,
+                    height: 70,
+                    borderRadius: 35,
+                    backgroundColor: t.primary,
+                    shadowColor: '#000',
+                    shadowOpacity: 0.2,
+                    shadowRadius: 4,
+                    shadowOffset: { width: 0, height: 2 },
+                    elevation: 4,
+                    opacity: pressed ? 0.8 : 1,
+                  })}
+                >
+                  <PlusIcon />
+                </Pressable>
             ),
           }}
           listeners={{
@@ -111,6 +116,7 @@ export default function TabsLayout() {
           name="analytics"
           options={{
             title: 'Analytics',
+            tabBarAccessibilityLabel: 'Analytics tab - view spending reports and insights',
             tabBarIcon: ({ color, focused }) => (
               <AnalyticsIcon color={color} focused={focused} />
             ),
@@ -120,6 +126,7 @@ export default function TabsLayout() {
           name="settings"
           options={{
             title: 'Settings',
+            tabBarAccessibilityLabel: 'Settings tab - configure app preferences',
             tabBarIcon: ({ color, focused }) => (
               <SettingsIcon color={color} focused={focused} />
             ),

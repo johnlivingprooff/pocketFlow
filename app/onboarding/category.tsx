@@ -113,7 +113,10 @@ export default function CategoryTutorialScreen() {
       router.push('/onboarding/budget');
     } catch (error) {
       console.error('Failed to create category:', error);
-      Alert.alert('Error', 'Could not create category. Please try again.');
+      Alert.alert(
+        'Error',
+        'Could not create category.\n\nTry:\n• Use a different category name\n• Check if an emoji or icon is selected\n• Restart the app if needed'
+      );
     } finally {
       setIsCreating(false);
     }
@@ -131,17 +134,8 @@ export default function CategoryTutorialScreen() {
         <OnboardingHeader 
           canGoBack={previousSteps.length > 0}
           onBack={handleBack}
+          currentStep="category"
         />
-
-        {/* Progress Indicator */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '44%', backgroundColor: colors.deepGold }]} />
-          </View>
-          <Text style={[styles.progressText, { color: t.textSecondary }]}>
-            Step 4 of 9
-          </Text>
-        </View>
 
         {/* Header */}
         <View style={styles.header}>
@@ -394,25 +388,7 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 20,
   },
-  progressContainer: {
-    marginBottom: 24,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    minHeight: 4,
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
+
   header: {
     alignItems: 'center',
     marginBottom: 32,

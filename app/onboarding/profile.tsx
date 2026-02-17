@@ -113,6 +113,7 @@ export default function ProfileSetupScreen() {
         <OnboardingHeader 
           canGoBack={previousSteps.length > 0}
           onBack={handleBack}
+          currentStep="profile"
         />
 
         {/* Header */}

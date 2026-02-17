@@ -451,7 +451,7 @@ export default function AddTransactionScreen() {
           setAlertConfig({
             visible: true,
             title: 'Transfer Failed',
-            message: 'Failed to complete transfer. Please try again.',
+            message: 'Failed to complete transfer.\n\nTry:\n• Check wallet balances\n• Verify wallet selection\n• Restart the app if the problem continues',
             buttons: [{ text: 'OK' }]
           });
           setIsSaving(false);
@@ -524,7 +524,7 @@ export default function AddTransactionScreen() {
         router.back();
       } catch (err: any) {
         logError(`[Transaction] Failed to ${isEditMode ? 'update' : 'add'} transaction:`, { error: err });
-        let errorMessage = `Failed to ${isEditMode ? 'update' : 'add'} transaction. Please try again.`;
+        let errorMessage = `Failed to ${isEditMode ? 'update' : 'add'} transaction.\n\nTry:\n• Check your internet connection\n• Restart the app\n• If the problem persists, contact support`);
         if (err?.message?.includes('database')) {
           errorMessage = 'Database error occurred. Please restart the app and try again.';
         } else if (err?.message?.includes('timeout')) {
@@ -673,6 +673,9 @@ export default function AddTransactionScreen() {
                 <SectionLabel text="Category" colors={t} />
                 <TouchableOpacity
                   onPress={() => setShowCategoryPicker(true)}
+                  accessibilityLabel="Select category"
+                  accessibilityHint="Opens category picker"
+                  accessibilityRole="button"
                   style={{
                     borderWidth: 1,
                     borderColor: t.border,
@@ -762,6 +765,9 @@ export default function AddTransactionScreen() {
             <TouchableOpacity
               onPress={onSave}
               disabled={!isValidAmount || isSaving || (type === 'transfer' && !toWalletId)}
+              accessibilityLabel={isEditMode ? 'Update transaction' : 'Save transaction'}
+              accessibilityState={{ disabled: !isValidAmount || isSaving || (type === 'transfer' && !toWalletId) }}
+              accessibilityRole="button"
               style={{
                 backgroundColor: !isValidAmount || isSaving || (type === 'transfer' && !toWalletId) ? t.border : t.primary,
                 padding: 14,
@@ -791,6 +797,9 @@ export default function AddTransactionScreen() {
             <TouchableOpacity
               onPress={onSave}
               disabled={!isValidAmount || isSaving || (type === 'transfer' && !toWalletId)}
+              accessibilityLabel={isEditMode ? 'Update transaction' : 'Save transaction'}
+              accessibilityState={{ disabled: !isValidAmount || isSaving || (type === 'transfer' && !toWalletId) }}
+              accessibilityRole="button"
               style={{
                 backgroundColor: !isValidAmount || isSaving || (type === 'transfer' && !toWalletId) ? t.border : t.primary,
                 width: 56,
@@ -954,6 +963,9 @@ function TypeTabs({ current, onChange, colors }: { current: 'income' | 'expense'
         <TouchableOpacity
           key={tab.key}
           onPress={() => onChange(tab.key)}
+          accessibilityLabel={`${tab.label} transaction type`}
+          accessibilityState={{ selected: current === tab.key }}
+          accessibilityRole="button"
           style={{
             flex: 1,
             backgroundColor: current === tab.key ? colors.primary : colors.card,
@@ -994,6 +1006,9 @@ function WalletCarousel({ wallets, selectedId, onSelect, colors, projected }: { 
           <TouchableOpacity
             key={wallet.id}
             onPress={() => onSelect(wallet.id!)}
+            accessibilityLabel={`${wallet.name} wallet`}
+            accessibilityState={{ selected: isActive }}
+            accessibilityRole="button"
             style={{
               backgroundColor: isActive ? colors.primary : colors.card,
               borderWidth: 1.5,

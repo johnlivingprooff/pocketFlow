@@ -70,7 +70,10 @@ export default function WalletTutorialScreen() {
       router.push('/onboarding/category');
     } catch (error) {
       console.error('Failed to create wallet:', error);
-      Alert.alert('Error', 'Could not create wallet. Please try again.');
+      Alert.alert(
+        'Error', 
+        'Could not create wallet.\n\nTry:\n• Check if the wallet name is unique\n• Restart the app\n• Contact support if the problem persists'
+      );
     } finally {
       setIsCreating(false);
     }
@@ -82,17 +85,8 @@ export default function WalletTutorialScreen() {
         <OnboardingHeader 
           canGoBack={previousSteps.length > 0}
           onBack={handleBack}
+          currentStep="wallet"
         />
-
-        {/* Progress Indicator */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '33%', backgroundColor: colors.deepGold }]} />
-          </View>
-          <Text style={[styles.progressText, { color: t.textSecondary }]}>
-            Step 3 of 9
-          </Text>
-        </View>
 
         {/* Header */}
         <View style={styles.header}>
@@ -213,25 +207,7 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 20,
   },
-  progressContainer: {
-    marginBottom: 24,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    minHeight: 4,
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
+
   header: {
     alignItems: 'center',
     marginBottom: 32,

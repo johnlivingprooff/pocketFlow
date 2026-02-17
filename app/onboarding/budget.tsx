@@ -111,7 +111,10 @@ export default function BudgetTutorialScreen() {
       router.push('/onboarding/goal');
     } catch (error) {
       console.error('Failed to create budget:', error);
-      Alert.alert('Error', 'Could not create budget. Please try again.');
+      Alert.alert(
+        'Error',
+        'Could not create budget.\n\nTry:\n• Verify budget amount is greater than 0\n• Select a valid category\n• Check wallet balance'
+      );
     } finally {
       setIsCreating(false);
     }
@@ -129,17 +132,8 @@ export default function BudgetTutorialScreen() {
         <OnboardingHeader
           canGoBack={previousSteps.length > 0}
           onBack={handleBack}
+          currentStep="budget"
         />
-
-        {/* Progress Indicator */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '56%', backgroundColor: colors.deepGold }]} />
-          </View>
-          <Text style={[styles.progressText, { color: t.textSecondary }]}>
-            Step 5 of 9
-          </Text>
-        </View>
 
         {/* Header */}
         <View style={styles.header}>
@@ -304,25 +298,7 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 20,
   },
-  progressContainer: {
-    marginBottom: 24,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    minHeight: 4,
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
+
   header: {
     alignItems: 'center',
     marginBottom: 32,

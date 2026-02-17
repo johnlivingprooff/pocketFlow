@@ -122,17 +122,8 @@ export default function TransactionTutorialScreen() {
         <OnboardingHeader 
           canGoBack={previousSteps.length > 0}
           onBack={handleBack}
+          currentStep="transaction"
         />
-
-        {/* Progress Indicator */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '78%', backgroundColor: colors.deepGold }]} />
-          </View>
-          <Text style={[styles.progressText, { color: t.textSecondary }]}>
-            Step 7 of 9
-          </Text>
-        </View>
 
         {/* Header */}
         <View style={styles.header}>
@@ -368,25 +359,7 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 20,
   },
-  progressContainer: {
-    marginBottom: 24,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    minHeight: 4,
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
+
   header: {
     alignItems: 'center',
     marginBottom: 32,

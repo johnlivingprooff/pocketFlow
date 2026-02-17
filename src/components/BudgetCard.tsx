@@ -21,17 +21,18 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({ budget }) => {
   const remaining = Math.max(budget.limitAmount - budget.currentSpending, 0);
 
   // Determine status and color
+  // Yellow warning at 75-85%, red danger at 85%+
   let progressColor = t.success;
   let statusText = 'On Track';
   let statusBgColor = t.success + '20';
 
-  if (percentage >= 100) {
+  if (percentage >= 85) {
     progressColor = t.danger;
     statusText = 'Over Budget';
     statusBgColor = t.danger + '20';
-  } else if (percentage >= 85) {
+  } else if (percentage >= 75) {
     progressColor = t.warning;
-    statusText = 'Warning';
+    statusText = 'Caution';
     statusBgColor = t.warning + '20';
   }
 

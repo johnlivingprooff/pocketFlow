@@ -127,7 +127,10 @@ export default function SettingsScreen() {
           loadBackups();
         });
       } else {
-        showErrorAlert('Error', result.error || 'Failed to create backup');
+        showErrorAlert(
+          'Error',
+          (result.error || 'Failed to create backup') + '\n\nTry:\n• Check available storage space\n• Ensure stable internet connection\n• Retry after a few minutes'
+        );
       }
     } finally {
       setIsLoadingBackup(false);
@@ -145,7 +148,10 @@ export default function SettingsScreen() {
           if (result.success) {
             showSuccessAlert('Success', 'Data restored successfully');
           } else {
-            showErrorAlert('Error', result.error || 'Failed to restore backup');
+            showErrorAlert(
+              'Error',
+              (result.error || 'Failed to restore backup') + '\n\nTry:\n• Verify the backup file is not corrupted\n• Check if the file format is correct\n• Create a new backup and try again'
+            );
           }
         } finally {
           setIsLoadingBackup(false);

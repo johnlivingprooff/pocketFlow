@@ -6,11 +6,12 @@ import { theme, shadows, colors } from '../../src/theme/theme';
 import { useSettings } from '../../src/store/useStore';
 import { useOnboarding } from '../../src/store/useOnboarding';
 import { ChartIcon, WalletIcon } from '../../src/assets/icons/CategoryIcons';
+import { OnboardingHeader } from '../../src/components/OnboardingHeader';
 
 export default function AnalyticsTutorialScreen() {
   const { themeMode } = useSettings();
   const systemColorScheme = useColorScheme();
-  const { completeOnboarding } = useOnboarding();
+  const { completeOnboarding, setCurrentStep } = useOnboarding();
   const router = useRouter();
   const t = theme(themeMode, systemColorScheme || 'light');
 
@@ -19,18 +20,15 @@ export default function AnalyticsTutorialScreen() {
     router.replace('/(tabs)');
   };
 
+  const handleBack = () => {
+    setCurrentStep('transfer');
+    router.push('/onboarding/transfer');
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Progress Indicator */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '100%', backgroundColor: colors.positiveGreen }]} />
-          </View>
-          <Text style={[styles.progressText, { color: t.textSecondary }]}>
-            Step 9 of 9 - Complete! 🎉
-          </Text>
-        </View>
+        <OnboardingHeader canGoBack={true} onBack={handleBack} currentStep="analytics" />
 
         {/* Header */}
         <View style={styles.header}>
@@ -169,26 +167,7 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 20,
   },
-  progressContainer: {
-    marginBottom: 24,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    minHeight: 4,
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 12,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
+
   header: {
     alignItems: 'center',
     marginBottom: 32,

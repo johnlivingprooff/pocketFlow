@@ -190,14 +190,7 @@ export default function OnboardingRemindersScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <OnboardingHeader canGoBack={previousSteps.length > 0} onBack={handleBack} />
-
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '22%', backgroundColor: colors.deepGold }]} />
-          </View>
-          <Text style={[styles.progressText, { color: t.textSecondary }]}>Step 2 of 9</Text>
-        </View>
+        <OnboardingHeader canGoBack={previousSteps.length > 0} onBack={handleBack} currentStep="reminders" />
 
         <View style={styles.header}>
           <Text style={styles.emoji}>🔔</Text>
@@ -301,25 +294,7 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 20,
   },
-  progressContainer: {
-    marginBottom: 24,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    minHeight: 4,
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
+
   header: {
     alignItems: 'center',
     marginBottom: 28,

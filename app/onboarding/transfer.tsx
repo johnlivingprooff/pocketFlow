@@ -6,6 +6,7 @@ import { theme, shadows, colors } from '../../src/theme/theme';
 import { useSettings } from '../../src/store/useStore';
 import { useOnboarding } from '../../src/store/useOnboarding';
 import { TransferIcon } from '../../src/assets/icons/CategoryIcons';
+import { OnboardingHeader } from '../../src/components/OnboardingHeader';
 
 export default function TransferTutorialScreen() {
   const { themeMode } = useSettings();
@@ -20,18 +21,15 @@ export default function TransferTutorialScreen() {
     router.push('/onboarding/analytics');
   };
 
+  const handleBack = () => {
+    setCurrentStep('transaction');
+    router.push('/onboarding/transaction');
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Progress Indicator */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '89%', backgroundColor: colors.deepGold }]} />
-          </View>
-          <Text style={[styles.progressText, { color: t.textSecondary }]}>
-            Step 8 of 9
-          </Text>
-        </View>
+        <OnboardingHeader canGoBack={true} onBack={handleBack} currentStep="transfer" />
 
         {/* Header */}
         <View style={styles.header}>
@@ -137,25 +135,7 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 20,
   },
-  progressContainer: {
-    marginBottom: 24,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    minHeight: 4,
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
+
   header: {
     alignItems: 'center',
     marginBottom: 32,
