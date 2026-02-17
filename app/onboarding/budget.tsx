@@ -28,8 +28,6 @@ export default function BudgetTutorialScreen() {
     category: '/onboarding/category',
     budget: '/onboarding/budget',
     goal: '/onboarding/goal',
-    transaction: '/onboarding/transaction',
-    transfer: '/onboarding/transfer',
     analytics: '/onboarding/analytics',
   };
 

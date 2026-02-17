@@ -103,3 +103,6 @@ export const shadows = {
 export const fonts = {
   primaryStack: ['Inter', 'System', 'Helvetica Neue', 'Roboto', 'Segoe UI'],
 };
+
+// Re-export font scaling utilities
+export { useDynamicTypeScale, useScaledFontSize, useScaledFontSizes, fontSizes } from './fontScale';

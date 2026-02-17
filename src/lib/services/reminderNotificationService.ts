@@ -50,7 +50,10 @@ function isReminderNotification(notification: Notifications.Notification): boole
 function reminderBehavior(shouldShowAlert: boolean): Notifications.NotificationBehavior {
   return {
     shouldShowAlert,
-    shouldPlaySound: false,
+    // iOS 14+ foreground presentation options
+    shouldShowBanner: shouldShowAlert,
+    shouldShowList: shouldShowAlert,
+    shouldPlaySound: shouldShowAlert,
     shouldSetBadge: false,
   } as Notifications.NotificationBehavior;
 }
@@ -63,10 +66,10 @@ async function ensureReminderChannel(): Promise<void> {
   await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
     name: 'Expense reminders',
     description: 'Daily reminder to log expenses',
-    importance: Notifications.AndroidImportance.DEFAULT,
-    vibrationPattern: [],
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
-    sound: undefined,
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250, 250],
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    sound: 'default',
   });
 }
 
@@ -89,7 +92,13 @@ export async function requestReminderPermission(): Promise<ReminderPermissionSta
     return status;
   }
 
-  const result = await Notifications.requestPermissionsAsync();
+  const result = await Notifications.requestPermissionsAsync({
+    ios: {
+      allowAlert: true,
+      allowSound: true,
+      allowBadge: false,
+    },
+  });
   const status = toReminderPermissionStatus(result);
   useSettings.getState().setReminderPermissionStatus(status);
   return status;
@@ -183,6 +192,8 @@ function buildReminderContent(): Notifications.NotificationContentInput {
       ? {
           android: {
             channelId: REMINDER_CHANNEL_ID,
+            priority: Notifications.AndroidNotificationPriority.HIGH,
+            vibrationPattern: [0, 250, 250, 250],
           },
         }
       : {}),
@@ -285,7 +296,7 @@ export async function setRemindersEnabledAndReschedule(enabled: boolean): Promis
   
   if (!canAsk) {
     // Permission already denied
-    const status = await syncReminderPermissionStatus();
+    await syncReminderPermissionStatus();
     state.setRemindersEnabled(false);
     await cancelReminderSchedule('permission_denied_on_enable');
     return;
@@ -306,9 +317,17 @@ export async function scheduleReminderTestNotification(countAsReal: boolean = fa
     await initializeReminderNotifications();
     await ensureReminderChannel();
 
-    // Schedule test notification to fire immediately (3 seconds in the future)
-    // Use a Date trigger for better compatibility across platforms
-    const triggerAt = new Date(Date.now() + 3000);
+    // Request permission if not granted
+    const permission = await syncReminderPermissionStatus();
+    if (permission !== 'granted') {
+      const newPermission = await requestReminderPermission();
+      if (newPermission !== 'granted') {
+        throw new Error('Notification permission not granted');
+      }
+    }
+
+    // Schedule test notification to fire immediately
+    // Use null trigger for immediate notification (most reliable across platforms)
     await Notifications.scheduleNotificationAsync({
       content: {
         title: DEFAULT_REMINDER_TITLE,
@@ -323,16 +342,19 @@ export async function scheduleReminderTestNotification(countAsReal: boolean = fa
           ? {
               android: {
                 channelId: REMINDER_CHANNEL_ID,
+                priority: Notifications.AndroidNotificationPriority.HIGH,
+                vibrationPattern: [0, 250, 250, 250],
               },
             }
           : {}),
       },
-      trigger: triggerAt,
+      trigger: null, // null = immediate notification
     });
 
-    log('[Reminder] Scheduled test notification to fire in 3 seconds');
+    log('[Reminder] Test notification sent immediately');
   } catch (error) {
     logError('[Reminder] Failed to schedule test notification', { error: String(error) });
+    throw error; // Re-throw so UI can handle it
   }
 }
 

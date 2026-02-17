@@ -18,8 +18,8 @@ import { ThemedAlert } from '@/components/ThemedAlert';
 import {
   cancelReminderSchedule,
   requestReminderPermission,
-  scheduleNextEligibleReminder,
   scheduleReminderTestNotification,
+  setRemindersEnabledAndReschedule,
   syncReminderPermissionStatus,
 } from '@/lib/services/reminderNotificationService';
 
@@ -57,7 +57,6 @@ export default function ReminderSettingsScreen() {
     reminderLastDeliveredAtUtc,
     reminderNextScheduledAtUtc,
     reminderPermissionStatus,
-    setRemindersEnabled,
     setReminderPreferredTimeLocal,
     setReminderQuietHours,
   } = useSettings();
@@ -80,6 +79,7 @@ export default function ReminderSettingsScreen() {
 
     if (next !== 'granted' && enabled) {
       setEnabled(false);
+      await setRemindersEnabledAndReschedule(false);
       showErrorAlert(
         'Permission Revoked',
         'Notification permission is no longer granted. Reminders were turned off.'
@@ -118,22 +118,26 @@ export default function ReminderSettingsScreen() {
         setReminderQuietHours(null, null);
       }
 
-      setRemindersEnabled(enabled);
+      await setRemindersEnabledAndReschedule(enabled);
+      const nextPermissionStatus = await syncReminderPermissionStatus();
+      setPermissionStatus(nextPermissionStatus);
 
       if (!enabled) {
         await cancelReminderSchedule('settings_disabled');
         showSuccessAlert('Saved', 'Reminders disabled.');
-      } else if (permissionStatus !== 'granted') {
-        await cancelReminderSchedule('settings_permission_missing');
-        setRemindersEnabled(false);
+        return;
+      }
+
+      if (nextPermissionStatus !== 'granted') {
+        setEnabled(false);
         showErrorAlert(
           'Permission Missing',
           'Notification permission is required. Please enable notifications for pocketFlow in system settings.'
         );
-      } else {
-        await scheduleNextEligibleReminder('settings_saved');
-        showSuccessAlert('Saved', 'Reminder schedule updated.');
+        return;
       }
+
+      showSuccessAlert('Saved', 'Reminder schedule updated.');
     } finally {
       setSaving(false);
     }
@@ -144,11 +148,18 @@ export default function ReminderSettingsScreen() {
       showErrorAlert('Permission Missing', 'Grant notification permission before sending a test notification.');
       return;
     }
-    await scheduleReminderTestNotification(false);
-    showSuccessAlert(
-      'Test Scheduled',
-      'A test reminder will fire in a few seconds and will not be counted as a real reminder delivery.'
-    );
+    try {
+      await scheduleReminderTestNotification(false);
+      showSuccessAlert(
+        'Test Sent',
+        'A test notification has been sent. Check your notification tray.'
+      );
+    } catch (error) {
+      showErrorAlert(
+        'Test Failed',
+        'Failed to send test notification. Please check your notification settings and try again.'
+      );
+    }
   };
 
   const onTimePicked = (_event: unknown, selectedDate?: Date) => {

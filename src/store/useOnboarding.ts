@@ -10,8 +10,6 @@ export type OnboardingStep =
   | 'category'
   | 'budget'
   | 'goal'
-  | 'transaction'
-  | 'transfer'
   | 'analytics'
   | 'complete';
 
@@ -23,8 +21,6 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
   'category',
   'budget',
   'goal',
-  'transaction',
-  'transfer',
   'analytics',
 ];
 
@@ -63,13 +59,6 @@ export interface OnboardingFormData {
     targetAmount?: string;
     targetMonths?: string;
   };
-  transaction?: {
-    amount?: string;
-    description?: string;
-    type?: 'expense' | 'income';
-    selectedCategory?: string;
-  };
-  transfer?: Record<string, any>;
   analytics?: Record<string, any>;
   complete?: Record<string, any>;
 }
@@ -86,7 +75,6 @@ interface OnboardingState {
   createdCategoryId: number | null;
   createdBudgetId: number | null;
   createdGoalId: number | null;
-  createdTransactionId: number | null;
   // Actions
   setCurrentStep: (step: OnboardingStep) => void;
   goBackToPreviousStep: () => void;
@@ -95,7 +83,6 @@ interface OnboardingState {
   setCreatedCategoryId: (id: number) => void;
   setCreatedBudgetId: (id: number) => void;
   setCreatedGoalId: (id: number) => void;
-  setCreatedTransactionId: (id: number) => void;
   saveFormData: (step: OnboardingStep, data: any) => void;
   clearFormData: (step?: OnboardingStep) => void;
   completeOnboarding: () => void;
@@ -114,7 +101,6 @@ const initialState = {
   createdCategoryId: null,
   createdBudgetId: null,
   createdGoalId: null,
-  createdTransactionId: null,
 };
 
 export const useOnboarding = create<OnboardingState>()(
@@ -141,7 +127,6 @@ export const useOnboarding = create<OnboardingState>()(
       setCreatedCategoryId: (id) => set({ createdCategoryId: id }),
       setCreatedBudgetId: (id) => set({ createdBudgetId: id }),
       setCreatedGoalId: (id) => set({ createdGoalId: id }),
-      setCreatedTransactionId: (id) => set({ createdTransactionId: id }),
       saveFormData: (step, data) => set((state) => ({
         formData: {
           ...state.formData,

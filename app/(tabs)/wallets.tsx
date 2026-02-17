@@ -118,6 +118,7 @@ export default function WalletsList() {
                     currency={wallet.currency}
                     color={wallet.color}
                     mode={effectiveMode}
+                    type={wallet.type}
                   />
                 </TouchableOpacity>
               </Link>

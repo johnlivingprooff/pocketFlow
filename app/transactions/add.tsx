@@ -8,11 +8,11 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { useSettings } from '../../src/store/useStore';
 import { useUI } from '../../src/store/useStore';
 import { theme } from '../../src/theme/theme';
-import { addTransaction, transferBetweenWallets, updateTransaction, getById } from '../../src/lib/db/transactions';
+import { addTransaction, transferBetweenWallets, updateTransaction, getById, deleteTransaction } from '../../src/lib/db/transactions';
 import { CalendarModal } from '@/components/CalendarModal';
 import { formatShortDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
-import { saveReceiptImage } from '../../src/lib/services/fileService';
+import { saveReceiptImageFromUri } from '../../src/lib/services/fileService';
 import { Category } from '../../src/lib/db/categories';
 import { useCategoriesHierarchy } from '../../src/lib/hooks/useCategoriesCache';
 import * as CategoryIcons from '../../src/assets/icons/CategoryIcons';
@@ -42,7 +42,6 @@ export default function AddTransactionScreen() {
   const [category, setCategory] = useState('');
   const [walletId, setWalletId] = useState<number>(0);
   const [notes, setNotes] = useState('');
-  const [imageBase64, setImageBase64] = useState<string | undefined>(undefined);
   const [localUri, setLocalUri] = useState<string | undefined>(undefined);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
@@ -111,14 +110,53 @@ export default function AddTransactionScreen() {
         const transaction = await getById(Number(id));
         if (transaction) {
           if (transaction.type === 'transfer') {
+            // For transfers, offer to delete and recreate instead of blocking entirely
             setAlertConfig({
               visible: true,
-              title: 'Cannot Edit Transfer',
-              message: 'Transfer transactions cannot be edited directly. Please delete and create a new transfer if needed.',
-              buttons: [{
-                text: 'OK',
-                onPress: () => router.back()
-              }]
+              title: 'Transfer Cannot Be Edited',
+              message: 'To modify this transfer, you can delete it and create a new one.\n\nCurrent amount: ' + formatCurrency(Math.abs(transaction.amount), displayCurrency),
+              buttons: [
+                {
+                  text: 'Cancel',
+                  style: 'cancel',
+                  onPress: () => router.back()
+                },
+                {
+                  text: 'Delete & Recreate',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      // Delete the existing transfer
+                      await deleteTransaction(Number(id));
+                      // Stay on the page but reset the form for a new transfer
+                      setAmount(String(Math.abs(transaction.amount)));
+                      setDate(new Date(transaction.date));
+                      setWalletId(transaction.wallet_id);
+                      setType('transfer');
+                      // Pre-select the wallet and show transfer UI
+                      const firstOtherWallet = wallets.find(w => w.id !== transaction.wallet_id);
+                      if (firstOtherWallet) {
+                        setToWalletId(firstOtherWallet.id!);
+                      }
+                      // Show a success message
+                      setAlertConfig({
+                        visible: true,
+                        title: 'Transfer Deleted',
+                        message: 'The transfer has been deleted. You can now create a new transfer with your changes.',
+                        buttons: [{ text: 'OK' }]
+                      });
+                    } catch (error) {
+                      logError('Failed to delete transfer for recreation:', { error });
+                      setAlertConfig({
+                        visible: true,
+                        title: 'Error',
+                        message: 'Failed to delete the transfer. Please try again.',
+                        buttons: [{ text: 'OK', onPress: () => router.back() }]
+                      });
+                    }
+                  }
+                }
+              ]
             });
             return;
           }
@@ -237,25 +275,23 @@ export default function AddTransactionScreen() {
     try {
       setIsPickingImage(true);
       setImagePickingStartTime(Date.now());
-      const res = await ImagePicker.launchImageLibraryAsync({ base64: true, quality: 0.7 });
+      // Optimized: Don't request base64, work with local URI only
+      const res = await ImagePicker.launchImageLibraryAsync({ 
+        base64: false, 
+        quality: 0.7,
+        allowsEditing: true,
+        aspect: [4, 3]
+      });
       if (!res.canceled && res.assets?.[0]) {
         const asset = res.assets[0];
+        // Optimized: Process image and save to temp location without base64 conversion
         const manip = await ImageManipulator.manipulateAsync(
           asset.uri,
-          [{ resize: { width: 1000 } }],
-          { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+          [{ resize: { width: 1200 } }], // Slightly larger for better quality
+          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: false }
         );
-        if (!manip.base64) {
-          setAlertConfig({
-            visible: true,
-            title: 'Error',
-            message: 'Failed to process image',
-            buttons: [{ text: 'OK' }]
-          });
-          return;
-        }
-        setImageBase64(manip.base64);
-        setLocalUri(asset.uri);
+        // Store only the local URI, no base64 in memory
+        setLocalUri(manip.uri);
       }
     } catch (error) {
       logError('Error picking image', { error });
@@ -275,25 +311,21 @@ export default function AddTransactionScreen() {
     try {
       setIsPickingImage(true);
       setImagePickingStartTime(Date.now());
-      const res = await ImagePicker.launchCameraAsync({ base64: true, quality: 0.7 });
+      // Optimized: Don't request base64, work with local URI only
+      const res = await ImagePicker.launchCameraAsync({ 
+        base64: false, 
+        quality: 0.8 
+      });
       if (!res.canceled && res.assets?.[0]) {
         const asset = res.assets[0];
+        // Optimized: Process image and save to temp location without base64 conversion
         const manip = await ImageManipulator.manipulateAsync(
           asset.uri,
-          [{ resize: { width: 1000 } }],
-          { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+          [{ resize: { width: 1200 } }],
+          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: false }
         );
-        if (!manip.base64) {
-          setAlertConfig({
-            visible: true,
-            title: 'Error',
-            message: 'Failed to process photo',
-            buttons: [{ text: 'OK' }]
-          });
-          return;
-        }
-        setImageBase64(manip.base64);
-        setLocalUri(asset.uri);
+        // Store only the local URI, no base64 in memory
+        setLocalUri(manip.uri);
       }
     } catch (error) {
       logError('Error taking photo', { error });
@@ -310,7 +342,6 @@ export default function AddTransactionScreen() {
   };
 
   const removeImage = () => {
-    setImageBase64(undefined);
     setLocalUri(undefined);
   };
 
@@ -461,9 +492,9 @@ export default function AddTransactionScreen() {
 
       let receiptUri: string | undefined;
       try {
-        if (imageBase64) {
-          const filename = `receipt_${Date.now()}.jpg`;
-          receiptUri = await saveReceiptImage(filename, imageBase64);
+        // Optimized: Use local URI directly without base64 conversion
+        if (localUri) {
+          receiptUri = await saveReceiptImageFromUri(localUri);
         }
       } catch (err) {
         logError('[Transaction] Error saving receipt:', { error: err });
@@ -524,7 +555,7 @@ export default function AddTransactionScreen() {
         router.back();
       } catch (err: any) {
         logError(`[Transaction] Failed to ${isEditMode ? 'update' : 'add'} transaction:`, { error: err });
-        let errorMessage = `Failed to ${isEditMode ? 'update' : 'add'} transaction.\n\nTry:\n• Check your internet connection\n• Restart the app\n• If the problem persists, contact support`);
+        let errorMessage = `Failed to ${isEditMode ? 'update' : 'add'} transaction.\n\nTry:\n- Check your internet connection\n- Restart the app\n- If the problem persists, contact support`;
         if (err?.message?.includes('database')) {
           errorMessage = 'Database error occurred. Please restart the app and try again.';
         } else if (err?.message?.includes('timeout')) {

@@ -12,6 +12,7 @@ import { useWallets } from '../../src/lib/hooks/useWallets';
 import { theme } from '../../src/theme/theme';
 import { useAlert } from '../../src/lib/hooks/useAlert';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
+import { useTabBadges } from '../../src/lib/hooks/useTabBadges';
 
 export default function TabsLayout() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets();
 
   const { alertConfig, showConfirmAlert, dismissAlert } = useAlert();
+  const { analytics: analyticsBadgeCount } = useTabBadges();
 
   // On Android with 3-button nav, insets.bottom > 0. Use it to lift the bar; gesture nav reports 0 so it stays flush.
   const bottomPadding = insets.bottom;
@@ -117,6 +119,7 @@ export default function TabsLayout() {
           options={{
             title: 'Analytics',
             tabBarAccessibilityLabel: 'Analytics tab - view spending reports and insights',
+            tabBarBadge: analyticsBadgeCount > 0 ? analyticsBadgeCount : undefined,
             tabBarIcon: ({ color, focused }) => (
               <AnalyticsIcon color={color} focused={focused} />
             ),

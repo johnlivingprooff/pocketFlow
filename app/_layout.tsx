@@ -56,9 +56,12 @@ export default function RootLayout() {
           await ensureTables();
           // Process recurring transactions after DB is ready
           await processRecurringTransactions();
-          // Reuse existing startup task hook (used by recurring processing) to gate reminders.
+          // Initialize reminder system
+          log('[App] Initializing reminder notifications...');
           await initializeReminderNotifications();
+          log('[App] Running reminder runtime gate check...');
           await runReminderRuntimeGateCheck('app_start');
+          log('[App] Reminder initialization complete');
           await maybeRunAutoBackup();
           setDbReady(true);
         } catch (err: unknown) {

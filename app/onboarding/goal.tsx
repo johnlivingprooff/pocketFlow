@@ -24,8 +24,6 @@ export default function GoalTutorialScreen() {
     category: '/onboarding/category',
     budget: '/onboarding/budget',
     goal: '/onboarding/goal',
-    transaction: '/onboarding/transaction',
-    transfer: '/onboarding/transfer',
     analytics: '/onboarding/analytics',
   };
 
@@ -78,8 +76,8 @@ export default function GoalTutorialScreen() {
       });
 
       completeStep('goal');
-      setCurrentStep('transaction');
-      router.push('/onboarding/transaction');
+      setCurrentStep('analytics');
+      router.push('/onboarding/analytics');
     } catch (error) {
       console.error('Failed to create goal:', error);
       Alert.alert('Error', 'Could not create goal. Please try again.');
@@ -90,8 +88,8 @@ export default function GoalTutorialScreen() {
 
   const handleSkip = () => {
     completeStep('goal');
-    setCurrentStep('transaction');
-    router.push('/onboarding/transaction');
+    setCurrentStep('analytics');
+    router.push('/onboarding/analytics');
   };
 
   return (

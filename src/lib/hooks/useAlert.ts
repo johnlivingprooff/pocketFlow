@@ -43,6 +43,25 @@ export function useAlert() {
     });
   }, []);
 
+  const showRetryAlert = useCallback((title: string, message: string, onRetry: () => void) => {
+    setAlertConfig({
+      visible: true,
+      title,
+      message,
+      buttons: [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Retry',
+          onPress: onRetry,
+          style: 'success',
+        },
+      ],
+    });
+  }, []);
+
   const showSuccessAlert = useCallback((title: string, message: string, onDismiss?: () => void) => {
     setAlertConfig({
       visible: true,
@@ -88,6 +107,7 @@ export function useAlert() {
     alertConfig,
     showAlert,
     showErrorAlert,
+    showRetryAlert,
     showSuccessAlert,
     showConfirmAlert,
     dismissAlert,

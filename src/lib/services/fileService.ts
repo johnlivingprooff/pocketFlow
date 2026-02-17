@@ -34,6 +34,42 @@ export async function saveReceiptImage(filename: string, base64Data: string) {
   }
 }
 
+/**
+ * Save receipt image from a local URI directly (optimized, no base64 conversion)
+ * @param sourceUri - Source image URI from camera/gallery
+ * @returns The final saved file URI
+ */
+export async function saveReceiptImageFromUri(sourceUri: string): Promise<string> {
+  if (!sourceUri) {
+    throw new Error('Source URI is required');
+  }
+
+  try {
+    const documentDir = FileSystem.documentDirectory;
+    if (!documentDir) {
+      throw new Error('Document directory not available');
+    }
+    
+    // Generate unique filename
+    const timestamp = Date.now();
+    const filename = `receipt_${timestamp}.jpg`;
+    const dir = `${documentDir}receipts/${yyyyMmDd()}`;
+    await ensureDir(dir);
+    const destUri = `${dir}/${filename}`;
+    
+    // Copy directly without base64 conversion
+    await FileSystem.copyAsync({
+      from: sourceUri,
+      to: destUri,
+    });
+    
+    return destUri;
+  } catch (error) {
+    console.error('Error saving receipt image from URI:', error);
+    throw new Error('Failed to save receipt image');
+  }
+}
+
 export async function exportData(json: any) {
   try {
     const documentDir = FileSystem.documentDirectory;

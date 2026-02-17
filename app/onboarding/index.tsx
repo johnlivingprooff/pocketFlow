@@ -6,14 +6,19 @@ export default function OnboardingIndex() {
   const router = useRouter();
   const { isOnboardingComplete, currentStep } = useOnboarding();
 
+  const normalizedStep =
+    currentStep === ('transaction' as any) || currentStep === ('transfer' as any)
+      ? 'analytics'
+      : currentStep;
+
   useEffect(() => {
     if (isOnboardingComplete) {
       router.replace('/(tabs)');
     } else {
       // Redirect to the appropriate step
-      router.replace(`/onboarding/${currentStep}`);
+      router.replace(`/onboarding/${normalizedStep}`);
     }
-  }, [isOnboardingComplete, currentStep]);
+  }, [isOnboardingComplete, normalizedStep]);
 
   return null;
 }

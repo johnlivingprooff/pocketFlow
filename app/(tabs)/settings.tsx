@@ -15,6 +15,7 @@ import { ExportIcon } from '../../src/assets/icons/ExportIcon';
 import { ReceiptIcon } from '../../src/assets/icons/ReceiptIcon';
 import { useAlert } from '../../src/lib/hooks/useAlert';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
+import { ThemePreview } from '../../src/components/ThemePreview';
 import appPackage from '../../package.json';
 
 const APP_VERSION = "2.0.1"; // Manually overridden for v2.0.1 release
@@ -421,17 +422,43 @@ export default function SettingsScreen() {
       {/* Theme Picker Modal */}
       <Modal visible={showThemePicker} transparent animationType="fade" onRequestClose={() => setShowThemePicker(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 16 }}>
-          <View style={{ backgroundColor: t.card, borderRadius: 12, borderWidth: 1, borderColor: t.border, maxHeight: '80%' }}>
+          <View style={{ backgroundColor: t.card, borderRadius: 12, borderWidth: 1, borderColor: t.border, maxHeight: '90%' }}>
             <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
               <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Select Theme</Text>
+              <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>Preview how each theme looks</Text>
             </View>
-            {themeOptions.map((option) => (
-              <TouchableOpacity key={option.value} onPress={() => { setThemeMode(option.value); setShowThemePicker(false); }} style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
-                <Text style={{ color: themeMode === option.value ? t.primary : t.textPrimary, fontSize: 16, fontWeight: themeMode === option.value ? '800' : '600' }}>{option.label}</Text>
-                <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>{option.description}</Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity onPress={() => setShowThemePicker(false)} style={{ padding: 16, alignItems: 'center' }}>
+            <ScrollView style={{ maxHeight: 400 }}>
+              {themeOptions.map((option) => (
+                <TouchableOpacity 
+                  key={option.value} 
+                  onPress={() => { setThemeMode(option.value); setShowThemePicker(false); }} 
+                  style={{ 
+                    padding: 16, 
+                    borderBottomWidth: 1, 
+                    borderBottomColor: t.border,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 16,
+                  }}
+                >
+                  <ThemePreview themeMode={option.value} isSelected={themeMode === option.value} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ 
+                      color: themeMode === option.value ? t.primary : t.textPrimary, 
+                      fontSize: 16, 
+                      fontWeight: themeMode === option.value ? '800' : '600' 
+                    }}>
+                      {option.label}
+                    </Text>
+                    <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>{option.description}</Text>
+                  </View>
+                  {themeMode === option.value && (
+                    <Text style={{ color: t.primary, fontSize: 20, fontWeight: '800' }}>✓</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity onPress={() => setShowThemePicker(false)} style={{ padding: 16, alignItems: 'center', borderTopWidth: 1, borderTopColor: t.border }}>
               <Text style={{ color: t.primary, fontWeight: '700' }}>Close</Text>
             </TouchableOpacity>
           </View>

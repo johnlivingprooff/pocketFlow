@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -14,6 +14,7 @@ export default function AnalyticsTutorialScreen() {
   const { completeOnboarding, setCurrentStep } = useOnboarding();
   const router = useRouter();
   const t = theme(themeMode, systemColorScheme || 'light');
+  const [showTransferTips, setShowTransferTips] = useState(false);
 
   const handleFinish = () => {
     completeOnboarding();
@@ -21,8 +22,8 @@ export default function AnalyticsTutorialScreen() {
   };
 
   const handleBack = () => {
-    setCurrentStep('transfer');
-    router.push('/onboarding/transfer');
+    setCurrentStep('goal');
+    router.push('/onboarding/goal');
   };
 
   return (
@@ -36,8 +37,8 @@ export default function AnalyticsTutorialScreen() {
           <Text style={[styles.title, { color: t.textPrimary }]}>
             You're All Set!
           </Text>
-          <Text style={[styles.subtitle, { color: t.textSecondary }]}>
-            Here's what you've accomplished:
+          <Text style={[styles.subtitle, { color: t.textSecondary }]}> 
+            Quick recap before you start using pocketFlow:
           </Text>
         </View>
 
@@ -80,15 +81,15 @@ export default function AnalyticsTutorialScreen() {
             t={t}
           />
           <AchievementItem
-            icon={<Text style={{ fontSize: 24 }}>💸</Text>}
-            title="Transaction Added"
-            description="Start tracking your finances"
+            icon={<Text style={{ fontSize: 24 }}>🔄</Text>}
+            title="Transfer Tips Ready"
+            description="Optional transfer guide below when you need it"
             t={t}
           />
         </View>
 
         {/* Analytics Info */}
-        <View style={[styles.card, { backgroundColor: colors.deepGold + '10' }]}>
+        <View style={[styles.card, { backgroundColor: colors.deepGold + '10' }]}> 
           <Text style={[styles.cardTitle, { color: t.textPrimary }]}>
             📊 About Analytics
           </Text>
@@ -111,10 +112,27 @@ export default function AnalyticsTutorialScreen() {
           </View>
         </View>
 
+        {/* Optional transfer guide */}
+        <View style={[styles.card, { backgroundColor: t.card, borderWidth: 1, borderColor: t.border }]}> 
+          <Pressable style={styles.transferHeaderRow} onPress={() => setShowTransferTips((prev) => !prev)}>
+            <Text style={[styles.cardTitle, { color: t.textPrimary }]}>🔄 Optional: Transfer Guide</Text>
+            <Text style={[styles.transferToggle, { color: t.primary }]}>{showTransferTips ? 'Hide' : 'Show'}</Text>
+          </Pressable>
+          {showTransferTips && (
+            <View style={styles.features}>
+              <Text style={[styles.featureText, { color: t.textSecondary }]}>• Open Wallets tab</Text>
+              <Text style={[styles.featureText, { color: t.textSecondary }]}>• Tap Transfer</Text>
+              <Text style={[styles.featureText, { color: t.textSecondary }]}>• Choose source and destination wallets</Text>
+              <Text style={[styles.featureText, { color: t.textSecondary }]}>• Enter amount and confirm</Text>
+              <Text style={[styles.featureText, { color: t.textSecondary }]}>• Transfers move money only; they do not count as income or expense</Text>
+            </View>
+          )}
+        </View>
+
         {/* Final Message */}
-        <View style={[styles.finalBox, { backgroundColor: colors.positiveGreen + '10' }]}>
-          <Text style={[styles.finalText, { color: t.textPrimary }]}>
-            🎉 <Text style={{ fontWeight: '700' }}>Congratulations!</Text> You're ready to take control of your finances with pocketFlow!
+        <View style={[styles.finalBox, { backgroundColor: colors.positiveGreen + '10' }]}> 
+          <Text style={[styles.finalText, { color: t.textPrimary }]}> 
+            🎉 <Text style={{ fontWeight: '700' }}>Congratulations!</Text> You are set up and ready to track your first transaction from the + button anytime.
           </Text>
         </View>
 
@@ -218,6 +236,16 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 12,
     marginBottom: 20,
+  },
+  transferHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  transferToggle: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   cardTitle: {
     fontSize: 18,

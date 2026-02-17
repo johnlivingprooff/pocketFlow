@@ -6,6 +6,7 @@ import { theme } from '../theme/theme';
 import { useSettings } from '../store/useStore';
 import { formatCurrency } from '../utils/formatCurrency';
 import { formatShortDate } from '../utils/date';
+import { SkeletonCard } from './Skeleton';
 
 interface HomeSummaryCardProps {
     type: 'budget' | 'goal';
@@ -67,21 +68,15 @@ export const HomeSummaryWidget = React.memo(function HomeSummaryWidgetComponent(
         return data.find(item => item.id === selectedId) || null;
     }, [selectedId, data]);
 
-    const HomeSkeleton = () => (
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, width: '100%' }]}>
-            <View style={{ height: 14, width: 100, backgroundColor: colors.border, borderRadius: 4, marginBottom: 12, opacity: 0.5 }} />
-            <View style={{ height: 8, backgroundColor: colors.border, borderRadius: 4, marginBottom: 12, opacity: 0.5 }} />
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <View style={{ height: 12, width: 60, backgroundColor: colors.border, borderRadius: 4, opacity: 0.5 }} />
-                <View style={{ height: 12, width: 60, backgroundColor: colors.border, borderRadius: 4, opacity: 0.5 }} />
-            </View>
-        </View>
-    );
-
     if (isLoading) {
         return (
             <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
-                <HomeSkeleton />
+                <SkeletonCard 
+                    colors={colors} 
+                    lines={2} 
+                    showHeader={true}
+                    showFooter={true}
+                />
             </View>
         );
     }

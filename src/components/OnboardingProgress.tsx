@@ -21,7 +21,7 @@ export function OnboardingProgress({
 }: OnboardingProgressProps) {
   // Get the index of current step (excluding welcome)
   const currentIndex = ONBOARDING_STEPS.indexOf(currentStep as any);
-  // Total is all steps except welcome (9 steps total, but welcome is step 0)
+  // Total is all steps except welcome (welcome is step 0)
   const totalSteps = ONBOARDING_STEPS.length - 1;
   // Current step number for display (1-based, excluding welcome)
   const stepNumber = currentIndex > 0 ? currentIndex : 1;

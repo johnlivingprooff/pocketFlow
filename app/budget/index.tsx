@@ -20,6 +20,7 @@ import { ThemedAlert } from '@/components/ThemedAlert';
 import { EmptyBudgetIcon, EmptyGoalIcon, CheckCircleIcon, AlertCircleIcon, TrendUpIcon } from '@/assets/icons/BudgetGoalIcons';
 import { PlusIcon } from '@/assets/icons/PlusIcon';
 import { SettingsIcon } from '@/assets/icons/SettingsIcon'; // Using Settings as a placeholder if Chevron is missing, or just check what we have
+import { ConfettiCelebration } from '@/components/ConfettiCelebration';
 
 type TabType = 'budget' | 'goals';
 
@@ -44,12 +45,14 @@ export default function BudgetGoalsScreen() {
   const { themeMode, defaultCurrency } = useSettings();
   const systemColorScheme = useColorScheme();
   const colors = theme(themeMode, systemColorScheme || 'light');
-  const { alertConfig, showErrorAlert, showConfirmAlert, showSuccessAlert, dismissAlert, setAlertConfig } = useAlert();
+  const { alertConfig, showErrorAlert, showRetryAlert, showConfirmAlert, showSuccessAlert, dismissAlert, setAlertConfig } = useAlert();
   const [activeTab, setActiveTab] = useState<TabType>('budget');
   const [budgets, setBudgets] = useState<BudgetWithMetrics[]>([]);
   const [goals, setGoals] = useState<GoalWithMetrics[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const celebratedGoalIds = useRef<Set<number>>(new Set());
 
   const translateX = useSharedValue(0);
 
@@ -86,10 +89,26 @@ export default function BudgetGoalsScreen() {
           return goalWithMetrics;
         })
       );
-      setGoals(goalsWithMetrics.filter((g): g is GoalWithMetrics => g !== null));
+      const validGoals = goalsWithMetrics.filter((g): g is GoalWithMetrics => g !== null);
+      setGoals(validGoals);
+      
+      // Check for newly achieved goals (100%) and trigger confetti
+      const newlyAchieved = validGoals.filter(g => 
+        (g.progressPercentage || 0) >= 100 && 
+        !celebratedGoalIds.current.has(g.id!)
+      );
+      
+      if (newlyAchieved.length > 0) {
+        newlyAchieved.forEach(g => celebratedGoalIds.current.add(g.id!));
+        setShowConfetti(true);
+      }
     } catch (err: any) {
       logError('Failed to load budgets/goals data:', { error: err });
-      showErrorAlert('Error', 'Failed to load budgets and goals');
+      showRetryAlert(
+        'Error', 
+        'Failed to load budgets and goals.\n\nWould you like to try again?',
+        loadData
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -171,12 +190,12 @@ export default function BudgetGoalsScreen() {
   };
 
   const pan = Gesture.Pan()
-    .failOffsetY([-10, 10])
-    .activeOffsetX([-10, 10])
+    .failOffsetY([-20, 20])  // Increased from 10 to 20 - more tolerant of vertical scrolling
+    .activeOffsetX([-15, 15])  // Increased from 10 to 15 - require more horizontal movement to activate
     .onUpdate((e) => {
       // Only allow horizontal swiping if the gesture is predominantly horizontal
       // This prevents conflicts with vertical scrolling/pull-to-refresh
-      const isHorizontalGesture = Math.abs(e.translationX) > Math.abs(e.translationY) && Math.abs(e.translationX) > 20;
+      const isHorizontalGesture = Math.abs(e.translationX) > Math.abs(e.translationY) * 1.5 && Math.abs(e.translationX) > 30;
 
       if (!isHorizontalGesture) {
         return; // Let vertical gestures (like pull-to-refresh) pass through
@@ -195,7 +214,7 @@ export default function BudgetGoalsScreen() {
     })
     .onEnd((e) => {
       // Only process horizontal swipe if it was a horizontal gesture
-      const isHorizontalGesture = Math.abs(e.translationX) > Math.abs(e.translationY) && Math.abs(e.translationX) > 20;
+      const isHorizontalGesture = Math.abs(e.translationX) > Math.abs(e.translationY) * 1.5 && Math.abs(e.translationX) > 30;
 
       if (!isHorizontalGesture) {
         return; // Don't interfere with vertical gestures
@@ -205,12 +224,13 @@ export default function BudgetGoalsScreen() {
       const finalPosition = currentOffset + e.translationX;
 
       // Determine which tab to snap to based on position and velocity
+      // Increased velocity threshold from 500 to 800 for more deliberate swipes
       const shouldSwitchToGoals =
         finalPosition < -SCREEN_WIDTH / 2 ||
-        (e.velocityX < -500 && activeTab === 'budget');
+        (e.velocityX < -800 && activeTab === 'budget');
       const shouldSwitchToBudget =
         finalPosition > -SCREEN_WIDTH / 2 ||
-        (e.velocityX > 500 && activeTab === 'goals');
+        (e.velocityX > 800 && activeTab === 'goals');
 
       if (shouldSwitchToGoals && activeTab === 'budget') {
         runOnJS(switchTab)('goals');
@@ -731,6 +751,12 @@ export default function BudgetGoalsScreen() {
           <PlusIcon size={24} color={colors.background} />
         </Pressable>
       )}
+      
+      {/* Confetti Celebration for achieved goals */}
+      <ConfettiCelebration 
+        visible={showConfetti} 
+        onComplete={() => setShowConfetti(false)} 
+      />
     </SafeAreaView>
   );
 }
