@@ -50,6 +50,45 @@ function getGreeting(now: Date = new Date()): string {
   return 'Hello';
 }
 
+function getPeriodLabel(period: TimePeriod): string {
+  switch (period) {
+    case 'all':
+      return 'All Time';
+    case 'today':
+      return 'Today';
+    case 'week':
+      return 'This Week';
+    case 'month':
+      return 'This Month';
+    case 'lastMonth':
+      return 'Last Month';
+    case 'custom':
+      return 'Custom Range';
+    default:
+      return 'This Period';
+  }
+}
+
+function getPeriodDayCount(
+  period: TimePeriod,
+  startDate: Date | null,
+  endDate: Date | null,
+  now: Date = new Date()
+): number {
+  if (period === 'today') return 1;
+  if (period === 'week') return 7;
+  if (period === 'month') return Math.max(1, now.getDate());
+  if (period === 'lastMonth') {
+    return new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+  }
+  if (period === 'custom' && startDate && endDate) {
+    const diffMs = Math.abs(endDate.getTime() - startDate.getTime());
+    return Math.max(1, Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1);
+  }
+  if (period === 'all') return 30;
+  return 7;
+}
+
 // Skeleton Loader Component
 const SkeletonLoader = () => {
   const { themeMode } = useSettings();
@@ -343,6 +382,20 @@ export default function Home() {
 
     return result;
   }
+
+  useEffect(() => {
+    const mappedRange: '7d' | '3m' | '6m' =
+      selectedPeriod === 'today' || selectedPeriod === 'week'
+        ? '7d'
+        : selectedPeriod === 'month'
+          ? '3m'
+          : '6m';
+
+    if (chartRange !== mappedRange) {
+      setChartRange(mappedRange);
+    }
+  }, [selectedPeriod, chartRange]);
+
   useEffect(() => {
     if (Platform.OS === 'web') return;
 
@@ -512,6 +565,43 @@ export default function Home() {
       router.push(`/wallets/${selectedWalletForAction.id}`);
     }
   };
+
+  const now = new Date();
+  const periodLabel = getPeriodLabel(selectedPeriod);
+  const periodDayCount = getPeriodDayCount(selectedPeriod, customStartDate, customEndDate, now);
+  const net = income - expenses;
+  const dailyBurnRate = expenses / periodDayCount;
+  const totalAvailableBalance = wallets.reduce((sum, w) => {
+    const walletId = w.id;
+    if (!walletId) return sum;
+    const balance = balances[walletId] ?? 0;
+    const rate = w.exchange_rate ?? 1.0;
+    return sum + balance * rate;
+  }, 0);
+
+  const orderIndex: Record<number, number> = {};
+  (recentOrder || []).forEach((id, idx) => {
+    orderIndex[id] = idx;
+  });
+  const orderedWallets = wallets.slice().sort((a, b) => {
+    const ai = orderIndex[a.id!] ?? Number.MAX_SAFE_INTEGER;
+    const bi = orderIndex[b.id!] ?? Number.MAX_SAFE_INTEGER;
+    if (ai !== bi) return ai - bi;
+
+    const ad = a.display_order ?? Number.MAX_SAFE_INTEGER;
+    const bd = b.display_order ?? Number.MAX_SAFE_INTEGER;
+    if (ad !== bd) return ad - bd;
+
+    const aDate = new Date(a.created_at || 0).getTime();
+    const bDate = new Date(b.created_at || 0).getTime();
+    return bDate - aDate;
+  });
+
+  const overBudgetCount = activeBudgets.filter((budget) => budget.isOverBudget).length;
+  const nearBudgetLimitCount = activeBudgets.filter((budget) => !budget.isOverBudget && budget.percentageUsed >= 85).length;
+  const overdueGoalCount = goals.filter((goal) => goal.daysRemaining < 0 && goal.progressPercentage < 100).length;
+  const atRiskGoalCount = goals.filter((goal) => goal.daysRemaining >= 0 && goal.daysRemaining <= 30 && goal.progressPercentage < 75).length;
+  const needsAttentionCount = overBudgetCount + nearBudgetLimitCount + overdueGoalCount + atRiskGoalCount;
 
   if (Platform.OS === 'web') {
     return (

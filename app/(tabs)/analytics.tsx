@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Platform, TouchableOpacity, useColorScheme, Ima
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
-import { theme, shadows } from '../../src/theme/theme';
+import { theme } from '../../src/theme/theme';
 import {
   weekOverWeekComparison,
   incomeVsExpenseAnalysis,
@@ -353,7 +353,7 @@ export default function AnalyticsPage() {
           </View>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Link href="/profile" asChild>
-              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', ...shadows.sm }}>
+              <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
                 {userInfo?.profileImage ? (
                   <Image source={{ uri: userInfo.profileImage }} style={{ width: 48, height: 48, borderRadius: 24 }} />
                 ) : (
@@ -394,8 +394,7 @@ export default function AnalyticsPage() {
                   borderWidth: 1,
                   borderColor: t.border,
                   borderRadius: 14,
-                  padding: 16,
-                  ...shadows.sm
+                  padding: 16
                 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
                     <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>Net Flow</Text>
@@ -421,8 +420,7 @@ export default function AnalyticsPage() {
                   borderWidth: 1,
                   borderColor: t.border,
                   borderRadius: 14,
-                  padding: 16,
-                  ...shadows.sm
+                  padding: 16
                 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
                     <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>
@@ -451,8 +449,7 @@ export default function AnalyticsPage() {
                 borderWidth: 1,
                 borderColor: t.border,
                 borderRadius: 14,
-                padding: 16,
-                ...shadows.sm
+                padding: 16
               }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
                   <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>
@@ -477,8 +474,7 @@ export default function AnalyticsPage() {
                 borderWidth: 1,
                 borderColor: t.border,
                 borderRadius: 14,
-                padding: 16,
-                ...shadows.sm
+                padding: 16
               }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
                   <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>Largest Purchase</Text>
@@ -523,8 +519,7 @@ export default function AnalyticsPage() {
                 borderWidth: 1,
                 borderColor: t.border,
                 borderRadius: 14,
-                padding: 16,
-                ...shadows.sm
+                padding: 16
               }}>
                 <AnimatedProgressBar
                   progress={monthProgress.progressPercentage}
@@ -557,8 +552,7 @@ export default function AnalyticsPage() {
                 borderWidth: 1,
                 borderColor: t.border,
                 borderRadius: 14,
-                padding: 16,
-                ...shadows.sm
+                padding: 16
               }}>
                 <CandlestickChart
                   data={
@@ -620,8 +614,7 @@ export default function AnalyticsPage() {
                 borderWidth: 1,
                 borderColor: t.border,
                 borderRadius: 14,
-                padding: 16,
-                ...shadows.sm
+                padding: 16
               }}>
                 <SevenDayTrendChart
                   data={sevenDayTrend}
@@ -651,8 +644,7 @@ export default function AnalyticsPage() {
                 borderWidth: 1,
                 borderColor: t.border,
                 borderRadius: 14,
-                padding: 16,
-                ...shadows.sm
+                padding: 16
               }}>
 
                 <HorizontalBarChart
