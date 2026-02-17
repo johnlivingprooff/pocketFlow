@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { getBudgets } from '../lib/db/budgets';
-import { getGoals } from '../lib/db/goals';
+import { getBudgets } from '../db/budgets';
+import { getGoals } from '../db/goals';
 
 interface TabBadgeCounts {
   analytics: number;

@@ -543,21 +543,22 @@ export async function weekOverWeekComparison() {
   const lastWeekEnd = new Date(thisWeekStart);
   lastWeekEnd.setMilliseconds(-1); // End of last week (just before this week starts)
 
-  const thisWeekResult = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
-     FROM transactions t 
-     LEFT JOIN wallets w ON t.wallet_id = w.id
-     WHERE t.type = 'expense' AND t.date >= ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
-    [thisWeekStart.toISOString()]
-  );
-
-  const lastWeekResult = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
-     FROM transactions t 
-     LEFT JOIN wallets w ON t.wallet_id = w.id
-     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
-    [lastWeekStart.toISOString(), lastWeekEnd.toISOString()]
-  );
+  const [thisWeekResult, lastWeekResult] = await Promise.all([
+    exec<{ total: number }>(
+      `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
+       FROM transactions t 
+       LEFT JOIN wallets w ON t.wallet_id = w.id
+       WHERE t.type = 'expense' AND t.date >= ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
+      [thisWeekStart.toISOString()]
+    ),
+    exec<{ total: number }>(
+      `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
+       FROM transactions t 
+       LEFT JOIN wallets w ON t.wallet_id = w.id
+       WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
+      [lastWeekStart.toISOString(), lastWeekEnd.toISOString()]
+    ),
+  ]);
 
   const thisWeek = thisWeekResult[0]?.total ?? 0;
   const lastWeek = lastWeekResult[0]?.total ?? 0;
@@ -577,20 +578,22 @@ export async function incomeVsExpenseAnalysis(period: 'current' | 'last' = 'curr
   const start = startDate.toISOString();
   const end = endDate.toISOString();
 
-  const income = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(t.amount * COALESCE(w.exchange_rate, 1.0)),0) as total 
-     FROM transactions t 
-     LEFT JOIN wallets w ON t.wallet_id = w.id
-     WHERE t.type = 'income' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
-    [start, end]
-  );
-  const expense = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
-     FROM transactions t 
-     LEFT JOIN wallets w ON t.wallet_id = w.id
-     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
-    [start, end]
-  );
+  const [income, expense] = await Promise.all([
+    exec<{ total: number }>(
+      `SELECT COALESCE(SUM(t.amount * COALESCE(w.exchange_rate, 1.0)),0) as total 
+       FROM transactions t 
+       LEFT JOIN wallets w ON t.wallet_id = w.id
+       WHERE t.type = 'income' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
+      [start, end]
+    ),
+    exec<{ total: number }>(
+      `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
+       FROM transactions t 
+       LEFT JOIN wallets w ON t.wallet_id = w.id
+       WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
+      [start, end]
+    ),
+  ]);
 
   const incomeTotal = income[0]?.total ?? 0;
   const expenseTotal = expense[0]?.total ?? 0;
@@ -1076,6 +1079,9 @@ export async function getCategorySpendingForPeriod(period: '7days' | '30days' | 
   } else if (period === '30days') {
     startDate = new Date(now);
     startDate.setDate(now.getDate() - 30);
+  } else if (period === '3months') {
+    startDate = new Date(now);
+    startDate.setMonth(now.getMonth() - 3);
   } else if (period === '6months') {
     startDate = new Date(now);
     startDate.setMonth(now.getMonth() - 6);

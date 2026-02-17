@@ -1,25 +1,17 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, Dimensions, Platform, TouchableOpacity, useColorScheme, Image, RefreshControl } from 'react-native';
+import React, { useState, useCallback, useRef } from 'react';
+import { View, Text, ScrollView, Platform, TouchableOpacity, useColorScheme, Image, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
 import {
-  monthSpend,
-  todaySpend,
-  categoryBreakdown,
   weekOverWeekComparison,
   incomeVsExpenseAnalysis,
   getSpendingStreak,
   getMonthProgress,
-  getTopSpendingDay,
-  getTransactionCounts,
-  getAveragePurchaseSize,
   getSevenDaySpendingTrend,
   getDailySpendingForMonth,
   getMonthlyComparison,
-  getCategorySpendingForPieChart,
-  getSpendingTrendForPeriod,
   getCategorySpendingForPeriod,
   getTransactionsByCategory
 } from '../../src/lib/db/transactions';
@@ -27,14 +19,11 @@ import { exec } from '../../src/lib/db/index';
 import { getCategories } from '../../src/lib/db/categories';
 import { getBudgetsForPeriod } from '../../src/lib/db/budgets';
 import { getGoalsForPeriod } from '../../src/lib/db/goals';
-import { formatCurrency, formatLargeNumber } from '../../src/utils/formatCurrency';
+import { formatCurrency } from '../../src/utils/formatCurrency';
 import { formatShortDate } from '../../src/utils/date';
 import { Link } from 'expo-router';
 import { invalidateTransactionCaches, invalidateWalletCaches } from '../../src/lib/cache/queryCache';
 import SevenDayTrendChart from '../../src/components/charts/SevenDayTrendChart';
-import MonthlyBarChart from '../../src/components/charts/MonthlyBarChart';
-import IncomeExpenseChart from '../../src/components/charts/IncomeExpenseChart';
-import CategoryPieChart from '../../src/components/charts/CategoryPieChart';
 import CandlestickChart from '../../src/components/charts/CandlestickChart';
 import HorizontalBarChart from '../../src/components/charts/HorizontalBarChart';
 import AnimatedProgressBar from '../../src/components/charts/AnimatedProgressBar';
@@ -59,28 +48,42 @@ function abbreviateNumber(num: number): string {
   return (num / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'B';
 }
 
+type MetricsPeriod = '7days' | '30days' | '3months' | '6months';
+
+const METRIC_PERIODS: Array<{ key: MetricsPeriod; days: number }> = [
+  { key: '7days', days: 7 },
+  { key: '30days', days: 30 },
+  { key: '3months', days: 90 },
+  { key: '6months', days: 180 },
+];
+
+const PERIOD_DAYS_MAP: Record<TimePeriod, number> = {
+  '7days': 7,
+  '30days': 30,
+  '3months': 90,
+  '6months': 180,
+  'all': 3650,
+};
+
 export default function AnalyticsPage() {
   const { themeMode, defaultCurrency, userInfo } = useSettings();
   const systemColorScheme = useColorScheme();
   const t = theme(themeMode, systemColorScheme || 'light');
-  const [monthTotal, setMonthTotal] = useState(0);
-  const [todayTotal, setTodayTotal] = useState(0);
   const [categories, setCategories] = useState<Array<{ category: string; total: number }>>([]);
-  const [largestPurchase, setLargestPurchase] = useState(0);
-  const [avgDailySpend, setAvgDailySpend] = useState(0);
-  const [incomeByPeriod, setIncomeByPeriod] = useState<Record<string, number>>({
+
+  const [incomeByPeriod, setIncomeByPeriod] = useState<Record<MetricsPeriod, number>>({
     '7days': 0,
     '30days': 0,
     '3months': 0,
     '6months': 0
   });
-  const [spendingRateByPeriod, setSpendingRateByPeriod] = useState<Record<string, number>>({
+  const [spendingRateByPeriod, setSpendingRateByPeriod] = useState<Record<MetricsPeriod, number>>({
     '7days': 0,
     '30days': 0,
     '3months': 0,
     '6months': 0
   });
-  const [largestPurchaseByPeriod, setLargestPurchaseByPeriod] = useState<Record<string, number>>({
+  const [largestPurchaseByPeriod, setLargestPurchaseByPeriod] = useState<Record<MetricsPeriod, number>>({
     '7days': 0,
     '30days': 0,
     '3months': 0,
@@ -88,20 +91,13 @@ export default function AnalyticsPage() {
   });
 
   // Phase 1: Enhanced Analytics State
-  const [weekComparison, setWeekComparison] = useState<{ thisWeek: number; lastWeek: number; change: number } | null>(null);
   const [incomeExpense, setIncomeExpense] = useState<{ income: number; expense: number; netSavings: number; savingsRate: number } | null>(null);
-  const [incomeExpensePeriod, setIncomeExpensePeriod] = useState<'current' | 'last'>('current');
-  const [spendingStreak, setSpendingStreak] = useState<{ currentStreak: number; longestStreak: number; lastSpendDate: string | null } | null>(null);
   const [monthProgress, setMonthProgress] = useState<{ currentDay: number; daysInMonth: number; progressPercentage: number; daysRemaining: number } | null>(null);
-  const [topSpendingDay, setTopSpendingDay] = useState<{ date: string; total: number } | null>(null);
-  const [transactionCounts, setTransactionCounts] = useState<{ incomeCount: number; expenseCount: number; total: number } | null>(null);
-  const [avgPurchase, setAvgPurchase] = useState<{ average: number; count: number } | null>(null);
 
   // Phase 2: Chart Data State
   const [sevenDayTrend, setSevenDayTrend] = useState<Array<{ date: string; amount: number }>>([]);
   const [dailySpending, setDailySpending] = useState<Array<{ day: number; amount: number }>>([]);
   const [monthlyComparison, setMonthlyComparison] = useState<any>(null);
-  const [categoryPieData, setCategoryPieData] = useState<Array<{ category: string; total: number }>>([]);
   const [categoryColorMap, setCategoryColorMap] = useState<Record<string, string>>({});
 
   // Phase 3: Insights & Financial Health State
@@ -123,172 +119,175 @@ export default function AnalyticsPage() {
   const { alertConfig, showSuccessAlert, dismissAlert } = useAlert();
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const loadRequestIdRef = useRef(0);
 
   const loadData = useCallback(async (period: TimePeriod = '30days') => {
+    const requestId = ++loadRequestIdRef.current;
     setIsLoading(true);
+
     try {
-      if (Platform.OS !== 'web') {
-        const month = await monthSpend();
-        const today = await todaySpend();
-        const breakdown = await getCategorySpendingForPeriod(period as any);
+      if (Platform.OS === 'web') {
+        return;
+      }
 
-        setMonthTotal(month);
-        setTodayTotal(today);
-        setCategories(breakdown);
+      const now = new Date();
+      const analyticsPeriod: MetricsPeriod = period === 'all' ? '30days' : period;
+      const selectedDays = PERIOD_DAYS_MAP[period];
+      const activeIncomeExpensePeriod: 'current' | 'last' = 'current';
 
-        // Calculate average daily spend (simplified)
-        const daysInMonth = new Date().getDate();
-        setAvgDailySpend(month / daysInMonth);
-
-        // Find largest purchase (simplified - using category totals)
-        const largest = Math.max(...breakdown.map(c => c.total), 0);
-        setLargestPurchase(largest);
-
-        // Load period-specific metrics for cards
-        const incomeData: Record<string, number> = {};
-        const spendingData: Record<string, number> = {};
-        const largestPurchaseData: Record<string, number> = {};
-
-        const periods: Array<{ key: TimePeriod; days: number }> = [
-          { key: '7days', days: 7 },
-          { key: '30days', days: 30 },
-          { key: '3months', days: 90 },
-          { key: '6months', days: 180 }
-        ];
-
-        for (const { key, days } of periods) {
+      const periodMetricsPromise = Promise.all(
+        METRIC_PERIODS.map(async ({ key, days }) => {
           try {
-            // Calculate income and expense for this specific period
-            const now = new Date();
             const startDate = new Date(now);
             startDate.setDate(now.getDate() - days);
             const start = startDate.toISOString();
             const end = now.toISOString();
 
-            // Query income for this period
-            const incomeResult = await exec<{ total: number }>(
-              `SELECT COALESCE(SUM(t.amount * COALESCE(w.exchange_rate, 1.0)),0) as total 
-             FROM transactions t 
-             LEFT JOIN wallets w ON t.wallet_id = w.id
-             WHERE t.type = 'income' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
-              [start, end]
-            );
+            const [incomeResult, expenseResult, largestResult] = await Promise.all([
+              exec<{ total: number }>(
+                `SELECT COALESCE(SUM(t.amount * COALESCE(w.exchange_rate, 1.0)),0) as total
+                 FROM transactions t
+                 LEFT JOIN wallets w ON t.wallet_id = w.id
+                 WHERE t.type = 'income' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
+                [start, end]
+              ),
+              exec<{ total: number }>(
+                `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total
+                 FROM transactions t
+                 LEFT JOIN wallets w ON t.wallet_id = w.id
+                 WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
+                [start, end]
+              ),
+              exec<{ amount: number }>(
+                `SELECT ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) as amount
+                 FROM transactions t
+                 LEFT JOIN wallets w ON t.wallet_id = w.id
+                 WHERE t.date BETWEEN ? AND ? AND t.type = 'expense' AND (t.category IS NULL OR t.category <> 'Transfer')
+                 ORDER BY ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) DESC
+                 LIMIT 1;`,
+                [start, end]
+              ),
+            ]);
 
-            // Query expense for this period
-            const expenseResult = await exec<{ total: number }>(
-              `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
-             FROM transactions t 
-             LEFT JOIN wallets w ON t.wallet_id = w.id
-             WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
-              [start, end]
-            );
-
-            // Query largest single transaction for this period
-            const largestResult = await exec<{ amount: number }>(
-              `SELECT ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) as amount
-             FROM transactions t 
-             LEFT JOIN wallets w ON t.wallet_id = w.id
-             WHERE t.date BETWEEN ? AND ? AND t.type = 'expense' AND (t.category IS NULL OR t.category <> 'Transfer')
-             ORDER BY ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) DESC
-             LIMIT 1;`,
-              [start, end]
-            );
-
-            incomeData[key] = incomeResult[0]?.total ?? 0;
-            spendingData[key] = expenseResult[0]?.total ?? 0;
-            largestPurchaseData[key] = largestResult[0]?.amount ?? 0;
-          } catch (err) {
-            console.error(`Error loading metrics for period ${key}:`, err);
-            incomeData[key] = 0;
-            spendingData[key] = 0;
-            largestPurchaseData[key] = 0;
+            return {
+              key,
+              income: incomeResult[0]?.total ?? 0,
+              expense: expenseResult[0]?.total ?? 0,
+              largestPurchase: largestResult[0]?.amount ?? 0,
+            };
+          } catch (error) {
+            console.error(`Error loading metrics for period ${key}:`, error);
+            return { key, income: 0, expense: 0, largestPurchase: 0 };
           }
+        })
+      );
+
+      const budgetsPromise = getBudgetsForPeriod(selectedDays).catch((error) => {
+        console.error('Failed to load budgets:', error);
+        return [];
+      });
+      const goalsPromise = getGoalsForPeriod(selectedDays).catch((error) => {
+        console.error('Failed to load goals:', error);
+        return [];
+      });
+
+      const [
+        breakdown,
+        periodMetrics,
+        weekComp,
+        incExpAnalysis,
+        streak,
+        progress,
+        sevenDay,
+        daily,
+        comparison,
+        allCategories,
+        periodBudgets,
+        periodGoals,
+      ] = await Promise.all([
+        getCategorySpendingForPeriod(analyticsPeriod),
+        periodMetricsPromise,
+        weekOverWeekComparison(),
+        incomeVsExpenseAnalysis(activeIncomeExpensePeriod),
+        getSpendingStreak(),
+        getMonthProgress(),
+        getSevenDaySpendingTrend(),
+        getDailySpendingForMonth(),
+        getMonthlyComparison(analyticsPeriod),
+        getCategories(),
+        budgetsPromise,
+        goalsPromise,
+      ]);
+
+      if (requestId !== loadRequestIdRef.current) {
+        return;
+      }
+
+      const incomeData: Record<MetricsPeriod, number> = {
+        '7days': 0,
+        '30days': 0,
+        '3months': 0,
+        '6months': 0,
+      };
+      const spendingData: Record<MetricsPeriod, number> = {
+        '7days': 0,
+        '30days': 0,
+        '3months': 0,
+        '6months': 0,
+      };
+      const largestPurchaseData: Record<MetricsPeriod, number> = {
+        '7days': 0,
+        '30days': 0,
+        '3months': 0,
+        '6months': 0,
+      };
+
+      periodMetrics.forEach((metric) => {
+        incomeData[metric.key] = metric.income;
+        spendingData[metric.key] = metric.expense;
+        largestPurchaseData[metric.key] = metric.largestPurchase;
+      });
+
+      const colorMap: Record<string, string> = {};
+      allCategories.forEach((cat) => {
+        if (cat.name && cat.color) {
+          colorMap[cat.name] = cat.color;
         }
+      });
 
-        setIncomeByPeriod(incomeData);
-        setSpendingRateByPeriod(spendingData);
-        setLargestPurchaseByPeriod(largestPurchaseData);
+      const healthScore = calculateFinancialHealthScore({
+        incomeExpense: incExpAnalysis,
+        spendingStreak: streak,
+        weekComparison: weekComp,
+        dailySpending: daily,
+      });
 
-        // Phase 1: Load enhanced analytics
-        const weekComp = await weekOverWeekComparison();
-        setWeekComparison(weekComp);
+      setCategories(breakdown);
+      setIncomeByPeriod(incomeData);
+      setSpendingRateByPeriod(spendingData);
+      setLargestPurchaseByPeriod(largestPurchaseData);
 
-        const incExpAnalysis = await incomeVsExpenseAnalysis(incomeExpensePeriod);
-        setIncomeExpense(incExpAnalysis);
+      setIncomeExpense(incExpAnalysis);
+      setMonthProgress(progress);
 
-        const streak = await getSpendingStreak();
-        setSpendingStreak(streak);
+      setSevenDayTrend(sevenDay);
+      setDailySpending(daily);
+      setMonthlyComparison(comparison);
+      setCategoryColorMap(colorMap);
+      setFinancialHealth(healthScore);
 
-        const progress = await getMonthProgress();
-        setMonthProgress(progress);
-
-        const topDay = await getTopSpendingDay();
-        setTopSpendingDay(topDay);
-
-        const counts = await getTransactionCounts();
-        setTransactionCounts(counts);
-
-        const avgPurch = await getAveragePurchaseSize();
-        setAvgPurchase(avgPurch);
-
-        // Phase 2: Load chart data
-        const sevenDay = await getSevenDaySpendingTrend();
-        setSevenDayTrend(sevenDay);
-
-        const daily = await getDailySpendingForMonth();
-        setDailySpending(daily);
-
-        const comparison = await getMonthlyComparison(period as any);
-        setMonthlyComparison(comparison);
-
-        const pieData = await getCategorySpendingForPieChart();
-        setCategoryPieData(breakdown);
-
-        // Fetch category colors
-        const allCategories = await getCategories();
-        const colorMap: Record<string, string> = {};
-        allCategories.forEach(cat => {
-          if (cat.name && cat.color) {
-            colorMap[cat.name] = cat.color;
-          }
-        });
-        setCategoryColorMap(colorMap);
-
-        // Phase 3: Generate insights and financial health score
-        const healthScore = calculateFinancialHealthScore({
-          incomeExpense: incExpAnalysis,
-          spendingStreak: streak,
-          weekComparison: weekComp,
-          dailySpending: daily
-        });
-        setFinancialHealth(healthScore);
-
-        // Phase 3.5: Load budgets and goals for the selected period
-        try {
-          const daysMap: Record<TimePeriod, number> = {
-            '7days': 7,
-            '30days': 30,
-            '3months': 90,
-            '6months': 180,
-            'all': 3650 // 10 years
-          };
-
-          const days = daysMap[period];
-          const periodBudgets = await getBudgetsForPeriod(days);
-          const periodGoals = await getGoalsForPeriod(days);
-
-          setBudgets(periodBudgets);
-          setGoals(periodGoals);
-        } catch (error) {
-          console.error('Failed to load budgets/goals:', error);
-          setBudgets([]);
-          setGoals([]);
-        }
+      setBudgets(periodBudgets);
+      setGoals(periodGoals);
+    } catch (error) {
+      if (requestId === loadRequestIdRef.current) {
+        console.error('Failed to load analytics data:', error);
       }
     } finally {
-      setIsLoading(false);
+      if (requestId === loadRequestIdRef.current) {
+        setIsLoading(false);
+      }
     }
-  }, [incomeExpensePeriod]);
+  }, []);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -296,53 +295,38 @@ export default function AnalyticsPage() {
       // Clear all caches to force fresh analytics data
       invalidateTransactionCaches();
       invalidateWalletCaches();
-      await loadData();
+      await loadData(selectedPeriod);
       console.log('Analytics refreshed - all caches cleared');
     } catch (error) {
       console.error('Error refreshing analytics:', error);
     } finally {
       setRefreshing(false);
     }
-  }, [loadData]);
+  }, [loadData, selectedPeriod]);
 
   useFocusEffect(
     useCallback(() => {
-      loadData(selectedPeriod);
+      void loadData(selectedPeriod);
     }, [loadData, selectedPeriod])
   );
 
-  // Handle income vs expense period toggle
-  const handleIncomeExpensePeriodChange = useCallback(async (period: 'current' | 'last') => {
-    setIncomeExpensePeriod(period);
-    if (Platform.OS !== 'web') {
-      const incExpAnalysis = await incomeVsExpenseAnalysis(period);
-      setIncomeExpense(incExpAnalysis);
-    }
-  }, []);
-
   // Phase 4: Handle period change
-  const handlePeriodChange = useCallback(async (period: TimePeriod) => {
+  const handlePeriodChange = useCallback((period: TimePeriod) => {
     setSelectedPeriod(period);
-    if (Platform.OS !== 'web') {
-      // Load period-specific data
-      await loadData(period);
-    }
-  }, [loadData]);
+    setShowAllCategories(false);
+  }, []);
 
   // Phase 4: Handle category drill-down
   const handleCategoryClick = useCallback(async (category: string) => {
     if (Platform.OS !== 'web') {
       setSelectedCategory(category);
-      const transactions = await getTransactionsByCategory(category, selectedPeriod as any);
+      const drilldownPeriod: MetricsPeriod = selectedPeriod === 'all' ? '30days' : selectedPeriod;
+      const transactions = await getTransactionsByCategory(category, drilldownPeriod);
       // Map null notes to undefined to match the component's type
       setCategoryTransactions(transactions.map(t => ({ ...t, notes: t.notes ?? undefined })));
       setShowCategoryDrillDown(true);
     }
   }, [selectedPeriod]);
-
-  const topCategory = categories.length > 0 ? categories[0] : null;
-  const screenWidth = Dimensions.get('window').width;
-  const chartWidth = screenWidth - 32;
 
   // Calculate pie chart segments
   const total = categories.reduce((sum, cat) => sum + cat.total, 0);
@@ -350,6 +334,22 @@ export default function AnalyticsPage() {
     ...cat,
     percentage: total > 0 ? (cat.total / total) * 100 : 0
   }));
+
+  const selectedMetricsPeriod: MetricsPeriod = selectedPeriod === 'all' ? '30days' : selectedPeriod;
+  const incomeCardLabel = selectedMetricsPeriod === '7days'
+    ? 'Income (Week)'
+    : selectedMetricsPeriod === '30days'
+      ? 'Income (Month)'
+      : selectedMetricsPeriod === '3months'
+        ? 'Income (3M)'
+        : 'Income (6M)';
+  const spendingCardLabel = selectedMetricsPeriod === '7days'
+    ? 'Spending (Week)'
+    : selectedMetricsPeriod === '30days'
+      ? 'Spending (Month)'
+      : selectedMetricsPeriod === '3months'
+        ? 'Spending (3M)'
+        : 'Spending (6M)';
 
   // Use actual category colors, fallback to theme colors
   const fallbackColors = ['#C1A12F', '#84670B', '#B3B09E', '#6B6658', '#332D23', '#8B7355', '#A67C52', '#D4AF37'];
@@ -470,7 +470,7 @@ export default function AnalyticsPage() {
                 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
                     <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>
-                      {selectedPeriod === '7days' ? 'Income (Week)' : selectedPeriod === '30days' ? 'Income (Month)' : selectedPeriod === '3months' ? 'Income (3M)' : 'Income (6M)'}
+                      {incomeCardLabel}
                     </Text>
                     <HelpIcon
                       onPress={() => showSuccessAlert(
@@ -481,7 +481,7 @@ export default function AnalyticsPage() {
                     />
                   </View>
                   <Text style={{ color: t.success, fontSize: 20, fontWeight: '800' }}>
-                    {abbreviateNumber(incomeByPeriod[selectedPeriod] || 0)}
+                    {abbreviateNumber(incomeByPeriod[selectedMetricsPeriod] || 0)}
                   </Text>
                 </View>
               </View>
@@ -500,7 +500,7 @@ export default function AnalyticsPage() {
               }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
                   <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 }}>
-                    {selectedPeriod === '7days' ? 'Spending (Week)' : selectedPeriod === '30days' ? 'Spending (Month)' : selectedPeriod === '3months' ? 'Spending (3M)' : 'Spending (6M)'}
+                      {spendingCardLabel}
                   </Text>
                   <HelpIcon
                     onPress={() => showSuccessAlert(
@@ -511,7 +511,7 @@ export default function AnalyticsPage() {
                   />
                 </View>
                 <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800' }}>
-                  {abbreviateNumber(spendingRateByPeriod[selectedPeriod] || 0)}
+                  {abbreviateNumber(spendingRateByPeriod[selectedMetricsPeriod] || 0)}
                 </Text>
               </View>
 
@@ -535,7 +535,7 @@ export default function AnalyticsPage() {
                   />
                 </View>
                 <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800' }}>
-                  {abbreviateNumber(largestPurchaseByPeriod[selectedPeriod] || 0)}
+                  {abbreviateNumber(largestPurchaseByPeriod[selectedMetricsPeriod] || 0)}
                 </Text>
               </View>
             </View>
@@ -588,12 +588,12 @@ export default function AnalyticsPage() {
 
         {/* SECTION 3: TRENDS (Forex-style Candlestick Chart) */}
         {isLoading ? (
-          selectedPeriod !== '7days' && <ChartSkeleton height={250} titleWidth={160} />
+          selectedMetricsPeriod !== '7days' && <ChartSkeleton height={250} titleWidth={160} />
         ) : (
-          monthlyComparison && selectedPeriod !== '7days' && (
+          monthlyComparison && selectedMetricsPeriod !== '7days' && (
             <View style={{ marginBottom: 24 }}>
               <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>
-                {selectedPeriod === '3months' ? '3-Month Trends' : selectedPeriod === '6months' ? '6-Month Trends' : 'Monthly Trends'}
+                {selectedMetricsPeriod === '3months' ? '3-Month Trends' : selectedMetricsPeriod === '6months' ? '6-Month Trends' : 'Monthly Trends'}
               </Text>
 
               <View style={{
@@ -608,21 +608,21 @@ export default function AnalyticsPage() {
                   data={
                     (() => {
                       const now = new Date();
-                      return selectedPeriod === '3months' && monthlyComparison.threeMonths
+                      return selectedMetricsPeriod === '3months' && monthlyComparison.threeMonths
                         ? monthlyComparison.threeMonths.map((monthData: any, index: number) => ({
                           label: new Date(now.getFullYear(), now.getMonth() - (2 - index), 1).toLocaleString('default', { month: 'short' }),
                           income: monthData.income,
                           expense: monthData.expense,
                           net: monthData.net
                         }))
-                        : selectedPeriod === '6months' && monthlyComparison.sixMonths
+                        : selectedMetricsPeriod === '6months' && monthlyComparison.sixMonths
                           ? monthlyComparison.sixMonths.map((monthData: any, index: number) => ({
                             label: new Date(now.getFullYear(), now.getMonth() - (5 - index), 1).toLocaleString('default', { month: 'short' }),
                             income: monthData.income,
                             expense: monthData.expense,
                             net: monthData.net
                           }))
-                          : selectedPeriod === '30days' && monthlyComparison.thisMonth && monthlyComparison.lastMonth
+                          : selectedMetricsPeriod === '30days' && monthlyComparison.thisMonth && monthlyComparison.lastMonth
                             ? [
                               {
                                 label: 'Last Month',
@@ -653,9 +653,9 @@ export default function AnalyticsPage() {
 
         {/* SECTION 4: 7-DAY TREND */}
         {isLoading ? (
-          selectedPeriod === '7days' && <ChartSkeleton height={250} titleWidth={150} />
+          selectedMetricsPeriod === '7days' && <ChartSkeleton height={250} titleWidth={150} />
         ) : (
-          selectedPeriod === '7days' && (
+          selectedMetricsPeriod === '7days' && (
             <View style={{ marginBottom: 24 }}>
               <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>7-Day Spending</Text>
 
@@ -687,7 +687,7 @@ export default function AnalyticsPage() {
           chartData.length > 0 ? (
             <View style={{ marginBottom: 24 }}>
               <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>
-                {selectedPeriod === '7days' ? 'Spending by Category (7D)' : selectedPeriod === '30days' ? 'Spending by Category (30D)' : selectedPeriod === '3months' ? 'Spending by Category (3M)' : 'Spending by Category (6M)'}
+                {selectedMetricsPeriod === '7days' ? 'Spending by Category (7D)' : selectedMetricsPeriod === '30days' ? 'Spending by Category (30D)' : selectedMetricsPeriod === '3months' ? 'Spending by Category (3M)' : 'Spending by Category (6M)'}
               </Text>
 
               <View style={{
