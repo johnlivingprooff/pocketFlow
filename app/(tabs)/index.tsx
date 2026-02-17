@@ -637,12 +637,12 @@ export default function Home() {
             />
           }
         >
-          {/* Header Section */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 20 }}>
+          {/* Header */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingTop: 20 }}>
             <View>
               <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>{greeting}, {displayName}.</Text>
-              <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Here's how your money is flowing.</Text>
-              <Text style={{ color: t.textTertiary, fontSize: 12, marginTop: 2 }}>{formatFullDate(new Date())}</Text>
+              <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>One glance, one decision.</Text>
+              <Text style={{ color: t.textTertiary, fontSize: 12, marginTop: 2 }}>{formatFullDate(now)}</Text>
             </View>
             <Link href="/profile" asChild>
               <TouchableOpacity
@@ -676,114 +676,342 @@ export default function Home() {
             </Link>
           </View>
 
-          {/* Privacy toggle above total balance */}
-          <View style={{ marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={{ color: t.textSecondary, opacity: 0.35, fontSize: 12, fontWeight: '700' }}>
-              {hideBalances ? 'Show Amount' : 'Hide Amounts'}
-            </Text>
-            <TouchableOpacity
-              onPress={() => setHideBalances(!hideBalances)}
-              accessibilityRole="button"
-              accessibilityLabel={hideBalances ? 'Show amounts' : 'Hide amounts'}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={{ padding: 6, borderRadius: 8 }}
-            >
-              {hideBalances ? <EyeIcon size={20} color={t.textSecondary} /> : <EyeOffIcon size={20} color={t.textSecondary} />}
-            </TouchableOpacity>
+          {/* Unified Period Filter */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {(['today', 'week', 'month', 'lastMonth', 'all'] as TimePeriod[]).map((period) => (
+                <TouchableOpacity
+                  key={period}
+                  onPress={() => {
+                    setSelectedPeriod(period);
+                    setCustomStartDate(null);
+                    setCustomEndDate(null);
+                  }}
+                  style={{
+                    backgroundColor: selectedPeriod === period ? t.primary : t.card,
+                    borderWidth: 1,
+                    borderColor: selectedPeriod === period ? t.primary : t.border,
+                    borderRadius: 12,
+                    paddingVertical: 10,
+                    paddingHorizontal: 14,
+                    alignItems: 'center',
+                    minWidth: 88
+                  }}
+                >
+                  <Text style={{
+                    color: selectedPeriod === period ? '#FFFFFF' : t.textSecondary,
+                    fontSize: 11,
+                    fontWeight: '700',
+                  }}>
+                    {getPeriodLabel(period)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+
+          {/* Primary Balance Card */}
+          <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 18, padding: 16, marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '700', marginBottom: 6 }}>Total Available</Text>
+                <Text style={{ color: t.textPrimary, fontSize: 30, fontWeight: '900' }} numberOfLines={1}>
+                  {hideBalances ? '******' : formatCurrency(totalAvailableBalance, defaultCurrency)}
+                </Text>
+                <Text style={{ color: net >= 0 ? t.success : t.danger, fontSize: 12, fontWeight: '700', marginTop: 6 }}>
+                  {periodLabel} Net: {hideBalances ? '******' : formatCurrency(net, defaultCurrency)}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setHideBalances(!hideBalances)}
+                accessibilityRole="button"
+                accessibilityLabel={hideBalances ? 'Show amounts' : 'Hide amounts'}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={{ padding: 8, borderRadius: 10, backgroundColor: t.background, borderWidth: 1, borderColor: t.border }}
+              >
+                {hideBalances ? <EyeIcon size={18} color={t.textSecondary} /> : <EyeOffIcon size={18} color={t.textSecondary} />}
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+              <Link href="/transactions/add" asChild>
+                <TouchableOpacity style={{ flex: 1, backgroundColor: t.primary, borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}>
+                  <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '800' }}>Add Transaction</Text>
+                </TouchableOpacity>
+              </Link>
+              <Link href="/analytics" asChild>
+                <TouchableOpacity style={{ flex: 1, backgroundColor: t.background, borderWidth: 1, borderColor: t.border, borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}>
+                  <Text style={{ color: t.textPrimary, fontSize: 13, fontWeight: '700' }}>Open Analytics</Text>
+                </TouchableOpacity>
+              </Link>
+            </View>
           </View>
 
-          {/* Total Balance Across Wallets */}
-          {wallets.length > 0 && (
-            <View style={{ marginBottom: 12 }}>
-              <Text style={{ color: t.textSecondary, fontSize: 13, fontWeight: '600' }}>
-                Available Balance Across Wallets:{' '}
-                <Text style={{ color: t.textPrimary, fontWeight: '800' }}>
-                  {hideBalances
-                    ? '******'
-                    : formatCurrency(
-                      wallets.reduce((sum, w) => {
-                        const balance = balances[w.id!] ?? 0;
-                        const rate = w.exchange_rate ?? 1.0;
-                        return sum + balance * rate;
-                      }, 0),
-                      defaultCurrency
-                    )}
+          {/* KPI Grid */}
+          <View style={{ marginBottom: 20 }}>
+            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Overview</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+              <View style={{ width: '48.5%', backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, padding: 12, marginBottom: 10 }}>
+                <Text style={{ color: t.textSecondary, fontSize: 11, fontWeight: '700' }}>Income</Text>
+                <Text style={{ color: t.success, fontSize: 18, fontWeight: '800', marginTop: 4 }} numberOfLines={1}>
+                  {hideBalances ? '******' : formatCurrency(income, defaultCurrency)}
                 </Text>
-              </Text>
-            </View>
-          )}
+              </View>
 
-          {/* Wallets Carousel (Scrollable Items) */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }} contentContainerStyle={{ gap: 12 }}>
-            {wallets.length === 0 ? (
+              <View style={{ width: '48.5%', backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, padding: 12, marginBottom: 10 }}>
+                <Text style={{ color: t.textSecondary, fontSize: 11, fontWeight: '700' }}>Expenses</Text>
+                <Text style={{ color: t.danger, fontSize: 18, fontWeight: '800', marginTop: 4 }} numberOfLines={1}>
+                  {hideBalances ? '******' : formatCurrency(expenses, defaultCurrency)}
+                </Text>
+              </View>
+
+              <View style={{ width: '48.5%', backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, padding: 12 }}>
+                <Text style={{ color: t.textSecondary, fontSize: 11, fontWeight: '700' }}>Net</Text>
+                <Text style={{ color: net >= 0 ? t.success : t.danger, fontSize: 18, fontWeight: '800', marginTop: 4 }} numberOfLines={1}>
+                  {hideBalances ? '******' : formatCurrency(net, defaultCurrency)}
+                </Text>
+              </View>
+
+              <View style={{ width: '48.5%', backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, padding: 12 }}>
+                <Text style={{ color: t.textSecondary, fontSize: 11, fontWeight: '700' }}>Daily Burn</Text>
+                <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginTop: 4 }} numberOfLines={1}>
+                  {hideBalances ? '******' : formatCurrency(dailyBurnRate, defaultCurrency)}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Needs Attention */}
+          <View style={{ marginBottom: 24 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Needs Attention</Text>
+              <View style={{ backgroundColor: needsAttentionCount > 0 ? t.danger + '20' : t.success + '20', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 }}>
+                <Text style={{ color: needsAttentionCount > 0 ? t.danger : t.success, fontSize: 11, fontWeight: '800' }}>
+                  {needsAttentionCount > 0 ? `${needsAttentionCount} alert${needsAttentionCount > 1 ? 's' : ''}` : 'All clear'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, padding: 12, gap: 8 }}>
+              {budgetLoading ? (
+                <Text style={{ color: t.textSecondary, fontSize: 13 }}>Checking your budgets and goals...</Text>
+              ) : (
+                <>
+                  {overBudgetCount > 0 && (
+                    <Link href="/budget" asChild>
+                      <TouchableOpacity style={{ backgroundColor: t.danger + '10', borderWidth: 1, borderColor: t.danger + '30', borderRadius: 10, padding: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View style={{ flex: 1, paddingRight: 8 }}>
+                          <Text style={{ color: t.danger, fontSize: 13, fontWeight: '800' }}>Over-budget categories</Text>
+                          <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>{overBudgetCount} budget{overBudgetCount > 1 ? 's are' : ' is'} over limit.</Text>
+                        </View>
+                        <Text style={{ color: t.danger, fontWeight: '800' }}>Review</Text>
+                      </TouchableOpacity>
+                    </Link>
+                  )}
+
+                  {nearBudgetLimitCount > 0 && (
+                    <Link href="/budget" asChild>
+                      <TouchableOpacity style={{ backgroundColor: t.warning + '10', borderWidth: 1, borderColor: t.warning + '30', borderRadius: 10, padding: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View style={{ flex: 1, paddingRight: 8 }}>
+                          <Text style={{ color: t.warning, fontSize: 13, fontWeight: '800' }}>Budget warning</Text>
+                          <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>{nearBudgetLimitCount} budget{nearBudgetLimitCount > 1 ? 's are' : ' is'} at 85%+.</Text>
+                        </View>
+                        <Text style={{ color: t.warning, fontWeight: '800' }}>Check</Text>
+                      </TouchableOpacity>
+                    </Link>
+                  )}
+
+                  {(overdueGoalCount > 0 || atRiskGoalCount > 0) && (
+                    <Link href="/budget" asChild>
+                      <TouchableOpacity style={{ backgroundColor: t.primary + '10', borderWidth: 1, borderColor: t.primary + '30', borderRadius: 10, padding: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View style={{ flex: 1, paddingRight: 8 }}>
+                          <Text style={{ color: t.primary, fontSize: 13, fontWeight: '800' }}>Goal deadlines approaching</Text>
+                          <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>
+                            {overdueGoalCount > 0 ? `${overdueGoalCount} overdue` : ''}{overdueGoalCount > 0 && atRiskGoalCount > 0 ? ' · ' : ''}{atRiskGoalCount > 0 ? `${atRiskGoalCount} at risk` : ''}
+                          </Text>
+                        </View>
+                        <Text style={{ color: t.primary, fontWeight: '800' }}>Open</Text>
+                      </TouchableOpacity>
+                    </Link>
+                  )}
+
+                  {upcomingTransactions.length > 0 && (
+                    <Link href="/settings/recurring" asChild>
+                      <TouchableOpacity style={{ backgroundColor: t.background, borderWidth: 1, borderColor: t.border, borderRadius: 10, padding: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View style={{ flex: 1, paddingRight: 8 }}>
+                          <Text style={{ color: t.textPrimary, fontSize: 13, fontWeight: '800' }}>Upcoming recurring payments</Text>
+                          <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>{upcomingTransactions.length} scheduled item{upcomingTransactions.length > 1 ? 's' : ''} to review.</Text>
+                        </View>
+                        <Text style={{ color: t.textSecondary, fontWeight: '800' }}>Manage</Text>
+                      </TouchableOpacity>
+                    </Link>
+                  )}
+
+                  {needsAttentionCount === 0 && upcomingTransactions.length === 0 && (
+                    <Text style={{ color: t.textSecondary, fontSize: 13 }}>No urgent items. Keep it up.</Text>
+                  )}
+                </>
+              )}
+            </View>
+          </View>
+
+          {/* Recent Activity */}
+          <View style={{ marginBottom: 24 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Recent Activity</Text>
+              <Link href="/transactions/history" asChild>
+                <TouchableOpacity>
+                  <Text style={{ color: t.accent, fontSize: 14, fontWeight: '700' }}>See All</Text>
+                </TouchableOpacity>
+              </Link>
+            </View>
+
+            {recentTransactions.length === 0 ? (
+              <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 14 }}>
+                <Text style={{ color: t.textSecondary, fontSize: 13 }}>No transactions yet. Add your first entry to start insights.</Text>
+              </View>
+            ) : (
+              recentTransactions.slice(0, 3).map((transaction: any) => {
+                const transactionWallet = wallets.find(w => w.id === transaction.wallet_id);
+                const transactionCurrency = transactionWallet?.currency || defaultCurrency;
+                const isExpense = transaction.type === 'expense';
+                const itemColor = isExpense ? t.danger : t.success;
+                const itemBg = isExpense ? t.danger + '0D' : t.success + '0D';
+
+                return (
+                  <Link key={transaction.id} href={`/transactions/${transaction.id}`} asChild>
+                    <TouchableOpacity style={{ backgroundColor: itemBg, padding: 12, borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: itemColor + '30' }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>{getTransferLabel(transaction)}</Text>
+                          <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>{formatShortDate(transaction.date)}</Text>
+                        </View>
+                        <Text style={{ color: itemColor, fontSize: 16, fontWeight: '800' }}>
+                          {hideBalances ? '******' : formatCurrency(transaction.amount, transactionCurrency)}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  </Link>
+                );
+              })
+            )}
+          </View>
+
+          {/* Trend */}
+          <View style={{ marginBottom: 24 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Trend</Text>
+              <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '700' }}>{chartRange.toUpperCase()}</Text>
+            </View>
+            <IncomeExpenseLineChart
+              data={chartData}
+              height={220}
+              textColor={t.textSecondary}
+              backgroundColor={t.card}
+              incomeColor={t.success}
+              expenseColor={t.danger}
+              gridColor={t.border}
+            />
+          </View>
+
+          {/* Wallet Snapshot */}
+          <View style={{ marginBottom: 24 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Wallets</Text>
+              <Link href="/wallets" asChild>
+                <TouchableOpacity>
+                  <Text style={{ color: t.accent, fontSize: 14, fontWeight: '700' }}>View All</Text>
+                </TouchableOpacity>
+              </Link>
+            </View>
+
+            {orderedWallets.length === 0 ? (
               <Link href="/wallets/create" asChild>
-                <TouchableOpacity style={{
-                  backgroundColor: t.card,
-                  borderWidth: 1,
-                  borderColor: t.border,
-                  borderRadius: 20,
-                  padding: 16,
-                  minWidth: 220,
-                }}>
-                  <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Create your first wallet</Text>
-                  <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 6 }}>Tap to add a wallet and start tracking</Text>
+                <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, padding: 14 }}>
+                  <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '800' }}>Create your first wallet</Text>
+                  <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>Tap to start tracking balances.</Text>
                 </TouchableOpacity>
               </Link>
             ) : (
-              // Order wallets by recent activity
-              (() => {
-                const orderIndex: Record<number, number> = {};
-                (recentOrder || []).forEach((id, idx) => { orderIndex[id] = idx; });
-                const byRecent = wallets.slice().sort((a, b) => {
-                  const ai = orderIndex[a.id!] ?? Number.MAX_SAFE_INTEGER;
-                  const bi = orderIndex[b.id!] ?? Number.MAX_SAFE_INTEGER;
-                  if (ai !== bi) return ai - bi; // recent activity priority
-                  // Tiebreaker: manual display_order ASC
-                  const ad = (a.display_order ?? Number.MAX_SAFE_INTEGER);
-                  const bd = (b.display_order ?? Number.MAX_SAFE_INTEGER);
-                  if (ad !== bd) return ad - bd;
-                  // Final fallback: created_at DESC
-                  const aDate = new Date(a.created_at || 0).getTime();
-                  const bDate = new Date(b.created_at || 0).getTime();
-                  return bDate - aDate;
-                });
-                return byRecent.map((w: any) => (
-                  <TouchableOpacity
-                    key={w.id}
-                    activeOpacity={0.7}
-                    onPress={() => router.push(`/wallets/${w.id}`)}
-                    onLongPress={() => handleWalletLongPress(w)}
-                    delayLongPress={500}
-                  >
-                    <View
-                      style={{
-                        backgroundColor: t.card,
-                        borderRadius: 22,
-                        padding: 16,
-                        minWidth: 240,
-                        borderWidth: 1,
-                        borderColor: t.border,
-                      }}
-                    >
-                      <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '800' }}>{w.name}</Text>
-                      <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>{w.currency}</Text>
-                      <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '900', marginTop: 8 }}>
-                        {hideBalances
-                          ? '******'
-                          : formatCurrency(balances[w.id!], w.currency || defaultCurrency)}
-                      </Text>
-                      {/* Mini indicator placeholder */}
-                      <View style={{ marginTop: 8, flexDirection: 'row', gap: 8 }}>
-                        <View style={{ backgroundColor: t.primary + '20', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}>
-                          <Text style={{ color: t.primary, fontSize: 12, fontWeight: '700' }}>{w.type || 'Wallet'}</Text>
-                        </View>
-                      </View>
+              orderedWallets.slice(0, 3).map((wallet: any) => (
+                <TouchableOpacity
+                  key={wallet.id}
+                  activeOpacity={0.75}
+                  onPress={() => router.push(`/wallets/${wallet.id}`)}
+                  onLongPress={() => handleWalletLongPress(wallet)}
+                  delayLongPress={500}
+                  style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 12, marginBottom: 8 }}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <Text style={{ color: t.textPrimary, fontSize: 15, fontWeight: '800' }}>{wallet.name}</Text>
+                      <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>{wallet.currency} · {wallet.type || 'Wallet'}</Text>
                     </View>
-                  </TouchableOpacity>
-                ))
-              })()
+                    <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '800' }}>
+                      {hideBalances ? '******' : formatCurrency(balances[wallet.id!], wallet.currency || defaultCurrency)}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))
             )}
-          </ScrollView>
+          </View>
+
+          {/* Goals */}
+          <View style={{ marginBottom: 24 }}>
+            <FinancialHealthWidget
+              type="goal"
+              data={goals}
+              isLoading={budgetLoading}
+              hideBalances={hideBalances}
+              colors={t}
+            />
+          </View>
+
+          {/* Budgets */}
+          <View style={{ marginBottom: 24 }}>
+            <FinancialHealthWidget
+              type="budget"
+              data={activeBudgets}
+              isLoading={budgetLoading}
+              hideBalances={hideBalances}
+              colors={t}
+            />
+          </View>
+
+          {/* Quick Actions */}
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Quick Actions</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+              <Link href="/transactions/add" asChild>
+                <TouchableOpacity style={{ width: '48.5%', backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, padding: 12, marginBottom: 10, alignItems: 'center' }}>
+                  <PlusIcon size={20} color={t.primary} />
+                  <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '700', marginTop: 6 }}>Add Transaction</Text>
+                </TouchableOpacity>
+              </Link>
+
+              <Link href="/wallets" asChild>
+                <TouchableOpacity style={{ width: '48.5%', backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, padding: 12, marginBottom: 10, alignItems: 'center' }}>
+                  <WalletIcon size={20} color={t.primary} />
+                  <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '700', marginTop: 6 }}>Wallets</Text>
+                </TouchableOpacity>
+              </Link>
+
+              <Link href="/budget" asChild>
+                <TouchableOpacity style={{ width: '48.5%', backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, padding: 12, alignItems: 'center' }}>
+                  <ChartIcon size={20} color={t.primary} />
+                  <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '700', marginTop: 6 }}>Budgets & Goals</Text>
+                </TouchableOpacity>
+              </Link>
+
+              <Link href="/settings" asChild>
+                <TouchableOpacity style={{ width: '48.5%', backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, padding: 12, alignItems: 'center' }}>
+                  <SettingsIcon size={20} color={t.primary} />
+                  <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '700', marginTop: 6 }}>More</Text>
+                </TouchableOpacity>
+              </Link>
+            </View>
+          </View>
 
           {/* Wallet Actions Modal */}
           <Modal
@@ -855,277 +1083,6 @@ export default function Home() {
               </View>
             </TouchableOpacity>
           </Modal>
-          {/* Dots indicator */}
-          {wallets.length > 1 && (
-            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 16 }}>
-              {wallets.map((_: any, i: number) => (
-                <View key={i} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: t.textTertiary }} />
-              ))}
-            </View>
-          )}
-
-
-
-          {/* Removed extra draggable wallet list to keep original carousel */}
-
-          {/* Time Period Filter Tabs */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              {(['all', 'today', 'week', 'month', 'lastMonth'] as TimePeriod[]).map((period) => (
-                <TouchableOpacity
-                  key={period}
-                  onPress={() => {
-                    if (period === 'custom') {
-                      setShowDatePicker(true);
-                    } else {
-                      setSelectedPeriod(period);
-                      setCustomStartDate(null);
-                      setCustomEndDate(null);
-                    }
-                  }}
-                  style={{
-                    backgroundColor: selectedPeriod === period ? t.primary : t.card,
-                    borderWidth: 1,
-                    borderColor: selectedPeriod === period ? t.primary : t.border,
-                    borderRadius: 12,
-                    paddingVertical: 10,
-                    paddingHorizontal: 16,
-                    alignItems: 'center',
-                    minWidth: 90
-                  }}
-                >
-                  <Text style={{
-                    color: selectedPeriod === period ? '#FFFFFF' : t.textSecondary,
-                    fontSize: 11,
-                    fontWeight: '700',
-                    textTransform: 'capitalize'
-                  }}>
-                    {period === 'all' ? 'All Time' : period === 'week' ? 'This Week' : period === 'month' ? 'This Month' : period === 'lastMonth' ? 'Last Month' : period.charAt(0).toUpperCase() + period.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-
-          {/* Analytics Cards - Income, Expenses, Net */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              {/* Income Card */}
-              <View style={{ minWidth: 160, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 14 }}>
-                <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Income ({defaultCurrency})</Text>
-                <Text style={{ color: t.success, fontSize: 18, fontWeight: '800' }} numberOfLines={1}>
-                  {hideBalances ? '******' : income.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</Text>
-              </View>
-
-              {/* Expenses Card */}
-              <View style={{ minWidth: 160, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 14 }}>
-                <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Expenses ({defaultCurrency})</Text>
-                <Text style={{ color: t.danger, fontSize: 18, fontWeight: '800' }} numberOfLines={1}>
-                  {hideBalances ? '******' : expenses.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                </Text>
-              </View>
-
-              {/* Net Card */}
-              <View style={{ minWidth: 160, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 14 }}>
-                <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Net ({defaultCurrency})</Text>
-                <Text style={{ color: income - expenses >= 0 ? t.success : t.danger, fontSize: 18, fontWeight: '800' }} numberOfLines={1}>
-                  {hideBalances ? '******' : (income - expenses).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                </Text>
-              </View>
-            </View>
-          </ScrollView>
-
-          {/* Financial Health Widget (Goals) */}
-          <View style={{ marginTop: 4 }}>
-            {/* <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Goal Progress</Text> */}
-            <FinancialHealthWidget
-              type="goal"
-              data={goals}
-              isLoading={budgetLoading}
-              hideBalances={hideBalances}
-              colors={t}
-            />
-          </View>
-
-          {/* Upcoming Transactions */}
-          {upcomingTransactions.length > 0 && (
-            <View style={{ marginBottom: 24 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700' }}>Upcoming</Text>
-                <Link href="/settings/recurring" asChild>
-                  <TouchableOpacity>
-                    <Text style={{ color: t.accent, fontSize: 14 }}>Manage</Text>
-                  </TouchableOpacity>
-                </Link>
-              </View>
-              <View style={{ gap: 8 }}>
-                {upcomingTransactions.slice(0, 3).map((tx, idx) => {
-                  const transactionWallet = wallets.find(w => w.id === tx.wallet_id);
-                  const transactionCurrency = transactionWallet?.currency || defaultCurrency;
-                  return (
-                    <View key={idx} style={{ backgroundColor: t.card, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: t.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>{tx.category || 'Transfer'}</Text>
-                        <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>Recurring • {tx.recurrence_frequency || 'N/A'}</Text>
-                      </View>
-                      <Text style={{ color: tx.type === 'income' ? t.success : t.danger, fontSize: 16, fontWeight: '700' }}>
-                        {hideBalances ? (tx.type === 'income' ? '+******' : '-******') : `${tx.type === 'income' ? '+' : '-'}${formatCurrency(tx.amount, transactionCurrency)}`}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
-          )}
-
-          {/* Recent Activity */}
-          <View style={{ marginBottom: 24 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700' }}>Recent Activity</Text>
-              <Link href="/transactions/history" asChild>
-                <TouchableOpacity>
-                  <Text style={{ color: t.accent, fontSize: 14 }}>See All</Text>
-                </TouchableOpacity>
-              </Link>
-            </View>
-            {recentTransactions.slice(0, 3).map((transaction: any) => {
-              const transactionWallet = wallets.find(w => w.id === transaction.wallet_id);
-              const transactionCurrency = transactionWallet?.currency || defaultCurrency;
-              const isExpense = transaction.type === 'expense';
-              const itemColor = isExpense ? t.danger : t.success;
-              // Slight background tint (approx 5% opacity)
-              const itemBg = isExpense ? t.danger + '0D' : t.success + '0D';
-
-              return (
-                <Link key={transaction.id} href={`/transactions/${transaction.id}`} asChild>
-                  <TouchableOpacity style={{ backgroundColor: itemBg, padding: 12, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: itemColor + '30' }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>{getTransferLabel(transaction)}</Text>
-                        <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>{formatShortDate(transaction.date)}</Text>
-                      </View>
-                      <Text style={{ color: itemColor, fontSize: 16, fontWeight: '700' }}>
-                        {hideBalances ? '******' : formatCurrency(transaction.amount, transactionCurrency)}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                </Link>
-              );
-            })}
-          </View>
-
-          {/* Budget Widget (New Position) */}
-          <View style={{ marginBottom: 24 }}>
-            {/* <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Budget Status</Text> */}
-            <FinancialHealthWidget
-              type="budget"
-              data={activeBudgets}
-              isLoading={budgetLoading}
-              hideBalances={hideBalances}
-              colors={t}
-            />
-          </View>
-
-          {/* Income vs Expense Trend */}
-          <View style={{ marginBottom: 24 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700' }}>Trend</Text>
-            </View>
-            {/* Chart Range Filters */}
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-              {([
-                { key: '7d', label: '7D' },
-                { key: '3m', label: '3M' },
-                { key: '6m', label: '6M' },
-              ] as Array<{ key: '7d' | '3m' | '6m'; label: string }>).map(({ key, label }) => (
-                <TouchableOpacity
-                  key={key}
-                  onPress={() => setChartRange(key)}
-                  style={{
-                    flex: 1,
-                    backgroundColor: chartRange === key ? t.primary : t.card,
-                    borderWidth: 1,
-                    borderColor: chartRange === key ? t.primary : t.border,
-                    borderRadius: 12,
-                    paddingVertical: 8,
-                    paddingHorizontal: 12,
-                    alignItems: 'center',
-                  }}
-                >
-                  <Text style={{
-                    color: chartRange === key ? '#FFFFFF' : t.textSecondary,
-                    fontSize: 12,
-                    fontWeight: '700',
-                  }}>
-                    {label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <IncomeExpenseLineChart
-              data={chartData}
-              height={220}
-              textColor={t.textSecondary}
-              backgroundColor={t.card}
-              incomeColor={t.success}
-              expenseColor={t.danger}
-              gridColor={t.border}
-            />
-          </View>
-
-          {/* Quick Actions */}
-          <View style={{ marginBottom: 24 }}>
-            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Quick Actions</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-              {/* View Categories */}
-              <Link href="/categories" asChild>
-                <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 12, minWidth: 100, alignItems: 'center' }}>
-                  <SettingsIcon size={20} color={t.primary} />
-                  <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '600', marginTop: 6 }}>Categories</Text>
-                </TouchableOpacity>
-              </Link>
-
-              {/* View Budgets & Goals */}
-              <Link href="/budget" asChild>
-                <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 12, minWidth: 100, alignItems: 'center' }}>
-                  <ChartIcon size={20} color={t.primary} />
-                  <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '600', marginTop: 6 }}>Budgets & Goals</Text>
-                </TouchableOpacity>
-              </Link>
-
-              {/* Create Budget */}
-              <Link href="/budgets/create" asChild>
-                <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 12, minWidth: 100, alignItems: 'center' }}>
-                  <ChartIcon size={20} color={t.primary} />
-                  <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '600', marginTop: 6 }}>Create Budget</Text>
-                </TouchableOpacity>
-              </Link>
-
-              {/* Create Goal */}
-              <Link href="/goals/create" asChild>
-                <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 12, minWidth: 100, alignItems: 'center' }}>
-                  <ChartIcon size={20} color={t.primary} />
-                  <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '600', marginTop: 6 }}>Create Goal</Text>
-                </TouchableOpacity>
-              </Link>
-
-              {/* Add Wallet */}
-              <Link href="/wallets/create" asChild>
-                <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 12, minWidth: 100, alignItems: 'center' }}>
-                  <WalletIcon size={20} color={t.primary} />
-                  <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '600', marginTop: 6 }}>Add Wallet</Text>
-                </TouchableOpacity>
-              </Link>
-
-              {/* Add Category */}
-              <Link href="/categories/create" asChild>
-                <TouchableOpacity style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 12, minWidth: 100, alignItems: 'center' }}>
-                  <PlusIcon size={20} color={t.primary} />
-                  <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '600', marginTop: 6 }}>Add Category</Text>
-                </TouchableOpacity>
-              </Link>
-            </ScrollView>
-          </View>
         </ScrollView>
       )}
 
