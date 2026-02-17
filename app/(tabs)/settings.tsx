@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Linking, useColorScheme, Modal, FlatList, Switch, Image, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Linking, useColorScheme, Modal, FlatList, Switch, Image, StyleSheet, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Path, Circle, Rect, G } from 'react-native-svg';
 import * as Sharing from 'expo-sharing';
 import { useSettings } from '../../src/store/useStore';
 import { useOnboarding } from '../../src/store/useOnboarding';
 import { theme, ThemeMode, colors } from '../../src/theme/theme';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { CURRENCIES } from '../../src/constants/currencies';
 import { checkBiometricAvailability, authenticateWithBiometrics } from '../../src/lib/services/biometricService';
 import { createBackup, listBackups, restoreFromBackup } from '../../src/lib/export/backupRestore';
@@ -13,13 +14,65 @@ import { exportTransactionsToCSV } from '../../src/lib/export/csvExport';
 import { BackupIcon } from '../../src/assets/icons/BackupIcon';
 import { ExportIcon } from '../../src/assets/icons/ExportIcon';
 import { ReceiptIcon } from '../../src/assets/icons/ReceiptIcon';
-import { ChartIcon, SettingsIcon as CategorySettingsIcon, TransferIcon, WatchIcon, MoneyIcon } from '../../src/assets/icons/CategoryIcons';
+import { FingerprintIcon } from '../../src/assets/icons/FingerprintIcon';
+import { SettingsIcon as CategorySettingsIcon, MoneyIcon } from '../../src/assets/icons/CategoryIcons';
 import { useAlert } from '../../src/lib/hooks/useAlert';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
 import { ThemePreview } from '../../src/components/ThemePreview';
 
-const APP_VERSION = "2.0.1"; // Manually overridden for v2.0.1 release
-const TAP_OPACITY = 0.85;
+const APP_VERSION = "2.0.1";
+const TAP_OPACITY = 0.7;
+
+// --- Custom Premium Icons for Settings Grid ---
+
+const ThemePaletteIcon = ({ color, size = 24 }: { color: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M13.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.5" />
+    <Path d="M9.07 15a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5Z" />
+    <Path d="M16 8.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5Z" />
+    <Path d="M16 13a3 3 0 0 0-3-3" />
+  </Svg>
+);
+
+const CurrencyExchangeIcon = ({ color, size = 24 }: { color: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx="12" cy="12" r="8" />
+    <Path d="M12 16v-8" />
+    <Path d="M9.5 10c0-1.1 1.1-2 2.5-2s2.5.9 2.5 2-1.1 2-2.5 2-2.5.9-2.5 2 1.1 2 2.5 2 2.5-.9 2.5-2" />
+  </Svg>
+);
+
+const BudgetPieIcon = ({ color, size = 24 }: { color: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+    <Path d="M22 12A10 10 0 0 0 12 2v10z" />
+  </Svg>
+);
+
+const LayersIcon = ({ color, size = 24 }: { color: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+  </Svg>
+);
+
+const CycleIcon = ({ color, size = 24 }: { color: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8M22 12.5a10 10 0 0 1-18.8 4.2L2.5 16" />
+  </Svg>
+);
+
+const BellIcon = ({ color, size = 24 }: { color: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+    <Path d="M13.73 21a2 2 0 0 1-3.46 0" />
+  </Svg>
+);
+
+const SecurityShieldIcon = ({ color, size = 24 }: { color: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </Svg>
+);
 
 export default function SettingsScreen() {
   const {
@@ -46,6 +99,7 @@ export default function SettingsScreen() {
   const [showDevOptions, setShowDevOptions] = useState(false);
 
   const { alertConfig, showErrorAlert, showConfirmAlert, showSuccessAlert, dismissAlert } = useAlert();
+  const router = useRouter();
 
   useEffect(() => {
     checkBiometrics();
@@ -67,19 +121,13 @@ export default function SettingsScreen() {
 
   const handleBiometricToggle = async (value: boolean) => {
     if (value) {
-      // Turning on - check availability first
-      const availability = await checkBiometricAvailability();
+      // We already checked availability on mount, no need to check again immediately
+      // This prevents potential conflicts with the authentication prompt
 
-      if (!availability.isAvailable) {
-        showErrorAlert(
-          'Biometric Not Available',
-          availability.error || 'Biometric authentication is not available on this device.'
-        );
-        return;
-      }
-
-      // Authenticate to enable
-      const auth = await authenticateWithBiometrics('Authenticate to enable biometric lock');
+      const auth = await authenticateWithBiometrics('Authenticate to enable biometric lock', {
+        disableDeviceFallback: true, // Force biometric only to avoid fallback glitches
+        cancelLabel: 'Cancel'
+      });
 
       if (auth.success) {
         setBiometricEnabled(true);
@@ -95,12 +143,14 @@ export default function SettingsScreen() {
         );
       }
     } else {
-      // Turning off - confirm with authentication
       showConfirmAlert(
         'Disable Biometric Lock',
         'Are you sure you want to disable biometric authentication?',
         async () => {
-          const auth = await authenticateWithBiometrics('Authenticate to disable biometric lock');
+          const auth = await authenticateWithBiometrics('Authenticate to disable biometric lock', {
+            disableDeviceFallback: true,
+            cancelLabel: 'Cancel'
+          });
           if (auth.success) {
             setBiometricEnabled(false);
             showSuccessAlert('Biometric Lock Disabled', 'Biometric authentication has been disabled.');
@@ -165,7 +215,6 @@ export default function SettingsScreen() {
     try {
       const result = await exportTransactionsToCSV();
       if (result.success && result.uri) {
-        // Check if sharing is available
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(result.uri, {
             mimeType: 'text/csv',
@@ -212,296 +261,284 @@ export default function SettingsScreen() {
     );
   };
 
+  const renderSectionHeader = (title: string) => (
+    <View style={styles.sectionHeaderContainer}>
+      <Text style={[styles.sectionHeaderTitle, { color: t.textSecondary }]}>{title}</Text>
+    </View>
+  );
+
   return (
     <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentContainer}>
+
+        {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.headerTitle, { color: t.textPrimary }]}>Settings</Text>
-          <Text style={[styles.headerSubtitle, { color: t.textSecondary }]}>Make pocketFlow feel personal, secure, and easy to maintain.</Text>
         </View>
 
-        <View style={[styles.heroCard, { backgroundColor: t.card, borderColor: t.border }]}>
-          <View style={[styles.heroAccent, { backgroundColor: t.primary }]} />
-          <Link href="/profile" asChild>
-            <TouchableOpacity activeOpacity={TAP_OPACITY} style={[styles.heroProfileRow, { borderBottomColor: t.border }]}> 
-              <View style={styles.profileRowLeft}>
-                <View style={[styles.avatar, { backgroundColor: t.primary }]}> 
-                  {userInfo?.profileImage ? (
-                    <Image source={{ uri: userInfo.profileImage }} style={styles.avatarImage} />
-                  ) : (
-                    <Text style={styles.avatarInitial}>{(userInfo?.name || 'U').charAt(0).toUpperCase()}</Text>
-                  )}
-                </View>
-                <View style={styles.rowTextWrap}>
-                  <Text style={[styles.rowTitle, { color: t.textPrimary }]}>{userInfo?.name || 'Your Profile'}</Text>
-                  <Text style={[styles.rowSubtitle, { color: t.textSecondary }]} numberOfLines={1}>
-                    {userInfo?.email || 'Add your details for a personalized dashboard'}
-                  </Text>
-                </View>
+        {/* Profile Card */}
+        <Link href="/profile" asChild>
+          <TouchableOpacity activeOpacity={TAP_OPACITY} style={[styles.profileCard, { backgroundColor: t.card, borderColor: t.border }]}>
+            <View style={styles.profileContent}>
+              <View style={[styles.avatarContainer, { backgroundColor: t.primary }]}>
+                {userInfo?.profileImage ? (
+                  <Image source={{ uri: userInfo.profileImage }} style={styles.avatarImage} />
+                ) : (
+                  <Text style={styles.avatarText}>{(userInfo?.name || 'U').charAt(0).toUpperCase()}</Text>
+                )}
               </View>
-              <View style={[styles.inlinePill, { backgroundColor: `${t.primary}18`, borderColor: `${t.primary}40` }]}>
-                <Text style={[styles.inlinePillText, { color: t.primary }]}>Edit</Text>
+              <View style={styles.profileInfo}>
+                <Text style={[styles.profileName, { color: t.textPrimary }]}>{userInfo?.name || 'Your Profile'}</Text>
+                <Text style={[styles.profileEmail, { color: t.textSecondary }]}>{userInfo?.email || 'Tap to sign in or edit details'}</Text>
               </View>
-            </TouchableOpacity>
-          </Link>
+              <View style={[styles.editBadge, { backgroundColor: `${t.primary}15` }]}>
+                <Text style={[styles.editBadgeText, { color: t.primary }]}>Edit</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Link>
 
-          <View style={styles.heroQuickPrefsRow}>
-            <TouchableOpacity
-              activeOpacity={TAP_OPACITY}
-              onPress={() => setShowThemePicker(true)}
-              style={[styles.quickPrefCard, { backgroundColor: t.background, borderColor: t.border }]}
-            >
-              <View style={styles.quickPrefHeader}>
-                <Text style={[styles.quickPrefLabel, { color: t.textSecondary }]}>Theme</Text>
-                <View style={[styles.quickPrefIconBadge, { backgroundColor: `${t.primary}18`, borderColor: `${t.primary}40` }]}>
-                  <CategorySettingsIcon size={12} color={t.primary} />
-                </View>
-              </View>
-              <Text style={[styles.quickPrefValue, { color: t.textPrimary }]} numberOfLines={1}>{getThemeLabel()}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={TAP_OPACITY}
-              onPress={() => setShowCurrencyPicker(true)}
-              style={[styles.quickPrefCard, { backgroundColor: t.background, borderColor: t.border }]}
-            >
-              <View style={styles.quickPrefHeader}>
-                <Text style={[styles.quickPrefLabel, { color: t.textSecondary }]}>Currency</Text>
-                <View style={[styles.quickPrefIconBadge, { backgroundColor: `${t.primary}18`, borderColor: `${t.primary}40` }]}>
-                  <MoneyIcon size={12} color={t.primary} />
-                </View>
-              </View>
-              <Text style={[styles.quickPrefValue, { color: t.textPrimary }]}>{defaultCurrency}</Text>
-            </TouchableOpacity>
-          </View>
+        {/* Quick Preferences */}
+        <View style={styles.prefsRow}>
+          <TouchableOpacity
+            style={[styles.prefItem, { backgroundColor: t.card, borderColor: t.border }]}
+            onPress={() => setShowThemePicker(true)}
+            activeOpacity={TAP_OPACITY}
+          >
+            <View style={[styles.prefIconCircle, { backgroundColor: `${t.primary}15` }]}>
+              <ThemePaletteIcon size={22} color={t.primary} />
+            </View>
+            <View>
+              <Text style={[styles.prefLabel, { color: t.textSecondary }]}>Theme</Text>
+              <Text style={[styles.prefValue, { color: t.textPrimary }]} numberOfLines={1}>{getThemeLabel()}</Text>
+            </View>
+          </TouchableOpacity>
 
           <TouchableOpacity
+            style={[styles.prefItem, { backgroundColor: t.card, borderColor: t.border }]}
+            onPress={() => setShowCurrencyPicker(true)}
             activeOpacity={TAP_OPACITY}
-            onPress={() => setShowBackupModal(true)}
-            style={[styles.quickInfoStrip, { backgroundColor: t.background, borderColor: t.border }]}
           >
-            <Text style={[styles.quickInfoLabel, { color: t.textSecondary }]}>Backups</Text>
-            <Text style={[styles.quickInfoValue, { color: t.textPrimary }]}>
-              {backups.length > 0 ? `${backups.length} available` : 'No backups yet'}
-            </Text>
+            <View style={[styles.prefIconCircle, { backgroundColor: `${t.primary}15` }]}>
+              <CurrencyExchangeIcon size={22} color={t.primary} />
+            </View>
+            <View>
+              <Text style={[styles.prefLabel, { color: t.textSecondary }]}>Currency</Text>
+              <Text style={[styles.prefValue, { color: t.textPrimary }]} numberOfLines={1}>{defaultCurrency}</Text>
+            </View>
           </TouchableOpacity>
         </View>
 
+        {/* Management Grid */}
         <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>QUICK ACCESS</Text>
-          <View style={styles.actionGrid}>
+          {/* {renderSectionHeader('MANAGEMENT')} */}
+          <View style={styles.gridContainer}>
             <Link href="/budget" asChild>
-              <TouchableOpacity activeOpacity={TAP_OPACITY} style={[styles.actionTile, { backgroundColor: t.card, borderColor: t.border }]}> 
-                <View style={[styles.tileIconWrap, { backgroundColor: `${t.primary}14`, borderColor: `${t.primary}30` }]}>
-                  <ChartIcon size={14} color={t.primary} />
+              <TouchableOpacity style={[styles.gridItem, { backgroundColor: t.card, borderColor: t.border }]} activeOpacity={TAP_OPACITY}>
+                <View style={[styles.gridIcon, { backgroundColor: `${t.primary}15` }]}>
+                  <BudgetPieIcon size={36} color={t.primary} />
                 </View>
-                <Text style={[styles.actionTileTitle, { color: t.textPrimary }]}>Budget & Goals</Text>
-                <Text style={[styles.actionTileSubtitle, { color: t.textSecondary }]}>Track your plan</Text>
+                <Text style={[styles.gridLabel, { color: t.textPrimary }]}>Budgets</Text>
               </TouchableOpacity>
             </Link>
-
             <Link href="/categories" asChild>
-              <TouchableOpacity activeOpacity={TAP_OPACITY} style={[styles.actionTile, { backgroundColor: t.card, borderColor: t.border }]}> 
-                <View style={[styles.tileIconWrap, { backgroundColor: `${t.primary}14`, borderColor: `${t.primary}30` }]}>
-                  <CategorySettingsIcon size={14} color={t.primary} />
+              <TouchableOpacity style={[styles.gridItem, { backgroundColor: t.card, borderColor: t.border }]} activeOpacity={TAP_OPACITY}>
+                <View style={[styles.gridIcon, { backgroundColor: `${t.primary}15` }]}>
+                  <LayersIcon size={36} color={t.primary} />
                 </View>
-                <Text style={[styles.actionTileTitle, { color: t.textPrimary }]}>Categories</Text>
-                <Text style={[styles.actionTileSubtitle, { color: t.textSecondary }]}>Organize spending</Text>
+                <Text style={[styles.gridLabel, { color: t.textPrimary }]}>Categories</Text>
               </TouchableOpacity>
             </Link>
-
             <Link href="/settings/recurring" asChild>
-              <TouchableOpacity activeOpacity={TAP_OPACITY} style={[styles.actionTile, { backgroundColor: t.card, borderColor: t.border }]}> 
-                <View style={[styles.tileIconWrap, { backgroundColor: `${t.primary}14`, borderColor: `${t.primary}30` }]}>
-                  <TransferIcon size={14} color={t.primary} />
+              <TouchableOpacity style={[styles.gridItem, { backgroundColor: t.card, borderColor: t.border }]} activeOpacity={TAP_OPACITY}>
+                <View style={[styles.gridIcon, { backgroundColor: `${t.primary}15` }]}>
+                  <CycleIcon size={36} color={t.primary} />
                 </View>
-                <Text style={[styles.actionTileTitle, { color: t.textPrimary }]}>Recurring</Text>
-                <Text style={[styles.actionTileSubtitle, { color: t.textSecondary }]}>Automated entries</Text>
+                <Text style={[styles.gridLabel, { color: t.textPrimary }]}>Recurring</Text>
               </TouchableOpacity>
             </Link>
-
             <Link href="/settings/reminders" asChild>
-              <TouchableOpacity activeOpacity={TAP_OPACITY} style={[styles.actionTile, { backgroundColor: t.card, borderColor: t.border }]}> 
-                <View style={[styles.tileIconWrap, { backgroundColor: `${t.primary}14`, borderColor: `${t.primary}30` }]}>
-                  <WatchIcon size={14} color={t.primary} />
+              <TouchableOpacity style={[styles.gridItem, { backgroundColor: t.card, borderColor: t.border }]} activeOpacity={TAP_OPACITY}>
+                <View style={[styles.gridIcon, { backgroundColor: `${t.primary}15` }]}>
+                  <BellIcon size={36} color={t.primary} />
                 </View>
-                <Text style={[styles.actionTileTitle, { color: t.textPrimary }]}>Reminders</Text>
-                <Text style={[styles.actionTileSubtitle, { color: t.textSecondary }]}>Daily nudges</Text>
+                <Text style={[styles.gridLabel, { color: t.textPrimary }]}>Reminders</Text>
               </TouchableOpacity>
             </Link>
           </View>
         </View>
 
+        {/* Security Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>SECURITY</Text>
-          <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}> 
-            <Link href="/settings/security" asChild>
-              <TouchableOpacity activeOpacity={TAP_OPACITY} style={[styles.row, styles.rowDivider, { borderBottomColor: t.border }]}> 
-                <View style={styles.rowTextWrap}>
-                  <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Security Settings</Text>
-                  <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>PIN, privacy, and app protection options</Text>
-                </View>
-                <View style={styles.rightMetaWrap}>
-                  <View style={[styles.inlinePill, { backgroundColor: biometricEnabled ? `${t.primary}20` : `${t.border}`, borderColor: biometricEnabled ? `${t.primary}40` : t.border }]}>
-                    <Text style={[styles.inlinePillText, { color: biometricEnabled ? t.primary : t.textSecondary }]}>
-                      {biometricEnabled ? 'Protected' : 'Basic'}
-                    </Text>
-                  </View>
-                  <Text style={[styles.chevron, { color: t.textSecondary }]}>›</Text>
-                </View>
-              </TouchableOpacity>
-            </Link>
+          {renderSectionHeader('SECURITY')}
+          <View style={[styles.listContainer, { backgroundColor: t.card, borderColor: t.border }]}>
+            <TouchableOpacity
+              activeOpacity={TAP_OPACITY}
+              onPress={() => router.push('/settings/security')}
+              style={[styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1, flexDirection: 'row', alignItems: 'center' }]}
+            >
+              <View style={[styles.listIconLeft, { width: 32 }]}>
+                <SecurityShieldIcon size={24} color={t.primary} />
+              </View>
+              <View style={styles.listItemContent}>
+                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Security Settings</Text>
+                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>Passcode, Privacy, App Lock</Text>
+              </View>
+              <View style={styles.listItemRight}>
+                <Text style={[styles.statusText, { color: biometricEnabled ? t.success : t.textSecondary }]}>
+                  {biometricEnabled ? 'Active' : 'Setup'}
+                </Text>
+                <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
+              </View>
+            </TouchableOpacity>
 
-            <View style={styles.row}>
-              <View style={styles.rowTextWrap}>
-                <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Use {biometricType}</Text>
-                <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>
-                  {biometricAvailable ? 'Secure app access with biometrics' : 'Not available on this device'}
+            <View style={styles.listItem}>
+              <View style={[styles.listIconLeft, { width: 32 }]}>
+                <FingerprintIcon size={24} color={t.primary} />
+              </View>
+              <View style={styles.listItemContent}>
+                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Biometric Unlock</Text>
+                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>
+                  {biometricAvailable ? `Use ${biometricType} to open app` : 'Not available'}
                 </Text>
               </View>
               <Switch
                 value={biometricEnabled}
                 onValueChange={handleBiometricToggle}
                 disabled={!biometricAvailable}
-                trackColor={{ false: t.border, true: `${t.primary}88` }}
+                trackColor={{ false: t.border, true: `${t.primary}80` }}
                 thumbColor={biometricEnabled ? t.primary : t.textSecondary}
               />
             </View>
           </View>
         </View>
 
+        {/* Data Tools */}
         <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>DATA TOOLS</Text>
-          <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}> 
-            <Link href="/settings/receipts" asChild>
-              <TouchableOpacity activeOpacity={TAP_OPACITY} style={[styles.row, styles.rowDivider, { borderBottomColor: t.border }]}> 
-                <View style={styles.rowTextWrap}>
-                  <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Receipts Gallery</Text>
-                  <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>Browse all saved receipts</Text>
-                </View>
-                <ReceiptIcon size={24} color={t.textPrimary} />
-              </TouchableOpacity>
-            </Link>
-
-            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleExportCSV} style={[styles.row, styles.rowDivider, { borderBottomColor: t.border }]}>
-              <View style={styles.rowTextWrap}>
-                <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Export to CSV</Text>
-                <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>Download all transactions</Text>
-              </View>
-              <ExportIcon size={24} color={t.textPrimary} />
-            </TouchableOpacity>
-
+          {renderSectionHeader('DATA & STORAGE')}
+          <View style={[styles.listContainer, { backgroundColor: t.card, borderColor: t.border }]}>
             <TouchableOpacity
               activeOpacity={TAP_OPACITY}
-              onPress={handleCreateBackup}
-              disabled={isLoadingBackup}
-              style={[styles.row, styles.rowDivider, { borderBottomColor: t.border, opacity: isLoadingBackup ? 0.6 : 1 }]}
+              onPress={() => router.push('/settings/receipts')}
+              style={[styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1, flexDirection: 'row', alignItems: 'center' }]}
             >
-              <View style={styles.rowTextWrap}>
-                <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Create Backup</Text>
-                <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>Save all app data locally</Text>
+              <View style={[styles.listIconLeft, { width: 32 }]}>
+                <ReceiptIcon size={24} color={t.primary} />
               </View>
-              <BackupIcon size={24} color={t.textPrimary} />
+              <View style={styles.listItemContent}>
+                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Receipt Gallery</Text>
+              </View>
+              <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowBackupModal(true)} style={styles.row}>
-              <View style={styles.rowTextWrap}>
-                <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Restore Backup</Text>
-                <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}> 
-                  {backups.length > 0 ? `${backups.length} backup(s) available` : 'No backups found'}
-                </Text>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleExportCSV} style={[styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1 }]}>
+              <View style={[styles.listIconLeft, { width: 32 }]}>
+                <ExportIcon size={24} color={t.primary} />
               </View>
-              <Text style={[styles.actionIcon, { color: t.textPrimary }]}>↻</Text>
+              <View style={styles.listItemContent}>
+                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Export CSV</Text>
+              </View>
+              <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
             </TouchableOpacity>
-          </View>
 
-          <View style={[styles.noteCard, { backgroundColor: `${t.warning}10`, borderColor: `${t.warning}35` }]}>
-            <Text style={[styles.noteTitle, { color: t.warning }]}>Before you restore</Text>
-            <Text style={[styles.noteText, { color: t.textSecondary }]}>Restoring a backup replaces current app data. Create a fresh backup first if you need a rollback point.</Text>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleCreateBackup} disabled={isLoadingBackup} style={[styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1, opacity: isLoadingBackup ? 0.6 : 1 }]}>
+              <View style={[styles.listIconLeft, { width: 32 }]}>
+                <BackupIcon size={24} color={t.primary} />
+              </View>
+              <View style={styles.listItemContent}>
+                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Create Backup</Text>
+                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>{isLoadingBackup ? 'Processing...' : 'Save data locally'}</Text>
+              </View>
+              <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowBackupModal(true)} style={styles.listItem}>
+              <View style={[styles.listIconLeft, { width: 32 }]}>
+                <Text style={{ fontSize: 24, color: t.primary, lineHeight: 24 }}>↺</Text>
+              </View>
+              <View style={styles.listItemContent}>
+                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Restore Backup</Text>
+                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>{backups.length ? `${backups.length} available` : 'None found'}</Text>
+              </View>
+              <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
+        {/* Support & About */}
         <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>SUPPORT & ABOUT</Text>
-          <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}> 
-            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleFeedback} style={[styles.row, styles.rowDivider, { borderBottomColor: t.border }]}> 
-              <View style={styles.rowTextWrap}>
-                <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Send Feedback</Text>
-                <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>Help us improve pocketFlow</Text>
+          {renderSectionHeader('ABOUT')}
+          <View style={[styles.listContainer, { backgroundColor: t.card, borderColor: t.border }]}>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleFeedback} style={[styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1 }]}>
+              <View style={styles.listItemContent}>
+                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Send Feedback</Text>
+                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>Help us improve pocketFlow</Text>
               </View>
-              <Text style={[styles.chevron, { color: t.textSecondary }]}>›</Text>
+              <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleVersionTap} style={styles.row}>
-              <View style={styles.rowTextWrap}>
-                <Text style={[styles.rowTitle, { color: t.textPrimary }]}>App Version</Text>
-                <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>{APP_VERSION}</Text>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleVersionTap} style={styles.listItem}>
+              <View style={styles.listItemContent}>
+                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Version</Text>
               </View>
-              <View style={[styles.inlinePill, { backgroundColor: `${t.success}14`, borderColor: `${t.success}38` }]}>
-                <Text style={[styles.inlinePillText, { color: t.success }]}>Stable</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, backgroundColor: `${t.success}15` }}>
+                  <Text style={{ color: t.success, fontSize: 10, fontWeight: '700' }}>v{APP_VERSION}</Text>
+                </View>
               </View>
             </TouchableOpacity>
           </View>
         </View>
 
+        {/* Developer Options */}
         {showDevOptions && (
           <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>DEVELOPER OPTIONS</Text>
-            <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}> 
-              <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleRestartOnboarding} style={styles.row}>
-                <View style={styles.rowTextWrap}>
-                  <Text style={[styles.rowTitle, { color: colors.negativeRed }]}>Restart Onboarding</Text>
-                  <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>Restart the setup flow</Text>
+            {renderSectionHeader('DEVELOPER MODE')}
+            <View style={[styles.listContainer, { backgroundColor: t.card, borderColor: colors.negativeRed }]}>
+              <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleRestartOnboarding} style={styles.listItem}>
+                <View style={styles.listItemContent}>
+                  <Text style={[styles.listItemTitle, { color: colors.negativeRed }]}>Restart Onboarding</Text>
+                  <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>Reset app state</Text>
                 </View>
-                <Text style={[styles.actionIcon, { color: colors.negativeRed }]}>⟲</Text>
+                <Text style={{ fontSize: 18, color: colors.negativeRed }}>⟲</Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
+
       </ScrollView>
 
       {/* Theme Picker Modal */}
       <Modal visible={showThemePicker} transparent animationType="fade" onRequestClose={() => setShowThemePicker(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 16 }}>
-          <View style={{ backgroundColor: t.card, borderRadius: 12, borderWidth: 1, borderColor: t.border, maxHeight: '90%' }}>
-            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
-              <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Select Theme</Text>
-              <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>Preview how each theme looks</Text>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: t.card, borderColor: t.border }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: t.border }]}>
+              <Text style={[styles.modalTitle, { color: t.textPrimary }]}>Select Theme</Text>
+              <Text style={[styles.modalSubtitle, { color: t.textSecondary }]}>Choose your preferred look</Text>
             </View>
             <ScrollView style={{ maxHeight: 400 }}>
               {themeOptions.map((option) => (
-                <TouchableOpacity 
-                  key={option.value} 
+                <TouchableOpacity
+                  key={option.value}
                   activeOpacity={TAP_OPACITY}
-                  onPress={() => { setThemeMode(option.value); setShowThemePicker(false); }} 
-                  style={{ 
-                    padding: 16, 
-                    borderBottomWidth: 1, 
-                    borderBottomColor: t.border,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 16,
-                  }}
+                  onPress={() => { setThemeMode(option.value); setShowThemePicker(false); }}
+                  style={[styles.modalItem, { borderBottomColor: t.border }]}
                 >
                   <ThemePreview themeMode={option.value} isSelected={themeMode === option.value} />
                   <View style={{ flex: 1 }}>
-                    <Text style={{ 
-                      color: themeMode === option.value ? t.primary : t.textPrimary, 
-                      fontSize: 16, 
-                      fontWeight: themeMode === option.value ? '800' : '600' 
-                    }}>
+                    <Text style={[styles.modalItemTitle, { color: themeMode === option.value ? t.primary : t.textPrimary }]}>
                       {option.label}
                     </Text>
-                    <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>{option.description}</Text>
+                    <Text style={[styles.modalItemDesc, { color: t.textSecondary }]}>{option.description}</Text>
                   </View>
                   {themeMode === option.value && (
-                    <Text style={{ color: t.primary, fontSize: 20, fontWeight: '800' }}>✓</Text>
+                    <Text style={{ color: t.primary, fontSize: 18, fontWeight: 'bold' }}>✓</Text>
                   )}
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowThemePicker(false)} style={{ padding: 16, alignItems: 'center', borderTopWidth: 1, borderTopColor: t.border }}>
-              <Text style={{ color: t.primary, fontWeight: '700' }}>Close</Text>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowThemePicker(false)} style={[styles.modalCloseButton, { borderTopColor: t.border }]}>
+              <Text style={[styles.modalCloseText, { color: t.primary }]}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -509,22 +546,22 @@ export default function SettingsScreen() {
 
       {/* Currency Picker Modal */}
       <Modal visible={showCurrencyPicker} transparent animationType="fade" onRequestClose={() => setShowCurrencyPicker(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 16 }}>
-          <View style={{ backgroundColor: t.card, borderRadius: 12, borderWidth: 1, borderColor: t.border, maxHeight: '80%' }}>
-            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
-              <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Select Currency</Text>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: t.card, borderColor: t.border }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: t.border }]}>
+              <Text style={[styles.modalTitle, { color: t.textPrimary }]}>Select Currency</Text>
             </View>
             <FlatList
               data={CURRENCIES}
               keyExtractor={(item) => item}
               renderItem={({ item }) => (
-                <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => { useSettings.getState().setDefaultCurrency(item); setShowCurrencyPicker(false); }} style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
-                  <Text style={{ color: defaultCurrency === item ? t.primary : t.textPrimary, fontSize: 16, fontWeight: defaultCurrency === item ? '800' : '600' }}>{item}</Text>
+                <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => { useSettings.getState().setDefaultCurrency(item); setShowCurrencyPicker(false); }} style={[styles.modalItem, { borderBottomColor: t.border }]}>
+                  <Text style={{ color: defaultCurrency === item ? t.primary : t.textPrimary, fontSize: 16, fontWeight: defaultCurrency === item ? '700' : '500' }}>{item}</Text>
                 </TouchableOpacity>
               )}
             />
-            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowCurrencyPicker(false)} style={{ padding: 16, alignItems: 'center' }}>
-              <Text style={{ color: t.primary, fontWeight: '700' }}>Close</Text>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowCurrencyPicker(false)} style={[styles.modalCloseButton, { borderTopColor: t.border }]}>
+              <Text style={[styles.modalCloseText, { color: t.primary }]}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -532,38 +569,43 @@ export default function SettingsScreen() {
 
       {/* Backup Restore Modal */}
       <Modal visible={showBackupModal} transparent animationType="fade" onRequestClose={() => setShowBackupModal(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 16 }}>
-          <View style={{ backgroundColor: t.card, borderRadius: 12, borderWidth: 1, borderColor: t.border, maxHeight: '80%' }}>
-            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Available Backups</Text>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: t.card, borderColor: t.border }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: t.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+              <Text style={[styles.modalTitle, { color: t.textPrimary }]}>Backups</Text>
               <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowBackupModal(false)}>
-                <Text style={{ fontSize: 28, color: t.textSecondary, lineHeight: 28 }}>×</Text>
+                <Text style={{ fontSize: 24, color: t.textSecondary }}>×</Text>
               </TouchableOpacity>
             </View>
             {backups.length === 0 ? (
-              <View style={{ padding: 24, alignItems: 'center' }}>
-                <Text style={{ color: t.textSecondary, fontSize: 14, textAlign: 'center' }}>No backups found. Create one first!</Text>
+              <View style={{ padding: 32, alignItems: 'center' }}>
+                <Text style={{ color: t.textSecondary, textAlign: 'center' }}>No backups found.</Text>
               </View>
             ) : (
               <FlatList
                 data={backups}
                 keyExtractor={(item) => item.uri}
                 renderItem={({ item }) => (
-                  <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => handleRestoreBackup(item.uri)} style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
+                  <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => handleRestoreBackup(item.uri)} style={[styles.modalItem, { borderBottomColor: t.border }]}>
                     <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600' }}>
-                      {item.date.toLocaleDateString()} at {item.date.toLocaleTimeString()}
+                      {item.date.toLocaleDateString()}
                     </Text>
-                    <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>{item.filename}</Text>
+                    <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>{item.filename}</Text>
                   </TouchableOpacity>
                 )}
               />
             )}
-            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowBackupModal(false)} style={{ padding: 16, alignItems: 'center' }}>
-              <Text style={{ color: t.primary, fontWeight: '700' }}>Close</Text>
+            <View style={{ padding: 16, backgroundColor: `${t.warning}10`, margin: 16, borderRadius: 8 }}>
+              <Text style={{ color: t.warning, fontSize: 12, fontWeight: '700', marginBottom: 4 }}>Note</Text>
+              <Text style={{ color: t.textSecondary, fontSize: 11 }}>Restoring will replace all current data.</Text>
+            </View>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowBackupModal(false)} style={[styles.modalCloseButton, { borderTopColor: t.border }]}>
+              <Text style={[styles.modalCloseText, { color: t.primary }]}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
+
       <ThemedAlert
         visible={alertConfig.visible}
         title={alertConfig.title}
@@ -579,221 +621,230 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   contentContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 24,
-    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    paddingTop: 10,
   },
   header: {
-    marginBottom: 16,
+    marginBottom: 20,
+    marginTop: 10,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: '800',
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    marginTop: 4,
+    letterSpacing: -0.5,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 28,
   },
-  heroCard: {
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingTop: 6,
-    paddingBottom: 14,
-    marginBottom: 22,
-  },
-  heroAccent: {
-    width: 44,
-    height: 4,
-    borderRadius: 999,
-    marginTop: 4,
+  sectionHeaderContainer: {
     marginBottom: 10,
+    marginLeft: 4,
   },
-  heroProfileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  heroQuickPrefsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 12,
-  },
-  quickPrefCard: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-  },
-  quickPrefLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  quickPrefHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  quickPrefIconBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  quickPrefValue: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  quickInfoStrip: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  quickInfoLabel: {
+  sectionHeaderTitle: {
     fontSize: 12,
     fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
-  quickInfoValue: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  actionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  actionTile: {
-    width: '48%',
+  profileCard: {
+    borderRadius: 20,
     borderWidth: 1,
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-  },
-  tileIconWrap: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  actionTileTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  actionTileSubtitle: {
-    fontSize: 11,
-    marginTop: 4,
-  },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 10,
-    letterSpacing: 0.4,
-  },
-  card: {
-    borderWidth: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  row: {
     padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
+    marginBottom: 20,
   },
-  rowDivider: {
-    borderBottomWidth: 1,
-  },
-  rowTextWrap: {
-    flex: 1,
-  },
-  rightMetaWrap: {
+  profileContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 16,
   },
-  inlinePill: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  inlinePillText: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.2,
-  },
-  rowTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  rowSubtitle: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  chevron: {
-    fontSize: 20,
-  },
-  profileRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  avatarContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
   },
   avatarImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
   },
-  avatarInitial: {
-    color: '#FFFFFF',
-    fontSize: 20,
+  avatarText: {
+    color: '#FFF',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  profileName: {
+    fontSize: 18,
     fontWeight: '700',
-  },
-  actionIcon: {
-    fontSize: 20,
-  },
-  noteCard: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-  },
-  noteTitle: {
-    fontSize: 12,
-    fontWeight: '800',
     marginBottom: 4,
   },
-  noteText: {
+  profileEmail: {
+    fontSize: 13,
+  },
+  editBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  editBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  prefsRow: {
+    marginTop: 24,
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 28,
+  },
+  prefItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  prefIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  prefLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  prefValue: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    gap: 16,
+    flexWrap: 'wrap',
+    justifyContent: 'center', // Center the section items
+  },
+  gridItem: {
+    width: '45%',
+    flexDirection: 'column', // Stack icon and text vertically
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    padding: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+    minHeight: 140,
+  },
+  gridIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gridLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 4,
+    textAlign: 'center', // Center the text below the icon
+  },
+  listContainer: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    gap: 14,
+    minHeight: 80,
+  },
+  listIconLeft: {
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  listItemContent: {
+    flex: 1,
+  },
+  listItemTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  listItemSubtitle: {
     fontSize: 12,
-    lineHeight: 18,
+    marginTop: 2,
+  },
+  listItemRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  chevron: {
+    fontSize: 18,
+    opacity: 0.5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    borderRadius: 20,
+    borderWidth: 1,
+    maxHeight: '80%',
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    padding: 20,
+    borderBottomWidth: 1,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    marginTop: 4,
+  },
+  modalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 16,
+    borderBottomWidth: 1,
+  },
+  modalItemTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalItemDesc: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  modalCloseButton: {
+    padding: 16,
+    alignItems: 'center',
+    borderTopWidth: 1,
+  },
+  modalCloseText: {
+    fontWeight: '700',
+    fontSize: 15,
   },
 });

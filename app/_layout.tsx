@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { Platform, View, ActivityIndicator, useColorScheme, AppState, AppStateStatus, Text, TouchableOpacity, StyleSheet, Image, TextStyle } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import * as Notifications from 'expo-notifications';
 import { useSettings } from '../src/store/useStore';
 import { useUI } from '../src/store/useStore';
 import { useOnboarding } from '../src/store/useOnboarding';
@@ -13,6 +12,7 @@ import {
   extractReminderDeepLink,
   initializeReminderNotifications,
   runReminderRuntimeGateCheck,
+  getNotifications,
 } from '../src/lib/services/reminderNotificationService';
 import { log } from '../src/utils/logger';
 import { theme, shadows } from '../src/theme/theme';
@@ -22,9 +22,9 @@ import { createBackup } from '../src/lib/export/backupRestore';
 import { WebShell } from '../src/components/web/WebShell';
 
 export default function RootLayout() {
-  const { 
-    themeMode, 
-    biometricEnabled, 
+  const {
+    themeMode,
+    biometricEnabled,
     biometricSetupComplete,
     lastAuthTime,
     lastBackupAt,
@@ -42,7 +42,7 @@ export default function RootLayout() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const backupInProgressRef = useRef(false);
-  
+
   const t = useMemo(() => {
     const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
     return theme(effectiveMode);
@@ -106,22 +106,43 @@ export default function RootLayout() {
     return () => subscription.remove();
   }, [biometricEnabled, biometricSetupComplete, lastAuthTime]);
 
+  const notificationResponseSubscription = useRef<any>(null);
+  const notificationReceivedSubscription = useRef<any>(null);
+
   useEffect(() => {
     if (Platform.OS === 'web') {
       return;
     }
 
-    const subscription = Notifications.addNotificationResponseReceivedListener(
-      (response: Notifications.NotificationResponse) => {
-      const deepLink = extractReminderDeepLink(response);
-      if (!deepLink) {
-        return;
-      }
-      router.push(deepLink as never);
-      }
-    );
+    let isMounted = true;
+    (async () => {
+      try {
+        const Notifications = await getNotifications();
+        if (!isMounted) return;
 
-    return () => subscription.remove();
+        if (typeof Notifications?.addNotificationResponseReceivedListener !== 'function') {
+          console.warn('Notifications.addNotificationResponseReceivedListener is not available');
+          return;
+        }
+
+        notificationResponseSubscription.current = Notifications.addNotificationResponseReceivedListener(
+          (response: any) => {
+            const deepLink = extractReminderDeepLink(response);
+            if (!deepLink) {
+              return;
+            }
+            router.push(deepLink as never);
+          }
+        );
+      } catch (e) {
+        console.warn('Notifications module missing or failed to load');
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+      notificationResponseSubscription.current?.remove();
+    };
   }, [router]);
 
   useEffect(() => {
@@ -129,15 +150,33 @@ export default function RootLayout() {
       return;
     }
 
-    const subscription = Notifications.addNotificationReceivedListener(
-      (notification: Notifications.Notification) => {
-        log('[Reminder] Notification received', {
-          isReminder: notification.request.content.data?.kind === 'expense_log_reminder',
-        });
-      }
-    );
+    let isMounted = true;
+    (async () => {
+      try {
+        const Notifications = await getNotifications();
+        if (!isMounted) return;
 
-    return () => subscription.remove();
+        if (typeof Notifications?.addNotificationReceivedListener !== 'function') {
+          console.warn('Notifications.addNotificationReceivedListener is not available');
+          return;
+        }
+
+        notificationReceivedSubscription.current = Notifications.addNotificationReceivedListener(
+          (notification: any) => {
+            log('[Reminder] Notification received', {
+              isReminder: notification.request.content.data?.kind === 'expense_log_reminder',
+            });
+          }
+        );
+      } catch (e) {
+        console.warn('Notifications module missing or failed to load');
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+      notificationReceivedSubscription.current?.remove();
+    };
   }, []);
 
   const handleAppStateChange = async (nextAppState: AppStateStatus) => {
@@ -148,13 +187,13 @@ export default function RootLayout() {
         // This prevents stale cached data from being displayed after app resume
         const { invalidateTransactionCaches } = await import('../src/lib/cache/queryCache');
         invalidateTransactionCaches();
-        
+
         await processRecurringTransactions();
         // Reuse existing app-resume lifecycle gate to keep reminder scheduling deterministic.
         await runReminderRuntimeGateCheck('app_active');
         await maybeRunAutoBackup();
       }
-      
+
       if (biometricEnabled && biometricSetupComplete) {
         // Check if auth is needed, but skip if user recently started picking an image
         if (!shouldSkipAuthForImagePicking() && shouldRequireAuth(lastAuthTime)) {
@@ -165,7 +204,7 @@ export default function RootLayout() {
     } else if (nextAppState === 'background' || nextAppState === 'inactive') {
       // No write queue flush needed with Nitro SQLite (atomic writes)
       // [App] App entering background state, Nitro SQLite handles atomicity.
-      
+
       // Force re-auth on next launch after the app is backgrounded/closed
       setLastAuthTime(null);
       setIsAuthenticated(false);
@@ -174,19 +213,19 @@ export default function RootLayout() {
 
   const shouldSkipAuthForImagePicking = (): boolean => {
     if (!imagePickingStartTime) return false;
-    
+
     // Skip authentication for 2 minutes after image picking starts
     // This covers the time spent in camera/gallery interface and processing
     const IMAGE_PICKING_AUTH_DELAY = 2 * 60 * 1000; // 2 minutes
     const timeSinceImagePickingStarted = Date.now() - imagePickingStartTime;
-    
+
     return timeSinceImagePickingStarted < IMAGE_PICKING_AUTH_DELAY;
   };
 
   const performBiometricAuth = async () => {
     setAuthError(null);
     const result = await authenticateWithBiometrics('Authenticate to access PocketFlow');
-    
+
     if (result.success) {
       setIsAuthenticated(true);
       setLastAuthTime(Date.now());
@@ -203,9 +242,9 @@ export default function RootLayout() {
     const daysLeft = Math.ceil((endOfMonth.getTime() - now.getTime()) / msPerDay);
     const hasBackupThisMonth = lastBackup
       ? (() => {
-          const last = new Date(lastBackup);
-          return last.getMonth() === now.getMonth() && last.getFullYear() === now.getFullYear();
-        })()
+        const last = new Date(lastBackup);
+        return last.getMonth() === now.getMonth() && last.getFullYear() === now.getFullYear();
+      })()
       : false;
     return daysLeft <= 5 && !hasBackupThisMonth;
   };
@@ -242,9 +281,9 @@ export default function RootLayout() {
   const renderStack = () => (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen 
-        name="transactions/add" 
-        options={{ 
+      <Stack.Screen
+        name="transactions/add"
+        options={{
           presentation: 'modal',
           headerShown: true,
           title: 'Add Transaction',
@@ -257,10 +296,10 @@ export default function RootLayout() {
             fontWeight: '700' as TextStyle['fontWeight'],
           },
           headerShadowVisible: false,
-        }} 
+        }}
       />
-      <Stack.Screen name="transactions/[id]" options={{ 
-        headerShown: true, 
+      <Stack.Screen name="transactions/[id]" options={{
+        headerShown: true,
         title: 'Transaction Details',
         headerStyle: {
           backgroundColor: t.background,
@@ -272,8 +311,8 @@ export default function RootLayout() {
         },
         headerShadowVisible: false,
       }} />
-      <Stack.Screen name="transactions/edit" options={{ 
-        headerShown: true, 
+      <Stack.Screen name="transactions/edit" options={{
+        headerShown: true,
         title: 'Edit Transaction',
         headerStyle: {
           backgroundColor: t.background,
@@ -285,8 +324,8 @@ export default function RootLayout() {
         },
         headerShadowVisible: false,
       }} />
-      <Stack.Screen name="transactions/history" options={{ 
-        headerShown: true, 
+      <Stack.Screen name="transactions/history" options={{
+        headerShown: true,
         title: 'History',
         headerStyle: {
           backgroundColor: t.background,
@@ -298,8 +337,8 @@ export default function RootLayout() {
         },
         headerShadowVisible: false,
       }} />
-      <Stack.Screen name="wallets/create" options={{ 
-        headerShown: true, 
+      <Stack.Screen name="wallets/create" options={{
+        headerShown: true,
         title: 'Create Wallet',
         headerStyle: {
           backgroundColor: t.background,
@@ -311,8 +350,8 @@ export default function RootLayout() {
         },
         headerShadowVisible: false,
       }} />
-      <Stack.Screen name="wallets/[id]" options={{ 
-        headerShown: true, 
+      <Stack.Screen name="wallets/[id]" options={{
+        headerShown: true,
         title: 'Wallet Details',
         headerStyle: {
           backgroundColor: t.background,
@@ -324,8 +363,8 @@ export default function RootLayout() {
         },
         headerShadowVisible: false,
       }} />
-      <Stack.Screen name="categories/create" options={{ 
-        headerShown: true, 
+      <Stack.Screen name="categories/create" options={{
+        headerShown: true,
         title: 'Create Category',
         headerStyle: {
           backgroundColor: t.background,
@@ -337,8 +376,8 @@ export default function RootLayout() {
         },
         headerShadowVisible: false,
       }} />
-      <Stack.Screen name="categories/index" options={{ 
-        headerShown: true, 
+      <Stack.Screen name="categories/index" options={{
+        headerShown: true,
         title: 'Categories',
         headerStyle: {
           backgroundColor: t.background,
@@ -350,8 +389,8 @@ export default function RootLayout() {
         },
         headerShadowVisible: false,
       }} />
-      <Stack.Screen name="receipt/scan" options={{ 
-        headerShown: true, 
+      <Stack.Screen name="receipt/scan" options={{
+        headerShown: true,
         title: 'Scan Receipt',
         headerStyle: {
           backgroundColor: t.background,
@@ -363,8 +402,8 @@ export default function RootLayout() {
         },
         headerShadowVisible: false,
       }} />
-      <Stack.Screen name="profile/index" options={{ 
-        headerShown: true, 
+      <Stack.Screen name="profile/index" options={{
+        headerShown: true,
         title: 'Profile',
         headerStyle: {
           backgroundColor: t.background,
@@ -376,8 +415,8 @@ export default function RootLayout() {
         },
         headerShadowVisible: false,
       }} />
-      <Stack.Screen name="settings/currency" options={{ 
-        headerShown: true, 
+      <Stack.Screen name="settings/currency" options={{
+        headerShown: true,
         title: 'Currency Settings',
         headerStyle: {
           backgroundColor: t.background,
@@ -389,8 +428,8 @@ export default function RootLayout() {
         },
         headerShadowVisible: false,
       }} />
-      <Stack.Screen name="settings/security" options={{ 
-        headerShown: true, 
+      <Stack.Screen name="settings/security" options={{
+        headerShown: true,
         title: 'Security Settings',
         headerStyle: {
           backgroundColor: t.background,
@@ -439,31 +478,31 @@ export default function RootLayout() {
       ) : (
         renderStack()
       )}
-      
+
       {/* Show biometric auth overlay if not authenticated */}
       {!isAuthenticated && biometricEnabled && biometricSetupComplete && (
         <View style={[StyleSheet.absoluteFill, { backgroundColor: t.background, justifyContent: 'center', alignItems: 'center', padding: 32, zIndex: 1000 }]}>
           {/* App Logo */}
-          <Image 
-            source={require('../assets/logo.png')} 
+          <Image
+            source={require('../assets/logo.png')}
             style={{ width: 120, height: 120, marginBottom: 24 }}
             resizeMode="contain"
           />
-          
+
           <Text style={{ color: t.textPrimary, fontSize: 28, fontWeight: '800', marginBottom: 8, textAlign: 'center' }}>
             pocketFlow
           </Text>
-          
+
           <Text style={{ color: t.textSecondary, fontSize: 16, marginBottom: 48, textAlign: 'center' }}>
             Your personal finance tracker
           </Text>
-          
+
           {authError && (
             <Text style={{ color: t.danger, fontSize: 14, marginBottom: 16, textAlign: 'center' }}>
               {authError}
             </Text>
           )}
-          
+
           {/* Fingerprint Icon as the authenticate button (no background) */}
           <TouchableOpacity
             onPress={performBiometricAuth}

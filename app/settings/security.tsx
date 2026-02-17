@@ -40,17 +40,16 @@ export default function SecuritySettings() {
 
   const handleBiometricToggle = async (value: boolean) => {
     if (value) {
-      const availability = await checkBiometricAvailability();
-
-      if (!availability.isAvailable) {
-        showErrorAlert(
-          'Biometric Not Available',
-          availability.error || 'Biometric authentication is not available.'
-        );
+      // Use existing availability state check instead of re-checking
+      if (!biometricAvailable) {
+        showErrorAlert('Not Available', 'Biometric authentication is not available.');
         return;
       }
 
-      const auth = await authenticateWithBiometrics('Authenticate to enable biometric lock');
+      const auth = await authenticateWithBiometrics('Authenticate to enable biometric lock', {
+        disableDeviceFallback: true,
+        cancelLabel: 'Cancel'
+      });
 
       if (auth.success) {
         setBiometricEnabled(true);

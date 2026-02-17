@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
+// @ts-ignore - expo-modules-core is available via expo
+import { requireNativeModule } from 'expo-modules-core';
 
 import { log, warn, error as logError } from '@/utils/logger';
 import { useSettings, ReminderPermissionStatus } from '@/store/useStore';
@@ -10,6 +11,31 @@ import {
   DEFAULT_REMINDER_BODY,
   DEFAULT_REMINDER_TITLE,
 } from './reminderEligibility';
+
+// Safe lazy import of Notifications
+let Notifications: any = null;
+
+export async function getNotifications() {
+  if (Notifications) return Notifications;
+  try {
+    // Probe for native module first to avoid noisy load errors
+    try {
+      requireNativeModule('ExpoPushTokenManager');
+    } catch (e) {
+      // Native module missing - don't even try to import the JS package
+      // as it might contain top-level native requirements
+      warn('[Reminder] ExpoPushTokenManager native module not found');
+      return null;
+    }
+
+    // Dynamic import to avoid crash if native module is missing on load
+    Notifications = await import('expo-notifications');
+    return Notifications;
+  } catch (error) {
+    logError('[Reminder] Failed to load expo-notifications module', { error: String(error) });
+    return null;
+  }
+}
 
 export const REMINDER_CHANNEL_ID = 'expense-log-reminder';
 export const REMINDER_NOTIFICATION_KIND = 'expense_log_reminder';
@@ -24,38 +50,45 @@ interface ReminderNotificationData {
   testCountsAsReal?: boolean;
 }
 
-function toReminderPermissionStatus(permissions: Notifications.NotificationPermissionsStatus): ReminderPermissionStatus {
+function toReminderPermissionStatus(permissions: any): ReminderPermissionStatus { // Use any to avoid deep type deps if module missing
+  if (!permissions) return 'denied';
+
   if (permissions.granted) {
     return 'granted';
   }
 
+  // IOS Provisisonal check - safe navigation
   const isProvisional =
-    permissions.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
-  if (isProvisional) {
+    permissions.ios?.status === 3; // 3 is PROVISIONAL key in enum usually, but let's check structure if needed.
+  // Actually, let's trust the property access
+
+  // Safe access to imported enum if possible, or just check value
+  // Notifications.IosAuthorizationStatus.PROVISIONAL
+
+  if (Notifications && permissions.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL) {
     return 'granted';
   }
 
   return permissions.canAskAgain ? 'undetermined' : 'denied';
 }
 
-function getReminderData(notification: Notifications.Notification): ReminderNotificationData {
+function getReminderData(notification: any): ReminderNotificationData {
   return (notification.request.content.data || {}) as ReminderNotificationData;
 }
 
-function isReminderNotification(notification: Notifications.Notification): boolean {
+function isReminderNotification(notification: any): boolean {
   const data = getReminderData(notification);
   return data.kind === REMINDER_NOTIFICATION_KIND;
 }
 
-function reminderBehavior(shouldShowAlert: boolean): Notifications.NotificationBehavior {
+function reminderBehavior(shouldShowAlert: boolean): any {
   return {
     shouldShowAlert,
-    // iOS 14+ foreground presentation options
     shouldShowBanner: shouldShowAlert,
     shouldShowList: shouldShowAlert,
     shouldPlaySound: shouldShowAlert,
     shouldSetBadge: false,
-  } as Notifications.NotificationBehavior;
+  };
 }
 
 async function ensureReminderChannel(): Promise<void> {
@@ -63,17 +96,29 @@ async function ensureReminderChannel(): Promise<void> {
     return;
   }
 
+  const Notifications = await getNotifications();
+  if (!Notifications || typeof Notifications.setNotificationChannelAsync !== 'function') {
+    warn('[Reminder] Notifications.setNotificationChannelAsync is not available');
+    return;
+  }
+
   await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
     name: 'Expense reminders',
     description: 'Daily reminder to log expenses',
-    importance: Notifications.AndroidImportance.HIGH,
+    importance: Notifications.AndroidImportance ? Notifications.AndroidImportance.HIGH : 4,
     vibrationPattern: [0, 250, 250, 250],
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility ? Notifications.AndroidNotificationVisibility.PUBLIC : 1,
     sound: 'default',
   });
 }
 
 export async function syncReminderPermissionStatus(): Promise<ReminderPermissionStatus> {
+  const Notifications = await getNotifications();
+  if (!Notifications || typeof Notifications.getPermissionsAsync !== 'function') {
+    warn('[Reminder] Notifications.getPermissionsAsync is not available');
+    return 'denied';
+  }
+
   const permissions = await Notifications.getPermissionsAsync();
   const status = toReminderPermissionStatus(permissions);
   useSettings.getState().setReminderPermissionStatus(status);
@@ -81,9 +126,15 @@ export async function syncReminderPermissionStatus(): Promise<ReminderPermission
 }
 
 export async function requestReminderPermission(): Promise<ReminderPermissionStatus> {
+  const Notifications = await getNotifications();
+  if (!Notifications || typeof Notifications.requestPermissionsAsync !== 'function' || typeof Notifications.canAskForPermissionsAsync !== 'function') {
+    warn('[Reminder] Notifications permission methods are not available');
+    return 'denied';
+  }
+
   // First check if we can ask for permissions
   const canAsk = await Notifications.canAskForPermissionsAsync();
-  
+
   if (!canAsk) {
     // Permission already denied, get current status
     const permissions = await Notifications.getPermissionsAsync();
@@ -109,16 +160,22 @@ export async function initializeReminderNotifications(): Promise<void> {
     return;
   }
 
+  const Notifications = await getNotifications();
+  if (!Notifications || typeof Notifications.setNotificationHandler !== 'function') {
+    warn('[Reminder] Notifications.setNotificationHandler is not available');
+    return;
+  }
+
   await ensureReminderChannel();
 
   Notifications.setNotificationHandler({
-    handleNotification: async (notification) => {
+    handleNotification: async (notification: any) => {
       if (!isReminderNotification(notification)) {
         return reminderBehavior(true);
       }
 
       const data = getReminderData(notification);
-      
+
       // Test notifications should always show without delivery gate checks
       if (data.isTest) {
         return reminderBehavior(true);
@@ -160,15 +217,21 @@ export async function initializeReminderNotifications(): Promise<void> {
 
 export async function cancelReminderSchedule(reason: string = 'cancelled'): Promise<void> {
   try {
+    const Notifications = await getNotifications();
+    if (!Notifications || typeof Notifications.getAllScheduledNotificationsAsync !== 'function' || typeof Notifications.cancelScheduledNotificationAsync !== 'function') {
+      warn('[Reminder] Notification scheduling methods are not available');
+      return;
+    }
+
     const pending = await Notifications.getAllScheduledNotificationsAsync();
-    const reminderNotifications = pending.filter((item: Notifications.NotificationRequest) => {
+    const reminderNotifications = pending.filter((item: any) => {
       const data = (item.content.data || {}) as ReminderNotificationData;
       return data.kind === REMINDER_NOTIFICATION_KIND && !data.isTest;
     });
 
     await Promise.all(
-      reminderNotifications.map((item: Notifications.NotificationRequest) =>
-        Notifications.cancelScheduledNotificationAsync(item.identifier)
+      reminderNotifications.map((item: any) =>
+        Notifications!.cancelScheduledNotificationAsync(item.identifier)
       )
     );
 
@@ -179,7 +242,10 @@ export async function cancelReminderSchedule(reason: string = 'cancelled'): Prom
   }
 }
 
-function buildReminderContent(): Notifications.NotificationContentInput {
+async function buildReminderContent(): Promise<any> {
+  const Notifications = await getNotifications();
+  if (!Notifications) return {}; // fallback
+
   return {
     title: DEFAULT_REMINDER_TITLE,
     body: DEFAULT_REMINDER_BODY,
@@ -190,12 +256,12 @@ function buildReminderContent(): Notifications.NotificationContentInput {
     },
     ...(Platform.OS === 'android'
       ? {
-          android: {
-            channelId: REMINDER_CHANNEL_ID,
-            priority: Notifications.AndroidNotificationPriority.HIGH,
-            vibrationPattern: [0, 250, 250, 250],
-          },
-        }
+        android: {
+          channelId: REMINDER_CHANNEL_ID,
+          priority: Notifications.AndroidNotificationPriority ? Notifications.AndroidNotificationPriority.HIGH : 2,
+          vibrationPattern: [0, 250, 250, 250],
+        },
+      }
       : {}),
   };
 }
@@ -211,7 +277,7 @@ export async function scheduleNextEligibleReminder(reason: string = 'reschedule'
     }
 
     const permission = await syncReminderPermissionStatus();
-    
+
     // Request permission if not granted (for Android 13+ and initial setup)
     if (permission !== 'granted') {
       const newPermission = await requestReminderPermission();
@@ -236,8 +302,14 @@ export async function scheduleNextEligibleReminder(reason: string = 'reschedule'
     // Single-slot scheduling: clear previous future reminders and keep exactly one.
     await cancelReminderSchedule('single_slot_reschedule');
 
+    const Notifications = await getNotifications();
+    if (!Notifications || typeof Notifications.scheduleNotificationAsync !== 'function') {
+      warn('[Reminder] Notifications.scheduleNotificationAsync is not available');
+      return;
+    }
+
     await Notifications.scheduleNotificationAsync({
-      content: buildReminderContent(),
+      content: await buildReminderContent(),
       trigger: eligibility.candidateLocal,
     });
 
@@ -291,9 +363,15 @@ export async function setRemindersEnabledAndReschedule(enabled: boolean): Promis
     return;
   }
 
+  const Notifications = await getNotifications();
+  if (!Notifications || typeof Notifications.canAskForPermissionsAsync !== 'function') {
+    warn('[Reminder] Notifications permission methods are not available');
+    return;
+  }
+
   // First check if we can ask for permissions
   const canAsk = await Notifications.canAskForPermissionsAsync();
-  
+
   if (!canAsk) {
     // Permission already denied
     await syncReminderPermissionStatus();
@@ -316,6 +394,15 @@ export async function scheduleReminderTestNotification(countAsReal: boolean = fa
   try {
     await initializeReminderNotifications();
     await ensureReminderChannel();
+
+    const Notifications = await getNotifications();
+    if (!Notifications) {
+      throw new Error('Notifications module missing');
+    }
+
+    if (typeof Notifications.scheduleNotificationAsync !== 'function') {
+      throw new Error('Notifications.scheduleNotificationAsync is not available');
+    }
 
     // Request permission if not granted
     const permission = await syncReminderPermissionStatus();
@@ -340,12 +427,12 @@ export async function scheduleReminderTestNotification(countAsReal: boolean = fa
         },
         ...(Platform.OS === 'android'
           ? {
-              android: {
-                channelId: REMINDER_CHANNEL_ID,
-                priority: Notifications.AndroidNotificationPriority.HIGH,
-                vibrationPattern: [0, 250, 250, 250],
-              },
-            }
+            android: {
+              channelId: REMINDER_CHANNEL_ID,
+              priority: Notifications.AndroidNotificationPriority ? Notifications.AndroidNotificationPriority.HIGH : 2,
+              vibrationPattern: [0, 250, 250, 250],
+            },
+          }
           : {}),
       },
       trigger: null, // null = immediate notification
@@ -359,7 +446,7 @@ export async function scheduleReminderTestNotification(countAsReal: boolean = fa
 }
 
 export function extractReminderDeepLink(
-  response: Notifications.NotificationResponse
+  response: any
 ): string | null {
   const data = (response.notification.request.content.data || {}) as ReminderNotificationData;
   if (data.kind !== REMINDER_NOTIFICATION_KIND) {

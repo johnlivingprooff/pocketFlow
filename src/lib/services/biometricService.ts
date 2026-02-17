@@ -13,7 +13,7 @@ export interface BiometricCheckResult {
 export async function checkBiometricAvailability(): Promise<BiometricCheckResult> {
   try {
     const compatible = await LocalAuthentication.hasHardwareAsync();
-    
+
     if (!compatible) {
       return {
         isAvailable: false,
@@ -23,7 +23,7 @@ export async function checkBiometricAvailability(): Promise<BiometricCheckResult
     }
 
     const enrolled = await LocalAuthentication.isEnrolledAsync();
-    
+
     if (!enrolled) {
       return {
         isAvailable: false,
@@ -34,7 +34,7 @@ export async function checkBiometricAvailability(): Promise<BiometricCheckResult
 
     const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
     let biometricType = 'Biometric';
-    
+
     if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
       biometricType = Platform.OS === 'ios' ? 'Face ID' : 'Face Recognition';
     } else if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
@@ -60,14 +60,15 @@ export async function checkBiometricAvailability(): Promise<BiometricCheckResult
  * Authenticate user with biometrics
  */
 export async function authenticateWithBiometrics(
-  promptMessage: string = 'Authenticate to access PocketFlow'
+  promptMessage: string = 'Authenticate to access PocketFlow',
+  options: { cancelLabel?: string; disableDeviceFallback?: boolean } = {}
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const result = await LocalAuthentication.authenticateAsync({
       promptMessage,
       fallbackLabel: 'Use Passcode',
-      disableDeviceFallback: false,
-      cancelLabel: 'Cancel',
+      disableDeviceFallback: options.disableDeviceFallback ?? false,
+      cancelLabel: options.cancelLabel || 'Cancel',
     });
 
     if (result.success) {
@@ -75,8 +76,8 @@ export async function authenticateWithBiometrics(
     } else {
       return {
         success: false,
-        error: result.error === 'user_cancel' 
-          ? 'Authentication cancelled' 
+        error: result.error === 'user_cancel'
+          ? 'Authentication cancelled'
           : 'Authentication failed',
       };
     }
@@ -94,9 +95,9 @@ export async function authenticateWithBiometrics(
  */
 export function shouldRequireAuth(lastAuthTime: number | null): boolean {
   if (!lastAuthTime) return true;
-  
+
   const SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
   const now = Date.now();
-  
+
   return (now - lastAuthTime) > SESSION_TIMEOUT;
 }
