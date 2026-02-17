@@ -14,6 +14,7 @@ import {
   initializeReminderNotifications,
   runReminderRuntimeGateCheck,
 } from '../src/lib/services/reminderNotificationService';
+import { log } from '../src/utils/logger';
 import { theme, shadows } from '../src/theme/theme';
 import { authenticateWithBiometrics, shouldRequireAuth } from '../src/lib/services/biometricService';
 import { FingerprintIcon } from '../src/assets/icons/FingerprintIcon';
@@ -119,6 +120,22 @@ export default function RootLayout() {
 
     return () => subscription.remove();
   }, [router]);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      return;
+    }
+
+    const subscription = Notifications.addNotificationReceivedListener(
+      (notification: Notifications.Notification) => {
+        log('[Reminder] Notification received', {
+          isReminder: notification.request.content.data?.kind === 'expense_log_reminder',
+        });
+      }
+    );
+
+    return () => subscription.remove();
+  }, []);
 
   const handleAppStateChange = async (nextAppState: AppStateStatus) => {
     if (nextAppState === 'active') {

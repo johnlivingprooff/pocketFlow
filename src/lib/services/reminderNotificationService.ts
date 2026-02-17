@@ -47,14 +47,6 @@ function isReminderNotification(notification: Notifications.Notification): boole
   return data.kind === REMINDER_NOTIFICATION_KIND;
 }
 
-function shouldCountAsRealDelivery(notification: Notifications.Notification): boolean {
-  const data = getReminderData(notification);
-  if (data.testCountsAsReal) {
-    return true;
-  }
-  return !data.isTest;
-}
-
 function reminderBehavior(shouldShowAlert: boolean): Notifications.NotificationBehavior {
   return {
     shouldShowAlert,
@@ -86,6 +78,17 @@ export async function syncReminderPermissionStatus(): Promise<ReminderPermission
 }
 
 export async function requestReminderPermission(): Promise<ReminderPermissionStatus> {
+  // First check if we can ask for permissions
+  const canAsk = await Notifications.canAskForPermissionsAsync();
+  
+  if (!canAsk) {
+    // Permission already denied, get current status
+    const permissions = await Notifications.getPermissionsAsync();
+    const status = toReminderPermissionStatus(permissions);
+    useSettings.getState().setReminderPermissionStatus(status);
+    return status;
+  }
+
   const result = await Notifications.requestPermissionsAsync();
   const status = toReminderPermissionStatus(result);
   useSettings.getState().setReminderPermissionStatus(status);
@@ -105,7 +108,10 @@ export async function initializeReminderNotifications(): Promise<void> {
         return reminderBehavior(true);
       }
 
-      if (!shouldCountAsRealDelivery(notification)) {
+      const data = getReminderData(notification);
+      
+      // Test notifications should always show without delivery gate checks
+      if (data.isTest) {
         return reminderBehavior(true);
       }
 
@@ -194,11 +200,16 @@ export async function scheduleNextEligibleReminder(reason: string = 'reschedule'
     }
 
     const permission = await syncReminderPermissionStatus();
+    
+    // Request permission if not granted (for Android 13+ and initial setup)
     if (permission !== 'granted') {
-      // Keep reminder state coherent when permission was revoked outside the app.
-      state.setRemindersEnabled(false);
-      await cancelReminderSchedule('permission_not_granted');
-      return;
+      const newPermission = await requestReminderPermission();
+      if (newPermission !== 'granted') {
+        // Keep reminder state coherent when permission was revoked outside the app.
+        state.setRemindersEnabled(false);
+        await cancelReminderSchedule('permission_not_granted');
+        return;
+      }
     }
 
     const now = new Date();
@@ -235,18 +246,23 @@ export async function scheduleNextEligibleReminder(reason: string = 'reschedule'
 
 export async function runReminderRuntimeGateCheck(source: string = 'runtime'): Promise<void> {
   try {
-    const status = await syncReminderPermissionStatus();
     const state = useSettings.getState();
 
-    if (status !== 'granted' && state.remindersEnabled) {
-      state.setRemindersEnabled(false);
-      await cancelReminderSchedule('permission_revoked_runtime');
+    if (!state.remindersEnabled) {
+      await cancelReminderSchedule(`runtime_${source}_disabled`);
       return;
     }
 
-    if (!state.remindersEnabled) {
-      await cancelReminderSchedule('runtime_disabled');
-      return;
+    const status = await syncReminderPermissionStatus();
+
+    if (status !== 'granted') {
+      // Request permission if not granted
+      const newPermission = await requestReminderPermission();
+      if (newPermission !== 'granted') {
+        state.setRemindersEnabled(false);
+        await cancelReminderSchedule(`runtime_${source}_permission_denied`);
+        return;
+      }
     }
 
     await scheduleNextEligibleReminder(`runtime_${source}`);
@@ -261,6 +277,17 @@ export async function setRemindersEnabledAndReschedule(enabled: boolean): Promis
 
   if (!enabled) {
     await cancelReminderSchedule('user_disabled');
+    return;
+  }
+
+  // First check if we can ask for permissions
+  const canAsk = await Notifications.canAskForPermissionsAsync();
+  
+  if (!canAsk) {
+    // Permission already denied
+    const status = await syncReminderPermissionStatus();
+    state.setRemindersEnabled(false);
+    await cancelReminderSchedule('permission_denied_on_enable');
     return;
   }
 
@@ -279,6 +306,8 @@ export async function scheduleReminderTestNotification(countAsReal: boolean = fa
     await initializeReminderNotifications();
     await ensureReminderChannel();
 
+    // Schedule test notification to fire immediately (3 seconds in the future)
+    // Use a Date trigger for better compatibility across platforms
     const triggerAt = new Date(Date.now() + 3000);
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -300,6 +329,8 @@ export async function scheduleReminderTestNotification(countAsReal: boolean = fa
       },
       trigger: triggerAt,
     });
+
+    log('[Reminder] Scheduled test notification to fire in 3 seconds');
   } catch (error) {
     logError('[Reminder] Failed to schedule test notification', { error: String(error) });
   }
