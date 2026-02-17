@@ -13,11 +13,13 @@ import { exportTransactionsToCSV } from '../../src/lib/export/csvExport';
 import { BackupIcon } from '../../src/assets/icons/BackupIcon';
 import { ExportIcon } from '../../src/assets/icons/ExportIcon';
 import { ReceiptIcon } from '../../src/assets/icons/ReceiptIcon';
+import { ChartIcon, SettingsIcon as CategorySettingsIcon, TransferIcon, WatchIcon, MoneyIcon } from '../../src/assets/icons/CategoryIcons';
 import { useAlert } from '../../src/lib/hooks/useAlert';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
 import { ThemePreview } from '../../src/components/ThemePreview';
 
 const APP_VERSION = "2.0.1"; // Manually overridden for v2.0.1 release
+const TAP_OPACITY = 0.85;
 
 export default function SettingsScreen() {
   const {
@@ -212,64 +214,141 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
-      <ScrollView contentContainerStyle={styles.contentContainer}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentContainer}>
         <View style={styles.header}>
           <Text style={[styles.headerTitle, { color: t.textPrimary }]}>Settings</Text>
-          <Text style={[styles.headerSubtitle, { color: t.textSecondary }]}>Manage profile, security, transactions, and data tools.</Text>
+          <Text style={[styles.headerSubtitle, { color: t.textSecondary }]}>Make pocketFlow feel personal, secure, and easy to maintain.</Text>
+        </View>
+
+        <View style={[styles.heroCard, { backgroundColor: t.card, borderColor: t.border }]}>
+          <View style={[styles.heroAccent, { backgroundColor: t.primary }]} />
+          <Link href="/profile" asChild>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} style={[styles.heroProfileRow, { borderBottomColor: t.border }]}> 
+              <View style={styles.profileRowLeft}>
+                <View style={[styles.avatar, { backgroundColor: t.primary }]}> 
+                  {userInfo?.profileImage ? (
+                    <Image source={{ uri: userInfo.profileImage }} style={styles.avatarImage} />
+                  ) : (
+                    <Text style={styles.avatarInitial}>{(userInfo?.name || 'U').charAt(0).toUpperCase()}</Text>
+                  )}
+                </View>
+                <View style={styles.rowTextWrap}>
+                  <Text style={[styles.rowTitle, { color: t.textPrimary }]}>{userInfo?.name || 'Your Profile'}</Text>
+                  <Text style={[styles.rowSubtitle, { color: t.textSecondary }]} numberOfLines={1}>
+                    {userInfo?.email || 'Add your details for a personalized dashboard'}
+                  </Text>
+                </View>
+              </View>
+              <View style={[styles.inlinePill, { backgroundColor: `${t.primary}18`, borderColor: `${t.primary}40` }]}>
+                <Text style={[styles.inlinePillText, { color: t.primary }]}>Edit</Text>
+              </View>
+            </TouchableOpacity>
+          </Link>
+
+          <View style={styles.heroQuickPrefsRow}>
+            <TouchableOpacity
+              activeOpacity={TAP_OPACITY}
+              onPress={() => setShowThemePicker(true)}
+              style={[styles.quickPrefCard, { backgroundColor: t.background, borderColor: t.border }]}
+            >
+              <View style={styles.quickPrefHeader}>
+                <Text style={[styles.quickPrefLabel, { color: t.textSecondary }]}>Theme</Text>
+                <View style={[styles.quickPrefIconBadge, { backgroundColor: `${t.primary}18`, borderColor: `${t.primary}40` }]}>
+                  <CategorySettingsIcon size={12} color={t.primary} />
+                </View>
+              </View>
+              <Text style={[styles.quickPrefValue, { color: t.textPrimary }]} numberOfLines={1}>{getThemeLabel()}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={TAP_OPACITY}
+              onPress={() => setShowCurrencyPicker(true)}
+              style={[styles.quickPrefCard, { backgroundColor: t.background, borderColor: t.border }]}
+            >
+              <View style={styles.quickPrefHeader}>
+                <Text style={[styles.quickPrefLabel, { color: t.textSecondary }]}>Currency</Text>
+                <View style={[styles.quickPrefIconBadge, { backgroundColor: `${t.primary}18`, borderColor: `${t.primary}40` }]}>
+                  <MoneyIcon size={12} color={t.primary} />
+                </View>
+              </View>
+              <Text style={[styles.quickPrefValue, { color: t.textPrimary }]}>{defaultCurrency}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            activeOpacity={TAP_OPACITY}
+            onPress={() => setShowBackupModal(true)}
+            style={[styles.quickInfoStrip, { backgroundColor: t.background, borderColor: t.border }]}
+          >
+            <Text style={[styles.quickInfoLabel, { color: t.textSecondary }]}>Backups</Text>
+            <Text style={[styles.quickInfoValue, { color: t.textPrimary }]}>
+              {backups.length > 0 ? `${backups.length} available` : 'No backups yet'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>PROFILE & PREFERENCES</Text>
-          <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
-            <Link href="/profile" asChild>
-              <TouchableOpacity style={[styles.row, styles.rowDivider, { borderBottomColor: t.border }]}>
-                <View style={styles.profileRowLeft}>
-                  <View style={[styles.avatar, { backgroundColor: t.primary }]}>
-                    {userInfo?.profileImage ? (
-                      <Image source={{ uri: userInfo.profileImage }} style={styles.avatarImage} />
-                    ) : (
-                      <Text style={styles.avatarInitial}>{(userInfo?.name || 'U').charAt(0).toUpperCase()}</Text>
-                    )}
-                  </View>
-                  <View style={styles.rowTextWrap}>
-                    <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Profile</Text>
-                    <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>
-                      {userInfo?.name || 'Tap to edit your profile'}
-                    </Text>
-                  </View>
+          <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>QUICK ACCESS</Text>
+          <View style={styles.actionGrid}>
+            <Link href="/budget" asChild>
+              <TouchableOpacity activeOpacity={TAP_OPACITY} style={[styles.actionTile, { backgroundColor: t.card, borderColor: t.border }]}> 
+                <View style={[styles.tileIconWrap, { backgroundColor: `${t.primary}14`, borderColor: `${t.primary}30` }]}>
+                  <ChartIcon size={14} color={t.primary} />
                 </View>
-                <Text style={[styles.chevron, { color: t.textSecondary }]}>›</Text>
+                <Text style={[styles.actionTileTitle, { color: t.textPrimary }]}>Budget & Goals</Text>
+                <Text style={[styles.actionTileSubtitle, { color: t.textSecondary }]}>Track your plan</Text>
               </TouchableOpacity>
             </Link>
 
-            <TouchableOpacity onPress={() => setShowThemePicker(true)} style={[styles.row, styles.rowDivider, { borderBottomColor: t.border }]}>
-              <View style={styles.rowTextWrap}>
-                <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Theme</Text>
-                <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>{getThemeLabel()}</Text>
-              </View>
-              <Text style={[styles.chevron, { color: t.textSecondary }]}>›</Text>
-            </TouchableOpacity>
+            <Link href="/categories" asChild>
+              <TouchableOpacity activeOpacity={TAP_OPACITY} style={[styles.actionTile, { backgroundColor: t.card, borderColor: t.border }]}> 
+                <View style={[styles.tileIconWrap, { backgroundColor: `${t.primary}14`, borderColor: `${t.primary}30` }]}>
+                  <CategorySettingsIcon size={14} color={t.primary} />
+                </View>
+                <Text style={[styles.actionTileTitle, { color: t.textPrimary }]}>Categories</Text>
+                <Text style={[styles.actionTileSubtitle, { color: t.textSecondary }]}>Organize spending</Text>
+              </TouchableOpacity>
+            </Link>
 
-            <TouchableOpacity onPress={() => setShowCurrencyPicker(true)} style={styles.row}>
-              <View style={styles.rowTextWrap}>
-                <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Default Currency</Text>
-                <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>{defaultCurrency}</Text>
-              </View>
-              <Text style={[styles.chevron, { color: t.textSecondary }]}>›</Text>
-            </TouchableOpacity>
+            <Link href="/settings/recurring" asChild>
+              <TouchableOpacity activeOpacity={TAP_OPACITY} style={[styles.actionTile, { backgroundColor: t.card, borderColor: t.border }]}> 
+                <View style={[styles.tileIconWrap, { backgroundColor: `${t.primary}14`, borderColor: `${t.primary}30` }]}>
+                  <TransferIcon size={14} color={t.primary} />
+                </View>
+                <Text style={[styles.actionTileTitle, { color: t.textPrimary }]}>Recurring</Text>
+                <Text style={[styles.actionTileSubtitle, { color: t.textSecondary }]}>Automated entries</Text>
+              </TouchableOpacity>
+            </Link>
+
+            <Link href="/settings/reminders" asChild>
+              <TouchableOpacity activeOpacity={TAP_OPACITY} style={[styles.actionTile, { backgroundColor: t.card, borderColor: t.border }]}> 
+                <View style={[styles.tileIconWrap, { backgroundColor: `${t.primary}14`, borderColor: `${t.primary}30` }]}>
+                  <WatchIcon size={14} color={t.primary} />
+                </View>
+                <Text style={[styles.actionTileTitle, { color: t.textPrimary }]}>Reminders</Text>
+                <Text style={[styles.actionTileSubtitle, { color: t.textSecondary }]}>Daily nudges</Text>
+              </TouchableOpacity>
+            </Link>
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>SECURITY</Text>
-          <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
+          <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}> 
             <Link href="/settings/security" asChild>
-              <TouchableOpacity style={[styles.row, styles.rowDivider, { borderBottomColor: t.border }]}>
+              <TouchableOpacity activeOpacity={TAP_OPACITY} style={[styles.row, styles.rowDivider, { borderBottomColor: t.border }]}> 
                 <View style={styles.rowTextWrap}>
                   <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Security Settings</Text>
-                  <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>PIN, privacy, and protection options</Text>
+                  <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>PIN, privacy, and app protection options</Text>
                 </View>
-                <Text style={[styles.chevron, { color: t.textSecondary }]}>›</Text>
+                <View style={styles.rightMetaWrap}>
+                  <View style={[styles.inlinePill, { backgroundColor: biometricEnabled ? `${t.primary}20` : `${t.border}`, borderColor: biometricEnabled ? `${t.primary}40` : t.border }]}>
+                    <Text style={[styles.inlinePillText, { color: biometricEnabled ? t.primary : t.textSecondary }]}>
+                      {biometricEnabled ? 'Protected' : 'Basic'}
+                    </Text>
+                  </View>
+                  <Text style={[styles.chevron, { color: t.textSecondary }]}>›</Text>
+                </View>
               </TouchableOpacity>
             </Link>
 
@@ -292,55 +371,10 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>TRANSACTIONS & PLANNING</Text>
-          <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
-            <Link href="/budget" asChild>
-              <TouchableOpacity style={[styles.row, styles.rowDivider, { borderBottomColor: t.border }]}>
-                <View style={styles.rowTextWrap}>
-                  <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Budget & Goals</Text>
-                  <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>Set goals and track budget progress</Text>
-                </View>
-                <Text style={[styles.chevron, { color: t.textSecondary }]}>›</Text>
-              </TouchableOpacity>
-            </Link>
-
-            <Link href="/categories" asChild>
-              <TouchableOpacity style={[styles.row, styles.rowDivider, { borderBottomColor: t.border }]}>
-                <View style={styles.rowTextWrap}>
-                  <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Categories</Text>
-                  <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>Manage income and expense categories</Text>
-                </View>
-                <Text style={[styles.chevron, { color: t.textSecondary }]}>›</Text>
-              </TouchableOpacity>
-            </Link>
-
-            <Link href="/settings/recurring" asChild>
-              <TouchableOpacity style={[styles.row, styles.rowDivider, { borderBottomColor: t.border }]}>
-                <View style={styles.rowTextWrap}>
-                  <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Recurring Transactions</Text>
-                  <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>Manage automated transactions</Text>
-                </View>
-                <Text style={[styles.chevron, { color: t.textSecondary }]}>›</Text>
-              </TouchableOpacity>
-            </Link>
-
-            <Link href="/settings/reminders" asChild>
-              <TouchableOpacity style={styles.row}>
-                <View style={styles.rowTextWrap}>
-                  <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Reminder Settings</Text>
-                  <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>Daily reminders for logging expenses</Text>
-                </View>
-                <Text style={[styles.chevron, { color: t.textSecondary }]}>›</Text>
-              </TouchableOpacity>
-            </Link>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>DATA MANAGEMENT</Text>
-          <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
+          <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>DATA TOOLS</Text>
+          <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}> 
             <Link href="/settings/receipts" asChild>
-              <TouchableOpacity style={[styles.row, styles.rowDivider, { borderBottomColor: t.border }]}>
+              <TouchableOpacity activeOpacity={TAP_OPACITY} style={[styles.row, styles.rowDivider, { borderBottomColor: t.border }]}> 
                 <View style={styles.rowTextWrap}>
                   <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Receipts Gallery</Text>
                   <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>Browse all saved receipts</Text>
@@ -349,7 +383,7 @@ export default function SettingsScreen() {
               </TouchableOpacity>
             </Link>
 
-            <TouchableOpacity onPress={handleExportCSV} style={[styles.row, styles.rowDivider, { borderBottomColor: t.border }]}>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleExportCSV} style={[styles.row, styles.rowDivider, { borderBottomColor: t.border }]}>
               <View style={styles.rowTextWrap}>
                 <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Export to CSV</Text>
                 <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>Download all transactions</Text>
@@ -358,6 +392,7 @@ export default function SettingsScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
+              activeOpacity={TAP_OPACITY}
               onPress={handleCreateBackup}
               disabled={isLoadingBackup}
               style={[styles.row, styles.rowDivider, { borderBottomColor: t.border, opacity: isLoadingBackup ? 0.6 : 1 }]}
@@ -369,33 +404,41 @@ export default function SettingsScreen() {
               <BackupIcon size={24} color={t.textPrimary} />
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => setShowBackupModal(true)} style={styles.row}>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowBackupModal(true)} style={styles.row}>
               <View style={styles.rowTextWrap}>
                 <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Restore Backup</Text>
-                <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>
+                <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}> 
                   {backups.length > 0 ? `${backups.length} backup(s) available` : 'No backups found'}
                 </Text>
               </View>
               <Text style={[styles.actionIcon, { color: t.textPrimary }]}>↻</Text>
             </TouchableOpacity>
           </View>
+
+          <View style={[styles.noteCard, { backgroundColor: `${t.warning}10`, borderColor: `${t.warning}35` }]}>
+            <Text style={[styles.noteTitle, { color: t.warning }]}>Before you restore</Text>
+            <Text style={[styles.noteText, { color: t.textSecondary }]}>Restoring a backup replaces current app data. Create a fresh backup first if you need a rollback point.</Text>
+          </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>SUPPORT</Text>
-          <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
-            <TouchableOpacity onPress={handleFeedback} style={[styles.row, styles.rowDivider, { borderBottomColor: t.border }]}>
+          <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>SUPPORT & ABOUT</Text>
+          <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}> 
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleFeedback} style={[styles.row, styles.rowDivider, { borderBottomColor: t.border }]}> 
               <View style={styles.rowTextWrap}>
                 <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Send Feedback</Text>
                 <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>Help us improve pocketFlow</Text>
               </View>
-              <Text style={styles.actionIcon}>💬</Text>
+              <Text style={[styles.chevron, { color: t.textSecondary }]}>›</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={handleVersionTap} style={styles.row}>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleVersionTap} style={styles.row}>
               <View style={styles.rowTextWrap}>
                 <Text style={[styles.rowTitle, { color: t.textPrimary }]}>App Version</Text>
                 <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>{APP_VERSION}</Text>
+              </View>
+              <View style={[styles.inlinePill, { backgroundColor: `${t.success}14`, borderColor: `${t.success}38` }]}>
+                <Text style={[styles.inlinePillText, { color: t.success }]}>Stable</Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -404,8 +447,8 @@ export default function SettingsScreen() {
         {showDevOptions && (
           <View style={styles.section}>
             <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>DEVELOPER OPTIONS</Text>
-            <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
-              <TouchableOpacity onPress={handleRestartOnboarding} style={styles.row}>
+            <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}> 
+              <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleRestartOnboarding} style={styles.row}>
                 <View style={styles.rowTextWrap}>
                   <Text style={[styles.rowTitle, { color: colors.negativeRed }]}>Restart Onboarding</Text>
                   <Text style={[styles.rowSubtitle, { color: t.textSecondary }]}>Restart the setup flow</Text>
@@ -429,6 +472,7 @@ export default function SettingsScreen() {
               {themeOptions.map((option) => (
                 <TouchableOpacity 
                   key={option.value} 
+                  activeOpacity={TAP_OPACITY}
                   onPress={() => { setThemeMode(option.value); setShowThemePicker(false); }} 
                   style={{ 
                     padding: 16, 
@@ -456,7 +500,7 @@ export default function SettingsScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            <TouchableOpacity onPress={() => setShowThemePicker(false)} style={{ padding: 16, alignItems: 'center', borderTopWidth: 1, borderTopColor: t.border }}>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowThemePicker(false)} style={{ padding: 16, alignItems: 'center', borderTopWidth: 1, borderTopColor: t.border }}>
               <Text style={{ color: t.primary, fontWeight: '700' }}>Close</Text>
             </TouchableOpacity>
           </View>
@@ -474,12 +518,12 @@ export default function SettingsScreen() {
               data={CURRENCIES}
               keyExtractor={(item) => item}
               renderItem={({ item }) => (
-                <TouchableOpacity onPress={() => { useSettings.getState().setDefaultCurrency(item); setShowCurrencyPicker(false); }} style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
+                <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => { useSettings.getState().setDefaultCurrency(item); setShowCurrencyPicker(false); }} style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
                   <Text style={{ color: defaultCurrency === item ? t.primary : t.textPrimary, fontSize: 16, fontWeight: defaultCurrency === item ? '800' : '600' }}>{item}</Text>
                 </TouchableOpacity>
               )}
             />
-            <TouchableOpacity onPress={() => setShowCurrencyPicker(false)} style={{ padding: 16, alignItems: 'center' }}>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowCurrencyPicker(false)} style={{ padding: 16, alignItems: 'center' }}>
               <Text style={{ color: t.primary, fontWeight: '700' }}>Close</Text>
             </TouchableOpacity>
           </View>
@@ -492,7 +536,7 @@ export default function SettingsScreen() {
           <View style={{ backgroundColor: t.card, borderRadius: 12, borderWidth: 1, borderColor: t.border, maxHeight: '80%' }}>
             <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Available Backups</Text>
-              <TouchableOpacity onPress={() => setShowBackupModal(false)}>
+              <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowBackupModal(false)}>
                 <Text style={{ fontSize: 28, color: t.textSecondary, lineHeight: 28 }}>×</Text>
               </TouchableOpacity>
             </View>
@@ -505,7 +549,7 @@ export default function SettingsScreen() {
                 data={backups}
                 keyExtractor={(item) => item.uri}
                 renderItem={({ item }) => (
-                  <TouchableOpacity onPress={() => handleRestoreBackup(item.uri)} style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
+                  <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => handleRestoreBackup(item.uri)} style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
                     <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600' }}>
                       {item.date.toLocaleDateString()} at {item.date.toLocaleTimeString()}
                     </Text>
@@ -514,7 +558,7 @@ export default function SettingsScreen() {
                 )}
               />
             )}
-            <TouchableOpacity onPress={() => setShowBackupModal(false)} style={{ padding: 16, alignItems: 'center' }}>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowBackupModal(false)} style={{ padding: 16, alignItems: 'center' }}>
               <Text style={{ color: t.primary, fontWeight: '700' }}>Close</Text>
             </TouchableOpacity>
           </View>
@@ -540,7 +584,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   header: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   headerTitle: {
     fontSize: 24,
@@ -552,6 +596,111 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 24,
+  },
+  heroCard: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingTop: 6,
+    paddingBottom: 14,
+    marginBottom: 22,
+  },
+  heroAccent: {
+    width: 44,
+    height: 4,
+    borderRadius: 999,
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  heroProfileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  heroQuickPrefsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  quickPrefCard: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  quickPrefLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  quickPrefHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  quickPrefIconBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quickPrefValue: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  quickInfoStrip: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  quickInfoLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  quickInfoValue: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  actionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  actionTile: {
+    width: '48%',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  tileIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  actionTileTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  actionTileSubtitle: {
+    fontSize: 11,
+    marginTop: 4,
   },
   sectionLabel: {
     fontSize: 12,
@@ -576,6 +725,22 @@ const styles = StyleSheet.create({
   },
   rowTextWrap: {
     flex: 1,
+  },
+  rightMetaWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  inlinePill: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  inlinePillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
   rowTitle: {
     fontSize: 16,
@@ -614,5 +779,21 @@ const styles = StyleSheet.create({
   },
   actionIcon: {
     fontSize: 20,
+  },
+  noteCard: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  noteTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  noteText: {
+    fontSize: 12,
+    lineHeight: 18,
   },
 });
