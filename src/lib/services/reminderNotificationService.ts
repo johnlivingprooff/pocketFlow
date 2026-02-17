@@ -373,11 +373,15 @@ export async function setRemindersEnabledAndReschedule(enabled: boolean): Promis
   const canAsk = await Notifications.canAskForPermissionsAsync();
 
   if (!canAsk) {
-    // Permission already denied
-    await syncReminderPermissionStatus();
-    state.setRemindersEnabled(false);
-    await cancelReminderSchedule('permission_denied_on_enable');
-    return;
+    // Cannot ask for permissions - check if we already have permission (e.g., provisional on iOS)
+    const currentPermission = await syncReminderPermissionStatus();
+    if (currentPermission !== 'granted') {
+      // Permission already denied
+      state.setRemindersEnabled(false);
+      await cancelReminderSchedule('permission_denied_on_enable');
+      return;
+    }
+    // Permission is granted (possibly provisional), proceed to schedule
   }
 
   const status = await requestReminderPermission();

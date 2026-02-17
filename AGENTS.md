@@ -149,12 +149,19 @@ Available in `src/lib/db/transactions.ts`:
 - `getWalletBalance(walletId)` - Individual wallet balance
 - **Transfers excluded** from income/expense analytics
 ### Notification System
-**⚠️ NO NOTIFICATION SYSTEM IMPLEMENTED**
-- No `expo-notifications` dependency
-- No scheduled notifications
-- No notification tray integration
-- No user-configurable notification preferences
-- Only exists: Visual UI alerts (GoalAlertBanner, BudgetAlertBanner)
+**✅ REMINDER NOTIFICATION SYSTEM IMPLEMENTED**
+- `expo-notifications` dependency configured (`^0.32.16`)
+- Daily expense logging reminders with customizable time
+- Quiet hours support (do-not-disturb periods)
+- Permission handling with graceful degradation
+- Android notification channel configured in app.json
+- iOS provisional authorization support
+- Deep linking from notifications to transaction add screen
+- Reminder settings stored in `useSettings` store:
+  - `remindersEnabled`, `reminderPreferredTimeLocal`
+  - `reminderQuietHoursStart/End`, `reminderPermissionStatus`
+- Service: `src/lib/services/reminderNotificationService.ts`
+- Eligibility logic: `src/lib/services/reminderEligibility.ts`
 ---
 ## Copilot/Cursor Rules
 This repository includes rules from `.github/copilot-instructions.md`. Key highlights:
