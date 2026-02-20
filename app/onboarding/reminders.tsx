@@ -18,9 +18,8 @@ import { useSettings } from '@/store/useStore';
 import { useOnboarding } from '@/store/useOnboarding';
 import { OnboardingHeader } from '@/components/OnboardingHeader';
 import {
-  cancelReminderSchedule,
   requestReminderPermission,
-  scheduleNextEligibleReminder,
+  setRemindersEnabledAndReschedule,
 } from '@/lib/services/reminderNotificationService';
 
 type PickerTarget = 'preferred' | 'quietStart' | 'quietEnd' | null;
@@ -49,7 +48,6 @@ export default function OnboardingRemindersScreen() {
     reminderPreferredTimeLocal,
     reminderQuietHoursStart,
     reminderQuietHoursEnd,
-    setRemindersEnabled,
     setReminderPreferredTimeLocal,
     setReminderQuietHours,
   } = useSettings();
@@ -142,13 +140,7 @@ export default function OnboardingRemindersScreen() {
       setReminderQuietHours(null, null);
     }
 
-    setRemindersEnabled(enabled);
-
-    if (enabled) {
-      await scheduleNextEligibleReminder('onboarding_reminders');
-    } else {
-      await cancelReminderSchedule('onboarding_reminders_disabled');
-    }
+    await setRemindersEnabledAndReschedule(enabled);
 
     completeStep('reminders');
     setCurrentStep('wallet');
@@ -156,9 +148,8 @@ export default function OnboardingRemindersScreen() {
   };
 
   const handleSkip = async () => {
-    setRemindersEnabled(false);
     setReminderQuietHours(null, null);
-    await cancelReminderSchedule('onboarding_reminders_skipped');
+    await setRemindersEnabledAndReschedule(false);
 
     completeStep('reminders');
     setCurrentStep('wallet');
