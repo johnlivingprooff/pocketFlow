@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,6 +19,7 @@ import { useSettings } from '@/store/useStore';
 import { useOnboarding } from '@/store/useOnboarding';
 import { OnboardingHeader } from '@/components/OnboardingHeader';
 import {
+  canAskForReminderPermissionAgain,
   requestReminderPermission,
   setRemindersEnabledAndReschedule,
 } from '@/lib/services/reminderNotificationService';
@@ -118,12 +120,58 @@ export default function OnboardingRemindersScreen() {
       return;
     }
 
+    const canAskAgainBeforeRequest = await canAskForReminderPermissionAgain();
+    if (!canAskAgainBeforeRequest) {
+      Alert.alert(
+        'Enable Notifications',
+        'Notifications are blocked for pocketFlow. Open system settings to enable notifications and turn reminders on again.',
+        [
+          { text: 'Not Now', style: 'cancel' },
+          {
+            text: 'Open Settings',
+            onPress: () => {
+              void Linking.openSettings().catch(() => {
+                Alert.alert(
+                  'Open Settings Failed',
+                  'Could not open system settings. Please open your device settings and enable notifications for pocketFlow.'
+                );
+              });
+            },
+          },
+        ]
+      );
+      setEnabled(false);
+      return;
+    }
+
     const permission = await requestReminderPermission();
     if (permission !== 'granted') {
-      Alert.alert(
-        'Permission Needed',
-        'Notification access is required for reminders. You can enable it later from system settings.'
-      );
+      const canAskAgain = await canAskForReminderPermissionAgain();
+      if (!canAskAgain) {
+        Alert.alert(
+          'Enable Notifications',
+          'Notifications are blocked for pocketFlow. Open system settings to enable notifications and turn reminders on again.',
+          [
+            { text: 'Not Now', style: 'cancel' },
+            {
+              text: 'Open Settings',
+              onPress: () => {
+                void Linking.openSettings().catch(() => {
+                  Alert.alert(
+                    'Open Settings Failed',
+                    'Could not open system settings. Please open your device settings and enable notifications for pocketFlow.'
+                  );
+                });
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Permission Needed',
+          'Notification access is required for reminders. Please allow notifications when prompted.'
+        );
+      }
       setEnabled(false);
       return;
     }

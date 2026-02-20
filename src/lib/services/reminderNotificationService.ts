@@ -125,6 +125,21 @@ export async function syncReminderPermissionStatus(): Promise<ReminderPermission
   return status;
 }
 
+export async function canAskForReminderPermissionAgain(): Promise<boolean> {
+  const Notifications = await getNotifications();
+  if (!Notifications || typeof Notifications.canAskForPermissionsAsync !== 'function') {
+    warn('[Reminder] Notifications.canAskForPermissionsAsync is not available');
+    return false;
+  }
+
+  try {
+    return await Notifications.canAskForPermissionsAsync();
+  } catch (error) {
+    logError('[Reminder] Failed to check canAskForPermissionsAsync', { error: String(error) });
+    return false;
+  }
+}
+
 export async function requestReminderPermission(): Promise<ReminderPermissionStatus> {
   const Notifications = await getNotifications();
   if (!Notifications || typeof Notifications.requestPermissionsAsync !== 'function' || typeof Notifications.canAskForPermissionsAsync !== 'function') {
