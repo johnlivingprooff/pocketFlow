@@ -1,31 +1,84 @@
+'use client';
+
+import Image from 'next/image';
 import Link from 'next/link';
+import { useState } from 'react';
+import { hero } from '@/lib/content';
+
+type Spot = { x: number; y: number };
+
+const DEFAULT_SPOT: Spot = { x: 72, y: 24 };
 
 export function Hero() {
+  const [spot, setSpot] = useState<Spot>(DEFAULT_SPOT);
+  const [activeMetric, setActiveMetric] = useState(0);
+
+  const handleMove = (event: React.MouseEvent<HTMLElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - bounds.left) / bounds.width) * 100;
+    const y = ((event.clientY - bounds.top) / bounds.height) * 100;
+
+    setSpot({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
+  };
+
   return (
-    <section className="relative min-h-screen pt-24 sm:pt-32 overflow-hidden section-shell pb-20 sm:pb-28 lg:pt-40 lg:pb-36 rounded-tr-2xl sm:rounded-tr-3xl rounded-br-2xl sm:rounded-br-3xl flex items-center">
-      {/* Background image */}
-      <div className="absolute inset-0 bg-[url('/assets/engine.jpg')] bg-cover bg-[center_right_10%] sm:bg-[center_right_10%]" />
-      {/* Dark-to-transparent gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-r from-ink-900 via-ink-900/90 sm:via-ink-900/80 to-transparent" />
-      {/* Top fade */}
-      <div className="absolute inset-x-0 top-0 h-32 sm:h-48 pointer-events-none bg-gradient-to-b from-ink-900 to-transparent" />
-      {/* Bottom fade into next section */}
-      <div className="absolute inset-x-0 bottom-0 h-40 sm:h-56 pointer-events-none bg-gradient-to-b from-transparent to-ink-900" />
-      {/* Right fade */}
-      <div className="absolute inset-y-0 right-0 w-32 sm:w-48 pointer-events-none bg-gradient-to-l from-ink-900 to-transparent" />
+    <section
+      className="relative overflow-hidden pt-24 sm:pt-28 lg:pt-32"
+      onMouseMove={handleMove}
+      onMouseLeave={() => setSpot(DEFAULT_SPOT)}
+    >
+      <div className="absolute inset-0 -z-20">
+        <Image
+          src="/assets/wealth-journal.jpg"
+          alt="wealth journal planning background"
+          fill
+          className="object-cover opacity-34"
+          sizes="100vw"
+          priority
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#f8fbff] via-[#f2f7fd]/95 to-[#e5eef8]/92" />
+        <div
+          className="absolute inset-0 transition-all duration-300"
+          style={{
+            background: `radial-gradient(circle at ${spot.x}% ${spot.y}%, rgba(16, 80, 171, 0.26), transparent 35%)`,
+          }}
+        />
+      </div>
 
-      <div className="relative z-10 flex flex-col items-start w-full max-w-4xl gap-6 sm:gap-10 text-left px-4 sm:px-0">
-        <h1 className="text-3xl font-bold leading-tight sm:text-5xl lg:text-7xl text-sand-50">
-          See your cash flow clearly.
-        </h1>
+      <div className="section-shell pb-16 sm:pb-20 lg:pb-24">
+        <div className="reveal flex max-w-3xl flex-col gap-6">
+          <span className="chip w-fit">Offline-first finance</span>
+          <h1 className="font-display text-4xl font-semibold leading-tight text-slate-900 sm:text-5xl lg:text-6xl">
+            {hero.headline}
+          </h1>
+          <p className="text-base leading-7 text-slate-700 sm:text-lg">{hero.subheadline}</p>
 
-        <div className="flex items-center justify-start">
-          <Link
-            href="#features"
-            className="text-base sm:text-lg font-semibold underline transition-colors text-sand-100 decoration-sand-300/60 underline-offset-4 hover:text-sand-50"
-          >
-            See features
-          </Link>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <a href={hero.primaryHref} target="_blank" rel="noopener noreferrer" className="btn-primary pulse-badge">
+              {hero.primaryCta}
+            </a>
+            <Link href={hero.secondaryHref} className="btn-secondary">
+              {hero.secondaryCta}
+            </Link>
+          </div>
+
+          <div className="grid max-w-xl gap-3 sm:grid-cols-2">
+            {hero.trustMetrics.map((item, index) => (
+              <button
+                key={item.value}
+                type="button"
+                onMouseEnter={() => setActiveMetric(index)}
+                onFocus={() => setActiveMetric(index)}
+                onClick={() => setActiveMetric(index)}
+                className={`panel-sm interactive-card text-left transition-colors ${
+                  activeMetric === index ? 'border-sky-300 bg-white text-slate-900' : 'text-slate-800'
+                }`}
+              >
+                <p className="font-display text-xl font-semibold">{item.value}</p>
+                <p className="mt-1 text-sm text-slate-600">{item.label}</p>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </section>

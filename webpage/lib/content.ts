@@ -1,96 +1,115 @@
+import { adminEmail, betaWhatsappUrl, releaseUrl } from '@/lib/links';
+
 export const seo = {
-  title: 'pocketFlow | Cash-flow-first personal finance system',
+  title: 'pocketFlow | Trusted offline-first finance tracker',
   description:
-    'pocketFlow is an offline-first personal finance tracker that keeps wallets, transactions, receipts, budgets, and goals on-device for clear cash flow decisions.',
+    'PocketFlow is an offline-first finance app for wallets, transactions, and receipts.',
 };
 
+export const navigationLinks = [
+  { label: 'Features', href: '#capabilities' },
+  { label: 'Access', href: '#access' },
+];
+
 export const hero = {
-  headline: 'See your cash flow clearly.',
-  subheadline:
-    'pocketFlow is a disciplined, offline-first system for tracking wallets, transactions, receipts, budgets, and goals—so you can direct your money with intent.',
-  primaryCta: 'Start with the app',
-  secondaryCta: 'View how it works',
+  headline: 'Finance tracking you can trust.',
+  subheadline: 'Track wallets, spending, and goals in one place.',
+  primaryCta: 'Join beta-test WhatsApp group',
+  primaryHref: betaWhatsappUrl,
+  secondaryCta: 'Get email updates',
+  secondaryHref: '#access',
+  assurancePoints: ['Data stored on your device first'],
+  trustMetrics: [
+    { value: 'Offline-first', label: 'Local data' },
+    { value: 'Multi-wallet', label: 'Cash + bank + mobile money' },
+  ],
 };
 
 export const philosophy = {
-  title: 'Built for financial clarity, not gimmicks.',
-  body: `Money stress usually comes from low visibility, not low income. pocketFlow is structured around cash flow: track what comes in, what goes out, and what stays available across wallets. No nudges, no noise—just the numbers you need to decide.`,
+  title: 'Clear records, clear decisions.',
+  body: 'PocketFlow is designed for practical cash-flow visibility, not dashboard clutter.',
 };
+
+export const trustPillars = [
+  {
+    title: 'Data ownership',
+    body: 'Records are stored locally first, with backup export when you need it.',
+  },
+  {
+    title: 'Transparent reporting',
+    body: 'Transfers are excluded from spend analytics for cleaner totals.',
+  },
+];
+
+export const securityChecklist = [
+  'Offline-first architecture',
+  'Optional biometric lock',
+  'Public release history',
+];
+
+export const newInfo = [
+  {
+    title: 'Quiet-hour reminders',
+    body: 'Daily reminders with no-disturb windows.',
+  },
+  {
+    title: 'JSON backup and restore',
+    body: 'Move your records when needed.',
+  },
+];
 
 export const features = [
   {
-    title: 'Multi-wallet tracking',
-    body: 'Cash, mobile money, and bank accounts in one place with live balances.',
-    detail: 'Track balances per wallet and total available across all accounts.',
+    title: 'Wallet tracking',
+    body: 'Track cash, mobile money, and bank balances together.',
+    detail: 'One view of total available funds.',
   },
   {
-    title: 'Categorized transactions',
-    body: 'Income, expenses, and transfers with category drill-down.',
-    detail: 'Stay organized with presets for food, transport, housing, income streams, and more.',
+    title: 'Smart transaction logging',
+    body: 'Log income, expenses, transfers, and receipts quickly.',
+    detail: 'Category structure keeps reports clean.',
   },
   {
-    title: 'Budgets & goals',
-    body: 'Spending limits per category and savings targets per goal with period tracking.',
-    detail: 'Weekly, monthly, or custom periods; goal timelines with progress and on-track signals.',
-  },
-  {
-    title: 'Receipts on-device',
-    body: 'Capture and compress receipt images; store locally for offline access.',
-    detail: 'Keep evidence without sending data to servers; export/import as needed.',
-  },
-  {
-    title: 'Offline-first data control',
-    body: 'SQLite storage plus JSON backups you can export and restore.',
-    detail: 'Your data lives on your device; optional biometric lock for access.',
-  },
-  {
-    title: 'Analytics you can trust',
-    body: 'Income vs expense, category breakdowns, and wallet balances at a glance.',
-    detail: 'Transfers are excluded from spend charts so insights stay accurate.',
+    title: 'Budgets and goals',
+    body: 'Set limits and savings targets with quick progress checks.',
+    detail: 'Useful for weekly and monthly planning.',
   },
 ];
 
 export const howItWorks = [
   {
-    title: 'Track',
-    body: 'Log income, expenses, and transfers across wallets with receipts when needed.',
+    title: 'Capture',
+    body: 'Log daily income and spending.',
   },
   {
-    title: 'Organize',
-    body: 'Apply categories and budgets per period; link goals to the wallets that fund them.',
+    title: 'Review',
+    body: 'Check wallet totals and trends.',
   },
   {
-    title: 'Observe',
-    body: 'Review dashboards: totals, category breakdowns, and progress toward goals.',
-  },
-  {
-    title: 'Decide',
-    body: 'Adjust budgets, reallocate wallets, and keep spending aligned with intent.',
+    title: 'Adjust',
+    body: 'Update budgets and stay on plan.',
   },
 ];
 
 export const useCases = [
   {
-    title: 'Everyday expenses with guardrails',
-    body: 'Set weekly or monthly budgets for groceries, transport, or utilities; get clean views of what remains.',
+    title: 'Household planning',
+    body: 'Keep weekly essentials within budget.',
   },
   {
-    title: 'Cash and mobile money visibility',
-    body: 'Track cash, bank, and mobile money together; transfers stay out of spend charts so totals stay truthful.',
-  },
-  {
-    title: 'Goal-driven saving',
-    body: 'Create goals like emergency funds or tuition; monitor progress, days remaining, and required pace.',
-  },
-  {
-    title: 'Receipt-backed records',
-    body: 'Snap or import receipts; keep them compressed on-device with your transaction history.',
+    title: 'Cash + mobile money',
+    body: 'Track all wallets without double-counting transfers.',
   },
 ];
 
 export const cta = {
-  headline: 'Build financial awareness with pocketFlow.',
-  body: 'Stay offline-first, keep receipts local, and see your cash flow without noise. Ready to get a clearer view?',
-  primary: 'Get the app',
-  secondary: 'Read the docs',
+  headline: 'Join beta access on WhatsApp.',
+  body: 'Get early builds before public launch.',
+  primary: 'Join beta WhatsApp group',
+  primaryHref: betaWhatsappUrl,
+  secondary: 'View latest release',
+  secondaryHref: releaseUrl,
+  waitlistTitle: 'Prefer email updates?',
+  waitlistAction: 'Join waitlist',
+  promise: `Emails from ${adminEmail}.`,
 };

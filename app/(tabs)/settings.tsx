@@ -486,7 +486,7 @@ export default function SettingsScreen() {
         {/* Support & About */}
         <View style={styles.section}>
           {renderSectionHeader('ABOUT')}
-          <View style={[styles.listContainer, { backgroundColor: t.card, borderColor: t.border }]}>
+          <View style={[styles.listContainer, { backgroundColor: t.card, borderColor: t.border }]}> 
             <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleFeedback} style={[styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1 }]}>
               <View style={styles.listItemContent}>
                 <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Send Feedback</Text>
@@ -494,18 +494,15 @@ export default function SettingsScreen() {
               </View>
               <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleVersionTap} style={styles.listItem}>
-              <View style={styles.listItemContent}>
-                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Version</Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, backgroundColor: `${t.success}15` }}>
-                  <Text style={{ color: t.success, fontSize: 10, fontWeight: '700' }}>v{APP_VERSION}</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
           </View>
+
+          <TouchableOpacity
+            activeOpacity={TAP_OPACITY}
+            onPress={handleVersionTap}
+            style={{ alignItems: 'center', paddingVertical: 12 }}
+          >
+            <Text style={[styles.versionPlainText, { color: t.textSecondary }]}>v{APP_VERSION}</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Developer Options */}
@@ -864,5 +861,10 @@ const styles = StyleSheet.create({
   modalCloseText: {
     fontWeight: '700',
     fontSize: 15,
+  },
+  versionPlainText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.4,
   },
 });

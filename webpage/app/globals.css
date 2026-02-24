@@ -3,34 +3,122 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
+  --bg-soft: #edf3fa;
+  --line-soft: #cfdbea;
+  --surface: #ffffff;
+  --surface-muted: #f4f8fd;
 }
 
 * {
+  box-sizing: border-box;
+}
+
+html {
   scroll-behavior: smooth;
 }
 
 body {
+  min-height: 100vh;
   background-image:
-    radial-gradient(circle at 20% 50%, rgba(132, 103, 11, 0.05) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(132, 103, 11, 0.03) 0%, transparent 50%);
-}
-
-a {
-  @apply text-gold-600 hover:text-gold-500 transition-colors;
+    radial-gradient(circle at 12% 6%, rgba(15, 73, 153, 0.26), transparent 36%),
+    radial-gradient(circle at 84% 14%, rgba(14, 141, 135, 0.24), transparent 30%),
+    linear-gradient(180deg, #f7fbff 0%, #eaf2fb 52%, #eef4fa 100%);
 }
 
 .section-shell {
-  @apply w-full max-w-7xl px-6 sm:px-8 lg:px-12 mx-auto;
+  @apply mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-12;
 }
 
-.card {
-  @apply rounded-2xl border border-ink-700 bg-ink-800/80 shadow-2xl;
+.panel {
+  border: 1px solid var(--line-soft);
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 24px 52px -32px rgba(11, 33, 64, 0.5);
+  backdrop-filter: blur(10px);
 }
 
-/* Smooth scrolling */
-@media (prefers-reduced-motion: no-preference) {
-  html {
-    scroll-behavior: smooth;
+.panel-sm {
+  border: 1px solid var(--line-soft);
+  border-radius: 1rem;
+  background: rgba(248, 251, 255, 0.92);
+  padding: 1rem;
+}
+
+.chip {
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  background: rgba(37, 99, 235, 0.1);
+  border-radius: 999px;
+  color: rgb(30, 64, 175);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  padding: 0.5rem 0.75rem;
+  text-transform: uppercase;
+}
+
+.btn-primary {
+  @apply inline-flex items-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors;
+}
+
+.btn-primary:hover {
+  @apply bg-slate-700;
+}
+
+.btn-secondary {
+  @apply inline-flex items-center rounded-xl border border-slate-300 bg-white/90 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors;
+}
+
+.btn-secondary:hover {
+  @apply border-slate-400 text-slate-900;
+}
+
+.interactive-card {
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease, background-color 220ms ease;
+}
+
+.interactive-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 24px 54px -32px rgba(6, 24, 48, 0.48);
+  border-color: rgba(59, 130, 246, 0.32);
+}
+
+@keyframes softPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.24);
   }
+
+  50% {
+    box-shadow: 0 0 0 10px rgba(37, 99, 235, 0);
+  }
+}
+
+.pulse-badge {
+  animation: softPulse 2.2s ease infinite;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.reveal {
+  animation: rise 0.72s ease both;
+}
+
+.reveal-delay-1 {
+  animation-delay: 0.12s;
+}
+
+.reveal-delay-2 {
+  animation-delay: 0.22s;
 }

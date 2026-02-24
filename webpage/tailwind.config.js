@@ -8,36 +8,31 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        ink: {
-          900: '#0B0B0A',
-          800: '#141412',
-          700: '#1C1C19',
-          600: '#252521',
-          500: '#2E2E29',
+        trust: {
+          900: '#112947',
+          800: '#16365D',
+          700: '#1F4B80',
+          500: '#2C6CB7',
+          300: '#7DA4D6',
         },
-        sand: {
-          50: '#F8F7F3',
-          100: '#F0EDE4',
-          200: '#E6E1D4',
-          300: '#D8D1BE',
-          400: '#C2B79F',
+        mint: {
+          600: '#0E8D87',
+          500: '#14B8A6',
+          100: '#CCFBF1',
         },
-        gold: {
-          500: '#8B6A0F',
-          600: '#73570C',
-          700: '#5A4208',
-        },
-        slate: {
-          300: '#CBD5E1',
-          500: '#64748B',
-          700: '#334155',
+        cloud: {
+          50: '#F8FBFF',
+          100: '#F1F6FC',
+          200: '#E2ECF7',
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-sans)'],
+        display: ['var(--font-display)'],
       },
       boxShadow: {
-        card: '0 12px 35px -15px rgba(0,0,0,0.35)',
+        card: '0 20px 44px -30px rgba(15, 35, 65, 0.4)',
+        soft: '0 14px 34px -24px rgba(20, 47, 86, 0.32)',
       },
     },
   },
