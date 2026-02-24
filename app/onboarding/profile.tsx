@@ -1,7 +1,18 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, Image, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  TextInput,
+  ScrollView,
+  Image,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -22,8 +33,6 @@ export default function ProfileSetupScreen() {
 
   // Initialize from saved form data if returning
   const [name, setName] = useState(formData.profile?.name || '');
-  const [email, setEmail] = useState(formData.profile?.email || '');
-  const [phone, setPhone] = useState(formData.profile?.phone || '');
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [currency, setCurrency] = useState(formData.profile?.currency || 'MWK');
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
@@ -32,11 +41,9 @@ export default function ProfileSetupScreen() {
   useEffect(() => {
     saveFormData('profile', {
       name,
-      email,
-      phone,
       currency,
     });
-  }, [name, email, phone, currency, saveFormData]);
+  }, [name, currency, saveFormData]);
 
   const handlePickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -86,8 +93,6 @@ export default function ProfileSetupScreen() {
     // Save user info
     setUserInfo({
       name: name.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
       profileImage,
     });
     setDefaultCurrency(currency);
@@ -107,7 +112,16 @@ export default function ProfileSetupScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+      >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+      >
         <OnboardingHeader 
           canGoBack={previousSteps.length > 0}
           onBack={handleBack}
@@ -149,7 +163,7 @@ export default function ProfileSetupScreen() {
         {/* Form */}
         <View style={styles.form}>
           <View style={styles.field}>
-            <Text style={[styles.label, { color: t.textPrimary }]}>
+            <Text style={[styles.label, { color: t.textPrimary }]}> 
               Name <Text style={{ color: colors.negativeRed }}>*</Text>
             </Text>
             <TextInput
@@ -166,49 +180,6 @@ export default function ProfileSetupScreen() {
               value={name}
               onChangeText={setName}
               autoCapitalize="words"
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: t.textPrimary }]}>
-              Email
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.mutedGrey + '10',
-                  color: t.textPrimary,
-                  borderColor: colors.mutedGrey + '30',
-                },
-              ]}
-              placeholder="your@email.com"
-              placeholderTextColor={t.textSecondary}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: t.textPrimary }]}>
-              Phone
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.mutedGrey + '10',
-                  color: t.textPrimary,
-                  borderColor: colors.mutedGrey + '30',
-                },
-              ]}
-              placeholder="+265 xxx xxx xxx"
-              placeholderTextColor={t.textSecondary}
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
             />
           </View>
 
@@ -264,6 +235,7 @@ export default function ProfileSetupScreen() {
         }}
         onClose={() => setShowCurrencyModal(false)}
       />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

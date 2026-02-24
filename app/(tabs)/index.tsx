@@ -983,10 +983,10 @@ export default function Home() {
           <View style={{ marginBottom: 24 }}>
             <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Quick Actions</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-              <Link href="/transactions/add" asChild>
+              <Link href="/categories/create" asChild>
                 <TouchableOpacity style={{ width: '48.5%', backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, padding: 12, marginBottom: 10, alignItems: 'center' }}>
                   <PlusIcon size={20} color={t.primary} />
-                  <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '700', marginTop: 6 }}>Add Transaction</Text>
+                  <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '700', marginTop: 6 }}>Add Category</Text>
                 </TouchableOpacity>
               </Link>
 

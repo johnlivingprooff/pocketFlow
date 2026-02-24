@@ -1,5 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Image, useColorScheme, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Image,
+  useColorScheme,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
@@ -24,10 +35,8 @@ export default function ProfilePage() {
   const t = theme(effectiveMode);
   const { alertConfig, showSuccessAlert, dismissAlert } = useAlert();
   const { inviteToken } = useLocalSearchParams<{ inviteToken?: string }>();
-  const safeUser = userInfo ?? { name: 'pFlowr', email: '', phone: '', profileImage: null };
+  const safeUser = userInfo ?? { name: 'pFlowr', profileImage: null };
   const [name, setName] = useState(safeUser.name);
-  const [email, setEmail] = useState(safeUser.email);
-  const [phone, setPhone] = useState(safeUser.phone);
   const [isEditing, setIsEditing] = useState(false);
   const [cloudEmail, setCloudEmail] = useState('');
   const [cloudPassword, setCloudPassword] = useState('');
@@ -51,15 +60,13 @@ export default function ProfilePage() {
   };
 
   const handleSave = () => {
-    setUserInfo({ name, email, phone });
+    setUserInfo({ name });
     setIsEditing(false);
     showSuccessAlert('Success', 'Profile updated successfully');
   };
 
   const handleCancel = () => {
-    setName(userInfo.name);
-    setEmail(userInfo.email);
-    setPhone(userInfo.phone);
+    setName(userInfo?.name || 'pFlowr');
     setIsEditing(false);
   };
 
@@ -113,8 +120,17 @@ export default function ProfilePage() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
-      <ScrollView style={{ flex: 1, backgroundColor: t.background }}>
-      <View style={{ padding: 16, paddingTop: 20 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+      >
+        <ScrollView
+          style={{ flex: 1, backgroundColor: t.background }}
+          contentContainerStyle={{ padding: 16, paddingTop: 20, paddingBottom: 40 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        >
         {/* Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
           <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>Profile</Text>
@@ -195,8 +211,7 @@ export default function ProfilePage() {
           </Text>
           
           <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, overflow: 'hidden' }}>
-            {/* Name */}
-            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
+            <View style={{ padding: 16 }}>
               <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 6 }}>Full Name</Text>
               <TextInput
                 value={name}
@@ -204,45 +219,6 @@ export default function ProfilePage() {
                 editable={isEditing}
                 placeholder="Enter your name"
                 placeholderTextColor={t.textSecondary}
-                style={{
-                  color: t.textPrimary,
-                  fontSize: 16,
-                  fontWeight: '600',
-                  padding: 0,
-                }}
-              />
-            </View>
-
-            {/* Email */}
-            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
-              <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 6 }}>Email</Text>
-              <TextInput
-                value={email}
-                onChangeText={setEmail}
-                editable={isEditing}
-                placeholder="Enter your email"
-                placeholderTextColor={t.textSecondary}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                style={{
-                  color: t.textPrimary,
-                  fontSize: 16,
-                  fontWeight: '600',
-                  padding: 0,
-                }}
-              />
-            </View>
-
-            {/* Phone */}
-            <View style={{ padding: 16 }}>
-              <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 6 }}>Phone</Text>
-              <TextInput
-                value={phone}
-                onChangeText={setPhone}
-                editable={isEditing}
-                placeholder="Enter your phone number"
-                placeholderTextColor={t.textSecondary}
-                keyboardType="phone-pad"
                 style={{
                   color: t.textPrimary,
                   fontSize: 16,
@@ -325,8 +301,8 @@ export default function ProfilePage() {
             ) : null}
           </View>
         </View>
-      </View>
-    </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
     {/* Themed Alert Component */}
     <ThemedAlert

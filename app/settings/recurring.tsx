@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, useColorScheme, Modal, Switch, Platform, TextInput } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  useColorScheme,
+  Modal,
+  Switch,
+  Platform,
+  TextInput,
+  KeyboardAvoidingView,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -20,6 +31,10 @@ import { SelectModal, SelectOption } from '../../src/components/SelectModal';
 import { CATEGORY_ICONS } from '../../src/assets/icons/CategoryIcons';
 import { useAlert } from '../../src/lib/hooks/useAlert';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
+
+type TxExecutor = {
+  executeAsync: (sql: string, params?: unknown[]) => Promise<unknown>;
+};
 
 export default function RecurringTransactionsScreen() {
   const router = useRouter();
@@ -264,7 +279,7 @@ export default function RecurringTransactionsScreen() {
           }
 
           // Create both transactions in a single batch
-          await database.transaction(async (tx) => {
+          await database.transaction(async (tx: TxExecutor) => {
             // Outgoing transfer
             await tx.executeAsync(
               `INSERT INTO transactions
@@ -309,7 +324,7 @@ export default function RecurringTransactionsScreen() {
           const selectedCat = categories.find(c => c.id?.toString() === createCategory);
           const categoryName = selectedCat?.name || 'Uncategorized';
 
-          await database.transaction(async (tx) => {
+          await database.transaction(async (tx: TxExecutor) => {
             await tx.executeAsync(
               `INSERT INTO transactions
                (wallet_id, type, amount, category, date, notes, is_recurring, recurrence_frequency, recurrence_end_date, created_at)
@@ -473,7 +488,12 @@ export default function RecurringTransactionsScreen() {
       </View>
 
       {/* Content */}
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 24, paddingBottom: 40 }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 16, paddingTop: 24, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+      >
         {loading ? (
           <Text style={{ color: t.textSecondary, textAlign: 'center', marginTop: 32 }}>Loading...</Text>
         ) : recurringTransactions.length === 0 ? (
@@ -521,6 +541,11 @@ export default function RecurringTransactionsScreen() {
 
       {/* Edit Modal */}
       <Modal visible={showEditModal} transparent animationType="slide" onRequestClose={() => setShowEditModal(false)}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+        >
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
           <View style={{ backgroundColor: t.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%' }}>
             <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border }}>
@@ -633,6 +658,7 @@ export default function RecurringTransactionsScreen() {
             </View>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* End Date Picker */}
@@ -647,6 +673,11 @@ export default function RecurringTransactionsScreen() {
 
       {/* Create Recurring Transaction Modal */}
       <Modal visible={showCreateModal} transparent animationType="slide" onRequestClose={() => setShowCreateModal(false)}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+        >
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
           <View style={{ backgroundColor: t.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%' }}>
             <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -656,7 +687,12 @@ export default function RecurringTransactionsScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={{ padding: 16 }} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={{ padding: 16 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            >
               {/* Transaction Type */}
               <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>
                 TYPE
@@ -968,6 +1004,7 @@ export default function RecurringTransactionsScreen() {
             </View>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Create Date Picker */}

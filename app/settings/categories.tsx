@@ -9,6 +9,8 @@ import {
   TextInput,
   FlatList,
   SectionList,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Link } from 'expo-router';
@@ -227,6 +229,7 @@ export default function CategoriesScreen() {
         <SectionList
           sections={sections}
           keyExtractor={(item) => `${item.id}`}
+          keyboardShouldPersistTaps="handled"
           renderItem={({ item: category }) => {
             return (
               <TouchableOpacity
@@ -294,6 +297,11 @@ export default function CategoriesScreen() {
           setEditingCategory(null);
         }}
       >
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+        >
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 16 }}>
           <View style={{ backgroundColor: t.card, borderRadius: 12, borderWidth: 1, borderColor: t.border }}>
             {/* Header */}
@@ -401,6 +409,7 @@ export default function CategoriesScreen() {
             </View>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Add Category Floating Button */}
