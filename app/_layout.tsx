@@ -20,6 +20,7 @@ import { authenticateWithBiometrics, shouldRequireAuth } from '../src/lib/servic
 import { FingerprintIcon } from '../src/assets/icons/FingerprintIcon';
 import { createBackup } from '../src/lib/export/backupRestore';
 import { WebShell } from '../src/components/web/WebShell';
+import { hydrateCloudSession } from '../src/lib/services/cloud/authService';
 
 export default function RootLayout() {
   const {
@@ -47,6 +48,12 @@ export default function RootLayout() {
     const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
     return theme(effectiveMode);
   }, [themeMode, systemColorScheme]);
+
+  useEffect(() => {
+    hydrateCloudSession().catch(() => {
+      // best effort
+    });
+  }, []);
 
   useEffect(() => {
     if (Platform.OS !== 'web') {
@@ -466,6 +473,45 @@ export default function RootLayout() {
         },
         headerShadowVisible: false,
       }} />
+      <Stack.Screen name="settings/shared-wallets" options={{
+        headerShown: true,
+        title: 'Shared Wallets',
+        headerStyle: {
+          backgroundColor: t.background,
+        },
+        headerTintColor: t.textPrimary,
+        headerTitleStyle: {
+          color: t.textPrimary,
+          fontWeight: '700' as TextStyle['fontWeight'],
+        },
+        headerShadowVisible: false,
+      }} />
+      <Stack.Screen name="settings/shared-wallets/[id]" options={{
+        headerShown: true,
+        title: 'Shared Wallet Details',
+        headerStyle: {
+          backgroundColor: t.background,
+        },
+        headerTintColor: t.textPrimary,
+        headerTitleStyle: {
+          color: t.textPrimary,
+          fontWeight: '700' as TextStyle['fontWeight'],
+        },
+        headerShadowVisible: false,
+      }} />
+      <Stack.Screen name="invite/[token]" options={{
+        headerShown: true,
+        title: 'Invitation',
+        headerStyle: {
+          backgroundColor: t.background,
+        },
+        headerTintColor: t.textPrimary,
+        headerTitleStyle: {
+          color: t.textPrimary,
+          fontWeight: '700' as TextStyle['fontWeight'],
+        },
+        headerShadowVisible: false,
+      }} />
     </Stack>
   );
 
@@ -524,4 +570,3 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
-

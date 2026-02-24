@@ -55,11 +55,13 @@
           "sounds": []
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-secure-store"
     ],
     "extra": {
       "router": {},
       "enableLogging": true,
+      "cloudApiBaseUrl": "http://localhost:4000",
       "eas": {
         "projectId": "e63eeb3a-bc99-4112-b2c0-d0568d5593d3"
       }

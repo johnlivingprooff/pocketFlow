@@ -1,11 +1,11 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, useColorScheme, ActivityIndicator, FlatList, ListRenderItem } from 'react-native';
+import { View, Text, TouchableOpacity, useColorScheme, ActivityIndicator, FlatList, ListRenderItem, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Link, router, useFocusEffect } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
-import { getWallet, getWalletBalance, deleteWallet } from '../../src/lib/db/wallets';
+import { getWallet, getWalletBalance, deleteWallet, updateWallet } from '../../src/lib/db/wallets';
 import { filterTransactions, getWalletIncomeExpense } from '../../src/lib/db/transactions';
 import { useAlert } from '../../src/lib/hooks/useAlert';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
@@ -14,6 +14,15 @@ import { Wallet } from '../../src/types/wallet';
 import { TransactionItem } from '../../src/components/TransactionItem';
 import { ExportIcon } from '../../src/assets/icons/ExportIcon';
 import TimePeriodSelector, { TimePeriod } from '../../src/components/TimePeriodSelector';
+import { useSettings as useSettingsStore } from '../../src/store/useStore';
+import {
+  createWalletInvitation,
+  disableWalletSharing,
+  enableWalletSharing,
+  getSharedWalletMembers,
+  removeWalletMember,
+} from '../../src/lib/services/cloud/sharedWalletService';
+import * as Clipboard from 'expo-clipboard';
 
 const TrashIcon = ({ size = 18, color = '#fff' }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -83,6 +92,7 @@ export default function WalletDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const walletId = Number(id);
   const { themeMode, defaultCurrency } = useSettings();
+  const { cloudSessionState } = useSettingsStore();
   const systemColorScheme = useColorScheme();
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const t = theme(effectiveMode);
@@ -98,6 +108,8 @@ export default function WalletDetail() {
   const [income, setIncome] = useState(0);
   const [expenses, setExpenses] = useState(0);
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('30days');
+  const [isSharingBusy, setIsSharingBusy] = useState(false);
+  const [members, setMembers] = useState<Array<{ userId: string; email: string; role: 'owner' | 'member'; joinedAt: string }>>([]);
 
   // Pagination State
   const [page, setPage] = useState(0);
@@ -132,6 +144,83 @@ export default function WalletDetail() {
       setDescription(w.description || '');
       setCurrency(w.currency);
       setBalance(await getWalletBalance(walletId));
+      if (w.cloud_wallet_id && w.is_shared === 1) {
+        try {
+          const walletMembers = await getSharedWalletMembers(w.cloud_wallet_id);
+          setMembers(walletMembers);
+        } catch {
+          setMembers([]);
+        }
+      } else {
+        setMembers([]);
+      }
+    }
+  };
+
+  const handleToggleShared = async (enabled: boolean) => {
+    if (!wallet) return;
+
+    if (cloudSessionState !== 'authenticated') {
+      showConfirmAlert('Cloud account required', 'Sign in from Profile before enabling shared wallets.', () => {
+        router.push('/profile');
+      });
+      return;
+    }
+
+    setIsSharingBusy(true);
+    try {
+      if (enabled) {
+        const shared = await enableWalletSharing({
+          name: wallet.name,
+          walletId: String(wallet.id ?? ''),
+        });
+        await updateWallet(walletId, {
+          cloud_wallet_id: shared.id,
+          is_shared: 1,
+          share_id: shared.shareId,
+          shared_role: shared.role,
+          created_by: useSettingsStore.getState().cloudUser?.id ?? null,
+          sync_status: shared.syncStatus,
+        });
+      } else if (wallet.cloud_wallet_id) {
+        await disableWalletSharing(wallet.cloud_wallet_id);
+        await updateWallet(walletId, {
+          is_shared: 0,
+          share_id: null,
+          shared_role: null,
+          sync_status: 'offline',
+        });
+      }
+      await loadWalletDetails();
+    } catch {
+      showConfirmAlert(
+        'Sharing update failed',
+        'Could not update shared wallet settings. Please verify permissions and try again.',
+        () => {}
+      );
+    } finally {
+      setIsSharingBusy(false);
+    }
+  };
+
+  const handleCreateInvite = async () => {
+    if (!wallet?.cloud_wallet_id) return;
+    try {
+      const invite = await createWalletInvitation(wallet.cloud_wallet_id);
+      await Clipboard.setStringAsync(invite.inviteLink);
+      showSuccessAlert('Invite copied', 'Invitation link copied to clipboard.');
+    } catch {
+      showConfirmAlert('Invite failed', 'Could not create an invite link right now.', () => {});
+    }
+  };
+
+  const handleRemoveMember = async (memberUserId: string) => {
+    if (!wallet?.cloud_wallet_id) return;
+    try {
+      await removeWalletMember(wallet.cloud_wallet_id, memberUserId);
+      await loadWalletDetails();
+    } catch {
+      showConfirmAlert('Removal failed', 'Could not remove member. Please try again.', () => {});
     }
   };
 
@@ -311,6 +400,69 @@ export default function WalletDetail() {
           <Text style={{ color: t.textPrimary, fontSize: 32, fontWeight: '800' }}>
             {balance.toLocaleString()} {currency}
           </Text>
+
+          <View style={{ marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: t.border }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flex: 1, paddingRight: 10 }}>
+                <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '700' }}>Enable Shared Wallet</Text>
+                <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>
+                  Invite-only access with owner/member permissions.
+                </Text>
+              </View>
+              <Switch
+                value={wallet?.is_shared === 1}
+                onValueChange={handleToggleShared}
+                disabled={isSharingBusy}
+                trackColor={{ false: t.border, true: `${t.primary}80` }}
+                thumbColor={wallet?.is_shared === 1 ? t.primary : t.textSecondary}
+              />
+            </View>
+
+            {wallet?.is_shared === 1 && wallet?.cloud_wallet_id ? (
+              <View style={{ marginTop: 12, gap: 8 }}>
+                <Text style={{ color: t.textSecondary, fontSize: 12 }}>
+                  Role: {wallet.shared_role || 'member'} • Sync: {wallet.sync_status || 'offline'}
+                </Text>
+                {wallet.shared_role === 'owner' ? (
+                  <TouchableOpacity
+                    onPress={handleCreateInvite}
+                    style={{ backgroundColor: t.primary, borderRadius: 8, paddingVertical: 9, alignItems: 'center' }}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: '700' }}>Invite Member</Text>
+                  </TouchableOpacity>
+                ) : null}
+
+                {members.map((member) => (
+                  <View
+                    key={member.userId}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: t.border,
+                      borderRadius: 8,
+                      paddingHorizontal: 10,
+                      paddingVertical: 8,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <View>
+                      <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '700' }}>{member.email}</Text>
+                      <Text style={{ color: t.textSecondary, fontSize: 11 }}>{member.role}</Text>
+                    </View>
+                    {wallet.shared_role === 'owner' && member.role !== 'owner' ? (
+                      <TouchableOpacity
+                        onPress={() => handleRemoveMember(member.userId)}
+                        style={{ paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: t.border, borderRadius: 7 }}
+                      >
+                        <Text style={{ color: t.textPrimary, fontSize: 11, fontWeight: '700' }}>Remove</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
         </View>
       </View>
 

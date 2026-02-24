@@ -155,6 +155,12 @@ export async function updateWallet(id: number, w: Partial<Wallet>) {
   if ((w as any).accountNumber !== undefined) set('accountNumber', (w as any).accountNumber);
   if ((w as any).phoneNumber !== undefined) set('phoneNumber', (w as any).phoneNumber);
   if ((w as any).serviceProvider !== undefined) set('serviceProvider', (w as any).serviceProvider);
+  if ((w as any).cloud_wallet_id !== undefined) set('cloud_wallet_id', (w as any).cloud_wallet_id);
+  if ((w as any).created_by !== undefined) set('created_by', (w as any).created_by);
+  if ((w as any).is_shared !== undefined) set('is_shared', (w as any).is_shared);
+  if ((w as any).share_id !== undefined) set('share_id', (w as any).share_id);
+  if ((w as any).shared_role !== undefined) set('shared_role', (w as any).shared_role);
+  if ((w as any).sync_status !== undefined) set('sync_status', (w as any).sync_status);
   params.push(id);
   await enqueueWrite(async () => {
     await execRun(`UPDATE wallets SET ${fields.join(', ')} WHERE id = ?;`, params);
@@ -177,6 +183,10 @@ export async function getWallets(): Promise<Wallet[]> {
   // Order ONLY by display_order to ensure consistent position-based sorting
   // This prevents display_order=0 wallets from being re-sorted by created_at
   return exec<Wallet>('SELECT * FROM wallets ORDER BY display_order ASC;');
+}
+
+export async function getSharedWalletsLocal(): Promise<Wallet[]> {
+  return exec<Wallet>('SELECT * FROM wallets WHERE is_shared = 1 ORDER BY name ASC;');
 }
 
 /**
@@ -220,7 +230,7 @@ export async function updateWalletsOrder(orderUpdates: Array<{ id: number; displ
       operationId 
     }, operationId);
     metrics.increment('db.wallet.reorder.total');
-    await database.transaction(async (tx) => {
+    await database.transaction(async (tx: any) => {
       for (let i = 0; i < orderUpdates.length; i++) {
         const walletId = toSafeInteger(orderUpdates[i].id);
         const displayOrder = toSafeInteger(i);
@@ -285,7 +295,7 @@ export async function setPrimaryWallet(id: number) {
   return enqueueWrite(async () => {
     const database = await getDbAsync();
     
-    await database.transaction(async (tx) => {
+    await database.transaction(async (tx: any) => {
       await tx.executeAsync('UPDATE wallets SET is_primary = 0;');
       await tx.executeAsync('UPDATE wallets SET is_primary = 1 WHERE id = ?;', [id]);
     });

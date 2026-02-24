@@ -9,6 +9,18 @@ import { INCOME_TAXONOMY, EXPENSE_TAXONOMY } from '@/constants/categories';
 
 let dbPromise: Promise<NitroSQLiteConnection | any> | null = null;
 
+type TableInfoRow = {
+  name: string;
+  notnull?: number;
+};
+
+type TransactionExecutor = {
+  executeAsync: (
+    sql: string,
+    params?: unknown[]
+  ) => Promise<{ rows?: { _array?: Array<Record<string, unknown>> } }>;
+};
+
 // Schema version - increment this when making breaking schema changes
 const CURRENT_SCHEMA_VERSION = 3;
 
@@ -150,43 +162,81 @@ export async function ensureTables() {
           type TEXT,
           color TEXT,
           created_at TEXT,
-          is_primary INTEGER DEFAULT 0
+          is_primary INTEGER DEFAULT 0,
+          cloud_wallet_id TEXT,
+          created_by TEXT,
+          is_shared INTEGER DEFAULT 0,
+          share_id TEXT UNIQUE,
+          shared_role TEXT,
+          sync_status TEXT DEFAULT 'offline'
         );`
       );
 
       try {
         const colsResult = database.execute('PRAGMA table_info(wallets);');
-        const cols = colsResult.rows?._array || [];
-        const hasDescription = cols.some(c => c.name === 'description');
+        const cols = (colsResult.rows?._array || []) as TableInfoRow[];
+        const hasDescription = cols.some((c: TableInfoRow) => c.name === 'description');
         if (!hasDescription) {
           database.execute('ALTER TABLE wallets ADD COLUMN description TEXT;');
         }
-        const hasExchangeRate = cols.some(c => c.name === 'exchange_rate');
+        const hasExchangeRate = cols.some((c: TableInfoRow) => c.name === 'exchange_rate');
         if (!hasExchangeRate) {
           database.execute('ALTER TABLE wallets ADD COLUMN exchange_rate REAL DEFAULT 1.0;');
         }
-        const hasDisplayOrder = cols.some(c => c.name === 'display_order');
+        const hasDisplayOrder = cols.some((c: TableInfoRow) => c.name === 'display_order');
         if (!hasDisplayOrder) {
           database.execute('ALTER TABLE wallets ADD COLUMN display_order INTEGER DEFAULT 0;');
         }
-        const hasAccountType = cols.some(c => c.name === 'accountType');
+        const hasAccountType = cols.some((c: TableInfoRow) => c.name === 'accountType');
         if (!hasAccountType) {
           database.execute('ALTER TABLE wallets ADD COLUMN accountType TEXT;');
         }
-        const hasAccountNumber = cols.some(c => c.name === 'accountNumber');
+        const hasAccountNumber = cols.some((c: TableInfoRow) => c.name === 'accountNumber');
         if (!hasAccountNumber) {
           database.execute('ALTER TABLE wallets ADD COLUMN accountNumber TEXT;');
         }
-        const hasPhoneNumber = cols.some(c => c.name === 'phoneNumber');
+        const hasPhoneNumber = cols.some((c: TableInfoRow) => c.name === 'phoneNumber');
         if (!hasPhoneNumber) {
           database.execute('ALTER TABLE wallets ADD COLUMN phoneNumber TEXT;');
         }
-        const hasServiceProvider = cols.some(c => c.name === 'serviceProvider');
+        const hasServiceProvider = cols.some((c: TableInfoRow) => c.name === 'serviceProvider');
         if (!hasServiceProvider) {
           database.execute('ALTER TABLE wallets ADD COLUMN serviceProvider TEXT;');
         }
+        const hasCloudWalletId = cols.some((c: TableInfoRow) => c.name === 'cloud_wallet_id');
+        if (!hasCloudWalletId) {
+          database.execute('ALTER TABLE wallets ADD COLUMN cloud_wallet_id TEXT;');
+        }
+        const hasCreatedBy = cols.some((c: TableInfoRow) => c.name === 'created_by');
+        if (!hasCreatedBy) {
+          database.execute('ALTER TABLE wallets ADD COLUMN created_by TEXT;');
+        }
+        const hasIsShared = cols.some((c: TableInfoRow) => c.name === 'is_shared');
+        if (!hasIsShared) {
+          database.execute('ALTER TABLE wallets ADD COLUMN is_shared INTEGER DEFAULT 0;');
+        }
+        const hasShareId = cols.some((c: TableInfoRow) => c.name === 'share_id');
+        if (!hasShareId) {
+          database.execute('ALTER TABLE wallets ADD COLUMN share_id TEXT;');
+        }
+        const hasSharedRole = cols.some((c: TableInfoRow) => c.name === 'shared_role');
+        if (!hasSharedRole) {
+          database.execute('ALTER TABLE wallets ADD COLUMN shared_role TEXT;');
+        }
+        const hasSyncStatus = cols.some((c: TableInfoRow) => c.name === 'sync_status');
+        if (!hasSyncStatus) {
+          database.execute("ALTER TABLE wallets ADD COLUMN sync_status TEXT DEFAULT 'offline';");
+        }
       } catch (e) {
         // noop: best-effort migration
+      }
+
+      try {
+        database.execute('CREATE INDEX IF NOT EXISTS idx_wallets_share_id ON wallets(share_id);');
+        database.execute('CREATE INDEX IF NOT EXISTS idx_wallets_created_by ON wallets(created_by);');
+        database.execute('CREATE INDEX IF NOT EXISTS idx_wallets_is_shared ON wallets(is_shared);');
+      } catch (e) {
+        // noop
       }
 
       try {
@@ -196,7 +246,7 @@ export async function ensureTables() {
         const walletsNeedingFix = walletsNeedingFixResult.rows?._array || [];
 
         if (walletsNeedingFix.length > 0) {
-          await database.transaction(async (tx) => {
+          await database.transaction(async (tx: TransactionExecutor) => {
             for (let i = 0; i < walletsNeedingFix.length; i++) {
               const wallet = walletsNeedingFix[i];
               if (wallet && wallet.id != null) {
@@ -227,21 +277,21 @@ export async function ensureTables() {
       
       try {
         const txnColsResult = database.execute('PRAGMA table_info(transactions);');
-        const txnCols = txnColsResult.rows?._array || [];
-        const hasRecurrenceFrequency = txnCols.some(c => c.name === 'recurrence_frequency');
+        const txnCols = (txnColsResult.rows?._array || []) as TableInfoRow[];
+        const hasRecurrenceFrequency = txnCols.some((c: TableInfoRow) => c.name === 'recurrence_frequency');
 
         if (!hasRecurrenceFrequency) {
           console.log('[DB] Adding missing recurrence_frequency column...');
           database.execute('ALTER TABLE transactions ADD COLUMN recurrence_frequency TEXT;');
           console.log('[DB] Migration: Added recurrence_frequency column');
         }
-        const hasRecurrenceEndDate = txnCols.some(c => c.name === 'recurrence_end_date');
+        const hasRecurrenceEndDate = txnCols.some((c: TableInfoRow) => c.name === 'recurrence_end_date');
         if (!hasRecurrenceEndDate) {
           console.log('[DB] Adding missing recurrence_end_date column...');
           database.execute('ALTER TABLE transactions ADD COLUMN recurrence_end_date TEXT;');
           console.log('[DB] Migration: Added recurrence_end_date column');
         }
-        const hasParentTransactionId = txnCols.some(c => c.name === 'parent_transaction_id');
+        const hasParentTransactionId = txnCols.some((c: TableInfoRow) => c.name === 'parent_transaction_id');
         if (!hasParentTransactionId) {
           console.log('[DB] Adding missing parent_transaction_id column...');
           database.execute('ALTER TABLE transactions ADD COLUMN parent_transaction_id INTEGER;');
@@ -299,18 +349,18 @@ export async function ensureTables() {
 
     try {
       const catColsResult = database.execute('PRAGMA table_info(categories);');
-      const catCols = catColsResult.rows?._array || [];
-      const hasBudget = catCols.some(c => c.name === 'budget');
+      const catCols = (catColsResult.rows?._array || []) as TableInfoRow[];
+      const hasBudget = catCols.some((c: TableInfoRow) => c.name === 'budget');
       if (!hasBudget) {
         database.execute('ALTER TABLE categories ADD COLUMN budget REAL DEFAULT NULL;');
       }
-      const hasParentId = catCols.some(c => c.name === 'parent_category_id');
+      const hasParentId = catCols.some((c: TableInfoRow) => c.name === 'parent_category_id');
       if (!hasParentId) {
         database.execute(
           'ALTER TABLE categories ADD COLUMN parent_category_id INTEGER REFERENCES categories(id) ON DELETE CASCADE;'
         );
       }
-      const hasUserModified = catCols.some(c => c.name === 'user_modified');
+      const hasUserModified = catCols.some((c: TableInfoRow) => c.name === 'user_modified');
       if (!hasUserModified) {
         database.execute('ALTER TABLE categories ADD COLUMN user_modified TEXT;');
       }
@@ -356,7 +406,7 @@ export async function ensureTables() {
       };
 
       // Only update icons for categories that haven't been modified by users
-      await database.transaction(async (tx) => {
+      await database.transaction(async (tx: TransactionExecutor) => {
         for (const [name, newIcon] of Object.entries(iconMapping)) {
           await tx.executeAsync(
             'UPDATE categories SET icon = ? WHERE name = ? AND is_preset = 1 AND icon IS NULL AND user_modified IS NULL;',
@@ -398,16 +448,16 @@ export async function ensureTables() {
 
     try {
       const goalColsResult = database.execute('PRAGMA table_info(goals);');
-      const goalCols = goalColsResult.rows?._array || [];
-      const hasLinkedWalletIds = goalCols.some(c => c.name === 'linked_wallet_ids');
+      const goalCols = (goalColsResult.rows?._array || []) as TableInfoRow[];
+      const hasLinkedWalletIds = goalCols.some((c: TableInfoRow) => c.name === 'linked_wallet_ids');
       if (!hasLinkedWalletIds) {
         database.execute('ALTER TABLE goals ADD COLUMN linked_wallet_ids TEXT;');
       }
-      const hasCategoryIds = goalCols.some(c => c.name === 'category_ids');
+      const hasCategoryIds = goalCols.some((c: TableInfoRow) => c.name === 'category_ids');
       if (!hasCategoryIds) {
         database.execute('ALTER TABLE goals ADD COLUMN category_ids TEXT;');
       }
-      const hasStartDate = goalCols.some(c => c.name === 'start_date');
+      const hasStartDate = goalCols.some((c: TableInfoRow) => c.name === 'start_date');
       if (!hasStartDate) {
         // Add start_date column with default value as created_at for existing records
         database.execute('ALTER TABLE goals ADD COLUMN start_date TEXT;');
@@ -416,7 +466,7 @@ export async function ensureTables() {
       
       // Migration: Fix NOT NULL constraints on legacy columns for existing databases
       try {
-        const linkedWalletIdCol = goalCols.find(c => c.name === 'linked_wallet_id');
+        const linkedWalletIdCol = goalCols.find((c: TableInfoRow) => c.name === 'linked_wallet_id');
         if (linkedWalletIdCol && linkedWalletIdCol.notnull === 1) {
           log('[DB] Migrating goals table: Removing NOT NULL from linked_wallet_id');
           const countResult = database.execute('SELECT COUNT(*) as count FROM goals;');
@@ -502,28 +552,28 @@ export async function ensureTables() {
 
     try {
       const budgetColsResult = database.execute('PRAGMA table_info(budgets);');
-      const budgetCols = budgetColsResult.rows?._array || [];
-      const hasLinkedWalletIds = budgetCols.some(c => c.name === 'linked_wallet_ids');
+      const budgetCols = (budgetColsResult.rows?._array || []) as TableInfoRow[];
+      const hasLinkedWalletIds = budgetCols.some((c: TableInfoRow) => c.name === 'linked_wallet_ids');
       if (!hasLinkedWalletIds) {
         database.execute('ALTER TABLE budgets ADD COLUMN linked_wallet_ids TEXT;');
       }
-      const hasCategoryIds = budgetCols.some(c => c.name === 'category_ids');
+      const hasCategoryIds = budgetCols.some((c: TableInfoRow) => c.name === 'category_ids');
       if (!hasCategoryIds) {
         database.execute('ALTER TABLE budgets ADD COLUMN category_ids TEXT;');
       }
-      const hasSubcategoryIds = budgetCols.some(c => c.name === 'subcategory_ids');
+      const hasSubcategoryIds = budgetCols.some((c: TableInfoRow) => c.name === 'subcategory_ids');
       if (!hasSubcategoryIds) {
         database.execute('ALTER TABLE budgets ADD COLUMN subcategory_ids TEXT;');
       }
-      const hasIsRecurring = budgetCols.some(c => c.name === 'is_recurring');
+      const hasIsRecurring = budgetCols.some((c: TableInfoRow) => c.name === 'is_recurring');
       if (!hasIsRecurring) {
         database.execute('ALTER TABLE budgets ADD COLUMN is_recurring INTEGER NOT NULL DEFAULT 0;');
       }
-      const hasRecurrenceEndDate = budgetCols.some(c => c.name === 'recurrence_end_date');
+      const hasRecurrenceEndDate = budgetCols.some((c: TableInfoRow) => c.name === 'recurrence_end_date');
       if (!hasRecurrenceEndDate) {
         database.execute('ALTER TABLE budgets ADD COLUMN recurrence_end_date TEXT;');
       }
-      const hasRecurrenceParentId = budgetCols.some(c => c.name === 'recurrence_parent_id');
+      const hasRecurrenceParentId = budgetCols.some((c: TableInfoRow) => c.name === 'recurrence_parent_id');
       if (!hasRecurrenceParentId) {
         database.execute('ALTER TABLE budgets ADD COLUMN recurrence_parent_id INTEGER;');
       }
@@ -532,7 +582,7 @@ export async function ensureTables() {
       // These columns were required in old schema but are now optional
       try {
         // Check if linked_wallet_id still has NOT NULL constraint
-        const linkedWalletIdCol = budgetCols.find(c => c.name === 'linked_wallet_id');
+        const linkedWalletIdCol = budgetCols.find((c: TableInfoRow) => c.name === 'linked_wallet_id');
         if (linkedWalletIdCol && linkedWalletIdCol.notnull === 1) {
           log('[DB] Migrating budgets table: Removing NOT NULL from linked_wallet_id');
           // SQLite doesn't support removing NOT NULL directly, so we recreate the table
@@ -605,7 +655,7 @@ export async function ensureTables() {
     }
 
   
-  await database.transaction(async (tx) => {
+  await database.transaction(async (tx: TransactionExecutor) => {
     const allowedNames = new Set<string>();
     INCOME_TAXONOMY.forEach(cat => {
       allowedNames.add(cat.name);
@@ -703,7 +753,7 @@ export async function ensureTables() {
 export async function clearDatabase() {
   const database = await getDbAsync();
   
-  await database.transaction(async (tx) => {
+  await database.transaction(async (tx: TransactionExecutor) => {
     await tx.executeAsync('DELETE FROM transactions;');
     await tx.executeAsync('DELETE FROM wallets;');
     await tx.executeAsync('DELETE FROM categories;');

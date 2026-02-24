@@ -29,4 +29,11 @@ export interface Wallet {
   accountNumber?: string; // For Bank Account
   phoneNumber?: string; // For Mobile Money
   serviceProvider?: string; // For Mobile Money
+  // Shared wallet cloud metadata (prototype)
+  cloud_wallet_id?: string | null;
+  created_by?: string | null;
+  is_shared?: number; // 0/1
+  share_id?: string | null;
+  shared_role?: 'owner' | 'member' | null;
+  sync_status?: 'synced' | 'syncing' | 'error' | 'offline';
 }

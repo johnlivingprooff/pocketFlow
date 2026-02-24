@@ -10,6 +10,12 @@ interface UserInfo {
   profileImage: string | null;
 }
 
+export interface CloudUser {
+  id: string;
+  email: string;
+  accountStatus: 'active';
+}
+
 export type ReminderPermissionStatus = 'granted' | 'denied' | 'undetermined';
 
 interface SettingsState {
@@ -18,6 +24,9 @@ interface SettingsState {
   // Preferences
   themeMode: ThemeMode;
   defaultCurrency: string;
+  // Cloud account
+  cloudUser: CloudUser | null;
+  cloudSessionState: 'signed_out' | 'authenticating' | 'authenticated';
   // Reminders
   remindersEnabled: boolean;
   reminderPreferredTimeLocal: string; // HH:MM in device local time
@@ -44,6 +53,9 @@ interface SettingsState {
   setUserInfo: (info: Partial<UserInfo>) => void;
   setThemeMode: (m: ThemeMode) => void;
   setDefaultCurrency: (c: string) => void;
+  setCloudUser: (user: CloudUser | null) => void;
+  setCloudSessionState: (state: 'signed_out' | 'authenticating' | 'authenticated') => void;
+  clearCloudSession: () => void;
   setRemindersEnabled: (enabled: boolean) => void;
   setReminderPreferredTimeLocal: (time: string) => void;
   setReminderQuietHours: (start: string | null, end: string | null) => void;
@@ -70,6 +82,8 @@ const initialState = {
   },
   themeMode: 'system' as ThemeMode,
   defaultCurrency: 'MWK',
+  cloudUser: null,
+  cloudSessionState: 'signed_out' as const,
   remindersEnabled: false,
   reminderPreferredTimeLocal: '20:00',
   reminderQuietHoursStart: null,
@@ -97,6 +111,9 @@ export const useSettings = create<SettingsState>()(
       })),
       setThemeMode: (mode) => set({ themeMode: mode }),
       setDefaultCurrency: (currency) => set({ defaultCurrency: currency }),
+      setCloudUser: (cloudUser) => set({ cloudUser }),
+      setCloudSessionState: (cloudSessionState) => set({ cloudSessionState }),
+      clearCloudSession: () => set({ cloudUser: null, cloudSessionState: 'signed_out' }),
       setRemindersEnabled: (remindersEnabled) => set({ remindersEnabled }),
       setReminderPreferredTimeLocal: (reminderPreferredTimeLocal) => set({ reminderPreferredTimeLocal }),
       setReminderQuietHours: (reminderQuietHoursStart, reminderQuietHoursEnd) =>

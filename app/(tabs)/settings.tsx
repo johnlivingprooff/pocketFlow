@@ -83,6 +83,7 @@ export default function SettingsScreen() {
     setBiometricSetupComplete,
     defaultCurrency,
     userInfo,
+    cloudSessionState,
   } = useSettings();
   const { resetOnboarding } = useOnboarding();
   const systemColorScheme = useColorScheme();
@@ -416,7 +417,24 @@ export default function SettingsScreen() {
         {/* Data Tools */}
         <View style={styles.section}>
           {renderSectionHeader('DATA & STORAGE')}
-          <View style={[styles.listContainer, { backgroundColor: t.card, borderColor: t.border }]}>
+          <View style={[styles.listContainer, { backgroundColor: t.card, borderColor: t.border }]}> 
+            <TouchableOpacity
+              activeOpacity={TAP_OPACITY}
+              onPress={() => router.push('/settings/shared-wallets')}
+              style={[styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1, flexDirection: 'row', alignItems: 'center' }]}
+            >
+              <View style={[styles.listIconLeft, { width: 32 }]}>
+                <Text style={{ fontSize: 20, color: t.primary, lineHeight: 20 }}>◎</Text>
+              </View>
+              <View style={styles.listItemContent}>
+                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Shared Wallets</Text>
+                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>
+                  {cloudSessionState === 'authenticated' ? 'Manage sharing and invites' : 'Sign in required'}
+                </Text>
+              </View>
+              <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               activeOpacity={TAP_OPACITY}
               onPress={() => router.push('/settings/receipts')}
