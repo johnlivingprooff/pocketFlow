@@ -10,6 +10,9 @@ const envSchema = z.object({
   JWT_ACCESS_TOKEN_EXPIRES_SECONDS: z.string().default('900').transform((value: string) => Number(value)),
   REFRESH_TOKEN_EXPIRES_DAYS: z.string().default('30').transform((value: string) => Number(value)),
   INVITATION_BASE_URL: z.string().default('https://yourdomain.com'),
+  APP_DEEP_LINK_SCHEME: z.string().default('pocketflow'),
+  ANDROID_PLAY_STORE_URL: z.string().default(''),
+  IOS_APP_STORE_URL: z.string().default(''),
 });
 
 const parsed = envSchema.safeParse(process.env);
