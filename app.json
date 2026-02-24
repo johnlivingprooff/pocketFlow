@@ -61,7 +61,7 @@
     "extra": {
       "router": {},
       "enableLogging": true,
-      "cloudApiBaseUrl": "http://localhost:4000",
+      "cloudApiBaseUrl": "https://cloud.pf.eiteone.org",
       "eas": {
         "projectId": "e63eeb3a-bc99-4112-b2c0-d0568d5593d3"
       }
