@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { hero } from '@/lib/content';
 
+const APK_DOWNLOAD_URL =
+  'https://github.com/johnlivingprooff/pocketFlow/releases/download/v2.0.1/pocketflow-v2.0.1.apk';
+
 type Spot = { x: number; y: number };
 
 const DEFAULT_SPOT: Spot = { x: 72, y: 24 };
@@ -22,63 +25,34 @@ export function Hero() {
   };
 
   return (
-    <section
-      className="relative overflow-hidden pt-24 sm:pt-28 lg:pt-32"
-      onMouseMove={handleMove}
-      onMouseLeave={() => setSpot(DEFAULT_SPOT)}
-    >
-      <div className="absolute inset-0 -z-20">
-        <Image
-          src="/assets/wealth-journal.jpg"
-          alt="wealth journal planning background"
-          fill
-          className="object-cover opacity-34"
-          sizes="100vw"
-          priority
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#f8fbff] via-[#f2f7fd]/95 to-[#e5eef8]/92" />
-        <div
-          className="absolute inset-0 transition-all duration-300"
-          style={{
-            background: `radial-gradient(circle at ${spot.x}% ${spot.y}%, rgba(16, 80, 171, 0.26), transparent 35%)`,
-          }}
-        />
-      </div>
-
-      <div className="section-shell pb-16 sm:pb-20 lg:pb-24">
-        <div className="reveal flex max-w-3xl flex-col gap-6">
-          <span className="chip w-fit">Offline-first finance</span>
-          <h1 className="font-display text-4xl font-semibold leading-tight text-slate-900 sm:text-5xl lg:text-6xl">
-            {hero.headline}
-          </h1>
-          <p className="text-base leading-7 text-slate-700 sm:text-lg">{hero.subheadline}</p>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <a href={hero.primaryHref} target="_blank" rel="noopener noreferrer" className="btn-primary pulse-badge">
-              {hero.primaryCta}
-            </a>
-            <Link href={hero.secondaryHref} className="btn-secondary">
-              {hero.secondaryCta}
-            </Link>
-          </div>
-
-          <div className="grid max-w-xl gap-3 sm:grid-cols-2">
-            {hero.trustMetrics.map((item, index) => (
-              <button
-                key={item.value}
-                type="button"
-                onMouseEnter={() => setActiveMetric(index)}
-                onFocus={() => setActiveMetric(index)}
-                onClick={() => setActiveMetric(index)}
-                className={`panel-sm interactive-card text-left transition-colors ${
-                  activeMetric === index ? 'border-sky-300 bg-white text-slate-900' : 'text-slate-800'
-                }`}
-              >
-                <p className="font-display text-xl font-semibold">{item.value}</p>
-                <p className="mt-1 text-sm text-slate-600">{item.label}</p>
-              </button>
-            ))}
-          </div>
+    <section className="w-full flex flex-col items-center justify-center pt-24 sm:pt-32 pb-12">
+      <div className="max-w-2xl w-full flex flex-col items-center gap-7 px-4">
+        <span className="chip w-fit mb-2">Offline-first finance</span>
+        <h1 className="font-display text-4xl sm:text-5xl font-semibold text-center text-slate-900">
+          {hero.headline}
+        </h1>
+        <p className="text-center text-slate-600 text-lg max-w-xl">{hero.subheadline}</p>
+        <a
+          href={APK_DOWNLOAD_URL}
+          className="btn-primary text-lg px-8 py-3 rounded-xl shadow-md transition hover:scale-105"
+          download
+        >
+          Download APK
+        </a>
+        <div className="flex flex-col sm:flex-row gap-2 mt-2">
+          {hero.trustMetrics.map((item, index) => (
+            <span
+              key={item.value}
+              className={`inline-block rounded-full border px-4 py-1 text-sm font-medium transition-colors ${
+                activeMetric === index ? 'border-sky-400 bg-sky-50 text-sky-900' : 'border-slate-200 bg-slate-50 text-slate-700'
+              }`}
+              onMouseEnter={() => setActiveMetric(index)}
+              onFocus={() => setActiveMetric(index)}
+              tabIndex={0}
+            >
+              {item.value} <span className="ml-1 text-xs text-slate-500">{item.label}</span>
+            </span>
+          ))}
         </div>
       </div>
     </section>

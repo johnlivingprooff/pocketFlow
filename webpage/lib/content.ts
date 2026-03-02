@@ -9,6 +9,7 @@ export const seo = {
 export const navigationLinks = [
   { label: 'Features', href: '#capabilities' },
   { label: 'Access', href: '#access' },
+  { label: 'Download', href: '/download' },
 ];
 
 export const hero = {
