@@ -1,11 +1,110 @@
 import cors from 'cors';
+import helmet from 'helmet';
 import express, { Request, Response } from 'express';
 import { config } from './config';
+import { requestIdMiddleware } from './middleware/requestId';
+import { requestLogger } from './middleware/logger';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { globalRateLimiter } from './middleware/rateLimit';
 import authRoutes from './routes/auth';
 import walletRoutes from './routes/wallets';
 import invitationRoutes from './routes/invitations';
 
 const app = express();
+
+// Trust proxy for rate limiting behind reverse proxies
+if (config.TRUST_PROXY) {
+  app.set('trust proxy', 1);
+}
+
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+}));
+
+// CORS with configured origin
+const corsOptions: cors.CorsOptions = {
+  origin: config.CORS_ORIGIN === '*' ? true : config.CORS_ORIGIN.split(','),
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+};
+
+app.use(cors(corsOptions));
+
+// Request ID tracking
+app.use(requestIdMiddleware);
+
+// Body parsing
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
+// Request logging
+app.use(requestLogger);
+
+// Rate limiting
+app.use(globalRateLimiter);
+
+// Health check (before API versioning)
+app.get('/health', (_req: Request, res: Response) => {
+  res.json({ 
+    status: 'ok', 
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Invite page (public, no API version)
+app.get('/invite/:token', (req: Request, res: Response) => {
+  const token = String(req.params.token || '').trim();
+  if (!token) {
+    res.status(400).json({ error: 'Invitation token is required', code: 'MISSING_TOKEN' });
+    return;
+  }
+
+  const normalizedScheme = config.APP_DEEP_LINK_SCHEME.replace('://', '').replace(':', '');
+  const deepLink = `${normalizedScheme}://invite/${encodeURIComponent(token)}`;
+  res
+    .status(200)
+    .set('Content-Type', 'text/html; charset=utf-8')
+    .set('Cache-Control', 'no-store')
+    .send(
+      renderInviteFallbackPage({
+        token,
+        deepLink,
+        androidPlayStoreUrl: config.ANDROID_PLAY_STORE_URL,
+        iosAppStoreUrl: config.IOS_APP_STORE_URL,
+      })
+    );
+});
+
+// API v1 routes
+app.use('/v1/auth', authRoutes);
+app.use('/v1/wallets', walletRoutes);
+app.use('/v1/invitations', invitationRoutes);
+
+// Legacy routes (deprecated, redirect to v1)
+app.use('/auth', authRoutes);
+app.use('/wallets', walletRoutes);
+app.use('/invitations', invitationRoutes);
+
+// 404 handler
+app.use(notFoundHandler);
+
+// Global error handler
+app.use(errorHandler);
+
+app.listen(config.PORT, () => {
+  console.log(`[cloud-backend] v1.0.0 listening on port ${config.PORT} in ${config.NODE_ENV} mode`);
+});
 
 function escapeHtml(value: string): string {
   return value
@@ -168,45 +267,3 @@ function renderInviteFallbackPage(params: {
   </body>
 </html>`;
 }
-
-app.use(cors());
-app.use(express.json({ limit: '1mb' }));
-
-app.get('/health', (_req: Request, res: Response) => {
-  res.json({ status: 'ok' });
-});
-
-app.get('/invite/:token', (req: Request, res: Response) => {
-  const token = String(req.params.token || '').trim();
-  if (!token) {
-    res.status(400).json({ error: 'Invitation token is required' });
-    return;
-  }
-
-  const normalizedScheme = config.APP_DEEP_LINK_SCHEME.replace('://', '').replace(':', '');
-  const deepLink = `${normalizedScheme}://invite/${encodeURIComponent(token)}`;
-  res
-    .status(200)
-    .set('Content-Type', 'text/html; charset=utf-8')
-    .set('Cache-Control', 'no-store')
-    .send(
-      renderInviteFallbackPage({
-        token,
-        deepLink,
-        androidPlayStoreUrl: config.ANDROID_PLAY_STORE_URL,
-        iosAppStoreUrl: config.IOS_APP_STORE_URL,
-      })
-    );
-});
-
-app.use('/auth', authRoutes);
-app.use('/wallets', walletRoutes);
-app.use('/invitations', invitationRoutes);
-
-app.use((_req: Request, res: Response) => {
-  res.status(404).json({ error: 'Not found' });
-});
-
-app.listen(config.PORT, () => {
-  console.log(`[cloud-backend] listening on port ${config.PORT}`);
-});

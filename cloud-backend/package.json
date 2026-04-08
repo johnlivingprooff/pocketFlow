@@ -1,18 +1,21 @@
 {
   "name": "pocketflow-shared-wallets-backend",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
-    "migrate": "psql \"$DATABASE_URL\" -f migrations/001_shared_wallets.sql"
+    "migrate": "psql \"$DATABASE_URL\" -f migrations/001_shared_wallets.sql",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.16.3",
     "zod": "^3.24.1"
@@ -26,5 +29,8 @@
     "@types/pg": "^8.15.6",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
