@@ -21,8 +21,7 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter, useSegments } from 'expo-router';
-import { useSettings } from '@/store/useStore';
-import { theme, shadows } from '@/theme/theme';
+import { theme, ThemeMode } from '@/theme/theme';
 
 // Icon components - simple geometric shapes for web
 const HomeIcon = ({ color }: { color: string }) => (
@@ -79,7 +78,7 @@ interface LeftRailProps {
   expanded: boolean;
   onToggleExpand: () => void;
   theme: ReturnType<typeof theme>;
-  effectiveMode: 'light' | 'dark';
+  effectiveMode: Exclude<ThemeMode, 'system'>;
 }
 
 export function LeftRail({

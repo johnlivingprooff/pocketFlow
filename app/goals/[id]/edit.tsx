@@ -162,10 +162,6 @@ export default function EditGoalScreen() {
         notes: notes.trim() || undefined,
       });
 
-      // Recalculate progress after update since wallets or target may have changed
-      const { recalculateGoalProgress } = await import('@/lib/db/goals');
-      await recalculateGoalProgress(goalId!);
-
       // Invalidate caches so goal screens will reload with fresh data
       const { invalidateTransactionCaches } = await import('@/lib/cache/queryCache');
       invalidateTransactionCaches();
@@ -482,6 +478,11 @@ const styles = StyleSheet.create({
   fieldHint: {
     fontSize: 12,
     marginTop: 4,
+    fontWeight: '400',
+  },
+  helperText: {
+    fontSize: 12,
+    marginTop: 6,
     fontWeight: '400',
   },
   selectionSummary: {

@@ -1,24 +1,10 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, ScrollView, Platform, TouchableOpacity, useColorScheme, Image, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
 import { theme } from '../../src/theme/theme';
-import {
-  weekOverWeekComparison,
-  incomeVsExpenseAnalysis,
-  getSpendingStreak,
-  getMonthProgress,
-  getSevenDaySpendingTrend,
-  getDailySpendingForMonth,
-  getMonthlyComparison,
-  getCategorySpendingForPeriod,
-  getTransactionsByCategory
-} from '../../src/lib/db/transactions';
-import { exec } from '../../src/lib/db/index';
-import { getCategories } from '../../src/lib/db/categories';
-import { getBudgetsForPeriod } from '../../src/lib/db/budgets';
-import { getGoalsForPeriod } from '../../src/lib/db/goals';
+import { getTransactionsByCategory } from '../../src/lib/db/transactions';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { formatShortDate } from '../../src/utils/date';
 import { Link } from 'expo-router';
@@ -34,9 +20,11 @@ import FinancialHealthRing from '../../src/components/FinancialHealthRing';
 import { BudgetCard } from '../../src/components/BudgetCard';
 import { GoalCard } from '../../src/components/GoalCard';
 import {
-  calculateFinancialHealthScore,
-  FinancialHealthScore
-} from '../../src/lib/insights/analyticsInsights';
+  AnalyticsDashboardSnapshot,
+  AnalyticsMetricsPeriod,
+  getAnalyticsDashboardSnapshot,
+  resolveAnalyticsMetricsPeriod,
+} from '../../src/lib/insights/analyticsDashboard';
 import { useAlert } from '../../src/lib/hooks/useAlert';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
 
@@ -48,35 +36,25 @@ function abbreviateNumber(num: number): string {
   return (num / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'B';
 }
 
-type MetricsPeriod = '7days' | '30days' | '3months' | '6months';
-
-const PERIOD_DAYS_MAP: Record<TimePeriod, number> = {
-  '7days': 7,
-  '30days': 30,
-  '3months': 90,
-  '6months': 180,
-  'all': 3650,
-};
-
 export default function AnalyticsPage() {
   const { themeMode, defaultCurrency, userInfo } = useSettings();
   const systemColorScheme = useColorScheme();
   const t = theme(themeMode, systemColorScheme || 'light');
   const [categories, setCategories] = useState<Array<{ category: string; total: number }>>([]);
 
-  const [incomeByPeriod, setIncomeByPeriod] = useState<Record<MetricsPeriod, number>>({
+  const [incomeByPeriod, setIncomeByPeriod] = useState<Record<AnalyticsMetricsPeriod, number>>({
     '7days': 0,
     '30days': 0,
     '3months': 0,
     '6months': 0
   });
-  const [spendingRateByPeriod, setSpendingRateByPeriod] = useState<Record<MetricsPeriod, number>>({
+  const [spendingRateByPeriod, setSpendingRateByPeriod] = useState<Record<AnalyticsMetricsPeriod, number>>({
     '7days': 0,
     '30days': 0,
     '3months': 0,
     '6months': 0
   });
-  const [largestPurchaseByPeriod, setLargestPurchaseByPeriod] = useState<Record<MetricsPeriod, number>>({
+  const [largestPurchaseByPeriod, setLargestPurchaseByPeriod] = useState<Record<AnalyticsMetricsPeriod, number>>({
     '7days': 0,
     '30days': 0,
     '3months': 0,
@@ -84,21 +62,21 @@ export default function AnalyticsPage() {
   });
 
   // Phase 1: Enhanced Analytics State
-  const [incomeExpense, setIncomeExpense] = useState<{ income: number; expense: number; netSavings: number; savingsRate: number } | null>(null);
-  const [monthProgress, setMonthProgress] = useState<{ currentDay: number; daysInMonth: number; progressPercentage: number; daysRemaining: number } | null>(null);
+  const [incomeExpense, setIncomeExpense] = useState<AnalyticsDashboardSnapshot['incomeExpense'] | null>(null);
+  const [monthProgress, setMonthProgress] = useState<AnalyticsDashboardSnapshot['monthProgress'] | null>(null);
 
   // Phase 2: Chart Data State
-  const [sevenDayTrend, setSevenDayTrend] = useState<Array<{ date: string; amount: number }>>([]);
-  const [dailySpending, setDailySpending] = useState<Array<{ day: number; amount: number }>>([]);
-  const [monthlyComparison, setMonthlyComparison] = useState<any>(null);
+  const [sevenDayTrend, setSevenDayTrend] = useState<AnalyticsDashboardSnapshot['sevenDayTrend']>([]);
+  const [dailySpending, setDailySpending] = useState<AnalyticsDashboardSnapshot['dailySpending']>([]);
+  const [monthlyComparison, setMonthlyComparison] = useState<AnalyticsDashboardSnapshot['monthlyComparison']>(null);
   const [categoryColorMap, setCategoryColorMap] = useState<Record<string, string>>({});
 
   // Phase 3: Insights & Financial Health State
-  const [financialHealth, setFinancialHealth] = useState<FinancialHealthScore | null>(null);
+  const [financialHealth, setFinancialHealth] = useState<AnalyticsDashboardSnapshot['financialHealth'] | null>(null);
 
   // Phase 3.5: Budgets & Goals State
-  const [budgets, setBudgets] = useState<any[]>([]);
-  const [goals, setGoals] = useState<any[]>([]);
+  const [budgets, setBudgets] = useState<AnalyticsDashboardSnapshot['budgets']>([]);
+  const [goals, setGoals] = useState<AnalyticsDashboardSnapshot['goals']>([]);
   const [selectedBudgetId, setSelectedBudgetId] = useState<number | 'all'>('all');
   const [selectedGoalId, setSelectedGoalId] = useState<number | 'all'>('all');
 
@@ -123,117 +101,25 @@ export default function AnalyticsPage() {
         return;
       }
 
-      const now = new Date();
-      const analyticsPeriod: MetricsPeriod = period === 'all' ? '30days' : period;
-      const selectedDays = PERIOD_DAYS_MAP[period];
-      const activeIncomeExpensePeriod: 'current' | 'last' = 'current';
-
-      const metricStartDate = new Date(now);
-      metricStartDate.setDate(now.getDate() - PERIOD_DAYS_MAP[analyticsPeriod]);
-      const metricStart = metricStartDate.toISOString();
-      const metricEnd = now.toISOString();
-
-      const selectedPeriodMetricsPromise = Promise.all([
-        exec<{ total: number }>(
-          `SELECT COALESCE(SUM(t.amount * COALESCE(w.exchange_rate, 1.0)),0) as total
-           FROM transactions t
-           LEFT JOIN wallets w ON t.wallet_id = w.id
-           WHERE t.type = 'income' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
-          [metricStart, metricEnd]
-        ),
-        exec<{ total: number }>(
-          `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total
-           FROM transactions t
-           LEFT JOIN wallets w ON t.wallet_id = w.id
-           WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
-          [metricStart, metricEnd]
-        ),
-        exec<{ amount: number }>(
-          `SELECT ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) as amount
-           FROM transactions t
-           LEFT JOIN wallets w ON t.wallet_id = w.id
-           WHERE t.date BETWEEN ? AND ? AND t.type = 'expense' AND (t.category IS NULL OR t.category <> 'Transfer')
-           ORDER BY ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) DESC
-           LIMIT 1;`,
-          [metricStart, metricEnd]
-        ),
-      ]);
-
-      const budgetsPromise = getBudgetsForPeriod(selectedDays).catch((error) => {
-        console.error('Failed to load budgets:', error);
-        return [];
-      });
-      const goalsPromise = getGoalsForPeriod(selectedDays).catch((error) => {
-        console.error('Failed to load goals:', error);
-        return [];
-      });
-
-      const [
-        breakdown,
-        [incomeResult, expenseResult, largestResult],
-        weekComp,
-        incExpAnalysis,
-        streak,
-        progress,
-        sevenDay,
-        daily,
-        comparison,
-        allCategories,
-        periodBudgets,
-        periodGoals,
-      ] = await Promise.all([
-        getCategorySpendingForPeriod(analyticsPeriod),
-        selectedPeriodMetricsPromise,
-        weekOverWeekComparison(),
-        incomeVsExpenseAnalysis(activeIncomeExpensePeriod),
-        getSpendingStreak(),
-        getMonthProgress(),
-        getSevenDaySpendingTrend(),
-        getDailySpendingForMonth(),
-        getMonthlyComparison(analyticsPeriod),
-        getCategories(),
-        budgetsPromise,
-        goalsPromise,
-      ]);
+      const snapshot = await getAnalyticsDashboardSnapshot(period);
 
       if (requestId !== loadRequestIdRef.current) {
         return;
       }
 
-      const incomeForPeriod = incomeResult[0]?.total ?? 0;
-      const spendingForPeriod = expenseResult[0]?.total ?? 0;
-      const largestPurchaseForPeriod = largestResult[0]?.amount ?? 0;
-
-      const colorMap: Record<string, string> = {};
-      allCategories.forEach((cat) => {
-        if (cat.name && cat.color) {
-          colorMap[cat.name] = cat.color;
-        }
-      });
-
-      const healthScore = calculateFinancialHealthScore({
-        incomeExpense: incExpAnalysis,
-        spendingStreak: streak,
-        weekComparison: weekComp,
-        dailySpending: daily,
-      });
-
-      setCategories(breakdown);
-      setIncomeByPeriod((prev) => ({ ...prev, [analyticsPeriod]: incomeForPeriod }));
-      setSpendingRateByPeriod((prev) => ({ ...prev, [analyticsPeriod]: spendingForPeriod }));
-      setLargestPurchaseByPeriod((prev) => ({ ...prev, [analyticsPeriod]: largestPurchaseForPeriod }));
-
-      setIncomeExpense(incExpAnalysis);
-      setMonthProgress(progress);
-
-      setSevenDayTrend(sevenDay);
-      setDailySpending(daily);
-      setMonthlyComparison(comparison);
-      setCategoryColorMap(colorMap);
-      setFinancialHealth(healthScore);
-
-      setBudgets(periodBudgets);
-      setGoals(periodGoals);
+      setCategories(snapshot.breakdown);
+      setIncomeByPeriod((prev) => ({ ...prev, [snapshot.analyticsPeriod]: snapshot.incomeForPeriod }));
+      setSpendingRateByPeriod((prev) => ({ ...prev, [snapshot.analyticsPeriod]: snapshot.spendingForPeriod }));
+      setLargestPurchaseByPeriod((prev) => ({ ...prev, [snapshot.analyticsPeriod]: snapshot.largestPurchaseForPeriod }));
+      setIncomeExpense(snapshot.incomeExpense);
+      setMonthProgress(snapshot.monthProgress);
+      setSevenDayTrend(snapshot.sevenDayTrend);
+      setDailySpending(snapshot.dailySpending);
+      setMonthlyComparison(snapshot.monthlyComparison);
+      setCategoryColorMap(snapshot.categoryColorMap);
+      setFinancialHealth(snapshot.financialHealth);
+      setBudgets(snapshot.budgets);
+      setGoals(snapshot.goals);
     } catch (error) {
       if (requestId === loadRequestIdRef.current) {
         console.error('Failed to load analytics data:', error);
@@ -244,6 +130,18 @@ export default function AnalyticsPage() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (selectedBudgetId !== 'all' && !budgets.some((budget) => budget.id === selectedBudgetId)) {
+      setSelectedBudgetId('all');
+    }
+  }, [budgets, selectedBudgetId]);
+
+  useEffect(() => {
+    if (selectedGoalId !== 'all' && !goals.some((goal) => goal.id === selectedGoalId)) {
+      setSelectedGoalId('all');
+    }
+  }, [goals, selectedGoalId]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -276,7 +174,7 @@ export default function AnalyticsPage() {
   const handleCategoryClick = useCallback(async (category: string) => {
     if (Platform.OS !== 'web') {
       setSelectedCategory(category);
-      const drilldownPeriod: MetricsPeriod = selectedPeriod === 'all' ? '30days' : selectedPeriod;
+      const drilldownPeriod = resolveAnalyticsMetricsPeriod(selectedPeriod);
       const transactions = await getTransactionsByCategory(category, drilldownPeriod);
       // Map null notes to undefined to match the component's type
       setCategoryTransactions(transactions.map(t => ({ ...t, notes: t.notes ?? undefined })));
@@ -291,7 +189,7 @@ export default function AnalyticsPage() {
     percentage: total > 0 ? (cat.total / total) * 100 : 0
   }));
 
-  const selectedMetricsPeriod: MetricsPeriod = selectedPeriod === 'all' ? '30days' : selectedPeriod;
+  const selectedMetricsPeriod = resolveAnalyticsMetricsPeriod(selectedPeriod);
   const incomeCardLabel = selectedMetricsPeriod === '7days'
     ? 'Income (Week)'
     : selectedMetricsPeriod === '30days'
@@ -699,13 +597,61 @@ export default function AnalyticsPage() {
                     <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>
                       Budgets
                     </Text>
-                    {budgets.length > 1 && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end', flex: 1 }}>
+                      <TouchableOpacity
+                        onPress={() => setSelectedBudgetId('all')}
+                        style={{
+                          backgroundColor: selectedBudgetId === 'all' ? t.primary : t.card,
+                          borderWidth: 1,
+                          borderColor: selectedBudgetId === 'all' ? t.primary : t.border,
+                          borderRadius: 999,
+                          paddingHorizontal: 12,
+                          paddingVertical: 8,
+                        }}
+                      >
+                        <Text style={{ color: selectedBudgetId === 'all' ? '#FFFFFF' : t.textPrimary, fontSize: 12, fontWeight: '800' }}>
+                          All
+                        </Text>
+                      </TouchableOpacity>
+                      {budgets
+                        .filter((budget) => budget.id != null)
+                        .map((budget) => {
+                          const isSelected = budget.id === selectedBudgetId;
+                          return (
+                            <TouchableOpacity
+                              key={budget.id}
+                              onPress={() => setSelectedBudgetId(budget.id!)}
+                              style={{
+                                backgroundColor: isSelected ? t.primary : t.card,
+                                borderWidth: 1,
+                                borderColor: isSelected ? t.primary : t.border,
+                                borderRadius: 999,
+                                paddingHorizontal: 12,
+                                paddingVertical: 8,
+                              }}
+                            >
+                              <Text style={{ color: isSelected ? '#FFFFFF' : t.textPrimary, fontSize: 12, fontWeight: '800' }}>
+                                {budget.name}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                    </View>
+                    {false && budgets.length > 1 && (
                       <TouchableOpacity
                         onPress={() => {
-                          const options = ['all', ...budgets.map(b => b.id)];
-                          const currentIndex = options.indexOf(selectedBudgetId as any);
+                          const options: Array<number | 'all'> = [
+                            'all',
+                            ...budgets
+                              .map((budget) => budget.id)
+                              .filter((budgetId): budgetId is number => budgetId != null),
+                          ];
+                          const currentIndex = options.indexOf(selectedBudgetId);
                           const nextIndex = (currentIndex + 1) % options.length;
-                          setSelectedBudgetId(options[nextIndex]);
+                          const nextSelection = options[nextIndex];
+                          if (nextSelection != null) {
+                            setSelectedBudgetId(nextSelection);
+                          }
                         }}
                         style={{ backgroundColor: t.card, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: t.border }}
                       >
@@ -730,13 +676,61 @@ export default function AnalyticsPage() {
                     <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>
                       Goals
                     </Text>
-                    {goals.length > 1 && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end', flex: 1 }}>
+                      <TouchableOpacity
+                        onPress={() => setSelectedGoalId('all')}
+                        style={{
+                          backgroundColor: selectedGoalId === 'all' ? t.primary : t.card,
+                          borderWidth: 1,
+                          borderColor: selectedGoalId === 'all' ? t.primary : t.border,
+                          borderRadius: 999,
+                          paddingHorizontal: 12,
+                          paddingVertical: 8,
+                        }}
+                      >
+                        <Text style={{ color: selectedGoalId === 'all' ? '#FFFFFF' : t.textPrimary, fontSize: 12, fontWeight: '800' }}>
+                          All
+                        </Text>
+                      </TouchableOpacity>
+                      {goals
+                        .filter((goal) => goal.id != null)
+                        .map((goal) => {
+                          const isSelected = goal.id === selectedGoalId;
+                          return (
+                            <TouchableOpacity
+                              key={goal.id}
+                              onPress={() => setSelectedGoalId(goal.id!)}
+                              style={{
+                                backgroundColor: isSelected ? t.primary : t.card,
+                                borderWidth: 1,
+                                borderColor: isSelected ? t.primary : t.border,
+                                borderRadius: 999,
+                                paddingHorizontal: 12,
+                                paddingVertical: 8,
+                              }}
+                            >
+                              <Text style={{ color: isSelected ? '#FFFFFF' : t.textPrimary, fontSize: 12, fontWeight: '800' }}>
+                                {goal.name}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                    </View>
+                    {false && goals.length > 1 && (
                       <TouchableOpacity
                         onPress={() => {
-                          const options = ['all', ...goals.map(g => g.id)];
-                          const currentIndex = options.indexOf(selectedGoalId as any);
+                          const options: Array<number | 'all'> = [
+                            'all',
+                            ...goals
+                              .map((goal) => goal.id)
+                              .filter((goalId): goalId is number => goalId != null),
+                          ];
+                          const currentIndex = options.indexOf(selectedGoalId);
                           const nextIndex = (currentIndex + 1) % options.length;
-                          setSelectedGoalId(options[nextIndex]);
+                          const nextSelection = options[nextIndex];
+                          if (nextSelection != null) {
+                            setSelectedGoalId(nextSelection);
+                          }
                         }}
                         style={{ backgroundColor: t.card, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: t.border }}
                       >

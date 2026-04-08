@@ -136,7 +136,7 @@ export default function CreateGoalScreen() {
         linkedWalletIds: selectedWallets,
       });
 
-      const createdGoal = await createGoal({
+      await createGoal({
         name: name.trim(),
         targetAmount: parseFloat(targetAmount),
         startDate,
@@ -144,12 +144,6 @@ export default function CreateGoalScreen() {
         linkedWalletIds: selectedWallets,
         notes: notes.trim() || undefined,
       });
-
-      // Calculate initial progress for the new goal
-      if (createdGoal.id) {
-        const { recalculateGoalProgress } = await import('@/lib/db/goals');
-        await recalculateGoalProgress(createdGoal.id);
-      }
 
       console.log('[Goal Create] Goal created successfully');
       // Invalidate caches so goal page will reload with new data

@@ -4,34 +4,13 @@ import { getWallet } from './wallets';
 import { analyticsCache, generateCacheKey, invalidateTransactionCaches } from '../cache/queryCache';
 import { log } from '../../utils/logger';
 import { enqueueWrite } from './writeQueue';
-import { recalculateGoalProgress, getGoalsByWallet } from './goals';
-import { recalculateBudgetSpending, getBudgetsByWallet } from './budgets';
+import { refreshDerivedFinanceStateForWallets } from './derivedState';
 
-/**
- * Helper function to update all goals and budgets for a wallet
- * Call this after adding, updating, or deleting transactions
- * @param walletId - Wallet ID to update goals and budgets for
- */
-async function updateGoalsAndBudgets(walletId: number): Promise<void> {
+async function refreshDerivedState(walletIds: readonly number[]): Promise<void> {
   try {
-    // Update all goals linked to this wallet
-    const goals = await getGoalsByWallet(walletId);
-    for (const goal of goals) {
-      if (goal.id) {
-        await recalculateGoalProgress(goal.id);
-      }
-    }
-
-    // Update all budgets linked to this wallet
-    const budgets = await getBudgetsByWallet(walletId);
-    for (const budget of budgets) {
-      if (budget.id) {
-        await recalculateBudgetSpending(budget.id);
-      }
-    }
+    await refreshDerivedFinanceStateForWallets(walletIds);
   } catch (error) {
-    console.error('Failed to update goals and budgets:', error);
-    // Don't throw - we don't want to fail the transaction operation
+    console.error('Failed to refresh derived finance state:', error);
   }
 }
 
@@ -72,10 +51,9 @@ export async function addTransaction(t: Transaction) {
   // Use console.log directly for guaranteed visibility in release builds
   console.log(`[Transaction] ✓ Transaction saved successfully in ${writeTime}ms, type: ${t.type}, amount: ${t.amount}, wallet: ${t.wallet_id}, timestamp: ${new Date().toISOString()}`);
 
-  // Update goals and budgets AFTER the write completes (don't await to avoid blocking)
-  // This runs asynchronously and won't block the transaction save
-  updateGoalsAndBudgets(t.wallet_id).catch(err =>
-    console.error('Failed to update goals/budgets after transaction:', err)
+  // Refresh dependent goal/budget aggregates in one background pass.
+  refreshDerivedState([t.wallet_id]).catch((err) =>
+    console.error('Failed to refresh derived state after transaction:', err)
   );
 }
 
@@ -105,16 +83,10 @@ export async function addTransactionsBatch(transactions: Transaction[]): Promise
     // Invalidate caches after batch insert
     invalidateTransactionCaches();
 
-    // Update goals and budgets for all affected wallets AFTER the write completes
-    // Run asynchronously to avoid blocking
-    const affectedWallets = new Set(transactions.map(t => t.wallet_id));
-    Promise.all(
-      Array.from(affectedWallets).map(walletId =>
-        updateGoalsAndBudgets(walletId).catch(err =>
-          console.error(`Failed to update goals/budgets for wallet ${walletId}:`, err)
-        )
-      )
-    ).catch(() => { }); // Swallow errors - already logged
+    const affectedWallets = Array.from(new Set(transactions.map((transaction) => transaction.wallet_id)));
+    refreshDerivedState(affectedWallets).catch((err) =>
+      console.error('Failed to refresh derived state after batch transaction insert:', err)
+    );
   }, `batch_transactions_${transactions.length}`);
 }
 
@@ -178,6 +150,7 @@ export async function transferBetweenWallets(
 }
 
 export async function updateTransaction(id: number, t: Partial<Transaction>) {
+  const existingTransaction = await getById(id);
   const fields: string[] = [];
   const params: any[] = [];
   const set = (k: string, v: any) => {
@@ -205,21 +178,19 @@ export async function updateTransaction(id: number, t: Partial<Transaction>) {
   // Log for debugging
   log(`[DB] Transaction ${id} updated in ${writeTime}ms, fields: ${fields.length}, timestamp: ${new Date().toISOString()}`);
 
-  // Update goals and budgets AFTER the write completes (don't await to avoid blocking)
-  if (t.wallet_id !== undefined) {
-    updateGoalsAndBudgets(t.wallet_id).catch(err =>
-      console.error('Failed to update goals/budgets after transaction update:', err)
-    );
-  } else {
-    // If wallet wasn't updated, fetch the transaction to get wallet_id
-    getById(id).then(transaction => {
-      if (transaction) {
-        updateGoalsAndBudgets(transaction.wallet_id).catch(err =>
-          console.error('Failed to update goals/budgets after transaction update:', err)
-        );
-      }
-    }).catch(err => console.error('Failed to get transaction for goal/budget update:', err));
+  const affectedWalletIds = new Set<number>();
+  if (existingTransaction?.wallet_id != null) {
+    affectedWalletIds.add(existingTransaction.wallet_id);
   }
+  if (t.wallet_id != null) {
+    affectedWalletIds.add(t.wallet_id);
+  } else if (existingTransaction?.wallet_id != null) {
+    affectedWalletIds.add(existingTransaction.wallet_id);
+  }
+
+  refreshDerivedState(Array.from(affectedWalletIds)).catch((err) =>
+    console.error('Failed to refresh derived state after transaction update:', err)
+  );
 }
 
 export async function deleteTransaction(id: number) {
@@ -240,10 +211,9 @@ export async function deleteTransaction(id: number) {
   // Log for debugging
   log(`[DB] Transaction ${id} deleted in ${writeTime}ms, timestamp: ${new Date().toISOString()}`);
 
-  // Update goals and budgets AFTER the write completes (don't await to avoid blocking)
   if (walletId) {
-    updateGoalsAndBudgets(walletId).catch(err =>
-      console.error('Failed to update goals/budgets after transaction delete:', err)
+    refreshDerivedState([walletId]).catch((err) =>
+      console.error('Failed to refresh derived state after transaction delete:', err)
     );
   }
 }

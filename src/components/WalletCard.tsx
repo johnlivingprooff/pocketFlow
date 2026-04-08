@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text } from 'react-native';
-import { theme } from '../theme/theme';
+import { theme, ThemeMode } from '../theme/theme';
 import { formatCurrency } from '../utils/formatCurrency';
 import { WalletType } from '../types/wallet';
 
@@ -9,7 +9,7 @@ interface Props {
   balance: number;
   currency: string;
   color?: string;
-  mode?: 'light' | 'dark';
+  mode?: ThemeMode;
   type?: WalletType;
 }
 

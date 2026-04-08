@@ -7,9 +7,7 @@ import { theme, shadows } from '../../src/theme/theme';
 import { Link, router } from 'expo-router';
 import { useWallets } from '../../src/lib/hooks/useWallets';
 import { useTransactions } from '../../src/lib/hooks/useTransactions';
-import { exec } from '../../src/lib/db';
 import { IncomeExpenseLineChart } from '../../src/components/IncomeExpenseLineChart';
-import { getWalletsOrderedByRecentActivity, getIncomeExpenseForPeriod, getTransactionsForPeriod } from '../../src/lib/db/transactions';
 import { formatShortDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { Transaction } from '../../src/types/transaction';
@@ -18,9 +16,9 @@ import { invalidateTransactionCaches, invalidateWalletCaches } from '../../src/l
 import { EyeOffIcon, EyeIcon } from '../../src/assets/icons/EyeOffIcon';
 import { WalletIcon, PlusIcon, ChartIcon, SettingsIcon } from '../../src/assets/icons/CategoryIcons';
 import { FinancialHealthWidget } from '../../src/components/FinancialHealthWidget';
-import { getActiveBudgets, calculateBudgetMetrics } from '../../src/lib/db/budgets';
-import { getGoals, calculateGoalMetrics } from '../../src/lib/db/goals';
 import { BudgetWithMetrics, GoalWithMetrics } from '../../src/types/goal';
+import { Wallet } from '../../src/types/wallet';
+import { getHomeDashboardSnapshot } from '../../src/lib/insights/homeDashboard';
 
 
 type TimePeriod = 'all' | 'today' | 'week' | 'month' | 'lastMonth' | 'custom';
@@ -255,50 +253,7 @@ export default function Home() {
   const [goals, setGoals] = useState<GoalWithMetrics[]>([]);
   const [budgetLoading, setBudgetLoading] = useState(true);
 
-  // Wallet Actions Modal State
-  const [selectedWalletForAction, setSelectedWalletForAction] = useState<any>(null);
-  const [showWalletActionModal, setShowWalletActionModal] = useState(false);
   const [imageError, setImageError] = useState(false);
-
-  const loadFinancialData = async () => {
-    try {
-      setBudgetLoading(true);
-
-      const budgets = await getActiveBudgets();
-      const budgetsWithMetrics = budgets.map(calculateBudgetMetrics);
-      setActiveBudgets(budgetsWithMetrics);
-
-      const rawGoals = await getGoals();
-      const goalsWithMetrics = rawGoals.map(calculateGoalMetrics);
-      setGoals(goalsWithMetrics);
-
-    } catch (error) {
-      console.error('Failed to load financial data', error);
-    } finally {
-      setBudgetLoading(false);
-    }
-  };
-
-  // Load upcoming recurring transactions
-  const loadUpcomingTransactions = async () => {
-    try {
-      const transactions = await exec<Transaction & { walletCurrency: string }>(
-        `SELECT t.*, w.currency as walletCurrency FROM transactions t
-         LEFT JOIN wallets w ON t.wallet_id = w.id
-         WHERE t.is_recurring = 1 
-         ORDER BY ABS(t.amount) DESC
-         LIMIT 3`
-      );
-      setUpcomingTransactions(transactions || []);
-    } catch (error) {
-      console.error('Error loading upcoming transactions:', error);
-      setUpcomingTransactions([]);
-    }
-  };
-
-  useEffect(() => {
-    loadUpcomingTransactions();
-  }, [dataVersion]);
 
   const handleDateSelect = (date: Date) => {
     if (!customStartDate || (customStartDate && customEndDate)) {
@@ -316,72 +271,6 @@ export default function Home() {
       }
     }
   };
-
-  // Build time-series for the chart based on selected range
-  function buildChartData(range: '7d' | '3m' | '6m', txns: Transaction[]) {
-    const result: Array<{ date: string; income: number; expense: number }> = [];
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-
-    const sumIncome = (transactions: Transaction[]) =>
-      transactions
-        .filter(t => t.type === 'income' && t.category !== 'Transfer')
-        .reduce((s, t) => s + t.amount * (walletExchangeRate[t.wallet_id] ?? 1.0), 0);
-    const sumExpense = (transactions: Transaction[]) =>
-      transactions
-        .filter(t => t.type === 'expense' && t.category !== 'Transfer')
-        .reduce((s, t) => s + Math.abs(t.amount * (walletExchangeRate[t.wallet_id] ?? 1.0)), 0);
-
-    if (range === '7d') {
-      // Last 7 days (daily)
-      for (let i = 6; i >= 0; i--) {
-        const dayStart = new Date(now);
-        dayStart.setDate(now.getDate() - i);
-        const dayEnd = new Date(dayStart);
-        dayEnd.setDate(dayStart.getDate() + 1);
-
-        const dayTx = txns.filter(t => {
-          const d = new Date(t.date);
-          return d >= dayStart && d < dayEnd;
-        });
-        const incomeSum = sumIncome(dayTx);
-        const expenseSum = sumExpense(dayTx);
-        result.push({ date: dayStart.toISOString(), income: incomeSum, expense: expenseSum });
-      }
-    } else if (range === '3m') {
-      // Last 3 months (monthly aggregates)
-      const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      for (let i = 2; i >= 0; i--) {
-        const monthStart = new Date(firstOfThisMonth.getFullYear(), firstOfThisMonth.getMonth() - i, 1);
-        const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
-
-        const monthTx = txns.filter(t => {
-          const d = new Date(t.date);
-          return d >= monthStart && d < monthEnd;
-        });
-        const incomeSum = sumIncome(monthTx);
-        const expenseSum = sumExpense(monthTx);
-        result.push({ date: monthStart.toISOString(), income: incomeSum, expense: expenseSum });
-      }
-    } else if (range === '6m') {
-      // Last 6 months (monthly aggregates)
-      const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      for (let i = 5; i >= 0; i--) {
-        const monthStart = new Date(firstOfThisMonth.getFullYear(), firstOfThisMonth.getMonth() - i, 1);
-        const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
-
-        const monthTx = txns.filter(t => {
-          const d = new Date(t.date);
-          return d >= monthStart && d < monthEnd;
-        });
-        const incomeSum = sumIncome(monthTx);
-        const expenseSum = sumExpense(monthTx);
-        result.push({ date: monthStart.toISOString(), income: incomeSum, expense: expenseSum });
-      }
-    }
-
-    return result;
-  }
 
   useEffect(() => {
     const mappedRange: '7d' | '3m' | '6m' =
@@ -406,96 +295,32 @@ export default function Home() {
         if (!hasLoadedInitialDataRef.current) {
           setIsLoading(true);
         }
+        setBudgetLoading(true);
 
-        const now = new Date();
-
-        // Calculate the earliest date we need based on chart range
-        let chartStartDate: Date;
-        switch (chartRange) {
-          case '7d':
-            chartStartDate = new Date(now);
-            chartStartDate.setDate(now.getDate() - 7);
-            break;
-          case '3m':
-            chartStartDate = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-            break;
-          case '6m':
-            chartStartDate = new Date(now.getFullYear(), now.getMonth() - 6, 1);
-            break;
-        }
-
-        // Calculate the start date for the selected period
-        let periodStartDate: Date;
-        let periodEndDate: Date = now;
-
-        switch (selectedPeriod) {
-          case 'all':
-            periodStartDate = new Date(0);
-            break;
-          case 'today':
-            periodStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            break;
-          case 'week': {
-            const dayOfWeek = now.getDay();
-            periodStartDate = new Date(now);
-            periodStartDate.setDate(now.getDate() - dayOfWeek);
-            periodStartDate.setHours(0, 0, 0, 0);
-            break;
-          }
-          case 'month':
-            periodStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
-            break;
-          case 'lastMonth': {
-            const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            periodStartDate = lastMonthDate;
-            periodEndDate = new Date(lastMonthDate.getFullYear(), lastMonthDate.getMonth() + 1, 0, 23, 59, 59, 999);
-            break;
-          }
-          case 'custom':
-            if (customStartDate && customEndDate) {
-              periodStartDate = customStartDate;
-              periodEndDate = customEndDate;
-            } else {
-              periodStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            }
-            break;
-        }
-
-        const fetchStartDate = selectedPeriod === 'all'
-          ? new Date(0)
-          : new Date(Math.min(chartStartDate.getTime(), periodStartDate.getTime()));
-        fetchStartDate.setHours(0, 0, 0, 0);
-
-        const fetchEndDate = new Date(Math.max(periodEndDate.getTime(), now.getTime()));
-        fetchEndDate.setHours(23, 59, 59, 999);
-
-        const startOfPeriod = new Date(periodStartDate);
-        startOfPeriod.setHours(0, 0, 0, 0);
-        const endOfPeriod = new Date(periodEndDate);
-        endOfPeriod.setHours(23, 59, 59, 999);
-
-        const financialDataPromise = loadFinancialData();
-
-        const [order, allTxns, periodTotals] = await Promise.all([
-          getWalletsOrderedByRecentActivity().catch(() => null),
-          getTransactionsForPeriod(fetchStartDate, fetchEndDate),
-          getIncomeExpenseForPeriod(startOfPeriod, endOfPeriod),
-        ]);
+        const snapshot = await getHomeDashboardSnapshot({
+          chartRange,
+          customEndDate,
+          customStartDate,
+          selectedPeriod,
+          walletExchangeRate,
+        });
 
         if (isCancelled) return;
 
-        setRecentOrder(order);
-        setIncome(periodTotals.income);
-        setExpenses(periodTotals.expense);
-        setChartData(buildChartData(chartRange, allTxns));
-
-        await financialDataPromise;
+        setRecentOrder(snapshot.recentOrder);
+        setIncome(snapshot.income);
+        setExpenses(snapshot.expenses);
+        setChartData(snapshot.chartData);
+        setActiveBudgets(snapshot.activeBudgets);
+        setGoals(snapshot.goals);
+        setUpcomingTransactions(snapshot.upcomingTransactions);
       } catch (error) {
         console.error('Error loading home dashboard data:', error);
       } finally {
         if (!isCancelled) {
           hasLoadedInitialDataRef.current = true;
           setIsLoading(false);
+          setBudgetLoading(false);
         }
       }
     };
@@ -514,9 +339,8 @@ export default function Home() {
       invalidateTransactionCaches();
       invalidateWalletCaches();
 
-      // Refresh wallet data and upcoming recurring preview.
-      // Dashboard analytics reloads when wallet state updates.
-      await Promise.all([refresh(), loadUpcomingTransactions()]);
+      await refresh();
+      setDataVersion(prev => prev + 1);
 
       console.log('Full refresh completed - all caches cleared and data reloaded');
     } catch (error) {
@@ -539,32 +363,6 @@ export default function Home() {
 
     return () => subscription.remove();
   }, []);
-
-  const handleWalletLongPress = (wallet: any) => {
-    setSelectedWalletForAction(wallet);
-    setShowWalletActionModal(true);
-  };
-
-  const handleModalEdit = () => {
-    setShowWalletActionModal(false);
-    if (selectedWalletForAction) {
-      router.push({ pathname: '/wallets/edit', params: { id: String(selectedWalletForAction.id) } });
-    }
-  };
-
-  const handleModalTransact = () => {
-    setShowWalletActionModal(false);
-    if (selectedWalletForAction) {
-      router.push({ pathname: '/transactions/add', params: { walletId: String(selectedWalletForAction.id) } });
-    }
-  };
-
-  const handleModalView = () => {
-    setShowWalletActionModal(false);
-    if (selectedWalletForAction) {
-      router.push(`/wallets/${selectedWalletForAction.id}`);
-    }
-  };
 
   const now = new Date();
   const periodLabel = getPeriodLabel(selectedPeriod);
@@ -737,12 +535,12 @@ export default function Home() {
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
               <Link href="/transactions/add" asChild>
                 <TouchableOpacity style={{ flex: 1, backgroundColor: t.primary, borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}>
-                  <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '800' }}>Add Transaction</Text>
+                  <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '800' }}>New Entry</Text>
                 </TouchableOpacity>
               </Link>
-              <Link href="/analytics" asChild>
+              <Link href={{ pathname: '/transactions/add', params: { type: 'transfer' } }} asChild>
                 <TouchableOpacity style={{ flex: 1, backgroundColor: t.background, borderWidth: 1, borderColor: t.border, borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}>
-                  <Text style={{ color: t.textPrimary, fontSize: 13, fontWeight: '700' }}>Open Analytics</Text>
+                  <Text style={{ color: t.textPrimary, fontSize: 13, fontWeight: '700' }}>Move Money</Text>
                 </TouchableOpacity>
               </Link>
             </View>
@@ -934,13 +732,11 @@ export default function Home() {
                 </TouchableOpacity>
               </Link>
             ) : (
-              orderedWallets.slice(0, 3).map((wallet: any) => (
+              orderedWallets.slice(0, 3).map((wallet: Wallet) => (
                 <TouchableOpacity
                   key={wallet.id}
                   activeOpacity={0.75}
                   onPress={() => router.push(`/wallets/${wallet.id}`)}
-                  onLongPress={() => handleWalletLongPress(wallet)}
-                  delayLongPress={500}
                   style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 12, marginBottom: 8 }}
                 >
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -951,6 +747,20 @@ export default function Home() {
                     <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '800' }}>
                       {hideBalances ? '******' : formatCurrency(balances[wallet.id!], wallet.currency || defaultCurrency)}
                     </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                    <TouchableOpacity
+                      onPress={() => router.push(`/wallets/${wallet.id}`)}
+                      style={{ flex: 1, backgroundColor: t.background, borderWidth: 1, borderColor: t.border, borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}
+                    >
+                      <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '800' }}>Open</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => router.push({ pathname: '/transactions/add', params: { walletId: String(wallet.id) } })}
+                      style={{ flex: 1, backgroundColor: t.primary + '14', borderWidth: 1, borderColor: t.primary + '30', borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}
+                    >
+                      <Text style={{ color: t.primary, fontSize: 12, fontWeight: '800' }}>New Entry</Text>
+                    </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
               ))
@@ -979,17 +789,10 @@ export default function Home() {
             />
           </View>
 
-          {/* Quick Actions */}
+          {/* Core Actions */}
           <View style={{ marginBottom: 24 }}>
-            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Quick Actions</Text>
+            <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 12 }}>Core Actions</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-              <Link href="/categories/create" asChild>
-                <TouchableOpacity style={{ width: '48.5%', backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, padding: 12, marginBottom: 10, alignItems: 'center' }}>
-                  <PlusIcon size={20} color={t.primary} />
-                  <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '700', marginTop: 6 }}>Add Category</Text>
-                </TouchableOpacity>
-              </Link>
-
               <Link href="/wallets" asChild>
                 <TouchableOpacity style={{ width: '48.5%', backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, padding: 12, marginBottom: 10, alignItems: 'center' }}>
                   <WalletIcon size={20} color={t.primary} />
@@ -998,98 +801,35 @@ export default function Home() {
               </Link>
 
               <Link href="/budget" asChild>
-                <TouchableOpacity style={{ width: '48.5%', backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, padding: 12, alignItems: 'center' }}>
+                <TouchableOpacity style={{ width: '48.5%', backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, padding: 12, marginBottom: 10, alignItems: 'center' }}>
                   <ChartIcon size={20} color={t.primary} />
-                  <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '700', marginTop: 6 }}>Budgets & Goals</Text>
+                  <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '700', marginTop: 6 }}>Plans</Text>
+                </TouchableOpacity>
+              </Link>
+
+              <Link href="/settings/recurring" asChild>
+                <TouchableOpacity style={{ width: '48.5%', backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, padding: 12, alignItems: 'center' }}>
+                  <PlusIcon size={20} color={t.primary} />
+                  <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '700', marginTop: 6 }}>Recurring</Text>
                 </TouchableOpacity>
               </Link>
 
               <Link href="/settings" asChild>
                 <TouchableOpacity style={{ width: '48.5%', backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, padding: 12, alignItems: 'center' }}>
                   <SettingsIcon size={20} color={t.primary} />
-                  <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '700', marginTop: 6 }}>More</Text>
+                  <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '700', marginTop: 6 }}>Settings</Text>
                 </TouchableOpacity>
               </Link>
             </View>
           </View>
 
-          {/* Wallet Actions Modal */}
-          <Modal
-            visible={showWalletActionModal}
-            transparent
-            animationType="fade"
-            onRequestClose={() => setShowWalletActionModal(false)}
-          >
-            <TouchableOpacity
-              style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end', padding: 20 }}
-              activeOpacity={1}
-              onPress={() => setShowWalletActionModal(false)}
-            >
-              <View style={{ backgroundColor: t.card, borderRadius: 24, padding: 24, paddingBottom: 32, borderWidth: 1, borderColor: t.border }}>
-                <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 6 }}>
-                  {selectedWalletForAction?.name}
-                </Text>
-                <Text style={{ color: t.textSecondary, fontSize: 14, marginBottom: 24 }}>
-                  Quick Actions
-                </Text>
-
-                <View style={{ gap: 12 }}>
-                  <TouchableOpacity
-                    onPress={handleModalView}
-                    style={{ backgroundColor: t.primary + '15', padding: 16, borderRadius: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}
-                  >
-                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center' }}>
-                      <Text style={{ color: '#fff', fontSize: 20 }}>👁</Text>
-                    </View>
-                    <View>
-                      <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>View Details</Text>
-                      <Text style={{ color: t.textSecondary, fontSize: 12 }}>See full history & stats</Text>
-                    </View>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={handleModalTransact}
-                    style={{ backgroundColor: t.card, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: t.border, flexDirection: 'row', alignItems: 'center', gap: 12 }}
-                  >
-                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: t.success, justifyContent: 'center', alignItems: 'center' }}>
-                      <Text style={{ color: '#fff', fontSize: 20 }}>＋</Text>
-                    </View>
-                    <View>
-                      <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>Add Transaction</Text>
-                      <Text style={{ color: t.textSecondary, fontSize: 12 }}>Quickly record spend/income</Text>
-                    </View>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={handleModalEdit}
-                    style={{ backgroundColor: t.card, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: t.border, flexDirection: 'row', alignItems: 'center', gap: 12 }}
-                  >
-                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: t.warning, justifyContent: 'center', alignItems: 'center' }}>
-                      <Text style={{ color: '#fff', fontSize: 18 }}>✎</Text>
-                    </View>
-                    <View>
-                      <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>Edit Wallet</Text>
-                      <Text style={{ color: t.textSecondary, fontSize: 12 }}>Change name or type</Text>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity
-                  onPress={() => setShowWalletActionModal(false)}
-                  style={{ marginTop: 24, padding: 16, alignItems: 'center' }}
-                >
-                  <Text style={{ color: t.textSecondary, fontWeight: '700' }}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          </Modal>
         </ScrollView>
       )}
 
       {/* Custom Date Range Picker Modal */}
       <Modal visible={showDatePicker} transparent animationType="slide">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '75%' }}>
+          <View style={{ backgroundColor: t.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '75%', borderTopWidth: 1, borderColor: t.border }}>
             {/* Header */}
             <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: t.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={{ fontSize: 18, fontWeight: '800', color: t.textPrimary }}>Select Date Range</Text>

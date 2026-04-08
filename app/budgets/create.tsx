@@ -171,7 +171,7 @@ export default function CreateBudgetScreen() {
         linkedWalletIds: selectedWallets,
       });
 
-      const createdBudget = await createBudget({
+      await createBudget({
         name: name.trim(),
         categoryIds: selectedCategories,
         limitAmount: parseFloat(limitAmount),
@@ -180,17 +180,9 @@ export default function CreateBudgetScreen() {
         endDate,
         linkedWalletIds: selectedWallets,
         isRecurring,
-        recurrenceEndDate,
-        isRecurring,
         recurrenceEndDate: isRecurring ? recurrenceEndDate || undefined : undefined,
         notes: notes.trim() || undefined,
       });
-
-      // Calculate initial spending for the new budget
-      if (createdBudget.id) {
-        const { recalculateBudgetSpending } = await import('@/lib/db/budgets');
-        await recalculateBudgetSpending(createdBudget.id);
-      }
 
       console.log('[Budget Create] Budget created successfully');
       // Invalidate caches so budget page will reload with new data

@@ -30,7 +30,7 @@ import { Link } from 'expo-router';
 interface RightPanelProps {
   onClose: () => void;
   theme: ReturnType<typeof theme>;
-  effectiveMode: 'light' | 'dark';
+  effectiveMode: Exclude<ThemeMode, 'system'>;
 }
 
 export function RightPanel({

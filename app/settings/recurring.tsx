@@ -17,24 +17,20 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { theme } from '../../src/theme/theme';
 import { useSettings } from '../../src/store/useStore';
 import { Transaction, RecurrenceFrequency, TransactionType } from '../../src/types/transaction';
-import { getDbAsync } from '../../src/lib/db';
 import { 
+  createRecurringTransactionTemplate,
   cancelRecurringTransaction, 
+  getRecurringTemplates,
   updateRecurringTransaction 
 } from '../../src/lib/services/recurringTransactionService';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { getWallets } from '../../src/lib/db/wallets';
 import { getCategoriesHierarchy } from '../../src/lib/db/categories';
-import { enqueueWrite } from '../../src/lib/db/writeQueue';
 import { CalendarModal } from '../../src/components/CalendarModal';
 import { SelectModal, SelectOption } from '../../src/components/SelectModal';
 import { CATEGORY_ICONS } from '../../src/assets/icons/CategoryIcons';
 import { useAlert } from '../../src/lib/hooks/useAlert';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
-
-type TxExecutor = {
-  executeAsync: (sql: string, params?: unknown[]) => Promise<unknown>;
-};
 
 export default function RecurringTransactionsScreen() {
   const router = useRouter();
@@ -137,14 +133,7 @@ export default function RecurringTransactionsScreen() {
   const loadRecurringTransactions = async () => {
     try {
       setLoading(true);
-      const database = await getDbAsync();
-      const result = await database.execute(
-        `SELECT t.*, w.currency as walletCurrency FROM transactions t
-         LEFT JOIN wallets w ON t.wallet_id = w.id
-         WHERE t.is_recurring = 1 
-         ORDER BY t.date DESC`
-      );
-      const transactions = result.rows?._array as unknown as (Transaction & { walletCurrency: string })[];
+      const transactions = await getRecurringTemplates();
       setRecurringTransactions(transactions);
     } catch (error) {
       console.error('Error loading recurring transactions:', error);
@@ -260,91 +249,18 @@ export default function RecurringTransactionsScreen() {
     }
 
     try {
-      await enqueueWrite(async () => {
-        const database = await getDbAsync();
-        
-        if (createType === 'transfer') {
-          // Create paired transfer transactions
-          const now = createDate.toISOString();
-          const transferNotes = createNotes ? `Transfer: ${createNotes}` : 'Transfer between wallets';
-          
-          const fromWallet = wallets.find(w => w.id === createWalletId);
-          const toWallet = wallets.find(w => w.id === createToWalletId);
-          
-          let receivedAmount = amount;
-          if (fromWallet && toWallet && fromWallet.currency !== toWallet.currency) {
-            const fromRate = fromWallet.exchange_rate ?? 1.0;
-            const toRate = toWallet.exchange_rate ?? 1.0;
-            receivedAmount = amount * fromRate / toRate;
-          }
-
-          // Create both transactions in a single batch
-          await database.transaction(async (tx: TxExecutor) => {
-            // Outgoing transfer
-            await tx.executeAsync(
-              `INSERT INTO transactions
-               (wallet_id, type, amount, category, date, notes, is_recurring, recurrence_frequency, recurrence_end_date, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [
-                createWalletId,
-                'expense',
-                -Math.abs(amount),
-                'Transfer',
-                createDate.toISOString(),
-                `${transferNotes} to ${toWallet?.name}`,
-                1,
-                createFrequency,
-                createEndDate ? createEndDate.toISOString().split('T')[0] : null,
-                new Date().toISOString(),
-              ]
-            );
-
-            // Incoming transfer
-            await tx.executeAsync(
-              `INSERT INTO transactions
-               (wallet_id, type, amount, category, date, notes, is_recurring, recurrence_frequency, recurrence_end_date, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [
-                createToWalletId,
-                'income',
-                Math.abs(receivedAmount),
-                'Transfer',
-                createDate.toISOString(),
-                `${transferNotes} from ${fromWallet?.name}`,
-                1,
-                createFrequency,
-                createEndDate ? createEndDate.toISOString().split('T')[0] : null,
-                new Date().toISOString(),
-              ]
-            );
-          });
-        } else {
-          // Create single income/expense transaction
-          // Resolve category ID to name
-          const selectedCat = categories.find(c => c.id?.toString() === createCategory);
-          const categoryName = selectedCat?.name || 'Uncategorized';
-
-          await database.transaction(async (tx: TxExecutor) => {
-            await tx.executeAsync(
-              `INSERT INTO transactions
-               (wallet_id, type, amount, category, date, notes, is_recurring, recurrence_frequency, recurrence_end_date, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [
-                createWalletId,
-                createType,
-                createType === 'income' ? Math.abs(amount) : -Math.abs(amount),
-                categoryName,
-                createDate.toISOString(),
-                createNotes || null,
-                1,
-                createFrequency,
-                createEndDate ? createEndDate.toISOString().split('T')[0] : null,
-                new Date().toISOString(),
-              ]
-            );
-          });
-        }
-      }, 'create_recurring_transaction');
+      const selectedCat = categories.find(c => c.id?.toString() === createCategory);
+      await createRecurringTransactionTemplate({
+        amount,
+        category: createType === 'transfer' ? undefined : (selectedCat?.name || 'Uncategorized'),
+        date: createDate.toISOString(),
+        frequency: createFrequency,
+        notes: createNotes || undefined,
+        recurrenceEndDate: createEndDate ? createEndDate.toISOString().split('T')[0] : undefined,
+        toWalletId: createType === 'transfer' ? createToWalletId : undefined,
+        type: createType,
+        walletId: createWalletId,
+      });
 
       // Reset form and reload
       setShowCreateModal(false);
@@ -370,6 +286,7 @@ export default function RecurringTransactionsScreen() {
   const renderRecurringTransaction = (transaction: Transaction) => {
     const nextOccurrence = calculateNextOccurrence(transaction);
     const isEnded = nextOccurrence === 'Ended';
+    const walletCurrency = wallets.find((wallet) => wallet.id === transaction.wallet_id)?.currency || defaultCurrency;
 
     return (
       <View
@@ -408,7 +325,7 @@ export default function RecurringTransactionsScreen() {
             }}
           >
             {transaction.type === 'income' ? '+' : '-'}
-            {formatCurrency(transaction.amount, (transaction as any).walletCurrency || defaultCurrency)}
+            {formatCurrency(transaction.amount, walletCurrency)}
           </Text>
         </View>
 

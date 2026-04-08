@@ -1,19 +1,12 @@
 /**
  * Database Integrity Checker and Repair Tool
- * 
+ *
  * This module provides functions to detect and repair database corruption,
  * specifically for wallet display_order issues.
- * 
- * Usage:
- *   import { checkDatabaseIntegrity, repairDatabaseIntegrity } from './repair-scripts/integrityChecker';
- *   
- *   const issues = checkDatabaseIntegrity();
- *   if (issues.length > 0) {
- *     repairDatabaseIntegrity(dryRun: false);
- *   }
  */
 
-import { getDbAsync } from './index';
+import { exec, getDbAsync } from './index';
+import { enqueueWrite } from './writeQueue';
 import { log, error as logError } from '../../utils/logger';
 
 export interface IntegrityIssue {
@@ -32,85 +25,141 @@ export interface RepairResult {
   errors: string[];
 }
 
+type WalletIdRow = {
+  id: number;
+};
+
+type WalletOrderRow = {
+  display_order: number;
+};
+
+type DuplicateOrderRow = {
+  display_order: number;
+  duplicate_count: number;
+  wallet_ids: string;
+};
+
+type WalletCountRow = {
+  count: number;
+};
+
+type RepairPreviewRow = {
+  current_order: number | null;
+  id: number;
+  name: string;
+  new_order: number;
+};
+
+type BackupTableRow = {
+  name: string;
+};
+
+type TransactionExecutor = {
+  executeAsync: (sql: string, params?: unknown[]) => Promise<{
+    rowsAffected?: number;
+  }>;
+};
+
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
+function toErrorPayload(error: unknown): Record<string, unknown> {
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      stack: error.stack,
+    };
+  }
+
+  return {
+    error: String(error),
+  };
+}
+
 /**
  * Check database integrity and detect wallet display_order issues
  * @returns Array of integrity issues found
  */
-export async function checkDatabaseIntegrity(): Promise<IntegrityIssue[]> {
+async function checkDatabaseIntegrityLegacy(): Promise<IntegrityIssue[]> {
   const issues: IntegrityIssue[] = [];
-  const database = await getDbAsync();
 
   try {
     log('[Integrity Check] Starting database integrity check...');
 
     // Check 1: NULL display_order values
-    const nullOrderWalletsResult = database.execute(
+    const nullOrderWallets = await exec<WalletIdRow>(
       'SELECT id FROM wallets WHERE display_order IS NULL;'
     );
-    const nullOrderWallets = nullOrderWalletsResult.rows?._array || [];
     
     if (nullOrderWallets.length > 0) {
       issues.push({
         issueType: 'null_display_order',
         severity: 'critical',
         description: `Found ${nullOrderWallets.length} wallet(s) with NULL display_order`,
-        affectedWallets: nullOrderWallets.map(w => w.id),
+        affectedWallets: nullOrderWallets.map((wallet) => wallet.id),
         recommendation: 'Run repair script to assign sequential display_order values'
       });
     }
 
     // Check 2: Negative display_order values
-    const negativeOrderWalletsResult = database.execute(
+    const negativeOrderWallets = await exec<WalletIdRow>(
       'SELECT id, display_order FROM wallets WHERE display_order < 0;'
     );
-    const negativeOrderWallets = negativeOrderWalletsResult.rows?._array || [];
     
     if (negativeOrderWallets.length > 0) {
       issues.push({
         issueType: 'negative_display_order',
         severity: 'high',
         description: `Found ${negativeOrderWallets.length} wallet(s) with negative display_order`,
-        affectedWallets: negativeOrderWallets.map(w => w.id),
+        affectedWallets: negativeOrderWallets.map((wallet) => wallet.id),
         recommendation: 'Run repair script to assign sequential display_order values'
       });
     }
 
     // Check 3: Duplicate display_order values
-    const duplicateOrdersResult = database.execute(
+    const duplicateOrders = await exec<DuplicateOrderRow>(
       `SELECT display_order, COUNT(*) as duplicate_count, GROUP_CONCAT(id) as wallet_ids
        FROM wallets 
        GROUP BY display_order 
        HAVING COUNT(*) > 1;`
     );
-    const duplicateOrders = duplicateOrdersResult.rows?._array || [];
     
     if (duplicateOrders.length > 0) {
-      const totalAffected = duplicateOrders.reduce((sum, d) => sum + d.duplicate_count, 0);
+      const totalAffected = duplicateOrders.reduce((sum, row) => sum + row.duplicate_count, 0);
       issues.push({
         issueType: 'duplicate_display_order',
         severity: 'critical',
         description: `Found ${duplicateOrders.length} display_order value(s) used by multiple wallets (${totalAffected} wallets affected)`,
-        affectedWallets: duplicateOrders.flatMap(d => d.wallet_ids.split(',').map(id => parseInt(id))),
+        affectedWallets: duplicateOrders.flatMap((row) =>
+          row.wallet_ids
+            .split(',')
+            .map((walletId) => Number.parseInt(walletId, 10))
+            .filter((walletId) => Number.isInteger(walletId))
+        ),
         recommendation: 'Run repair script to assign unique sequential display_order values'
       });
     }
 
     // Check 4: Gaps in sequence
-    const walletCountResult = database.execute(
+    const walletCountResult = await exec<WalletCountRow>(
       'SELECT COUNT(*) as count FROM wallets;'
     );
-    const totalWallets = walletCountResult.rows?._array[0]?.count || 0;
+    const totalWallets = walletCountResult[0]?.count || 0;
 
     if (totalWallets > 0) {
-      const allOrdersResult = database.execute(
+      const allOrders = await exec<WalletOrderRow>(
         'SELECT DISTINCT display_order FROM wallets WHERE display_order IS NOT NULL ORDER BY display_order ASC;'
       );
-      const allOrders = allOrdersResult.rows?._array || [];
       
       const expectedOrders = Array.from({ length: totalWallets }, (_, i) => i);
-      const actualOrders = allOrders.map(o => o.display_order);
+      const actualOrders = allOrders.map((row) => row.display_order);
       
-      const missingOrders = expectedOrders.filter(expected => !actualOrders.includes(expected));
+      const missingOrders = expectedOrders.filter((expected) => !actualOrders.includes(expected));
       
       if (missingOrders.length > 0) {
         issues.push({
@@ -143,7 +192,7 @@ export async function checkDatabaseIntegrity(): Promise<IntegrityIssue[]> {
  * @param dryRun If true, only simulates repairs without actually modifying data
  * @returns Repair result with success status and details
  */
-export async function repairDatabaseIntegrity(dryRun: boolean = true): Promise<RepairResult> {
+async function repairDatabaseIntegrityLegacy(dryRun: boolean = true): Promise<RepairResult> {
   const result: RepairResult = {
     success: false,
     issuesFound: 0,
@@ -196,7 +245,7 @@ export async function repairDatabaseIntegrity(dryRun: boolean = true): Promise<R
       const preview = previewResult.rows?._array || [];
 
       log('[Integrity Repair] Preview of changes:');
-      preview.forEach(w => {
+      preview.forEach((w: RepairPreviewRow) => {
         log(`  Wallet ${w.id} (${w.name}): display_order ${w.current_order} → ${w.new_order}`);
       });
 
@@ -208,7 +257,7 @@ export async function repairDatabaseIntegrity(dryRun: boolean = true): Promise<R
     log('[Integrity Repair] Creating backup table...');
     
     try {
-      database.transaction(tx => {
+      database.transaction((tx: any) => {
         const backupTableName = `wallets_backup_integrity_repair_${Date.now()}`;
         tx.execute(`DROP TABLE IF EXISTS ${backupTableName};`);
         tx.execute(`CREATE TABLE ${backupTableName} AS SELECT * FROM wallets;`);
@@ -269,6 +318,219 @@ export async function repairDatabaseIntegrity(dryRun: boolean = true): Promise<R
   }
 }
 
+export async function checkDatabaseIntegrity(): Promise<IntegrityIssue[]> {
+  const issues: IntegrityIssue[] = [];
+
+  try {
+    log('[Integrity Check] Starting database integrity check...');
+
+    const nullOrderWallets = await exec<WalletIdRow>(
+      'SELECT id FROM wallets WHERE display_order IS NULL;'
+    );
+
+    if (nullOrderWallets.length > 0) {
+      issues.push({
+        issueType: 'null_display_order',
+        severity: 'critical',
+        description: `Found ${nullOrderWallets.length} wallet(s) with NULL display_order`,
+        affectedWallets: nullOrderWallets.map((wallet) => wallet.id),
+        recommendation: 'Run repair script to assign sequential display_order values',
+      });
+    }
+
+    const negativeOrderWallets = await exec<WalletIdRow>(
+      'SELECT id, display_order FROM wallets WHERE display_order < 0;'
+    );
+
+    if (negativeOrderWallets.length > 0) {
+      issues.push({
+        issueType: 'negative_display_order',
+        severity: 'high',
+        description: `Found ${negativeOrderWallets.length} wallet(s) with negative display_order`,
+        affectedWallets: negativeOrderWallets.map((wallet) => wallet.id),
+        recommendation: 'Run repair script to assign sequential display_order values',
+      });
+    }
+
+    const duplicateOrders = await exec<DuplicateOrderRow>(
+      `SELECT display_order, COUNT(*) as duplicate_count, GROUP_CONCAT(id) as wallet_ids
+       FROM wallets
+       GROUP BY display_order
+       HAVING COUNT(*) > 1;`
+    );
+
+    if (duplicateOrders.length > 0) {
+      const totalAffected = duplicateOrders.reduce((sum, row) => sum + row.duplicate_count, 0);
+      issues.push({
+        issueType: 'duplicate_display_order',
+        severity: 'critical',
+        description: `Found ${duplicateOrders.length} display_order value(s) used by multiple wallets (${totalAffected} wallets affected)`,
+        affectedWallets: duplicateOrders.flatMap((row) =>
+          row.wallet_ids
+            .split(',')
+            .map((walletId) => Number.parseInt(walletId, 10))
+            .filter((walletId) => Number.isInteger(walletId))
+        ),
+        recommendation: 'Run repair script to assign unique sequential display_order values',
+      });
+    }
+
+    const walletCountResult = await exec<WalletCountRow>(
+      'SELECT COUNT(*) as count FROM wallets;'
+    );
+    const totalWallets = walletCountResult[0]?.count ?? 0;
+
+    if (totalWallets > 0) {
+      const allOrders = await exec<WalletOrderRow>(
+        'SELECT DISTINCT display_order FROM wallets WHERE display_order IS NOT NULL ORDER BY display_order ASC;'
+      );
+
+      const expectedOrders = Array.from({ length: totalWallets }, (_, index) => index);
+      const actualOrders = allOrders.map((row) => row.display_order);
+      const missingOrders = expectedOrders.filter((expected) => !actualOrders.includes(expected));
+
+      if (missingOrders.length > 0) {
+        issues.push({
+          issueType: 'gap_in_sequence',
+          severity: 'medium',
+          description: `Found ${missingOrders.length} gap(s) in display_order sequence (missing: ${missingOrders.join(', ')})`,
+          recommendation: 'Run repair script to create sequential display_order values without gaps',
+        });
+      }
+    }
+
+    if (issues.length === 0) {
+      log('[Integrity Check] No integrity issues found');
+    } else {
+      log(`[Integrity Check] Found ${issues.length} integrity issue(s)`);
+      issues.forEach((issue) => {
+        logError(`[Integrity Check] ${issue.severity.toUpperCase()}: ${issue.description}`);
+      });
+    }
+
+    return issues;
+  } catch (error) {
+    logError('[Integrity Check] Failed to check database integrity:', toErrorPayload(error));
+    throw new Error(`Integrity check failed: ${toErrorMessage(error)}`);
+  }
+}
+
+export async function repairDatabaseIntegrity(dryRun: boolean = true): Promise<RepairResult> {
+  const result: RepairResult = {
+    success: false,
+    issuesFound: 0,
+    issuesFixed: 0,
+    backupCreated: false,
+    errors: [],
+  };
+
+  try {
+    log(`[Integrity Repair] Starting integrity repair (dryRun: ${dryRun})...`);
+
+    const issues = await checkDatabaseIntegrity();
+    result.issuesFound = issues.length;
+
+    if (issues.length === 0) {
+      log('[Integrity Repair] No issues to repair');
+      result.success = true;
+      return result;
+    }
+
+    if (dryRun) {
+      log('[Integrity Repair] DRY RUN MODE - No changes will be made');
+
+      const preview = await exec<RepairPreviewRow>(
+        `SELECT
+           w.id,
+           w.name,
+           w.display_order as current_order,
+           ROW_NUMBER() OVER (
+             ORDER BY
+               CASE
+                 WHEN w.display_order IS NULL THEN 9999
+                 WHEN w.display_order < 0 THEN 9999
+                 ELSE w.display_order
+               END ASC,
+               w.created_at ASC
+           ) - 1 as new_order
+         FROM wallets w
+         WHERE w.display_order IS NULL
+            OR w.display_order < 0
+            OR w.display_order IN (
+              SELECT display_order
+              FROM wallets
+              GROUP BY display_order
+              HAVING COUNT(*) > 1
+            );`
+      );
+
+      log('[Integrity Repair] Preview of changes:');
+      preview.forEach((wallet) => {
+        log(`  Wallet ${wallet.id} (${wallet.name}): display_order ${wallet.current_order} -> ${wallet.new_order}`);
+      });
+
+      result.issuesFixed = preview.length;
+      result.success = true;
+      return result;
+    }
+
+    const backupTableName = `wallets_backup_integrity_repair_${Date.now()}`;
+    const database = await getDbAsync();
+
+    await enqueueWrite(async () => {
+      await database.transaction(async (tx: TransactionExecutor) => {
+        await tx.executeAsync(`DROP TABLE IF EXISTS ${backupTableName};`);
+        await tx.executeAsync(`CREATE TABLE ${backupTableName} AS SELECT * FROM wallets;`);
+        result.backupCreated = true;
+        log(`[Integrity Repair] Backup created: ${backupTableName}`);
+
+        await tx.executeAsync(`
+          CREATE TEMPORARY TABLE wallet_fix AS
+          SELECT
+            id,
+            ROW_NUMBER() OVER (
+              ORDER BY
+                CASE
+                  WHEN display_order IS NULL THEN 9999
+                  WHEN display_order < 0 THEN 9999
+                  ELSE display_order
+                END ASC,
+                created_at ASC
+            ) - 1 as new_display_order
+          FROM wallets;
+        `);
+
+        const updateResult = await tx.executeAsync(`
+          UPDATE wallets
+          SET display_order = (
+            SELECT new_display_order
+            FROM wallet_fix
+            WHERE wallet_fix.id = wallets.id
+          );
+        `);
+        result.issuesFixed = updateResult.rowsAffected ?? 0;
+
+        await tx.executeAsync('DROP TABLE wallet_fix;');
+      });
+    }, 'repairDatabaseIntegrity');
+
+    const verificationIssues = await checkDatabaseIntegrity();
+    if (verificationIssues.length === 0) {
+      log('[Integrity Repair] Verification passed - all issues resolved');
+      result.success = true;
+    } else {
+      logError('[Integrity Repair] Verification failed - some issues remain');
+      result.errors.push(`${verificationIssues.length} issue(s) remain after repair`);
+    }
+
+    return result;
+  } catch (error) {
+    logError('[Integrity Repair] Failed to repair database integrity:', toErrorPayload(error));
+    result.errors.push(toErrorMessage(error));
+    return result;
+  }
+}
+
 /**
  * Get database integrity health score (0-100)
  * @returns Health score where 100 = perfect, 0 = critical issues
@@ -299,15 +561,44 @@ export async function getDatabaseHealthScore(): Promise<number> {
     
     return Math.max(0, 100 - deduction);
   } catch (err) {
-    logError('[Health Score] Failed to calculate health score:', err);
+    logError('[Health Score] Failed to calculate health score:', toErrorPayload(err));
     return 0;
+  }
+}
+
+export async function cleanupBackupTables(): Promise<void> {
+  try {
+    const backupTables = await exec<BackupTableRow>(
+      `SELECT name
+       FROM sqlite_master
+       WHERE type = 'table'
+         AND name LIKE 'wallets_backup_integrity_repair_%';`
+    );
+
+    if (backupTables.length === 0) {
+      return;
+    }
+
+    const database = await getDbAsync();
+    await enqueueWrite(async () => {
+      await database.transaction(async (tx: TransactionExecutor) => {
+        for (const table of backupTables) {
+          await tx.executeAsync(`DROP TABLE IF EXISTS ${table.name};`);
+        }
+      });
+    }, 'cleanupIntegrityBackupTables');
+
+    log(`[Integrity Repair] Cleaned up ${backupTables.length} backup table(s)`);
+  } catch (error) {
+    logError('[Integrity Repair] Failed to cleanup backup tables:', toErrorPayload(error));
+    throw error;
   }
 }
 
 /**
  * Clean up backup tables created during repair
  */
-export async function cleanupBackupTables(): Promise<void> {
+async function cleanupBackupTablesLegacy(): Promise<void> {
   const database = await getDbAsync();
   
   try {

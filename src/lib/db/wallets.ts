@@ -13,6 +13,10 @@ import { enqueueWrite } from './writeQueue';
 const recentReorders = new Map<string, number>();
 const REORDER_IDEMPOTENCY_WINDOW_MS = 2000; // 2 seconds
 
+type TransactionExecutor = {
+  executeAsync: (sql: string, params?: unknown[]) => Promise<unknown>;
+};
+
 /**
  * Generate a hash of the wallet order for idempotency checking
  * Uses the complete ordered sequence of wallet IDs to uniquely identify each reorder operation
@@ -222,29 +226,31 @@ export async function updateWalletsOrder(orderUpdates: Array<{ id: number; displ
     return; // Skip duplicate operation
   }
   
-  // Nitro SQLite: Direct atomic reorder (no write queue needed)
-  const database = await getDbAsync();
   try {
     log('[DB] Updating wallet order', { 
       walletCount: orderUpdates.length, 
       operationId 
     }, operationId);
     metrics.increment('db.wallet.reorder.total');
-    await database.transaction(async (tx: any) => {
-      for (let i = 0; i < orderUpdates.length; i++) {
-        const walletId = toSafeInteger(orderUpdates[i].id);
-        const displayOrder = toSafeInteger(i);
-        if (!__DEV__ && i < 3) {
-          console.log('[RELEASE_DEBUG] Updating wallet:', {
-            walletId,
-            displayOrder,
-            isIdInteger: Number.isInteger(walletId),
-            isOrderInteger: Number.isInteger(displayOrder),
-          });
+    await enqueueWrite(async () => {
+      const database = await getDbAsync();
+
+      await database.transaction(async (tx: TransactionExecutor) => {
+        for (let i = 0; i < orderUpdates.length; i++) {
+          const walletId = toSafeInteger(orderUpdates[i].id);
+          const displayOrder = toSafeInteger(i);
+          if (!__DEV__ && i < 3) {
+            console.log('[RELEASE_DEBUG] Updating wallet:', {
+              walletId,
+              displayOrder,
+              isIdInteger: Number.isInteger(walletId),
+              isOrderInteger: Number.isInteger(displayOrder),
+            });
+          }
+          await tx.executeAsync('UPDATE wallets SET display_order = ? WHERE id = ?;', [displayOrder, walletId]);
         }
-        await tx.executeAsync('UPDATE wallets SET display_order = ? WHERE id = ?;', [displayOrder, walletId]);
-      }
-    });
+      });
+    }, 'updateWalletsOrder');
     const duration = Date.now() - startTime;
     log('[DB] Wallet order updated successfully', { 
       walletCount: orderUpdates.length, 

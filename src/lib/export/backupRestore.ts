@@ -8,10 +8,36 @@ export interface BackupData {
   version: string;
   exportedAt: string;
   data: {
+    budgets: any[];
     wallets: any[];
     transactions: any[];
     categories: any[];
+    goals: any[];
   };
+}
+
+type TransactionExecutor = {
+  executeAsync: (sql: string, params?: unknown[]) => Promise<unknown>;
+};
+
+function normalizeJsonNumberArray(value: unknown, fallbackSingleValue?: unknown): string {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    const normalized = value
+      .map((item) => Number(item))
+      .filter((item) => Number.isInteger(item));
+    return JSON.stringify(normalized);
+  }
+
+  const fallbackNumber = Number(fallbackSingleValue);
+  if (Number.isInteger(fallbackNumber)) {
+    return JSON.stringify([fallbackNumber]);
+  }
+
+  return '[]';
 }
 
 /**
@@ -28,14 +54,18 @@ export async function createBackup(): Promise<{ success: boolean; uri?: string; 
     const wallets = await exec('SELECT * FROM wallets ORDER BY created_at DESC');
     const transactions = await exec('SELECT * FROM transactions ORDER BY date DESC');
     const categories = await exec('SELECT * FROM categories ORDER BY name ASC');
+    const budgets = await exec('SELECT * FROM budgets ORDER BY created_at DESC');
+    const goals = await exec('SELECT * FROM goals ORDER BY created_at DESC');
 
     const backupData: BackupData = {
       version: '1.0',
       exportedAt: new Date().toISOString(),
       data: {
+        budgets,
         wallets,
         transactions,
         categories,
+        goals,
       },
     };
 
@@ -121,14 +151,16 @@ export async function restoreFromBackup(backupUri: string): Promise<{ success: b
     return await enqueueWrite(async () => {
       const database = await getDbAsync();
       
-      await database.transaction(async (tx) => {
+      await database.transaction(async (tx: TransactionExecutor) => {
         // Clear existing data
         await tx.executeAsync('DELETE FROM transactions;');
+        await tx.executeAsync('DELETE FROM budgets;');
+        await tx.executeAsync('DELETE FROM goals;');
         await tx.executeAsync('DELETE FROM wallets;');
         await tx.executeAsync('DELETE FROM categories;');
         
         // Reset autoincrement counters
-        await tx.executeAsync('DELETE FROM sqlite_sequence WHERE name IN ("transactions", "wallets", "categories");');
+        await tx.executeAsync('DELETE FROM sqlite_sequence WHERE name IN ("transactions", "wallets", "categories", "budgets", "goals");');
 
         // Restore categories
         if (backupData.data.categories && backupData.data.categories.length > 0) {
@@ -148,6 +180,59 @@ export async function restoreFromBackup(backupUri: string): Promise<{ success: b
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [wallet.id, wallet.name, wallet.currency, wallet.initial_balance ?? 0, wallet.type || null, wallet.description || null, wallet.color || null, wallet.is_primary ?? 0, wallet.display_order ?? 0, wallet.exchange_rate ?? 1.0, wallet.created_at || new Date().toISOString()]
           );
+        }
+
+        if (backupData.data.goals && backupData.data.goals.length > 0) {
+          for (const goal of backupData.data.goals) {
+            await tx.executeAsync(
+              `INSERT INTO goals (
+                id, name, target_amount, current_progress, start_date, target_date, notes,
+                linked_wallet_ids, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                goal.id,
+                goal.name,
+                goal.target_amount,
+                goal.current_progress ?? 0,
+                goal.start_date || goal.created_at || new Date().toISOString(),
+                goal.target_date,
+                goal.notes || null,
+                normalizeJsonNumberArray(goal.linked_wallet_ids, goal.linked_wallet_id),
+                goal.created_at || new Date().toISOString(),
+                goal.updated_at || goal.created_at || new Date().toISOString(),
+              ]
+            );
+          }
+        }
+
+        if (backupData.data.budgets && backupData.data.budgets.length > 0) {
+          for (const budget of backupData.data.budgets) {
+            await tx.executeAsync(
+              `INSERT INTO budgets (
+                id, name, category_ids, subcategory_ids, limit_amount, current_spending,
+                period_type, start_date, end_date, notes, linked_wallet_ids,
+                is_recurring, recurrence_end_date, recurrence_parent_id, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                budget.id,
+                budget.name,
+                normalizeJsonNumberArray(budget.category_ids, budget.category_id),
+                normalizeJsonNumberArray(budget.subcategory_ids, budget.subcategory_id),
+                budget.limit_amount,
+                budget.current_spending ?? 0,
+                budget.period_type,
+                budget.start_date,
+                budget.end_date,
+                budget.notes || null,
+                normalizeJsonNumberArray(budget.linked_wallet_ids, budget.linked_wallet_id),
+                budget.is_recurring ?? 0,
+                budget.recurrence_end_date || null,
+                budget.recurrence_parent_id ?? null,
+                budget.created_at || new Date().toISOString(),
+                budget.updated_at || budget.created_at || new Date().toISOString(),
+              ]
+            );
+          }
         }
 
         // Restore transactions

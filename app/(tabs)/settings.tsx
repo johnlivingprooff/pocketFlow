@@ -11,7 +11,9 @@ import { CURRENCIES } from '../../src/constants/currencies';
 import { checkBiometricAvailability, authenticateWithBiometrics } from '../../src/lib/services/biometricService';
 import { createBackup, listBackups, restoreFromBackup } from '../../src/lib/export/backupRestore';
 import { exportTransactionsToCSV } from '../../src/lib/export/csvExport';
+import { listTransactionCsvExports, restoreFromTransactionCsv } from '../../src/lib/export/csvRestore';
 import { BackupIcon } from '../../src/assets/icons/BackupIcon';
+import { CsvIcon } from '../../src/assets/icons/CsvIcon';
 import { ExportIcon } from '../../src/assets/icons/ExportIcon';
 import { ReceiptIcon } from '../../src/assets/icons/ReceiptIcon';
 import { FingerprintIcon } from '../../src/assets/icons/FingerprintIcon';
@@ -94,7 +96,9 @@ export default function SettingsScreen() {
   const [biometricType, setBiometricType] = useState<string>('Biometric');
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [backups, setBackups] = useState<Array<{ filename: string; uri: string; date: Date }>>([]);
+  const [csvExports, setCsvExports] = useState<Array<{ filename: string; uri: string; date: Date }>>([]);
   const [showBackupModal, setShowBackupModal] = useState(false);
+  const [showCsvRestoreModal, setShowCsvRestoreModal] = useState(false);
   const [isLoadingBackup, setIsLoadingBackup] = useState(false);
   const [versionTapCount, setVersionTapCount] = useState(0);
   const [showDevOptions, setShowDevOptions] = useState(false);
@@ -105,11 +109,17 @@ export default function SettingsScreen() {
   useEffect(() => {
     checkBiometrics();
     loadBackups();
+    loadCsvExports();
   }, []);
 
   const loadBackups = async () => {
     const backupList = await listBackups();
     setBackups(backupList);
+  };
+
+  const loadCsvExports = async () => {
+    const exportList = await listTransactionCsvExports();
+    setCsvExports(exportList);
   };
 
   const checkBiometrics = async () => {
@@ -198,6 +208,7 @@ export default function SettingsScreen() {
         try {
           const result = await restoreFromBackup(uri);
           if (result.success) {
+            setShowBackupModal(false);
             showSuccessAlert('Success', 'Data restored successfully');
           } else {
             showErrorAlert(
@@ -212,10 +223,38 @@ export default function SettingsScreen() {
     );
   };
 
+  const handleRestoreCsv = (uri: string) => {
+    showConfirmAlert(
+      'Restore CSV History',
+      'This will replace current wallets, categories, and transactions with data rebuilt from the CSV export. Existing budgets, goals, receipts, recurring templates, and initial balances cannot be recovered from CSV and will be cleared. Continue?',
+      async () => {
+        setIsLoadingBackup(true);
+        try {
+          const result = await restoreFromTransactionCsv(uri);
+          if (result.success) {
+            setShowCsvRestoreModal(false);
+            showSuccessAlert(
+              'Success',
+              `Recreated ${result.importedTransactions || 0} transactions across ${result.recreatedWallets || 0} wallets from CSV.`
+            );
+          } else {
+            showErrorAlert(
+              'Error',
+              result.error || 'Failed to restore from CSV export'
+            );
+          }
+        } finally {
+          setIsLoadingBackup(false);
+        }
+      }
+    );
+  };
+
   const handleExportCSV = async () => {
     try {
       const result = await exportTransactionsToCSV();
       if (result.success && result.uri) {
+        await loadCsvExports();
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(result.uri, {
             mimeType: 'text/csv',
@@ -459,6 +498,17 @@ export default function SettingsScreen() {
               <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
             </TouchableOpacity>
 
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowCsvRestoreModal(true)} style={[styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1 }]}>
+              <View style={[styles.listIconLeft, { width: 32 }]}>
+                <CsvIcon size={24} color={t.primary} />
+              </View>
+              <View style={styles.listItemContent}>
+                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Restore CSV History</Text>
+                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>{csvExports.length ? `${csvExports.length} available` : 'None found'}</Text>
+              </View>
+              <Text style={[styles.chevron, { color: t.textTertiary }]}>â€º</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleCreateBackup} disabled={isLoadingBackup} style={[styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1, opacity: isLoadingBackup ? 0.6 : 1 }]}>
               <View style={[styles.listIconLeft, { width: 32 }]}>
                 <BackupIcon size={24} color={t.primary} />
@@ -576,6 +626,47 @@ export default function SettingsScreen() {
               )}
             />
             <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowCurrencyPicker(false)} style={[styles.modalCloseButton, { borderTopColor: t.border }]}>
+              <Text style={[styles.modalCloseText, { color: t.primary }]}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* CSV Restore Modal */}
+      <Modal visible={showCsvRestoreModal} transparent animationType="fade" onRequestClose={() => setShowCsvRestoreModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: t.card, borderColor: t.border }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: t.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+              <Text style={[styles.modalTitle, { color: t.textPrimary }]}>CSV Exports</Text>
+              <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowCsvRestoreModal(false)}>
+                <Text style={{ fontSize: 24, color: t.textSecondary }}>Ã—</Text>
+              </TouchableOpacity>
+            </View>
+            {csvExports.length === 0 ? (
+              <View style={{ padding: 32, alignItems: 'center' }}>
+                <Text style={{ color: t.textSecondary, textAlign: 'center' }}>No CSV exports found.</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={csvExports}
+                keyExtractor={(item) => item.uri}
+                renderItem={({ item }) => (
+                  <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => handleRestoreCsv(item.uri)} style={[styles.modalItem, { borderBottomColor: t.border }]}>
+                    <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600' }}>
+                      {item.date.toLocaleDateString()}
+                    </Text>
+                    <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>{item.filename}</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+            <View style={{ padding: 16, backgroundColor: `${t.warning}10`, margin: 16, borderRadius: 8 }}>
+              <Text style={{ color: t.warning, fontSize: 12, fontWeight: '700', marginBottom: 4 }}>CSV restore limits</Text>
+              <Text style={{ color: t.textSecondary, fontSize: 11 }}>
+                Rebuilds wallets, categories, and transactions only. It cannot restore receipts, initial balances, recurring rules, budgets, or goals from CSV alone.
+              </Text>
+            </View>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowCsvRestoreModal(false)} style={[styles.modalCloseButton, { borderTopColor: t.border }]}>
               <Text style={[styles.modalCloseText, { color: t.primary }]}>Close</Text>
             </TouchableOpacity>
           </View>

@@ -6,6 +6,13 @@
 import { Goal, GoalWithMetrics, GoalInput } from '@/types/goal';
 import { execRun, exec } from '.';
 import { enqueueWrite } from './writeQueue';
+import { haveSameNumberMembers } from './idLists';
+import {
+  GOAL_SELECT_FIELDS,
+  GoalRow,
+  mapGoalRow,
+} from './goalBudgetRows';
+import { refreshDerivedFinanceStateForWallets } from './derivedState';
 
 /**
  * Create a new goal
@@ -14,6 +21,8 @@ import { enqueueWrite } from './writeQueue';
  */
 export async function createGoal(goal: GoalInput): Promise<Goal> {
   const now = new Date().toISOString();
+  let createdGoalId: number | undefined;
+
   const createdGoal: Goal = {
     ...goal,
     currentProgress: 0,
@@ -22,7 +31,7 @@ export async function createGoal(goal: GoalInput): Promise<Goal> {
   };
 
   await enqueueWrite(async () => {
-    await execRun(
+    const result = await execRun(
       `INSERT INTO goals (name, target_amount, current_progress, start_date, target_date, notes, linked_wallet_ids, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -37,9 +46,17 @@ export async function createGoal(goal: GoalInput): Promise<Goal> {
         now,
       ]
     );
+    createdGoalId = typeof result?.lastInsertRowId === 'number' ? result.lastInsertRowId : undefined;
   }, 'createGoal');
 
-  return createdGoal;
+  if (createdGoalId != null) {
+    await recalculateGoalProgress(createdGoalId);
+  }
+
+  return {
+    ...createdGoal,
+    id: createdGoalId,
+  };
 }
 
 /**
@@ -48,30 +65,13 @@ export async function createGoal(goal: GoalInput): Promise<Goal> {
  */
 export async function getGoals(): Promise<Goal[]> {
   try {
-    const rawGoals = await exec<{
-      id: number;
-      name: string;
-      targetAmount: number;
-      currentProgress: number;
-      startDate: string;
-      targetDate: string;
-      notes: string | null;
-      linkedWalletIds: string;
-      createdAt: string;
-      updatedAt: string;
-    }>(
-      `SELECT id, name, target_amount as targetAmount, current_progress as currentProgress,
-              start_date as startDate, target_date as targetDate, notes, linked_wallet_ids as linkedWalletIds,
-              created_at as createdAt, updated_at as updatedAt
+    const rawGoals = await exec<GoalRow>(
+      `SELECT ${GOAL_SELECT_FIELDS}
        FROM goals
        ORDER BY created_at DESC`
     );
     
-    return rawGoals.map(goal => ({
-      ...goal,
-      linkedWalletIds: JSON.parse(goal.linkedWalletIds),
-      notes: goal.notes || undefined,
-    }));
+    return rawGoals.map(mapGoalRow);
   } catch (error) {
     console.error('Failed to fetch goals:', error);
     return [];
@@ -93,32 +93,15 @@ export async function getGoalsForPeriod(days: number): Promise<Goal[]> {
     const start = startDate.toISOString();
     const end = now.toISOString();
     
-    const rawGoals = await exec<{
-      id: number;
-      name: string;
-      targetAmount: number;
-      currentProgress: number;
-      startDate: string;
-      targetDate: string;
-      notes: string | null;
-      linkedWalletIds: string;
-      createdAt: string;
-      updatedAt: string;
-    }>(
-      `SELECT id, name, target_amount as targetAmount, current_progress as currentProgress,
-              start_date as startDate, target_date as targetDate, notes, linked_wallet_ids as linkedWalletIds,
-              created_at as createdAt, updated_at as updatedAt
+    const rawGoals = await exec<GoalRow>(
+      `SELECT ${GOAL_SELECT_FIELDS}
        FROM goals
        WHERE created_at BETWEEN ? AND ?
        ORDER BY created_at DESC`,
       [start, end]
     );
     
-    return rawGoals.map(goal => ({
-      ...goal,
-      linkedWalletIds: JSON.parse(goal.linkedWalletIds),
-      notes: goal.notes || undefined,
-    }));
+    return rawGoals.map(mapGoalRow);
   } catch (error) {
     console.error('Failed to fetch goals for period:', error);
     return [];
@@ -132,35 +115,14 @@ export async function getGoalsForPeriod(days: number): Promise<Goal[]> {
  */
 export async function getGoalById(id: number): Promise<Goal | null> {
   try {
-    const result = await exec<{
-      id: number;
-      name: string;
-      targetAmount: number;
-      currentProgress: number;
-      startDate: string;
-      targetDate: string;
-      notes: string | null;
-      linkedWalletIds: string;
-      createdAt: string;
-      updatedAt: string;
-    }>(
-      `SELECT id, name, target_amount as targetAmount, current_progress as currentProgress,
-              start_date as startDate, target_date as targetDate, notes, linked_wallet_ids as linkedWalletIds,
-              created_at as createdAt, updated_at as updatedAt
+    const result = await exec<GoalRow>(
+      `SELECT ${GOAL_SELECT_FIELDS}
        FROM goals
        WHERE id = ?`,
       [id]
     );
     
-    if (result.length > 0) {
-      const goal = result[0];
-      return {
-        ...goal,
-        linkedWalletIds: JSON.parse(goal.linkedWalletIds),
-        notes: goal.notes || undefined,
-      };
-    }
-    return null;
+    return result[0] ? mapGoalRow(result[0]) : null;
   } catch (error) {
     console.error('Failed to fetch goal:', error);
     return null;
@@ -216,7 +178,7 @@ export async function updateGoal(id: number, updates: Partial<GoalInput>): Promi
     values.push(JSON.stringify(updates.linkedWalletIds));
     // If wallets changed, recalculate progress
     const goal = await getGoalById(id);
-    if (goal && JSON.stringify(goal.linkedWalletIds.sort()) !== JSON.stringify(updates.linkedWalletIds.sort())) {
+    if (goal && !haveSameNumberMembers(goal.linkedWalletIds, updates.linkedWalletIds)) {
       fields.push('current_progress = ?');
       values.push(0);
     }
@@ -234,6 +196,8 @@ export async function updateGoal(id: number, updates: Partial<GoalInput>): Promi
       values
     );
   }, 'updateGoal');
+
+  await recalculateGoalProgress(id);
 }
 
 /**
@@ -256,23 +220,20 @@ export async function recalculateGoalProgress(goalId: number): Promise<void> {
   if (!goal) return;
 
   try {
-    // Sum all income transactions in the linked wallets
-    const placeholders = goal.linkedWalletIds.map(() => '?').join(',');
-    const result = await exec<{ total: number }>(
-      `SELECT COALESCE(SUM(amount), 0) as total
-       FROM transactions
-       WHERE wallet_id IN (${placeholders}) AND type = 'income' AND category != 'Transfer'`,
-      goal.linkedWalletIds
-    );
+    if (goal.linkedWalletIds.length === 0) {
+      await enqueueWrite(async () => {
+        await execRun(
+          `UPDATE goals SET current_progress = ?, updated_at = ? WHERE id = ?`,
+          [0, new Date().toISOString(), goalId]
+        );
+      }, 'recalculateGoalProgress');
+      return;
+    }
 
-    const totalIncome = result[0]?.total || 0;
-
-    await enqueueWrite(async () => {
-      await execRun(
-        `UPDATE goals SET current_progress = ?, updated_at = ? WHERE id = ?`,
-        [totalIncome, new Date().toISOString(), goalId]
-      );
-    }, 'recalculateGoalProgress');
+    await refreshDerivedFinanceStateForWallets(goal.linkedWalletIds, {
+      includeBudgets: false,
+      includeGoals: true,
+    });
   } catch (error) {
     console.error('Failed to recalculate goal progress:', error);
   }
@@ -285,31 +246,16 @@ export async function recalculateGoalProgress(goalId: number): Promise<void> {
  */
 export async function getGoalsByWallet(walletId: number): Promise<Goal[]> {
   try {
-    const rawGoals = await exec<{
-      id: number;
-      name: string;
-      targetAmount: number;
-      currentProgress: number;
-      targetDate: string;
-      notes: string | null;
-      linkedWalletIds: string;
-      createdAt: string;
-      updatedAt: string;
-    }>(
-      `SELECT id, name, target_amount as targetAmount, current_progress as currentProgress,
-              target_date as targetDate, notes, linked_wallet_ids as linkedWalletIds,
-              created_at as createdAt, updated_at as updatedAt
+    const rawGoals = await exec<GoalRow>(
+      `SELECT ${GOAL_SELECT_FIELDS}
        FROM goals
-       WHERE json_extract(linked_wallet_ids, '$') LIKE ?
        ORDER BY target_date ASC`,
-      [`%${walletId}%`]
+      []
     );
     
-    return rawGoals.map(goal => ({
-      ...goal,
-      linkedWalletIds: JSON.parse(goal.linkedWalletIds),
-      notes: goal.notes || undefined,
-    }));
+    return rawGoals
+      .map(mapGoalRow)
+      .filter((goal) => goal.linkedWalletIds.includes(walletId));
   } catch (error) {
     console.error('Failed to fetch goals by wallet:', error);
     return [];

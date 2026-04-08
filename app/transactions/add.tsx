@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Platform, Modal, useColorScheme, KeyboardAvoidingView, Switch, Keyboard, Animated } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Platform, Modal, useColorScheme, KeyboardAvoidingView, Switch } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -56,16 +56,14 @@ export default function AddTransactionScreen() {
     visible: boolean;
     title: string;
     message: string;
-    buttons: Array<{ text: string; onPress?: () => void }>;
+    buttons: Array<{
+      text: string;
+      onPress?: () => void;
+      style?: 'default' | 'cancel' | 'destructive' | 'success';
+    }>;
   }>({ visible: false, title: '', message: '', buttons: [] });
   const [showMore, setShowMore] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
-  // Keyboard state for floating button
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const floatingButtonOpacity = useState(new Animated.Value(0))[0];
-  const floatingButtonTranslateY = useState(new Animated.Value(100))[0];
 
   const displayCurrency = useMemo(() => {
     const selected = wallets.find((w) => w.id === walletId);
@@ -193,58 +191,6 @@ export default function AddTransactionScreen() {
 
     loadTransactionForEdit();
   }, [isEditMode, id]);
-
-  // Keyboard event listeners for floating button
-  useEffect(() => {
-    const keyboardWillShowListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => {
-        setKeyboardVisible(true);
-        setKeyboardHeight(e.endCoordinates.height);
-
-        // Animate button in
-        Animated.parallel([
-          Animated.timing(floatingButtonOpacity, {
-            toValue: 1,
-            duration: 250,
-            useNativeDriver: true,
-          }),
-          Animated.timing(floatingButtonTranslateY, {
-            toValue: 0,
-            duration: 250,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      }
-    );
-
-    const keyboardWillHideListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        // Animate button out
-        Animated.parallel([
-          Animated.timing(floatingButtonOpacity, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(floatingButtonTranslateY, {
-            toValue: 100,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-        ]).start(() => {
-          setKeyboardVisible(false);
-          setKeyboardHeight(0);
-        });
-      }
-    );
-
-    return () => {
-      keyboardWillShowListener.remove();
-      keyboardWillHideListener.remove();
-    };
-  }, []);
 
   const loadCategories = async (selectedType: 'income' | 'expense') => {
     try {
@@ -374,55 +320,32 @@ export default function AddTransactionScreen() {
   };
 
   const handleAmountInput = (value: string) => {
-    const operators = ['+', '-', '×', '÷'];
     setAmount((prev) => {
       if (value === 'backspace') {
         return prev.slice(0, -1);
       }
-      // Allow digits
       if (/^[0-9]$/.test(value)) {
         return `${prev}${value}`;
       }
-      // Allow decimal point anywhere; evaluation will handle
       if (value === '.') {
-        const lastNumber = prev.split(/[+×÷-]/).pop();
-        if (lastNumber && lastNumber.includes('.')) {
+        if (prev.includes('.')) {
           return prev;
         }
         return prev ? `${prev}${value}` : '0.';
-      }
-      // Allow operators + - × ÷, only if there's a preceding number
-      if (operators.includes(value)) {
-        if (!prev) return prev;
-        const lastChar = prev.slice(-1);
-        if (operators.includes(lastChar) || lastChar === '.') {
-          return `${prev.slice(0, -1)}${value}`;
-        }
-        return `${prev}${value}`;
       }
       return prev;
     });
   };
 
-  const evaluateExpression = (expr: string): number => {
-    if (!expr) return 0;
-    const sanitized = expr.replace(/×/g, '*').replace(/÷/g, '/');
-    const trimmed = sanitized.replace(/([+\-*/.])+$/, '');
-    if (!trimmed) return 0;
-    try {
-      if (/^[0-9+\-*/.\s]+$/.test(trimmed)) {
-        // eslint-disable-next-line no-eval
-        const result = eval(trimmed);
-        return typeof result === 'number' && Number.isFinite(result) ? result : 0;
-      }
-      return 0;
-    } catch {
-      const fallback = parseFloat(trimmed);
-      return Number.isFinite(fallback) ? fallback : 0;
-    }
+  const parseAmountValue = (rawValue: string): number => {
+    if (!rawValue) return 0;
+    const sanitized = rawValue.replace(/[^0-9.]/g, '');
+    if (!sanitized || sanitized === '.') return 0;
+    const parsed = Number.parseFloat(sanitized);
+    return Number.isFinite(parsed) ? parsed : 0;
   };
 
-  const numericAmount = useMemo(() => evaluateExpression(amount), [amount]);
+  const numericAmount = useMemo(() => parseAmountValue(amount), [amount]);
   const isValidAmount = numericAmount > 0 && !Number.isNaN(numericAmount);
 
   const onSave = async () => {
@@ -677,7 +600,7 @@ export default function AddTransactionScreen() {
 
             <AmountDisplay amount={amount} currency={displayCurrency} colors={t} evaluated={numericAmount} />
 
-            <SectionLabel text="Tap to Select Wallet to Transact From" colors={t} />
+            <SectionLabel text={type === 'transfer' ? 'From wallet' : 'Wallet'} colors={t} />
             <WalletCarousel
               wallets={wallets}
               selectedId={walletId}
@@ -743,9 +666,9 @@ export default function AddTransactionScreen() {
               style={{ paddingVertical: 16, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}
             >
               <Text style={{ color: t.accent, fontWeight: '600' }}>
-                {showMore ? 'Hide Details' : 'Add Details (Date, Notes, Receipt)'}
+                {showMore ? 'Hide optional details' : 'Show optional details'}
               </Text>
-              <Text style={{ color: t.accent, fontSize: 12 }}>{showMore ? '▲' : '▼'}</Text>
+              <Text style={{ color: t.accent, fontSize: 12 }}>{showMore ? '-' : '+'}</Text>
             </TouchableOpacity>
 
             {showMore && (
@@ -813,38 +736,6 @@ export default function AddTransactionScreen() {
             </TouchableOpacity>
           </View>
         </View>
-
-        {/* Floating check button - appears above keyboard */}
-        {keyboardVisible && (
-          <Animated.View
-            style={{
-              position: 'absolute',
-              bottom: keyboardHeight + (Platform.OS === 'ios' ? 10 : 20),
-              right: 20,
-              opacity: floatingButtonOpacity,
-              transform: [{ translateY: floatingButtonTranslateY }],
-            }}
-          >
-            <TouchableOpacity
-              onPress={onSave}
-              disabled={!isValidAmount || isSaving || (type === 'transfer' && !toWalletId)}
-              accessibilityLabel={isEditMode ? 'Update transaction' : 'Save transaction'}
-              accessibilityState={{ disabled: !isValidAmount || isSaving || (type === 'transfer' && !toWalletId) }}
-              accessibilityRole="button"
-              style={{
-                backgroundColor: !isValidAmount || isSaving || (type === 'transfer' && !toWalletId) ? t.border : t.primary,
-                width: 56,
-                height: 56,
-                borderRadius: 28,
-                justifyContent: 'center',
-                alignItems: 'center',
-                opacity: !isValidAmount || isSaving ? 0.7 : 1,
-              }}
-            >
-              <Text style={{ color: '#fff', fontSize: 32, fontWeight: '600', lineHeight: 32 }}>✓</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        )}
 
         <Modal visible={showCategoryPicker} transparent animationType="fade" onRequestClose={() => setShowCategoryPicker(false)}>
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 16 }}>
@@ -1229,30 +1120,30 @@ function ReceiptCard({ onPick, onCapture, previewUri, onRemove, colors }: { onPi
 }
 
 function Keypad({ onPress, colors }: { onPress: (value: string) => void; colors: Colors }) {
-  const keys = ['7', '8', '9', '÷', '4', '5', '6', '×', '1', '2', '3', '-', '.', '0', 'backspace', '+'];
+  const keys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0', 'backspace'];
   return (
     <View style={{ backgroundColor: colors.background }}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
         {keys.map((key) => {
-          const isNumber = /^[0-9]$/.test(key);
+          const isBackspace = key === 'backspace';
           return (
             <TouchableOpacity
               key={key}
               onPress={() => onPress(key)}
               style={{
-                width: '25%',
+                width: '33.3333%',
                 paddingVertical: 14,
                 alignItems: 'center',
                 justifyContent: 'center',
-                borderRadius: isNumber ? 12 : 0,
-                borderWidth: isNumber ? 1 : 0,
-                borderColor: isNumber ? colors.border : 'transparent',
-                backgroundColor: isNumber ? colors.background : 'transparent',
-                marginVertical: isNumber ? 4 : 0
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: isBackspace ? colors.card : colors.background,
+                marginVertical: 4,
               }}
             >
               <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: '700' }}>
-                {key === 'backspace' ? '⌫' : key}
+                {isBackspace ? 'Back' : key}
               </Text>
             </TouchableOpacity>
           );
@@ -1261,7 +1152,6 @@ function Keypad({ onPress, colors }: { onPress: (value: string) => void; colors:
     </View>
   );
 }
-
 function resolveCategoryIcon(iconName?: string, currentType?: 'income' | 'expense' | 'transfer') {
   if (!iconName) {
     if (currentType === 'income') return (CategoryIcons as any).MoneyReciveIcon;

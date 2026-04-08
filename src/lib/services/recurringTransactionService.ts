@@ -1,6 +1,8 @@
-import { exec, execRun, getDbAsync } from '../db';
+import { exec, getDbAsync } from '../db';
 import { enqueueWrite } from '../db/writeQueue';
 import { Transaction, RecurrenceFrequency } from '../../types/transaction';
+import { addTransactionsBatch } from '../db/transactions';
+import { getWallet } from '../db/wallets';
 
 // Maximum number of recurring instances to generate per processing run
 // This prevents app freeze when processing very old recurring transactions
@@ -8,6 +10,102 @@ const MAX_INSTANCES_PER_BATCH = 100;
 
 // In-memory lock to prevent concurrent processing
 let processingRecurring = false;
+
+type TransactionExecutor = {
+  executeAsync: (sql: string, params?: unknown[]) => Promise<unknown>;
+};
+
+export interface CreateRecurringTransactionInput {
+  amount: number;
+  category?: string;
+  date: string;
+  frequency: RecurrenceFrequency;
+  notes?: string;
+  recurrenceEndDate?: string;
+  toWalletId?: number;
+  type: Transaction['type'];
+  walletId: number;
+}
+
+export async function createRecurringTransactionTemplate(
+  input: CreateRecurringTransactionInput
+): Promise<void> {
+  const recurrenceEndDate = input.recurrenceEndDate ?? undefined;
+
+  if (input.amount <= 0) {
+    throw new Error('Amount must be greater than zero.');
+  }
+
+  if (input.type === 'transfer') {
+    if (!input.toWalletId) {
+      throw new Error('Destination wallet is required for transfers.');
+    }
+
+    if (input.toWalletId === input.walletId) {
+      throw new Error('Source and destination wallets must be different.');
+    }
+
+    const [fromWalletResult, toWalletResult] = await Promise.all([
+      getWallet(input.walletId),
+      getWallet(input.toWalletId),
+    ]);
+    const fromWallet = fromWalletResult[0];
+    const toWallet = toWalletResult[0];
+
+    if (!fromWallet || !toWallet) {
+      throw new Error('Wallet not found.');
+    }
+
+    let receivedAmount = input.amount;
+    if (fromWallet.currency !== toWallet.currency) {
+      const fromRate = fromWallet.exchange_rate ?? 1.0;
+      const toRate = toWallet.exchange_rate ?? 1.0;
+      receivedAmount = input.amount * fromRate / toRate;
+    }
+
+    const transferNote = input.notes ? `Transfer: ${input.notes}` : 'Transfer between wallets';
+
+    await addTransactionsBatch([
+      {
+        wallet_id: input.walletId,
+        type: 'expense',
+        amount: -Math.abs(input.amount),
+        category: 'Transfer',
+        date: input.date,
+        notes: `${transferNote} to ${toWallet.name} (sent ${fromWallet.currency} ${input.amount.toFixed(2)})`,
+        is_recurring: true,
+        recurrence_frequency: input.frequency,
+        recurrence_end_date: recurrenceEndDate,
+      },
+      {
+        wallet_id: input.toWalletId,
+        type: 'income',
+        amount: Math.abs(receivedAmount),
+        category: 'Transfer',
+        date: input.date,
+        notes: `${transferNote} from ${fromWallet.name} (received ${toWallet.currency} ${receivedAmount.toFixed(2)})`,
+        is_recurring: true,
+        recurrence_frequency: input.frequency,
+        recurrence_end_date: recurrenceEndDate,
+      },
+    ]);
+    return;
+  }
+
+  await addTransactionsBatch([
+    {
+      wallet_id: input.walletId,
+      type: input.type,
+      amount: input.type === 'income' ? Math.abs(input.amount) : -Math.abs(input.amount),
+      category: input.category || 'Uncategorized',
+      date: input.date,
+      notes: input.notes || undefined,
+      is_recurring: true,
+      recurrence_frequency: input.frequency,
+      recurrence_end_date: recurrenceEndDate,
+    },
+  ]);
+}
 
 /**
  * Processes all recurring transactions and generates new instances if needed.
@@ -85,7 +183,7 @@ export async function processRecurringTransactions(): Promise<void> {
           const database = await getDbAsync();
           
           // Batch all instances for this template in a single transaction
-          await database.transaction(async (tx) => {
+          await database.transaction(async (tx: TransactionExecutor) => {
             for (const instanceDate of instancesToGenerate) {
               await tx.executeAsync(
                 `INSERT OR IGNORE INTO transactions 
@@ -194,7 +292,7 @@ async function createRecurringInstance(
     // ✅ FIX: Use INSERT OR IGNORE to prevent duplicate instances
     // This makes the operation idempotent
     const database = await getDbAsync();
-    await database.transaction(async (tx) => {
+    await database.transaction(async (tx: TransactionExecutor) => {
       await tx.executeAsync(
         `INSERT OR IGNORE INTO transactions
          (wallet_id, type, amount, category, date, notes, parent_transaction_id, created_at)
@@ -232,7 +330,7 @@ export async function cancelRecurringTransaction(templateId: number): Promise<vo
   // ✅ FIX: Wrap in enqueueWrite for proper serialization
   await enqueueWrite(async () => {
     const database = await getDbAsync();
-    await database.transaction(async (tx) => {
+    await database.transaction(async (tx: TransactionExecutor) => {
       await tx.executeAsync(
         `UPDATE transactions
          SET is_recurring = 0, recurrence_end_date = date('now')
@@ -254,7 +352,7 @@ export async function updateRecurringTransaction(
   // ✅ FIX: Wrap in enqueueWrite for proper serialization
   await enqueueWrite(async () => {
     const database = await getDbAsync();
-    await database.transaction(async (tx) => {
+    await database.transaction(async (tx: TransactionExecutor) => {
       await tx.executeAsync(
         `UPDATE transactions
          SET recurrence_frequency = ?, recurrence_end_date = ?

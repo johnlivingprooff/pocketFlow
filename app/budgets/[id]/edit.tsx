@@ -184,10 +184,6 @@ export default function EditBudgetScreen() {
         notes: notes.trim() || undefined,
       });
 
-      // Recalculate spending after update since dates/categories/wallets may have changed
-      const { recalculateBudgetSpending } = await import('@/lib/db/budgets');
-      await recalculateBudgetSpending(budgetId);
-
       // Invalidate caches so budget screens will reload with fresh data
       const { invalidateTransactionCaches } = await import('@/lib/cache/queryCache');
       invalidateTransactionCaches();
