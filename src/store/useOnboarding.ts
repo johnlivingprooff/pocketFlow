@@ -41,6 +41,7 @@ export const useOnboarding = create<OnboardingState>()(
         if (!nextStep) {
           set({
             completedSteps: completed,
+            currentStep: 'wallet',
             hasCompletedOnboarding: true,
           });
           return;
@@ -58,6 +59,7 @@ export const useOnboarding = create<OnboardingState>()(
         if (!nextStep) {
           set({
             skippedSteps: skipped,
+            currentStep: 'wallet',
             hasCompletedOnboarding: true,
           });
           return;
