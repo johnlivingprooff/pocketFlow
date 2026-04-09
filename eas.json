@@ -7,18 +7,33 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_CLOUD_API_BASE_URL": "https://cloud.pf.eiteone.org",
+        "APP_VERSION_NAME": "2026.4.9",
+        "APP_VERSION_CODE": "20260409"
+      },
       "android": {
         "buildType": "apk"
       }
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_CLOUD_API_BASE_URL": "https://cloud.pf.eiteone.org",
+        "APP_VERSION_NAME": "2026.4.9",
+        "APP_VERSION_CODE": "20260409"
+      },
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
       "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_CLOUD_API_BASE_URL": "https://cloud.pf.eiteone.org",
+        "APP_VERSION_NAME": "2026.4.9",
+        "APP_VERSION_CODE": "20260409"
+      },
       "android": {
         "buildType": "app-bundle"
       }
