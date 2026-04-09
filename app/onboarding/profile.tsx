@@ -31,7 +31,7 @@ export default function ProfileOnboardingScreen() {
           <OnboardingProgress currentStep={2} totalSteps={3} />
           <Text style={{ color: t.textPrimary, fontSize: 30, fontWeight: '900', marginTop: 32 }}>Set your basics</Text>
           <Text style={{ color: t.textSecondary, fontSize: 15, lineHeight: 22, marginTop: 12 }}>
-            Just enough to personalize the app and make amounts feel right from day one.
+            Just enough to personalize the app and make amounts feel familiar from day one.
           </Text>
 
           <View style={{ marginTop: 28 }}>

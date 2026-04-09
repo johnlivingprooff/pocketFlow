@@ -239,7 +239,7 @@ export default function HistoryScreen() {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <View>
                 <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>History</Text>
-                <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Find, scan, and fix entries quickly.</Text>
+                <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Scan, find, and fix entries quickly.</Text>
               </View>
               <TouchableOpacity
                 onPress={handleExportCSV}
@@ -384,13 +384,13 @@ export default function HistoryScreen() {
         ListEmptyComponent={
           isLoadingTransactions ? (
             <View style={{ paddingVertical: 40 }}>
-              <Text style={{ color: t.textSecondary, textAlign: 'center' }}>Loading history...</Text>
+              <Text style={{ color: t.textSecondary, textAlign: 'center' }}>Loading entries...</Text>
             </View>
           ) : (
             <View style={{ alignItems: 'center', paddingVertical: 56 }}>
               <Text style={{ fontSize: 42, marginBottom: 12 }}>🧾</Text>
               <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>No matching entries</Text>
-              <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Try a different time range or clear filters.</Text>
+              <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Try another time range or clear your filters.</Text>
             </View>
           )
         }

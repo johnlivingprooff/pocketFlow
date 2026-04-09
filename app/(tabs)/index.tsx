@@ -80,7 +80,7 @@ export default function Home() {
         <View style={{ marginBottom: 20, paddingTop: 10 }}>
           <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>{greeting}, {displayName}.</Text>
           <Text style={{ color: t.textSecondary, fontSize: 14, marginTop: 4 }}>
-            Record money in a few taps, then move on.
+            Record money fast, then get out of the way.
           </Text>
         </View>
 
@@ -192,9 +192,9 @@ export default function Home() {
 
           {recentTransactions.length === 0 ? (
             <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, padding: 16 }}>
-              <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>No records yet</Text>
+              <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '700' }}>No entries yet</Text>
               <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>
-                Add your first expense or income from the buttons above.
+                Add your first expense or income from the actions above.
               </Text>
             </View>
           ) : (

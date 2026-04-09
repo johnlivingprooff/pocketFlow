@@ -33,7 +33,7 @@ export default function WelcomeOnboardingScreen() {
               'Clear history and lightweight insights',
             ].map((item) => (
               <View key={item} style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 16 }}>
-                <Text style={{ color: t.textPrimary, fontSize: 15, fontWeight: '700' }}>{item}</Text>
+                <Text style={{ color: t.textPrimary, fontSize: 15, fontWeight: '700', lineHeight: 21 }}>{item}</Text>
               </View>
             ))}
           </View>
@@ -57,7 +57,7 @@ export default function WelcomeOnboardingScreen() {
             }}
             style={{ paddingVertical: 14, alignItems: 'center', marginTop: 8 }}
           >
-            <Text style={{ color: t.textSecondary, fontSize: 14, fontWeight: '700' }}>Skip intro</Text>
+            <Text style={{ color: t.textSecondary, fontSize: 14, fontWeight: '700' }}>Skip for now</Text>
           </Pressable>
         </View>
       </View>

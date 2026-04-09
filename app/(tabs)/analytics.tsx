@@ -145,7 +145,7 @@ export default function AnalyticsPage() {
       >
         <View style={{ marginBottom: 16, paddingTop: 20 }}>
           <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>Insights</Text>
-          <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Keep the story simple: what came in, what went out, what needs attention.</Text>
+          <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>A simple read on what came in, what went out, and what stands out.</Text>
         </View>
 
         <View style={{ marginBottom: 16 }}>
@@ -198,7 +198,7 @@ export default function AnalyticsPage() {
               {selectedMetricsPeriod === '7days' ? 'Spending trend' : 'Flow trend'}
             </Text>
             <TouchableOpacity onPress={() => router.push('/transactions/history')}>
-              <Text style={{ color: t.accent, fontSize: 13, fontWeight: '700' }}>Open history</Text>
+              <Text style={{ color: t.accent, fontSize: 13, fontWeight: '700' }}>View entries</Text>
             </TouchableOpacity>
           </View>
 
@@ -307,7 +307,7 @@ export default function AnalyticsPage() {
               </View>
             </>
           ) : (
-            <Text style={{ color: t.textSecondary }}>No category data yet.</Text>
+            <Text style={{ color: t.textSecondary }}>No category insights yet.</Text>
           )}
         </View>
       </ScrollView>

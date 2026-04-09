@@ -54,7 +54,7 @@ export default function WalletOnboardingScreen() {
           <OnboardingProgress currentStep={3} totalSteps={3} />
           <Text style={{ color: t.textPrimary, fontSize: 30, fontWeight: '900', marginTop: 32 }}>Create your first wallet</Text>
           <Text style={{ color: t.textSecondary, fontSize: 15, lineHeight: 22, marginTop: 12 }}>
-            One wallet is enough to start. You can always add more later.
+            One wallet is enough to start. You can add the rest later.
           </Text>
 
           <View style={{ marginTop: 28, gap: 18 }}>
@@ -107,7 +107,7 @@ export default function WalletOnboardingScreen() {
           </Pressable>
 
           <Pressable onPress={() => { completeStep('wallet'); router.replace('/(tabs)'); }} style={{ paddingVertical: 14, alignItems: 'center', marginTop: 8 }}>
-            <Text style={{ color: t.textSecondary, fontSize: 14, fontWeight: '700' }}>Skip for now</Text>
+            <Text style={{ color: t.textSecondary, fontSize: 14, fontWeight: '700' }}>Skip and finish</Text>
           </Pressable>
         </View>
       </View>

@@ -68,7 +68,7 @@ export function QuickAddWidget({
         <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Quick Add</Text>
         {lastTransaction && (
           <TouchableOpacity onPress={handleRepeatLast}>
-            <Text style={{ color: t.accent, fontSize: 13, fontWeight: '700' }}>Repeat Last</Text>
+            <Text style={{ color: t.accent, fontSize: 13, fontWeight: '700' }}>Repeat last</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -209,7 +209,7 @@ export function QuickAddWidget({
             }}
           >
             <View style={{ flex: 1 }}>
-              <Text style={{ color: t.textSecondary, fontSize: 11 }}>Tap to repeat:</Text>
+              <Text style={{ color: t.textSecondary, fontSize: 11 }}>Last entry</Text>
               <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '700', marginTop: 2 }}>
                 {lastTransaction.category || 'Transaction'}
               </Text>
