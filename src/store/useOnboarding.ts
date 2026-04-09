@@ -2,155 +2,73 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type OnboardingStep = 
-  | 'welcome'
-  | 'profile'
-  | 'reminders'
-  | 'wallet'
-  | 'category'
-  | 'budget'
-  | 'goal'
-  | 'analytics'
-  | 'complete';
+export type OnboardingStep = 'welcome' | 'profile' | 'wallet';
 
-export const ONBOARDING_STEPS: OnboardingStep[] = [
-  'welcome',
-  'profile',
-  'reminders',
-  'wallet',
-  'category',
-  'budget',
-  'goal',
-  'analytics',
-];
-
-// Form data types for each step
-export interface OnboardingFormData {
-  welcome?: Record<string, any>;
-  profile?: {
-    name?: string;
-    email?: string;
-    phone?: string;
-    currency?: string;
-  };
-  reminders?: {
-    enabled?: boolean;
-    preferredTimeLocal?: string;
-    quietHoursStart?: string | null;
-    quietHoursEnd?: string | null;
-  };
-  wallet?: {
-    name?: string;
-    type?: string;
-    balance?: string;
-  };
-  category?: {
-    name?: string;
-    emoji?: string;
-  };
-  budget?: {
-    name?: string;
-    limitAmount?: string;
-    periodType?: string;
-    selectedCategory?: string;
-  };
-  goal?: {
-    name?: string;
-    targetAmount?: string;
-    targetMonths?: string;
-  };
-  analytics?: Record<string, any>;
-  complete?: Record<string, any>;
-}
+export const ONBOARDING_STEPS: OnboardingStep[] = ['welcome', 'profile', 'wallet'];
 
 interface OnboardingState {
-  isOnboardingComplete: boolean;
-  isSkipped: boolean; // Track if user skipped onboarding
   currentStep: OnboardingStep;
   completedSteps: OnboardingStep[];
-  previousSteps: OnboardingStep[]; // History for back navigation
-  formData: OnboardingFormData;
-  // Tutorial state
-  createdWalletId: number | null;
-  createdCategoryId: number | null;
-  createdBudgetId: number | null;
-  createdGoalId: number | null;
-  // Actions
-  setCurrentStep: (step: OnboardingStep) => void;
-  goBackToPreviousStep: () => void;
+  skippedSteps: OnboardingStep[];
+  hasCompletedOnboarding: boolean;
   completeStep: (step: OnboardingStep) => void;
-  setCreatedWalletId: (id: number) => void;
-  setCreatedCategoryId: (id: number) => void;
-  setCreatedBudgetId: (id: number) => void;
-  setCreatedGoalId: (id: number) => void;
-  saveFormData: (step: OnboardingStep, data: any) => void;
-  clearFormData: (step?: OnboardingStep) => void;
-  completeOnboarding: () => void;
-  skipOnboarding: () => void;
+  skipStep: (step: OnboardingStep) => void;
+  setCurrentStep: (step: OnboardingStep) => void;
   resetOnboarding: () => void;
 }
 
+const getNextStep = (step: OnboardingStep): OnboardingStep | null => {
+  const currentIndex = ONBOARDING_STEPS.indexOf(step);
+  if (currentIndex === -1) return null;
+  return ONBOARDING_STEPS[currentIndex + 1] || null;
+};
+
 const initialState = {
-  isOnboardingComplete: false,
-  isSkipped: false,
   currentStep: 'welcome' as OnboardingStep,
   completedSteps: [] as OnboardingStep[],
-  previousSteps: [] as OnboardingStep[],
-  formData: {},
-  createdWalletId: null,
-  createdCategoryId: null,
-  createdBudgetId: null,
-  createdGoalId: null,
+  skippedSteps: [] as OnboardingStep[],
+  hasCompletedOnboarding: false,
 };
 
 export const useOnboarding = create<OnboardingState>()(
   persist(
     (set, get) => ({
       ...initialState,
-      setCurrentStep: (step) => set((state) => ({
-        currentStep: step,
-        previousSteps: [...state.previousSteps, state.currentStep],
-      })),
-      goBackToPreviousStep: () => set((state) => {
-        if (state.previousSteps.length === 0) return state;
-        const newPreviousSteps = [...state.previousSteps];
-        const previousStep = newPreviousSteps.pop();
-        return {
-          currentStep: previousStep || state.currentStep,
-          previousSteps: newPreviousSteps,
-        };
-      }),
-      completeStep: (step) => set((state) => ({
-        completedSteps: [...new Set([...state.completedSteps, step])],
-      })),
-      setCreatedWalletId: (id) => set({ createdWalletId: id }),
-      setCreatedCategoryId: (id) => set({ createdCategoryId: id }),
-      setCreatedBudgetId: (id) => set({ createdBudgetId: id }),
-      setCreatedGoalId: (id) => set({ createdGoalId: id }),
-      saveFormData: (step, data) => set((state) => ({
-        formData: {
-          ...state.formData,
-          [step]: { ...state.formData[step as keyof OnboardingFormData], ...data },
-        },
-      })),
-      clearFormData: (step) => set((state) => {
-        if (step) {
-          const { [step]: _, ...rest } = state.formData;
-          return { formData: rest as OnboardingFormData };
+      completeStep: (step) => {
+        const nextStep = getNextStep(step);
+        const completed = Array.from(new Set([...get().completedSteps, step]));
+
+        if (!nextStep) {
+          set({
+            completedSteps: completed,
+            hasCompletedOnboarding: true,
+          });
+          return;
         }
-        return { formData: {} };
-      }),
-      completeOnboarding: () => set({ 
-        isOnboardingComplete: true,
-        currentStep: 'complete',
-        formData: {}, // Clear form data after completion
-      }),
-      skipOnboarding: () => set({
-        isSkipped: true,
-        isOnboardingComplete: true,
-        currentStep: 'complete',
-        formData: {}, // Clear form data after skip
-      }),
+
+        set({
+          completedSteps: completed,
+          currentStep: nextStep,
+        });
+      },
+      skipStep: (step) => {
+        const nextStep = getNextStep(step);
+        const skipped = Array.from(new Set([...get().skippedSteps, step]));
+
+        if (!nextStep) {
+          set({
+            skippedSteps: skipped,
+            hasCompletedOnboarding: true,
+          });
+          return;
+        }
+
+        set({
+          skippedSteps: skipped,
+          currentStep: nextStep,
+        });
+      },
+      setCurrentStep: (step) => set({ currentStep: step }),
       resetOnboarding: () => set(initialState),
     }),
     {

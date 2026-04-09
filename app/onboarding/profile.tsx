@@ -1,330 +1,90 @@
-import * as React from 'react';
-import { useState, useEffect } from 'react';
-import Svg, { Path, Circle } from 'react-native-svg';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  TextInput,
-  ScrollView,
-  Image,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState } from 'react';
+import { View, Text, TextInput, Pressable, useColorScheme } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
-import { theme, shadows, colors } from '../../src/theme/theme';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '../../src/store/useStore';
+import { theme } from '../../src/theme/theme';
 import { useOnboarding } from '../../src/store/useOnboarding';
-import { CURRENCIES } from '../../src/constants/currencies';
-import { SelectModal, SelectOption } from '../../src/components/SelectModal';
-import { OnboardingHeader } from '../../src/components/OnboardingHeader';
-import { useColorScheme } from 'react-native';
+import { OnboardingProgress } from '../../src/components/OnboardingProgress';
 
-export default function ProfileSetupScreen() {
-  const { themeMode, setUserInfo, setDefaultCurrency } = useSettings();
-  const { setCurrentStep, completeStep, previousSteps, formData, saveFormData, goBackToPreviousStep } = useOnboarding();
+export default function ProfileOnboardingScreen() {
   const router = useRouter();
+  const { themeMode, userInfo, setUserInfo } = useSettings();
+  const { completeStep } = useOnboarding();
   const systemColorScheme = useColorScheme();
   const t = theme(themeMode, systemColorScheme || 'light');
 
-  // Initialize from saved form data if returning
-  const [name, setName] = useState(formData.profile?.name || '');
-  const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [currency, setCurrency] = useState(formData.profile?.currency || 'MWK');
-  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
-
-  // Auto-save form data on changes
-  useEffect(() => {
-    saveFormData('profile', {
-      name,
-      currency,
-    });
-  }, [name, currency, saveFormData]);
-
-  const handlePickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (status !== 'granted') {
-      Alert.alert('Permission Needed', 'Please allow access to your photos to set a profile picture.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setProfileImage(result.assets[0].uri);
-    }
-  };
-
-  const stepRoutes: Record<string, string> = {
-    welcome: '/onboarding/welcome',
-    profile: '/onboarding/profile',
-    reminders: '/onboarding/reminders',
-    wallet: '/onboarding/wallet',
-    category: '/onboarding/category',
-    budget: '/onboarding/budget',
-    goal: '/onboarding/goal',
-    analytics: '/onboarding/analytics',
-  };
-
-  const handleBack = () => {
-    const prevStep = previousSteps[previousSteps.length - 1];
-    if (prevStep && stepRoutes[prevStep]) {
-      goBackToPreviousStep();
-      router.push(stepRoutes[prevStep]);
-    }
-  };
+  const [name, setName] = useState(userInfo?.name === 'User' ? '' : (userInfo?.name || ''));
+  const [currency, setCurrency] = useState('MWK');
 
   const handleContinue = () => {
-    if (!name.trim()) {
-      Alert.alert('Name Required', 'Please enter your name to continue.');
-      return;
-    }
-
-    // Save user info
-    setUserInfo({
-      name: name.trim(),
-      profileImage,
-    });
-    setDefaultCurrency(currency);
-
+    setUserInfo({ name: name.trim() || 'pFlowr' });
+    useSettings.getState().setDefaultCurrency(currency);
     completeStep('profile');
-    setCurrentStep('reminders');
-    router.push('/onboarding/reminders');
-  };
-
-  const handleSkip = () => {
-    setUserInfo({ name: 'pFlowr' });
-    setDefaultCurrency(currency);
-    completeStep('profile');
-    setCurrentStep('reminders');
-    router.push('/onboarding/reminders');
+    router.replace('/onboarding/wallet');
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top']}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
-      >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-      >
-        <OnboardingHeader 
-          canGoBack={previousSteps.length > 0}
-          onBack={handleBack}
-          currentStep="profile"
-        />
-
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: t.textPrimary }]}>
-            Set Up Your Profile
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['top', 'left', 'right']}>
+      <View style={{ flex: 1, padding: 24, justifyContent: 'space-between' }}>
+        <View>
+          <OnboardingProgress currentStep={2} totalSteps={3} />
+          <Text style={{ color: t.textPrimary, fontSize: 30, fontWeight: '900', marginTop: 32 }}>Set your basics</Text>
+          <Text style={{ color: t.textSecondary, fontSize: 15, lineHeight: 22, marginTop: 12 }}>
+            Just enough to personalize the app and make amounts feel right from day one.
           </Text>
-          <Text style={[styles.subtitle, { color: t.textSecondary }]}>
-            Let's personalize your experience
-          </Text>
-        </View>
 
-        {/* Profile Image */}
-        <View style={styles.imageSection}>
-          <Pressable 
-            style={[styles.imagePicker, { backgroundColor: colors.mutedGrey + '20' }]}
-            onPress={handlePickImage}
-          >
-            {profileImage ? (
-              <Image source={{ uri: profileImage }} style={styles.profileImage} />
-            ) : (
-              <View style={styles.imagePlaceholder}>
-                <Svg width={48} height={48} viewBox="0 0 24 24" fill="none" stroke={t.textSecondary} strokeWidth="2">
-                  <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <Circle cx="12" cy="7" r="4" />
-                </Svg>
-                <Text style={[styles.imagePlaceholderText, { color: t.textSecondary }]}>
-                  Add Photo
-                </Text>
-              </View>
-            )}
-          </Pressable>
-        </View>
-
-        {/* Form */}
-        <View style={styles.form}>
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: t.textPrimary }]}> 
-              Name <Text style={{ color: colors.negativeRed }}>*</Text>
-            </Text>
+          <View style={{ marginTop: 28 }}>
+            <Text style={{ color: t.textSecondary, fontSize: 13, fontWeight: '700', marginBottom: 8 }}>What should we call you?</Text>
             <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.mutedGrey + '10',
-                  color: t.textPrimary,
-                  borderColor: colors.mutedGrey + '30',
-                },
-              ]}
-              placeholder="Enter your name"
-              placeholderTextColor={t.textSecondary}
               value={name}
               onChangeText={setName}
-              autoCapitalize="words"
+              placeholder="Your name"
+              placeholderTextColor={t.textSecondary}
+              style={{
+                backgroundColor: t.card,
+                borderWidth: 1,
+                borderColor: t.border,
+                borderRadius: 16,
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                color: t.textPrimary,
+                fontSize: 16,
+              }}
             />
           </View>
 
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: t.textPrimary }]}>
-              Default Currency <Text style={{ color: colors.negativeRed }}>*</Text>
-            </Text>
-            <Pressable
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.mutedGrey + '10',
-                  borderColor: colors.mutedGrey + '30',
-                  justifyContent: 'center',
-                },
-              ]}
-              onPress={() => setShowCurrencyModal(true)}
-            >
-              <Text style={[styles.currencyText, { color: t.textPrimary }]}>
-                {currency}
-              </Text>
-            </Pressable>
+          <View style={{ marginTop: 20 }}>
+            <Text style={{ color: t.textSecondary, fontSize: 13, fontWeight: '700', marginBottom: 8 }}>Default currency</Text>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {['MWK', 'USD', 'ZAR'].map((item) => {
+                const active = currency === item;
+                return (
+                  <Pressable
+                    key={item}
+                    onPress={() => setCurrency(item)}
+                    style={{
+                      flex: 1,
+                      backgroundColor: active ? t.primary : t.card,
+                      borderWidth: 1,
+                      borderColor: active ? t.primary : t.border,
+                      borderRadius: 14,
+                      paddingVertical: 14,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{ color: active ? '#FFFFFF' : t.textPrimary, fontWeight: '800' }}>{item}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         </View>
 
-        {/* Buttons */}
-        <View style={styles.buttonContainer}>
-          <Pressable
-            style={[styles.button, { backgroundColor: t.primary }]}
-            onPress={handleContinue}
-          >
-            <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
-              Continue
-            </Text>
-          </Pressable>
-          <Pressable style={styles.skipButton} onPress={handleSkip}>
-            <Text style={[styles.skipText, { color: t.textSecondary }]}>
-              Skip for now
-            </Text>
-          </Pressable>
-        </View>
-      </ScrollView>
-
-      {/* Currency Modal */}
-      <SelectModal
-        visible={showCurrencyModal}
-        title="Select Currency"
-        options={CURRENCIES.map(c => ({ id: c, label: c }))}
-        selectedId={currency}
-        onSelect={(option: SelectOption) => {
-          setCurrency(option.id as string);
-          setShowCurrencyModal(false);
-        }}
-        onClose={() => setShowCurrencyModal(false)}
-      />
-      </KeyboardAvoidingView>
+        <Pressable onPress={handleContinue} style={{ backgroundColor: t.primary, borderRadius: 16, paddingVertical: 16, alignItems: 'center' }}>
+          <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>Continue</Text>
+        </Pressable>
+      </View>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingTop: 20,
-  },
-  header: {
-    marginBottom: 32,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    lineHeight: 22,
-  },
-  imageSection: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  imagePicker: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileImage: {
-    width: '100%',
-    height: '100%',
-  },
-  imagePlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  placeholderEmoji: {
-    fontSize: 40,
-    marginBottom: 8,
-  },
-  imagePlaceholderText: {
-    fontSize: 14,
-  },
-  form: {
-    gap: 20,
-    marginBottom: 32,
-  },
-  field: {
-    gap: 8,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  input: {
-    padding: 14,
-    borderRadius: 10,
-    fontSize: 16,
-    borderWidth: 1,
-  },
-  currencyText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  buttonContainer: {
-    gap: 12,
-  },
-  button: {
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  buttonText: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  skipButton: {
-    padding: 12,
-    alignItems: 'center',
-  },
-  skipText: {
-    fontSize: 16,
-  },
-});
