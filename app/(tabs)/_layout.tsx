@@ -5,8 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeIcon } from '../../src/assets/icons/HomeIcon';
 import { WalletsIcon } from '../../src/assets/icons/WalletsIcon';
 import { AnalyticsIcon } from '../../src/assets/icons/AnalyticsIcon';
-import { SettingsIcon } from '../../src/assets/icons/SettingsIcon';
 import { PlusIcon } from '../../src/assets/icons/PlusIcon';
+import { SettingsIcon } from '../../src/assets/icons/CategoryIcons';
 import { useSettings } from '../../src/store/useStore';
 import { useWallets } from '../../src/lib/hooks/useWallets';
 import { theme } from '../../src/theme/theme';
@@ -125,10 +125,10 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="settings"
           options={{
-            title: 'Settings',
-            tabBarAccessibilityLabel: 'Settings tab - configure app preferences',
-            tabBarIcon: ({ color, focused }) => (
-              <SettingsIcon color={color} focused={focused} />
+            title: 'More',
+            tabBarAccessibilityLabel: 'More tab - categories, settings, and app tools',
+            tabBarIcon: ({ color }) => (
+              <SettingsIcon size={22} color={color} />
             ),
           }}
         />

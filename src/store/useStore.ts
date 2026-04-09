@@ -47,6 +47,7 @@ interface SettingsState {
   // Smart Defaults
   lastUsedWalletId: number | null;
   lastUsedCategory: string | null;
+  recentCategories: string[]; // Track most used categories for quick access
   // Image picking state for biometric auth delay
   imagePickingStartTime: number | null;
   // Actions
@@ -69,6 +70,7 @@ interface SettingsState {
   setHideBalances: (v: boolean) => void;
   setLastUsedWalletId: (id: number | null) => void;
   setLastUsedCategory: (category: string | null) => void;
+  addRecentCategory: (category: string) => void;
   setImagePickingStartTime: (time: number | null) => void;
   resetSettings: () => void;
 }
@@ -99,6 +101,7 @@ const initialState = {
   hideBalances: false,
   lastUsedWalletId: null,
   lastUsedCategory: null,
+  recentCategories: [] as string[], // Track most used categories for quick access
   imagePickingStartTime: null,
 };
 
@@ -129,6 +132,11 @@ export const useSettings = create<SettingsState>()(
       setHideBalances: (hideBalances) => set({ hideBalances }),
       setLastUsedWalletId: (lastUsedWalletId) => set({ lastUsedWalletId }),
       setLastUsedCategory: (lastUsedCategory) => set({ lastUsedCategory }),
+      addRecentCategory: (category: string) => set((state) => {
+        // Keep only unique categories, move used one to front, limit to 5
+        const filtered = state.recentCategories.filter(c => c !== category);
+        return { recentCategories: [category, ...filtered].slice(0, 5) };
+      }),
       setImagePickingStartTime: (imagePickingStartTime) => set({ imagePickingStartTime }),
       resetSettings: () => set(initialState),
     }),

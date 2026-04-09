@@ -7,7 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useSettings } from '../../src/store/useStore';
 import { useUI } from '../../src/store/useStore';
-import { theme } from '../../src/theme/theme';
+import { theme, ThemeMode } from '../../src/theme/theme';
 import { addTransaction, transferBetweenWallets, updateTransaction, getById, deleteTransaction } from '../../src/lib/db/transactions';
 import { CalendarModal } from '@/components/CalendarModal';
 import { formatShortDate } from '../../src/utils/date';
@@ -20,17 +20,18 @@ import { useWallets } from '../../src/lib/hooks/useWallets';
 import { RecurrenceFrequency } from '../../src/types/transaction';
 import { Wallet } from '../../src/types/wallet';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
+import { QuickCategoryChips } from '../../src/components/QuickCategoryChips';
 import { error as logError } from '../../src/utils/logger';
 
 export default function AddTransactionScreen() {
   const router = useRouter();
-  const { themeMode, defaultCurrency, setImagePickingStartTime, lastUsedWalletId, lastUsedCategory, setLastUsedWalletId, setLastUsedCategory } = useSettings();
+  const { themeMode, defaultCurrency, setImagePickingStartTime, lastUsedWalletId, lastUsedCategory, setLastUsedWalletId, setLastUsedCategory, addRecentCategory } = useSettings();
   const { setIsPickingImage } = useUI();
   const systemColorScheme = useColorScheme();
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const t = theme(effectiveMode);
   const { wallets, balances } = useWallets();
-  const { id, walletId: paramWalletId, type: paramType } = useLocalSearchParams();
+  const { id, walletId: paramWalletId, type: paramType, category: paramCategory, amount: paramAmount } = useLocalSearchParams();
 
   // Check if we're in edit mode
   const isEditMode = !!id;
@@ -71,6 +72,9 @@ export default function AddTransactionScreen() {
   }, [walletId, wallets, defaultCurrency]);
 
   const { loadCategoriesHierarchy } = useCategoriesHierarchy(type === 'transfer' ? undefined : (type as 'income' | 'expense'));
+  
+  // Store recent categories for quick access
+  const [recentCategories, setRecentCategories] = useState<string[]>([]);
 
   useEffect(() => {
     if (wallets.length > 0 && !walletId && !isEditMode) {
@@ -78,13 +82,24 @@ export default function AddTransactionScreen() {
       if (preselectedWalletId && wallets.find(w => w.id === preselectedWalletId)) {
         setWalletId(preselectedWalletId);
       } else if (lastUsedWalletId && wallets.find(w => w.id === lastUsedWalletId)) {
-        // Auto-select last used wallet
         setWalletId(lastUsedWalletId);
       } else {
         setWalletId(wallets[0].id!);
       }
     }
   }, [wallets, walletId, isEditMode, paramWalletId, lastUsedWalletId]);
+
+  useEffect(() => {
+    if (isEditMode) return;
+
+    if (typeof paramCategory === 'string' && paramCategory.trim().length > 0) {
+      setCategory(paramCategory);
+    }
+
+    if (typeof paramAmount === 'string' && paramAmount.trim().length > 0) {
+      setAmount(paramAmount);
+    }
+  }, [isEditMode, paramCategory, paramAmount]);
 
   useEffect(() => {
     if (type === 'transfer') {
@@ -205,12 +220,20 @@ export default function AddTransactionScreen() {
 
       if (flatCats.length > 0) {
         const hasCurrent = category && flatCats.some((c) => c.name === category);
-        // Auto-select last used category if available and valid
-        if (!hasCurrent && lastUsedCategory && flatCats.some(c => c.name === lastUsedCategory)) {
+        const categoryFromParams = typeof paramCategory === 'string' ? paramCategory : null;
+
+        if (categoryFromParams && flatCats.some(c => c.name === categoryFromParams)) {
+          setCategory(categoryFromParams);
+        } else if (!hasCurrent && lastUsedCategory && flatCats.some(c => c.name === lastUsedCategory)) {
+          // Auto-select last used category if available and valid
           setCategory(lastUsedCategory);
         } else {
           setCategory(hasCurrent ? category : flatCats[0].name);
         }
+        
+        // Load recent categories from storage or use smart defaults
+        // For now, we'll use the category hierarchy as recent
+        setRecentCategories(flatCats.slice(0, 5).map(c => c.name));
       }
     } catch (err) {
       logError('Failed to load categories:', { error: err });
@@ -474,6 +497,7 @@ export default function AddTransactionScreen() {
         // Save smart defaults for next transaction
         setLastUsedWalletId(walletId);
         setLastUsedCategory(category);
+        if (category) addRecentCategory(category);
 
         router.back();
       } catch (err: any) {
@@ -530,6 +554,12 @@ export default function AddTransactionScreen() {
           recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate.toISOString() : undefined
         });
       }
+      
+      // Save smart defaults for next transaction
+      setLastUsedWalletId(walletId);
+      setLastUsedCategory(category);
+      if (category) addRecentCategory(category);
+      
       router.back();
     } catch (err) {
       logError(`[Transaction] Failed to ${isEditMode ? 'update' : 'add'} transaction without receipt:`, { error: err });
@@ -596,6 +626,15 @@ export default function AddTransactionScreen() {
             contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 0, paddingBottom: 140 }}
             keyboardShouldPersistTaps="handled"
           >
+            <View style={{ marginBottom: 16, paddingTop: 6 }}>
+              <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>
+                {isEditMode ? 'Edit entry' : 'Quick entry'}
+              </Text>
+              <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>
+                Keep it fast. Amount first, then only the details you need.
+              </Text>
+            </View>
+
             <TypeTabs current={type} onChange={setType} colors={t} />
 
             <AmountDisplay amount={amount} currency={displayCurrency} colors={t} evaluated={numericAmount} />
@@ -625,6 +664,17 @@ export default function AddTransactionScreen() {
             {type !== 'transfer' && (
               <>
                 <SectionLabel text="Category" colors={t} />
+                
+                {/* Quick Category Chips for fast selection */}
+                <QuickCategoryChips
+                  categories={categoryHierarchy.flatMap(h => [h.category, ...h.children])}
+                  selectedCategory={category}
+                  onSelect={setCategory}
+                  recentCategories={recentCategories}
+                  type={type as 'income' | 'expense'}
+                  themeMode={themeMode}
+                />
+                
                 <TouchableOpacity
                   onPress={() => setShowCategoryPicker(true)}
                   accessibilityLabel="Select category"
@@ -666,7 +716,7 @@ export default function AddTransactionScreen() {
               style={{ paddingVertical: 16, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}
             >
               <Text style={{ color: t.accent, fontWeight: '600' }}>
-                {showMore ? 'Hide optional details' : 'Show optional details'}
+                {showMore ? 'Hide optional details' : 'Add note, date, receipt, or recurrence'}
               </Text>
               <Text style={{ color: t.accent, fontSize: 12 }}>{showMore ? '-' : '+'}</Text>
             </TouchableOpacity>
@@ -859,7 +909,7 @@ export default function AddTransactionScreen() {
           message={alertConfig.message}
           buttons={alertConfig.buttons}
           onDismiss={() => setAlertConfig({ ...alertConfig, visible: false })}
-          themeMode={themeMode}
+          themeMode={(themeMode === 'dark-teal' ? 'dark' : themeMode) as Exclude<ThemeMode, 'dark-teal'>}
           systemColorScheme={systemColorScheme || 'light'}
         />
       </KeyboardAvoidingView>

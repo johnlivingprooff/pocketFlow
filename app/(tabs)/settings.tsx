@@ -371,22 +371,22 @@ export default function SettingsScreen() {
 
         {/* Management Grid */}
         <View style={styles.section}>
-          {/* {renderSectionHeader('MANAGEMENT')} */}
+          {renderSectionHeader('QUICK ACCESS')}
           <View style={styles.gridContainer}>
-            <Link href="/budget" asChild>
-              <TouchableOpacity style={[styles.gridItem, { backgroundColor: t.card, borderColor: t.border }]} activeOpacity={TAP_OPACITY}>
-                <View style={[styles.gridIcon, { backgroundColor: `${t.primary}15` }]}>
-                  <BudgetPieIcon size={36} color={t.primary} />
-                </View>
-                <Text style={[styles.gridLabel, { color: t.textPrimary }]}>Budgets</Text>
-              </TouchableOpacity>
-            </Link>
             <Link href="/categories" asChild>
               <TouchableOpacity style={[styles.gridItem, { backgroundColor: t.card, borderColor: t.border }]} activeOpacity={TAP_OPACITY}>
                 <View style={[styles.gridIcon, { backgroundColor: `${t.primary}15` }]}>
                   <LayersIcon size={36} color={t.primary} />
                 </View>
                 <Text style={[styles.gridLabel, { color: t.textPrimary }]}>Categories</Text>
+              </TouchableOpacity>
+            </Link>
+            <Link href="/budget" asChild>
+              <TouchableOpacity style={[styles.gridItem, { backgroundColor: t.card, borderColor: t.border }]} activeOpacity={TAP_OPACITY}>
+                <View style={[styles.gridIcon, { backgroundColor: `${t.primary}15` }]}>
+                  <BudgetPieIcon size={36} color={t.primary} />
+                </View>
+                <Text style={[styles.gridLabel, { color: t.textPrimary }]}>Budgets</Text>
               </TouchableOpacity>
             </Link>
             <Link href="/settings/recurring" asChild>
