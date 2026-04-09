@@ -1,122 +1,37 @@
 'use client';
 
-import Image from 'next/image';
-import { useState } from 'react';
-
-const APK_DOWNLOAD_URL =
-  'https://github.com/johnlivingprooff/pocketFlow/releases/download/v2.0.1/pocketflow-v2.0.1.apk';
+import Link from 'next/link';
 import { cta } from '@/lib/content';
 
-type MessageTone = 'idle' | 'success' | 'error';
-
-type WaitlistResponse = {
-  message?: string;
-  error?: string;
-};
-
 export function CTA() {
-  const [email, setEmail] = useState('');
-  const [fullname, setFullname] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [message, setMessage] = useState('');
-  const [tone, setTone] = useState<MessageTone>('idle');
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!email.trim() || !fullname.trim()) {
-      return;
-    }
-
-    setIsSubmitting(true);
-    setMessage('');
-    setTone('idle');
-
-    try {
-      const response = await fetch('/api/waitlist', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email.trim(),
-          fullname: fullname.trim(),
-        }),
-      });
-
-      const payload = (await response.json()) as WaitlistResponse;
-
-      if (!response.ok) {
-        setTone('error');
-        setMessage(payload.error || 'Unable to submit right now. Please try again in a moment.');
-        return;
-      }
-
-      setTone('success');
-      setMessage(payload.message || 'Thanks, you are on the waitlist. We will share release updates soon.');
-      setEmail('');
-      setFullname('');
-    } catch {
-      setTone('error');
-      setMessage('Network issue detected. Please check your connection and retry.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   return (
-    <section className="w-full flex flex-col items-center justify-center py-16 bg-white" id="access">
-      <div className="max-w-xl w-full flex flex-col items-center gap-7 px-4">
-        <span className="chip mb-2">Download</span>
-        <h2 className="font-display text-3xl sm:text-4xl font-semibold text-center text-slate-900">Get pocketFlow for Android</h2>
-        <p className="text-center text-slate-600 text-base max-w-md">
-          Download the official APK or join the beta group for early access and updates.
-        </p>
-        <a
-          href={APK_DOWNLOAD_URL}
-          className="btn-primary text-lg px-8 py-3 rounded-xl shadow-md transition hover:scale-105"
-          download
-        >
-          Download APK
-        </a>
-        <div className="flex flex-col gap-2 w-full mt-4">
-          <form onSubmit={handleSubmit} className="panel-sm flex flex-col gap-4 p-5 sm:p-6 w-full">
-            <p className="font-display text-lg font-semibold text-slate-900">{cta.waitlistTitle}</p>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium text-slate-700">Full name</span>
-              <input
-                type="text"
-                value={fullname}
-                onChange={(event) => setFullname(event.target.value)}
-                placeholder="Jane Doe"
-                required
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium text-slate-700">Email</span>
-              <input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="you@company.com"
-                required
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
-              />
-            </label>
-            <button type="submit" disabled={isSubmitting} className="btn-primary mt-1 w-full justify-center disabled:opacity-60">
-              {isSubmitting ? 'Submitting...' : cta.waitlistAction}
-            </button>
-            {message ? (
-              <p
-                className={`text-sm ${tone === 'success' ? 'text-emerald-700' : tone === 'error' ? 'text-rose-700' : 'text-slate-600'}`}
-                aria-live="polite"
-              >
-                {message}
-              </p>
-            ) : null}
-          </form>
+    <section id="access" className="section-shell pb-20 pt-4 sm:pb-24">
+      <div className="reveal relative overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 px-6 py-10 text-white shadow-[0_36px_100px_rgba(15,23,42,0.2)] sm:px-10 sm:py-12">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(201,162,39,0.18),transparent_30%)]" />
+        <div className="relative grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+          <div>
+            <span className="chip border-white/15 bg-white/5 text-[#f0d57c]">Ready to install</span>
+            <h2 className="mt-5 font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+              {cta.headline}
+            </h2>
+            <p className="mt-4 max-w-2xl text-base leading-8 text-white/70 sm:text-lg">
+              {cta.body}
+            </p>
+            <p className="mt-5 text-sm text-white/55">{cta.promise}</p>
+          </div>
+
+          <div className="grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-4 sm:p-5">
+            <Link href={cta.primaryHref} className="btn-primary justify-center px-6 py-3.5 text-base">
+              {cta.primary}
+            </Link>
+            <Link href={cta.secondaryHref} className="btn-secondary justify-center border-white/15 bg-transparent px-6 py-3.5 text-base text-white hover:bg-white/8">
+              {cta.secondary}
+            </Link>
+            <Link href="/download" className="inline-flex items-center justify-center rounded-full border border-white/12 px-6 py-3 text-sm font-semibold text-white/85 transition hover:bg-white/8">
+              Open download page
+            </Link>
+          </div>
         </div>
-        <span className="text-xs text-slate-400 mt-2">Version 2.0.1 · Updated Mar 2026</span>
       </div>
     </section>
   );

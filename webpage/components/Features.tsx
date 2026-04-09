@@ -1,56 +1,59 @@
 'use client';
 
-import Image from 'next/image';
-import { useState } from 'react';
-import { features } from '@/lib/content';
+import { features, howItWorks, useCases } from '@/lib/content';
 
 export function Features() {
-  const [activeIndex, setActiveIndex] = useState(0);
-
   return (
-    <section className="section-shell py-14 sm:py-16 lg:py-20" id="capabilities">
-      <div className="relative overflow-hidden rounded-[1.8rem] border border-slate-200/80 px-6 py-8 sm:px-8 lg:px-10 lg:py-10">
-        <div className="absolute inset-0 -z-10">
-          <Image
-            src="/assets/engine.jpg"
-            alt="engine precision background"
-            fill
-            className="object-cover opacity-32"
-            sizes="100vw"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#f8fbff]/95 via-[#f2f6fc]/94 to-[#e8f0f8]/90" />
+    <section id="capabilities" className="section-shell pb-16 pt-6 sm:pb-20">
+      <div className="reveal mx-auto max-w-2xl text-center">
+        <span className="chip mx-auto">Built to stay out of your way</span>
+        <h2 className="mt-5 font-display text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
+          Everything points back to faster daily tracking.
+        </h2>
+        <p className="mt-4 text-base leading-8 text-slate-600 sm:text-lg">
+          PocketFlow is strongest when it helps you capture money quickly, review what matters, and move on.
+        </p>
+      </div>
+
+      <div className="mt-12 grid gap-5 lg:grid-cols-3">
+        {features.map((feature) => (
+          <article key={feature.title} className="reveal rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-soft transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)]">
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#c9a227]">Feature</p>
+            <h3 className="mt-4 font-display text-2xl font-semibold text-slate-950">{feature.title}</h3>
+            <p className="mt-4 text-sm leading-7 text-slate-600">{feature.body}</p>
+            <p className="mt-5 text-sm font-medium text-slate-500">{feature.detail}</p>
+          </article>
+        ))}
+      </div>
+
+      <div className="mt-14 grid gap-6 lg:grid-cols-2">
+        <div className="reveal rounded-[2rem] border border-slate-200 bg-slate-950 p-8 text-white shadow-[0_30px_90px_rgba(15,23,42,0.18)]">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#c9a227]">How it works</p>
+          <div className="mt-6 space-y-5">
+            {howItWorks.map((step, index) => (
+              <div key={step.title} className="flex gap-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#c9a227] text-sm font-semibold text-[#08181a]">
+                  {index + 1}
+                </div>
+                <div>
+                  <h3 className="font-display text-xl font-semibold">{step.title}</h3>
+                  <p className="mt-2 text-sm leading-7 text-white/70">{step.body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="reveal mb-6 flex max-w-3xl flex-col gap-2">
-          <span className="chip w-fit">Core features</span>
-          <h2 className="font-display text-3xl font-semibold text-slate-900 sm:text-4xl">
-            Simple tools for daily money tracking.
-          </h2>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          {features.map((feature, index) => (
-            <button
-              key={feature.title}
-              type="button"
-              onMouseEnter={() => setActiveIndex(index)}
-              onFocus={() => setActiveIndex(index)}
-              onClick={() => setActiveIndex(index)}
-              className={`interactive-card reveal rounded-2xl border p-6 text-left backdrop-blur ${
-                activeIndex === index
-                  ? 'border-sky-300 bg-white/94 shadow-card'
-                  : 'border-slate-200/80 bg-white/86 shadow-soft'
-              }`}
-            >
-              <h3 className="font-display text-xl font-semibold text-slate-900">{feature.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-700">{feature.body}</p>
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-4 rounded-2xl border border-slate-200/80 bg-white/85 px-4 py-3 text-sm text-slate-700 backdrop-blur sm:px-5">
-          <span className="font-semibold text-slate-900">{features[activeIndex].title}:</span>{' '}
-          {features[activeIndex].detail}
+        <div className="reveal rounded-[2rem] border border-slate-200 bg-white p-8 shadow-soft">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#c9a227]">Best fits</p>
+          <div className="mt-6 space-y-4">
+            {useCases.map((item) => (
+              <div key={item.title} className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-5">
+                <h3 className="font-display text-xl font-semibold text-slate-950">{item.title}</h3>
+                <p className="mt-3 text-sm leading-7 text-slate-600">{item.body}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
