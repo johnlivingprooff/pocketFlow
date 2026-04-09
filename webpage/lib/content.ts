@@ -1,116 +1,116 @@
-import { adminEmail, betaWhatsappUrl, releaseUrl } from '@/lib/links';
+import { adminEmail, betaWhatsappUrl, releaseUrl, RELEASE_VERSION } from '@/lib/links';
 
 export const seo = {
-  title: 'pocketFlow | Trusted offline-first finance tracker',
+  title: 'pocketFlow | Fast, offline-first money tracking',
   description:
-    'PocketFlow is an offline-first finance app for wallets, transactions, and receipts.',
+    'PocketFlow helps you record expenses and income quickly, stay offline-first, and keep your financial flow simple.',
 };
 
 export const navigationLinks = [
   { label: 'Features', href: '#capabilities' },
-  { label: 'Access', href: '#access' },
-  { label: 'Download', href: '/download' },
+  { label: 'Download', href: '#access' },
+  { label: 'APK', href: '/download' },
 ];
 
 export const hero = {
-  headline: 'Finance tracking you can trust.',
-  subheadline: 'Track wallets, spending, and goals in one place.',
-  primaryCta: 'Join beta-test WhatsApp group',
-  primaryHref: betaWhatsappUrl,
-  secondaryCta: 'Get email updates',
-  secondaryHref: '#access',
-  assurancePoints: ['Data stored on your device first'],
+  headline: 'Track money fast, without the clutter.',
+  subheadline: 'PocketFlow is built for quick expense and income capture, clean history, and lightweight insights that stay out of your way.',
+  primaryCta: 'Download APK',
+  primaryHref: releaseUrl,
+  secondaryCta: 'See download page',
+  secondaryHref: '/download',
+  assurancePoints: ['Offline-first and built for fast daily use'],
   trustMetrics: [
-    { value: 'Offline-first', label: 'Local data' },
-    { value: 'Multi-wallet', label: 'Cash + bank + mobile money' },
+    { value: 'Quick entry', label: 'Expense and income in a few taps' },
+    { value: 'Offline-first', label: 'Your records stay local first' },
   ],
 };
 
 export const philosophy = {
-  title: 'Clear records, clear decisions.',
-  body: 'PocketFlow is designed for practical cash-flow visibility, not dashboard clutter.',
+  title: 'Less dashboard, more flow.',
+  body: 'PocketFlow is designed to help you record money quickly and review only what matters, instead of burying you in finance theater.',
 };
 
 export const trustPillars = [
   {
-    title: 'Data ownership',
-    body: 'Records are stored locally first, with backup export when you need it.',
+    title: 'Fast capture',
+    body: 'Open the app and record an entry immediately, with smart defaults that reduce repeated work.',
   },
   {
-    title: 'Transparent reporting',
-    body: 'Transfers are excluded from spend analytics for cleaner totals.',
+    title: 'Local-first records',
+    body: 'Your data is stored on-device first, with exports and backups when you need them.',
   },
 ];
 
 export const securityChecklist = [
   'Offline-first architecture',
   'Optional biometric lock',
-  'Public release history',
+  'Direct APK release access',
 ];
 
 export const newInfo = [
   {
-    title: 'Quiet-hour reminders',
-    body: 'Daily reminders with no-disturb windows.',
+    title: 'Quicker onboarding',
+    body: 'Get into the app in three short steps.',
   },
   {
-    title: 'JSON backup and restore',
-    body: 'Move your records when needed.',
+    title: 'Cleaner insights',
+    body: 'See what matters without heavy dashboard noise.',
   },
 ];
 
 export const features = [
   {
-    title: 'Wallet tracking',
-    body: 'Track cash, mobile money, and bank balances together.',
-    detail: 'One view of total available funds.',
+    title: 'Quick transaction logging',
+    body: 'Add expenses, income, and transfers from a simpler, transaction-first home screen.',
+    detail: 'Built to get out of your way after a few taps.',
   },
   {
-    title: 'Smart transaction logging',
-    body: 'Log income, expenses, transfers, and receipts quickly.',
-    detail: 'Category structure keeps reports clean.',
+    title: 'Clean history',
+    body: 'Search, scan, and fix entries quickly with lighter filters and clearer lists.',
+    detail: 'Faster review, less friction.',
   },
   {
-    title: 'Budgets and goals',
-    body: 'Set limits and savings targets with quick progress checks.',
-    detail: 'Useful for weekly and monthly planning.',
+    title: 'Lightweight insights',
+    body: 'See income, spending, trends, and top categories without dashboard overload.',
+    detail: 'Useful enough to act on, simple enough to trust.',
   },
 ];
 
 export const howItWorks = [
   {
-    title: 'Capture',
-    body: 'Log daily income and spending.',
+    title: 'Open',
+    body: 'Launch straight into a fast, action-first experience.',
+  },
+  {
+    title: 'Record',
+    body: 'Capture expense, income, or transfer in a few taps.',
   },
   {
     title: 'Review',
-    body: 'Check wallet totals and trends.',
-  },
-  {
-    title: 'Adjust',
-    body: 'Update budgets and stay on plan.',
+    body: 'Check history and insights only when you need them.',
   },
 ];
 
 export const useCases = [
   {
-    title: 'Household planning',
-    body: 'Keep weekly essentials within budget.',
+    title: 'Daily personal money tracking',
+    body: 'Keep everyday spending and income records without slowing down your day.',
   },
   {
-    title: 'Cash + mobile money',
-    body: 'Track all wallets without double-counting transfers.',
+    title: 'Cash + bank + mobile money',
+    body: 'Track multiple wallets cleanly without double-counting transfers.',
   },
 ];
 
 export const cta = {
-  headline: 'Join beta access on WhatsApp.',
-  body: 'Get early builds before public launch.',
-  primary: 'Join beta WhatsApp group',
-  primaryHref: betaWhatsappUrl,
-  secondary: 'View latest release',
-  secondaryHref: releaseUrl,
-  waitlistTitle: 'Prefer email updates?',
+  headline: 'Download the latest pocketFlow APK.',
+  body: 'Get the current Android build directly, or join the beta group for updates and feedback.',
+  primary: 'Download APK',
+  primaryHref: releaseUrl,
+  secondary: 'Join beta WhatsApp group',
+  secondaryHref: betaWhatsappUrl,
+  waitlistTitle: 'Prefer release updates by email?',
   waitlistAction: 'Join waitlist',
-  promise: `Emails from ${adminEmail}.`,
+  promise: `Current APK: v${RELEASE_VERSION} · Contact ${adminEmail} for support.`,
 };
