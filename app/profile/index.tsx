@@ -33,7 +33,7 @@ export default function ProfilePage() {
   const systemColorScheme = useColorScheme();
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const t = theme(effectiveMode);
-  const { alertConfig, showSuccessAlert, dismissAlert } = useAlert();
+  const { alertConfig, showSuccessAlert, showErrorAlert, dismissAlert } = useAlert();
   const { inviteToken } = useLocalSearchParams<{ inviteToken?: string }>();
   const safeUser = userInfo ?? { name: 'pFlowr', profileImage: null };
   const [name, setName] = useState(safeUser.name);
@@ -76,7 +76,7 @@ export default function ProfilePage() {
       await createCloudAccount({ email: cloudEmail.trim(), password: cloudPassword });
       showSuccessAlert('Account created', 'Cloud account is ready.');
     } catch {
-      showSuccessAlert('Account error', 'Could not create account. Check email/password and try again.');
+      showErrorAlert('Account error', 'Could not create account. Check email/password and try again.');
     } finally {
       setIsSubmittingAuth(false);
     }
@@ -88,20 +88,28 @@ export default function ProfilePage() {
       await signInCloudAccount({ email: cloudEmail.trim(), password: cloudPassword });
       showSuccessAlert('Signed in', 'Cloud session active.');
     } catch {
-      showSuccessAlert('Sign in failed', 'Invalid credentials or network error.');
+      showErrorAlert('Sign in failed', 'Invalid credentials or network error.');
     } finally {
       setIsSubmittingAuth(false);
     }
   };
 
   const handleSignOut = async () => {
-    await signOutCloudAccount();
-    showSuccessAlert('Signed out', 'Cloud session closed.');
+    try {
+      await signOutCloudAccount();
+      showSuccessAlert('Signed out', 'Cloud session closed.', () => router.replace('/profile'));
+    } catch {
+      showErrorAlert('Sign out failed', 'Could not close the cloud session right now.');
+    }
   };
 
   const handleDeleteAccount = async () => {
-    await deleteCloudAccount();
-    showSuccessAlert('Account deleted', 'Cloud account removed.');
+    try {
+      await deleteCloudAccount();
+      showSuccessAlert('Account deleted', 'Cloud account removed.', () => router.replace('/profile'));
+    } catch {
+      showErrorAlert('Delete failed', 'Could not remove the cloud account right now.');
+    }
   };
 
   const handleAcceptPendingInvite = async () => {
@@ -112,7 +120,7 @@ export default function ProfilePage() {
       showSuccessAlert('Invitation accepted', 'You have joined the shared wallet.');
       router.replace('/settings/shared-wallets');
     } catch {
-      showSuccessAlert('Invite failed', 'Could not accept the invitation. It may be expired.');
+      showErrorAlert('Invite failed', 'Could not accept the invitation. It may be expired.');
     } finally {
       setIsSubmittingInvite(false);
     }
