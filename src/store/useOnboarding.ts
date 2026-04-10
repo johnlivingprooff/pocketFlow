@@ -11,6 +11,7 @@ interface OnboardingState {
   completedSteps: OnboardingStep[];
   skippedSteps: OnboardingStep[];
   hasCompletedOnboarding: boolean;
+  isOnboardingComplete: boolean;
   completeStep: (step: OnboardingStep) => void;
   skipStep: (step: OnboardingStep) => void;
   setCurrentStep: (step: OnboardingStep) => void;
@@ -28,6 +29,7 @@ const initialState = {
   completedSteps: [] as OnboardingStep[],
   skippedSteps: [] as OnboardingStep[],
   hasCompletedOnboarding: false,
+  isOnboardingComplete: false,
 };
 
 export const useOnboarding = create<OnboardingState>()(
@@ -43,6 +45,7 @@ export const useOnboarding = create<OnboardingState>()(
             completedSteps: completed,
             currentStep: 'wallet',
             hasCompletedOnboarding: true,
+            isOnboardingComplete: true,
           });
           return;
         }
@@ -61,6 +64,7 @@ export const useOnboarding = create<OnboardingState>()(
             skippedSteps: skipped,
             currentStep: 'wallet',
             hasCompletedOnboarding: true,
+            isOnboardingComplete: true,
           });
           return;
         }
