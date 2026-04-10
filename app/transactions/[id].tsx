@@ -168,7 +168,7 @@ export default function TransactionDetail() {
         <View style={{ gap: 12, marginBottom: 32 }}>
           {transaction.type !== 'transfer' && (
             <TouchableOpacity
-              onPress={() => router.push(`/transactions/add?id=${id}`)}
+              onPress={() => router.push(`/transactions/edit?id=${id}`)}
               style={{
                 backgroundColor: t.accent,
                 padding: 16,

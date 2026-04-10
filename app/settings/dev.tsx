@@ -16,7 +16,7 @@ import { ThemedAlert } from '../../src/components/ThemedAlert';
 export default function DevSettingsScreen() {
   const { themeMode } = useSettings();
   const systemColorScheme = useColorScheme();
-  const { isOnboardingComplete, resetOnboarding, currentStep, completedSteps } = useOnboarding();
+  const { isOnboardingComplete, hasCompletedOnboarding, resetOnboarding, currentStep, completedSteps } = useOnboarding();
   const router = useRouter();
   const t = theme(themeMode);
   const { alertConfig, showConfirmAlert, dismissAlert } = useAlert();
@@ -65,7 +65,7 @@ export default function DevSettingsScreen() {
           <View style={styles.infoRow}>
             <Text style={[styles.label, { color: t.textSecondary }]}>Completed:</Text>
             <Text style={[styles.value, { color: isOnboardingComplete ? colors.positiveGreen : colors.negativeRed }]}>
-              {isOnboardingComplete ? 'Yes' : 'No'}
+              {isOnboardingComplete || hasCompletedOnboarding ? 'Yes' : 'No'}
             </Text>
           </View>
           <View style={styles.infoRow}>

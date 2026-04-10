@@ -34,7 +34,7 @@ export default function RootLayout() {
     setLastBackupAt,
     setImagePickingStartTime,
   } = useSettings();
-  const { isOnboardingComplete } = useOnboarding();
+  const { isOnboardingComplete, hasCompletedOnboarding, completedSteps } = useOnboarding();
   const { isPickingImage } = useUI();
   const router = useRouter();
   const segments = useSegments();
@@ -97,15 +97,14 @@ export default function RootLayout() {
     if (!dbReady || !isAuthenticated) return;
 
     const inOnboarding = segments[0] === 'onboarding';
+    const onboardingComplete = isOnboardingComplete || hasCompletedOnboarding || completedSteps.includes('wallet');
 
-    if (!isOnboardingComplete && !inOnboarding) {
-      // User hasn't completed onboarding, redirect to onboarding
+    if (!onboardingComplete && !inOnboarding) {
       router.replace('/onboarding/welcome');
-    } else if (isOnboardingComplete && inOnboarding) {
-      // User has completed onboarding but is still on onboarding screen, go to main app
+    } else if (onboardingComplete && inOnboarding) {
       router.replace('/(tabs)');
     }
-  }, [isOnboardingComplete, segments, dbReady, isAuthenticated]);
+  }, [isOnboardingComplete, hasCompletedOnboarding, completedSteps, segments, dbReady, isAuthenticated]);
 
   useEffect(() => {
     // Handle app state changes (background/foreground)
