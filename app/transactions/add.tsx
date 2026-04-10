@@ -909,7 +909,7 @@ export default function AddTransactionScreen() {
           message={alertConfig.message}
           buttons={alertConfig.buttons}
           onDismiss={() => setAlertConfig({ ...alertConfig, visible: false })}
-          themeMode={(themeMode === 'dark-teal' ? 'dark' : themeMode) as Exclude<ThemeMode, 'dark-teal'>}
+          themeMode={themeMode as ThemeMode}
           systemColorScheme={systemColorScheme || 'light'}
         />
       </KeyboardAvoidingView>

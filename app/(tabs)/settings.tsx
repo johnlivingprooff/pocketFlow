@@ -172,9 +172,8 @@ export default function SettingsScreen() {
   };
 
   const themeOptions: { value: ThemeMode; label: string; description: string }[] = [
-    { value: 'light', label: 'Deep Teal (light)', description: 'Always use light theme' },
-    { value: 'dark', label: 'Luxury Gold (dark)', description: 'Always use dark theme' },
-    { value: 'dark-teal', label: 'Deep Teal (dark)', description: 'Dark theme with teal accents' },
+    { value: 'light', label: 'Calm Light', description: 'Bright, clear, and easy to scan' },
+    { value: 'dark', label: 'Focused Dark', description: 'Low-glare, high-focus dark mode' },
     { value: 'system', label: 'System', description: 'Follow system preference' },
   ];
 

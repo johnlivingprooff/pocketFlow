@@ -330,7 +330,7 @@ export default function AnalyticsPage() {
         message={alertConfig.message}
         buttons={alertConfig.buttons}
         onDismiss={dismissAlert}
-        themeMode={(themeMode === 'dark-teal' ? 'dark' : themeMode) as Exclude<ThemeMode, 'dark-teal'>}
+        themeMode={themeMode as ThemeMode}
         systemColorScheme={systemColorScheme || 'light'}
       />
     </SafeAreaView>

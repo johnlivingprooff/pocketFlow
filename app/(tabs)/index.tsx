@@ -144,7 +144,7 @@ export default function Home() {
         <QuickAddWidget
           recentTransactions={transactions}
           defaultCurrency={defaultCurrency}
-          themeMode={(themeMode === 'dark-teal' ? 'dark' : themeMode) as Exclude<ThemeMode, 'dark-teal'>}
+          themeMode={themeMode as Exclude<ThemeMode, never>}
         />
 
         <View style={{ marginBottom: 20 }}>
