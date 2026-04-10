@@ -2,7 +2,7 @@
   "expo": {
     "name": "pocketFlow",
     "slug": "pocketflow",
-    "version": "2026.4.9",
+    "version": "2026.4.10",
     "orientation": "portrait",
     "icon": "./assets/app_icon.png",
     "userInterfaceStyle": "automatic",
@@ -21,7 +21,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.eiteone.pocketflow",
-      "buildNumber": "2026.4.9"
+      "buildNumber": "2026.4.10"
     },
     "android": {
       "adaptiveIcon": {
@@ -34,7 +34,7 @@
         "android.permission.USE_FINGERPRINT"
       ],
       "package": "com.eiteone.pocketflow",
-      "versionCode": 20260409
+      "versionCode": 20260410
     },
     "web": {
       "favicon": "./assets/app_icon.png"
