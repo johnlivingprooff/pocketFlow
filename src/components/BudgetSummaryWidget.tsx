@@ -1,134 +1,133 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { BudgetWithMetrics } from '@/types/goal';
 import { theme } from '../theme/theme';
 import { useSettings } from '../store/useStore';
+import { BudgetWithMetrics } from '../types/goal';
 import { formatCurrency } from '../utils/formatCurrency';
 
 interface BudgetSummaryWidgetProps {
-    budgets: BudgetWithMetrics[];
-    isLoading: boolean;
-    colors: ReturnType<typeof theme>;
+  budgets: BudgetWithMetrics[];
+  isLoading?: boolean;
 }
 
-export function BudgetSummaryWidget({ budgets, isLoading, colors }: BudgetSummaryWidgetProps) {
-    const router = useRouter();
-    const { defaultCurrency } = useSettings();
+export function BudgetSummaryWidget({ budgets, isLoading = false }: BudgetSummaryWidgetProps) {
+  const router = useRouter();
+  const { themeMode, defaultCurrency } = useSettings();
+  const t = theme(themeMode);
 
-    const metrics = useMemo(() => {
-        if (!budgets.length) return null;
+  const summary = useMemo(() => {
+    if (budgets.length === 0) return null;
 
-        const totalLimit = budgets.reduce((sum, b) => sum + b.limitAmount, 0);
-        const totalSpent = budgets.reduce((sum, b) => sum + b.currentSpending, 0);
-        const totalRemaining = Math.max(0, totalLimit - totalSpent);
+    const active = budgets.filter((b) => b.period_status === 'active');
+    const overBudget = active.filter((b) => b.isOverBudget).length;
+    const nearLimit = active.filter((b) => !b.isOverBudget && b.percentageUsed >= 80).length;
+    const totalSpent = active.reduce((sum, b) => sum + b.spent, 0);
+    const totalBudget = active.reduce((sum, b) => sum + b.amount, 0);
 
-        // Calculate simple days remaining for the current month/period
-        const today = new Date();
-        const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        const daysLeftInMonth = Math.max(1, endOfMonth.getDate() - today.getDate());
+    return {
+      activeCount: active.length,
+      overBudget,
+      nearLimit,
+      totalSpent,
+      totalBudget,
+    };
+  }, [budgets]);
 
-        const dailySafeSpend = totalRemaining / daysLeftInMonth;
-        const progress = Math.min(100, (totalSpent / totalLimit) * 100);
-        const isOver = totalSpent > totalLimit;
-
-        return {
-            totalLimit,
-            totalSpent,
-            totalRemaining,
-            dailySafeSpend,
-            progress,
-            isOver
-        };
-    }, [budgets]);
-
-    if (isLoading) {
-        return (
-            <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={{ color: colors.textSecondary }}>Loading budget data...</Text>
-            </View>
-        );
-    }
-
-    if (!metrics) {
-        return (
-            <TouchableOpacity
-                onPress={() => router.push('/(tabs)/budget')}
-                style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border, alignItems: 'center', paddingVertical: 20 }]}
-            >
-                <Text style={{ color: colors.textPrimary, fontWeight: '700', marginBottom: 4 }}>Start Budgeting</Text>
-                <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Tap to set up your first budget limits</Text>
-            </TouchableOpacity>
-        );
-    }
-
+  if (isLoading) {
     return (
-        <TouchableOpacity
-            onPress={() => router.push('/(tabs)/budget')}
-            style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}
-        >
-            <View style={styles.header}>
-                <Text style={{ color: colors.textSecondary, fontWeight: '600', fontSize: 12 }}>MONTHLY BUDGET LEFT</Text>
-                <Text style={{ color: metrics.isOver ? colors.danger : colors.success, fontWeight: '700', fontSize: 12 }}>
-                    {metrics.progress.toFixed(0)}% Used
-                </Text>
-            </View>
-
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 12 }}>
-                <Text style={{ color: colors.textPrimary, fontSize: 32, fontWeight: '800' }}>
-                    {formatCurrency(metrics.totalRemaining, defaultCurrency)}
-                </Text>
-                <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
-                    / {formatCurrency(metrics.totalLimit, defaultCurrency)}
-                </Text>
-            </View>
-
-            {/* Progress Bar */}
-            <View style={{ height: 8, backgroundColor: colors.border, borderRadius: 4, marginBottom: 16, overflow: 'hidden' }}>
-                <View
-                    style={{
-                        height: '100%',
-                        width: `${metrics.progress}%`,
-                        backgroundColor: metrics.isOver ? colors.danger : metrics.progress > 85 ? colors.warning : colors.success,
-                        borderRadius: 4
-                    }}
-                />
-            </View>
-
-            <View style={styles.footer}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <View style={{ padding: 4, backgroundColor: colors.background, borderRadius: 6, borderWidth: 1, borderColor: colors.border }}>
-                        <Text style={{ fontSize: 12 }}>📅</Text>
-                    </View>
-                    <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-                        Safe to spend: <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>{formatCurrency(metrics.dailySafeSpend, defaultCurrency)}</Text> / day
-                    </Text>
-                </View>
-                <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '600' }}>Details ›</Text>
-            </View>
-        </TouchableOpacity>
+      <View style={[styles.container, { backgroundColor: t.card, borderColor: t.border }]}> 
+        <Text style={[styles.title, { color: t.textPrimary }]}>Budgets</Text>
+        <Text style={{ color: t.textSecondary, marginTop: 8 }}>Loading budgets...</Text>
+      </View>
     );
+  }
+
+  if (!summary || summary.activeCount === 0) {
+    return (
+      <TouchableOpacity
+        onPress={() => router.push('/budget')}
+        style={[styles.container, { backgroundColor: t.card, borderColor: t.border }]}
+      >
+        <Text style={[styles.title, { color: t.textPrimary }]}>Budgets</Text>
+        <Text style={{ color: t.textSecondary, marginTop: 8 }}>No active budgets. Tap to set one up.</Text>
+      </TouchableOpacity>
+    );
+  }
+
+  const progress = summary.totalBudget > 0 ? Math.min(summary.totalSpent / summary.totalBudget, 1) : 0;
+  const progressColor = summary.overBudget > 0 ? t.danger : summary.nearLimit > 0 ? t.warning : t.success;
+
+  return (
+    <TouchableOpacity
+      onPress={() => router.push('/budget')}
+      style={[styles.container, { backgroundColor: t.card, borderColor: t.border }]}
+    >
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: t.textPrimary }]}>Budgets</Text>
+        <Text style={[styles.link, { color: t.accent }]}>Open</Text>
+      </View>
+
+      <Text style={[styles.amount, { color: t.textPrimary }]}> 
+        {formatCurrency(summary.totalSpent, defaultCurrency)} / {formatCurrency(summary.totalBudget, defaultCurrency)}
+      </Text>
+
+      <View style={[styles.progressTrack, { backgroundColor: t.background }]}> 
+        <View style={[styles.progressFill, { width: `${progress * 100}%`, backgroundColor: progressColor }]} />
+      </View>
+
+      <View style={styles.metaRow}>
+        <Text style={[styles.metaText, { color: t.textSecondary }]}>{summary.activeCount} active</Text>
+        <Text style={[styles.metaText, { color: summary.overBudget > 0 ? t.danger : summary.nearLimit > 0 ? t.warning : t.success }]}>
+          {summary.overBudget > 0 ? `${summary.overBudget} over limit` : summary.nearLimit > 0 ? `${summary.nearLimit} near limit` : 'On track'}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        padding: 16,
-        borderRadius: 20,
-        borderWidth: 1,
-        marginBottom: 20,
-        marginHorizontal: 16, // Match main layout margin
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 8,
-    },
-    footer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingTop: 12,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(150,150,150, 0.1)',
-    }
+  container: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 16,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  link: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  amount: {
+    fontSize: 18,
+    fontWeight: '800',
+    marginTop: 10,
+  },
+  progressTrack: {
+    height: 10,
+    borderRadius: 999,
+    overflow: 'hidden',
+    marginTop: 12,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  metaText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
 });
