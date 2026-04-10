@@ -210,7 +210,7 @@ export default function WalletDetail() {
       await Clipboard.setStringAsync(invite.inviteLink);
       showSuccessAlert('Invite copied', 'Invitation link copied to clipboard.');
     } catch {
-      showConfirmAlert('Invite failed', 'Could not create an invite link right now.', () => {});
+      showErrorAlert('Invite failed', 'Could not create an invite link right now.');
     }
   };
 
@@ -220,7 +220,7 @@ export default function WalletDetail() {
       await removeWalletMember(wallet.cloud_wallet_id, memberUserId);
       await loadWalletDetails();
     } catch {
-      showConfirmAlert('Removal failed', 'Could not remove member. Please try again.', () => {});
+      showErrorAlert('Removal failed', 'Could not remove member. Please try again.');
     }
   };
 
@@ -293,7 +293,7 @@ export default function WalletDetail() {
           await deleteWallet(walletId);
           showSuccessAlert('Wallet deleted', 'The wallet was removed.', () => router.back());
         } catch (e) {
-          showConfirmAlert('Error', 'Could not delete wallet. Please try again.', () => { });
+          showErrorAlert('Error', 'Could not delete wallet. Please try again.');
         }
       }
     );

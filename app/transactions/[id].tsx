@@ -56,7 +56,7 @@ export default function TransactionDetail() {
       async () => {
         try {
           await deleteTransaction(Number(id));
-          showConfirmAlert('Success', 'Transaction deleted', () => router.back());
+          showSuccessAlert('Success', 'Transaction deleted', () => router.back());
         } catch (error) {
           showErrorAlert('Error', 'Failed to delete transaction');
         }
