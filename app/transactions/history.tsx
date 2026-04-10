@@ -312,7 +312,7 @@ export default function HistoryScreen() {
                         paddingHorizontal: 14,
                         paddingVertical: 8,
                         borderRadius: 999,
-                        backgroundColor: !filterCategory ? t.primary : t.background,
+                        backgroundColor: !filterCategory ? t.primary : t.card,
                         borderWidth: 1,
                         borderColor: !filterCategory ? t.primary : t.border,
                       }}

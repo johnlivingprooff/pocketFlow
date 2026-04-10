@@ -132,7 +132,7 @@ export default function AnalyticsPage() {
     }));
   }, [categories]);
 
-  const fallbackColors = ['#C1A12F', '#84670B', '#B3B09E', '#6B6658', '#332D23', '#8B7355', '#A67C52', '#D4AF37'];
+  const fallbackColors = ['#14B8A6', '#0F766E', '#2DD4BF', '#0D9488', '#5EEAD4', '#115E59', '#0F766E', '#99F6E4'];
   const net = (incomeExpense?.netSavings || 0);
   const quickScore = incomeExpense?.savingsRate || 0;
   const topCategories = chartData.slice(0, 5);

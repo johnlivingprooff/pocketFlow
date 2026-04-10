@@ -113,13 +113,13 @@ export default function Home() {
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
             <TouchableOpacity
               onPress={() => router.push({ pathname: '/transactions/add', params: { type: 'expense' } })}
-              style={{ flex: 1, backgroundColor: t.danger, borderRadius: 14, paddingVertical: 14, alignItems: 'center' }}
+              style={{ flex: 1, backgroundColor: t.danger, borderRadius: 14, paddingVertical: 14, alignItems: 'center', shadowColor: t.danger, shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 2 }}
             >
               <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>Add expense</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => router.push({ pathname: '/transactions/add', params: { type: 'income' } })}
-              style={{ flex: 1, backgroundColor: t.success, borderRadius: 14, paddingVertical: 14, alignItems: 'center' }}
+              style={{ flex: 1, backgroundColor: t.success, borderRadius: 14, paddingVertical: 14, alignItems: 'center', shadowColor: t.success, shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 2 }}
             >
               <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>Add income</Text>
             </TouchableOpacity>

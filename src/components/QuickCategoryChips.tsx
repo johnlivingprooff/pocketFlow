@@ -57,7 +57,7 @@ export function QuickCategoryChips({
         textTransform: 'uppercase',
         letterSpacing: 0.5
       }}>
-        Quick Select {recentCategories.length > 0 && '(Recently Used)'}
+        Quick select {recentCategories.length > 0 && '(recently used)'}
       </Text>
       <ScrollView 
         horizontal 
@@ -85,7 +85,7 @@ export function QuickCategoryChips({
                 minHeight: 36,
               }}
             >
-              {Icon && <Icon width={16} height={16} color={isSelected ? '#fff' : t.textSecondary} />}
+              {Icon && <Icon width={16} height={16} color={isSelected ? '#fff' : t.accent} />}
               <Text style={{
                 color: isSelected ? '#fff' : t.textPrimary,
                 fontSize: 13,
