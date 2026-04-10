@@ -197,8 +197,11 @@ export default function AnalyticsPage() {
             <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>
               {selectedMetricsPeriod === '7days' ? 'Spending trend' : 'Flow trend'}
             </Text>
-            <TouchableOpacity onPress={() => router.push('/transactions/history')}>
-              <Text style={{ color: t.accent, fontSize: 13, fontWeight: '700' }}>View entries</Text>
+            <TouchableOpacity
+              onPress={() => router.push('/transactions/history')}
+              style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: t.background, borderWidth: 1, borderColor: t.border }}
+            >
+              <Text style={{ color: t.accent, fontSize: 12, fontWeight: '700' }}>View entries</Text>
             </TouchableOpacity>
           </View>
 
@@ -261,8 +264,11 @@ export default function AnalyticsPage() {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }}>Top categories</Text>
             {chartData.length > 5 && (
-              <TouchableOpacity onPress={() => setShowAllCategories(!showAllCategories)}>
-                <Text style={{ color: t.accent, fontSize: 13, fontWeight: '700' }}>{showAllCategories ? 'Show less' : 'Show more'}</Text>
+              <TouchableOpacity
+                onPress={() => setShowAllCategories(!showAllCategories)}
+                style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: t.background, borderWidth: 1, borderColor: t.border }}
+              >
+                <Text style={{ color: t.accent, fontSize: 12, fontWeight: '700' }}>{showAllCategories ? 'Show less' : 'Show more'}</Text>
               </TouchableOpacity>
             )}
           </View>

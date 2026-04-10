@@ -128,13 +128,13 @@ export default function Home() {
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
             <TouchableOpacity
               onPress={() => router.push({ pathname: '/transactions/add', params: { type: 'transfer' } })}
-              style={{ flex: 1, backgroundColor: t.background, borderWidth: 1, borderColor: t.border, borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}
+              style={{ flex: 1, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}
             >
               <Text style={{ color: t.textPrimary, fontSize: 13, fontWeight: '700' }}>Transfer</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => router.push('/transactions/history')}
-              style={{ flex: 1, backgroundColor: t.background, borderWidth: 1, borderColor: t.border, borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}
+              style={{ flex: 1, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}
             >
               <Text style={{ color: t.textPrimary, fontSize: 13, fontWeight: '700' }}>History</Text>
             </TouchableOpacity>

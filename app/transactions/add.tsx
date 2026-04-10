@@ -1111,7 +1111,7 @@ function RecurrenceCard({ isRecurring, onToggle, frequency, onChangeFrequency, e
                     paddingHorizontal: 14,
                     paddingVertical: 8,
                     borderRadius: 20,
-                    backgroundColor: active ? colors.primary : colors.background,
+                    backgroundColor: active ? colors.primary : colors.card,
                     borderWidth: 1,
                     borderColor: active ? colors.primary : colors.border
                   }}
@@ -1125,7 +1125,7 @@ function RecurrenceCard({ isRecurring, onToggle, frequency, onChangeFrequency, e
           <Text style={{ color: colors.textSecondary, marginBottom: 6, fontSize: 13 }}>End date (optional)</Text>
           <TouchableOpacity
             onPress={onSelectEndDate}
-            style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background, padding: 12, borderRadius: 10 }}
+            style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 12, borderRadius: 10 }}
           >
             <Text style={{ color: colors.textPrimary }}>
               {endDate ? formatShortDate(endDate) : 'No end date (recurs indefinitely)'}

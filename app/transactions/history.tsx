@@ -295,7 +295,7 @@ export default function HistoryScreen() {
 
               <TouchableOpacity
                 onPress={() => setShowFilters(!showFilters)}
-                style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 2 }}
               >
                 <Text style={{ color: t.accent, fontSize: 13, fontWeight: '700' }}>
                   {showFilters ? 'Hide quick filters' : `Show quick filters${activeFilterCount ? ` (${activeFilterCount})` : ''}`}
@@ -329,7 +329,7 @@ export default function HistoryScreen() {
                             paddingHorizontal: 14,
                             paddingVertical: 8,
                             borderRadius: 999,
-                            backgroundColor: active ? t.primary : t.background,
+                            backgroundColor: active ? t.primary : t.card,
                             borderWidth: 1,
                             borderColor: active ? t.primary : t.border,
                           }}

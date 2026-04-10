@@ -44,18 +44,18 @@ export const theme = (mode: ThemeMode, systemColorScheme?: string) => {
     // Layout
     background: isDark ? colors.slate950 : colors.white,
     card: isDark ? colors.slate900 : colors.grey100,
-    border: isDark ? '#1F3A3E' : colors.grey200,
+    border: isDark ? '#274347' : '#D9E0E1',
 
     // Typography
     textPrimary: isDark ? '#F3FAFA' : colors.teal900,
-    textSecondary: isDark ? '#A8BCBE' : '#556466',
-    textTertiary: isDark ? '#6F8A8D' : '#94A3A5',
+    textSecondary: isDark ? '#B3C5C7' : '#556466',
+    textTertiary: isDark ? '#7C9699' : '#8FA1A3',
 
     // Brand
     primary: isDark ? colors.teal500 : colors.teal700,
     primaryLight: isDark ? colors.teal100 : colors.teal500,
     primaryDark: isDark ? '#0B5E58' : colors.teal900,
-    accent: isDark ? colors.teal500 : colors.teal600,
+    accent: isDark ? '#5EEAD4' : colors.teal600,
 
     // Status
     success: colors.success,
