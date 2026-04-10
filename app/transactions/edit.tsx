@@ -50,10 +50,16 @@ export default function EditTransaction() {
       const data = await getById(Number(id));
       setTxn(data);
       if (data) {
-        // Only handle income and expense types in edit screen
-        if (data.type !== 'transfer') {
-          setType(data.type);
+        if (data.type === 'transfer') {
+          setAlertConfig({
+            visible: true,
+            title: 'Transfer cannot be edited here',
+            message: 'Transfers should be deleted and recreated to keep both wallet records in sync.',
+            buttons: [{ text: 'OK', onPress: () => router.back() }]
+          });
+          return;
         }
+        setType(data.type);
         setAmount(String(Math.abs(data.amount)));
         setCategory(data.category ?? '');
         setDate(data.date);

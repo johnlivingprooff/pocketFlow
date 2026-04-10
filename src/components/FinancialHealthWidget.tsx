@@ -124,7 +124,7 @@ export const HomeSummaryWidget = React.memo(function HomeSummaryWidgetComponent(
         if (!data.length) {
             return (
                 <TouchableOpacity
-                    onPress={() => router.push(type === 'budget' ? '/(tabs)/budget' : '/goals/create')}
+                    onPress={() => router.push(type === 'budget' ? '/budget' : '/goals/create')}
                     style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
                 >
                     <Text style={{ color: colors.textSecondary, fontSize: 13 }}>No active {type}s</Text>
