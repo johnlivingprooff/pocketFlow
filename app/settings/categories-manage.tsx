@@ -156,16 +156,16 @@ export default function CategoryManageScreen() {
   const handleDeleteCategory = (category: Category) => {
     showConfirmAlert(
       'Delete Category',
-      `Are you sure you want to delete "${category.name}"? This will also delete all subcategories.`,
+      `Are you sure you want to delete "${category.name}"? This will also delete all subcategories. If transactions still use this category, deletion may fail until those entries are reassigned.`,
       async () => {
         try {
           await deleteCategory(category.id!);
           log(`Deleted category: ${category.name}`);
           loadCategories();
-          showConfirmAlert('Success', 'Category deleted', dismissAlert);
+          showSuccessAlert('Success', 'Category deleted', dismissAlert);
         } catch (err) {
           logError('Failed to delete category:', { error: err });
-          showErrorAlert('Error', 'Failed to delete category');
+          showErrorAlert('Error', 'Failed to delete category. It may still be used by existing transactions.');
         }
       }
     );

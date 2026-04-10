@@ -28,7 +28,7 @@ export default function ReceiptsGalleryScreen() {
   const [loading, setLoading] = useState(true);
   const [selectedReceipt, setSelectedReceipt] = useState<ReceiptItem | null>(null);
   const [showPreview, setShowPreview] = useState(false);
-  const { alertConfig, showErrorAlert, showConfirmAlert, dismissAlert } = useAlert();
+  const { alertConfig, showErrorAlert, showConfirmAlert, showSuccessAlert, dismissAlert } = useAlert();
 
   useEffect(() => {
     loadReceipts();
@@ -75,7 +75,7 @@ export default function ReceiptsGalleryScreen() {
 
           setReceipts(receipts.filter(r => r.id !== receipt.id));
           setShowPreview(false);
-          showConfirmAlert('Success', 'Receipt deleted', dismissAlert);
+          showSuccessAlert('Success', 'Receipt deleted', dismissAlert);
         } catch (error) {
           console.error('Error deleting receipt:', error);
           showErrorAlert('Error', 'Failed to delete receipt');
