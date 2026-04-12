@@ -39,7 +39,7 @@ export function Navigation() {
 
         <div className="relative flex items-center justify-between px-3 py-2 sm:px-5 sm:py-3">
           <Link href="/" className="flex items-center rounded-lg px-1 py-1">
-            <Image src="/assets/logo.png" alt="pocketFlow" width={128} height={32} className="h-7 w-auto sm:h-8" priority />
+            <Image src="/assets/app_icon.png" alt="pocketFlow" width={128} height={32} className="h-7 w-auto sm:h-8" priority />
           </Link>
 
           <div className="hidden items-center gap-1 md:flex">
