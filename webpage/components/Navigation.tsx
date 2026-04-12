@@ -58,7 +58,7 @@ export function Navigation() {
             href={betaWhatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center rounded-full bg-white/95 px-3 py-2 text-xs font-semibold text-slate-900 transition-colors hover:bg-white sm:text-sm"
+            className="inline-flex text-black items-center rounded-full bg-white/95 px-3 py-2 text-xs font-semibold text-slate-900 transition-colors hover:bg-white sm:text-sm"
           >
             Join Beta
           </a>
