@@ -53,6 +53,15 @@ app.use(requestLogger);
 // Rate limiting
 app.use(globalRateLimiter);
 
+// Root landing page
+app.get('/', (_req: Request, res: Response) => {
+  res
+    .status(200)
+    .set('Content-Type', 'text/html; charset=utf-8')
+    .set('Cache-Control', 'public, max-age=300')
+    .send(renderRootLandingPage());
+});
+
 // Health check (before API versioning)
 app.get('/health', (_req: Request, res: Response) => {
   res.json({ 
@@ -113,6 +122,189 @@ function escapeHtml(value: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function renderRootLandingPage(): string {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>pocketFlow Cloud Backend</title>
+    <style>
+      :root {
+        --bg: #f6f8f7;
+        --card: #ffffff;
+        --text: #102a2f;
+        --muted: #5b7074;
+        --accent: #0b6b61;
+        --accent-soft: #e8f3f1;
+        --border: #d9e3e1;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0d1d20;
+          --card: #11282d;
+          --text: #eaf6f4;
+          --muted: #a2b8bc;
+          --accent: #5ac2b4;
+          --accent-soft: #19383d;
+          --border: #2f4b50;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: linear-gradient(180deg, var(--bg) 0%, var(--accent-soft) 100%);
+        color: var(--text);
+      }
+      main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 32px 20px 48px;
+      }
+      .hero {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 28px;
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.08);
+      }
+      .eyebrow {
+        display: inline-block;
+        margin-bottom: 12px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(32px, 5vw, 48px);
+        line-height: 1.05;
+      }
+      .lead {
+        margin-top: 14px;
+        max-width: 62ch;
+        color: var(--muted);
+        font-size: 18px;
+        line-height: 1.6;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+        margin-top: 24px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 18px;
+      }
+      .card h2 {
+        margin: 0 0 8px;
+        font-size: 18px;
+      }
+      .card p, .muted, li {
+        color: var(--muted);
+        line-height: 1.55;
+      }
+      .section {
+        margin-top: 20px;
+      }
+      ul {
+        margin: 10px 0 0;
+        padding-left: 18px;
+      }
+      .links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 22px;
+      }
+      a.button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0 14px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--text);
+        text-decoration: none;
+        font-weight: 700;
+      }
+      a.button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      code {
+        padding: 2px 6px;
+        border-radius: 6px;
+        background: var(--accent-soft);
+        color: var(--text);
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+      }
+      footer {
+        margin-top: 18px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <div class="eyebrow">pocketFlow infrastructure</div>
+        <h1>pocketFlow Cloud Backend</h1>
+        <p class="lead">
+          This service powers the shared-wallet and authentication backend for pocketFlow. It exposes API endpoints for the app, handles wallet invitations, and provides health monitoring for deployments.
+        </p>
+        <div class="links">
+          <a class="button primary" href="/health">View health status</a>
+        </div>
+      </section>
+
+      <section class="grid section" aria-label="Backend overview">
+        <article class="card">
+          <h2>What this service does</h2>
+          <p>
+            The backend supports account access, wallet management, and invitation flows used by the pocketFlow app.
+          </p>
+        </article>
+        <article class="card">
+          <h2>Primary routes</h2>
+          <ul>
+            <li><code>/health</code> for status checks</li>
+            <li><code>/v1/auth</code> for authentication</li>
+            <li><code>/v1/wallets</code> for wallet operations</li>
+            <li><code>/v1/invitations</code> for shared-wallet invites</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h2>For visitors</h2>
+          <p>
+            If you were expecting the main app, this host is the API layer, not the client interface. The mobile app connects here behind the scenes.
+          </p>
+        </article>
+      </section>
+
+      <footer>
+        pocketFlow backend is online when the health endpoint reports <code>status: ok</code>.
+      </footer>
+    </main>
+  </body>
+</html>`;
 }
 
 function renderInviteFallbackPage(params: {
