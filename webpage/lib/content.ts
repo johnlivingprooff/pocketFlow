@@ -1,4 +1,5 @@
 import { adminEmail, betaWhatsappUrl, releaseUrl, RELEASE_VERSION } from '@/lib/links';
+import { IoDownloadOutline } from "react-icons/io5";
 
 export const seo = {
   title: 'pocketFlow | Fast, offline-first money tracking',
@@ -9,7 +10,7 @@ export const seo = {
 export const navigationLinks = [
   { label: 'Features', href: '#capabilities' },
   { label: 'Download', href: '#access' },
-  { label: 'APK', href: '/download' },
+  { label: IoDownloadOutline, href: '/download' },
 ];
 
 export const hero = {
