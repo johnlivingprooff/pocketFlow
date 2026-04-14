@@ -323,9 +323,16 @@ export async function scheduleNextEligibleReminder(reason: string = 'reschedule'
       return;
     }
 
+    // Use explicit date trigger format for cross-platform compatibility
+    // Android doesn't support Date objects directly (interprets as 'calendar' type)
+    const trigger: any = {
+      type: 'date',
+      timestamp: eligibility.candidateLocal.getTime(),
+    };
+
     await Notifications.scheduleNotificationAsync({
       content: await buildReminderContent(),
-      trigger: eligibility.candidateLocal,
+      trigger,
     });
 
     state.setReminderNextScheduledAtUtc(eligibility.candidateUtc);
