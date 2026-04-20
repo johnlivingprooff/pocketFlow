@@ -3,8 +3,8 @@ apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
-def releaseVersionName = (findProperty('APP_VERSION_NAME') ?: '2026.4.10').toString()
-def releaseVersionCode = ((findProperty('APP_VERSION_CODE') ?: '20260410') as String).toInteger()
+def releaseVersionName = (findProperty('APP_VERSION_NAME') ?: '2026.4.20').toString()
+def releaseVersionCode = ((findProperty('APP_VERSION_CODE') ?: '20260420') as String).toInteger()
 def uploadStoreFile = findProperty('MYAPP_UPLOAD_STORE_FILE')
 def uploadStorePassword = findProperty('MYAPP_UPLOAD_STORE_PASSWORD') ?: System.getenv('KEYSTORE_PASSWORD')
 def uploadKeyAlias = findProperty('MYAPP_UPLOAD_KEY_ALIAS') ?: 'upload'

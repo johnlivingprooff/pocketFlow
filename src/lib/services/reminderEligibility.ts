@@ -1,6 +1,6 @@
 export const MIN_REMINDER_SPACING_HOURS = 12;
 export const DEFAULT_REMINDER_TITLE = 'Quick check-in';
-export const DEFAULT_REMINDER_BODY = 'Log today\'s spending. It takes 10 seconds.';
+export const DEFAULT_REMINDER_BODY = 'Log today\'s spending.';
 
 export interface ReminderEligibilityInput {
   now: Date;
