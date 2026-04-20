@@ -39,7 +39,7 @@ export function Navigation() {
 
         <div className="relative flex items-center justify-between px-3 py-2 sm:px-5 sm:py-3">
           <Link href="/" className="flex items-center rounded-lg px-1 py-1">
-            <Image src="/assets/logo.png" alt="pocketFlow" width={128} height={32} className="h-7 w-auto sm:h-8" priority />
+            <Image src="/assets/app_icon.png" alt="pocketFlow" width={128} height={32} className="h-7 w-auto sm:h-8" priority />
           </Link>
 
           <div className="hidden items-center gap-1 md:flex">
@@ -58,7 +58,7 @@ export function Navigation() {
             href={betaWhatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center rounded-full bg-white/95 px-3 py-2 text-xs font-semibold text-slate-900 transition-colors hover:bg-white sm:text-sm"
+            className="inline-flex text-black items-center rounded-full bg-white/95 px-3 py-2 text-xs font-semibold text-slate-900 transition-colors hover:bg-white sm:text-sm"
           >
             Join Beta
           </a>

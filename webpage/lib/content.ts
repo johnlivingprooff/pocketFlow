@@ -9,7 +9,7 @@ export const seo = {
 export const navigationLinks = [
   { label: 'Features', href: '#capabilities' },
   { label: 'Download', href: '#access' },
-  { label: 'APK', href: '/download' },
+  { label: 'Latest APK', href: '/download' },
 ];
 
 export const hero = {

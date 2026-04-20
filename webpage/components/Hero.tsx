@@ -69,7 +69,7 @@ export function Hero() {
                 <div className="mt-4 rounded-[1.1rem] border border-white/8 bg-white/5 p-4 sm:mt-5 sm:rounded-[1.25rem]">
                   <p className="text-[10px] uppercase tracking-[0.18em] text-white/45 sm:text-xs">Why it feels lighter</p>
                   <h2 className="mt-2 font-display text-xl font-semibold text-white sm:text-2xl">{philosophy.title}</h2>
-                  <p className="mt-3 text-sm leading-7 text-white/68">{philosophy.body}</p>
+                  <p className="mt-3 text-sm leading-7 text-white/60">{philosophy.body}</p>
                 </div>
               </div>
             </div>
