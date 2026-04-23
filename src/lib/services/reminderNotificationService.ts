@@ -197,8 +197,9 @@ export async function initializeReminderNotifications(): Promise<void> {
       }
 
       const state = useSettings.getState();
+      const now = new Date();
       const gate = evaluateReminderDeliveryGate({
-        now: new Date(),
+        now,
         remindersEnabled: state.remindersEnabled,
         permissionGranted: state.reminderPermissionStatus === 'granted',
         quietHoursStart: state.reminderQuietHoursStart,
@@ -215,7 +216,12 @@ export async function initializeReminderNotifications(): Promise<void> {
         return reminderBehavior(false);
       }
 
-      const now = new Date();
+      // Log successful delivery with timestamp validation
+      log('[Reminder] Notification delivered and gate passed', {
+        deliveredAt: now.toString(),
+        lastDeliveredBefore: state.reminderLastDeliveredAtUtc,
+      });
+
       state.setReminderLastDelivered(now.toISOString(), formatLocalDate(now));
       state.setReminderNextScheduledAtUtc(null);
 
@@ -305,7 +311,7 @@ export async function scheduleNextEligibleReminder(reason: string = 'reschedule'
     }
 
     const now = new Date();
-    const eligibility = computeNextEligibleReminder({
+    let eligibility = computeNextEligibleReminder({
       now,
       preferredTimeLocal: state.reminderPreferredTimeLocal,
       quietHoursStart: state.reminderQuietHoursStart,
@@ -313,6 +319,37 @@ export async function scheduleNextEligibleReminder(reason: string = 'reschedule'
       lastDeliveredAtUtc: state.reminderLastDeliveredAtUtc,
       lastDeliveredLocalDate: state.reminderLastDeliveredLocalDate,
     });
+
+    // CRITICAL FIX: Validate that the scheduled time is in the future with a buffer.
+    // Without this check, if candidateLocal is within seconds of "now", expo-notifications
+    // will immediately deliver the notification, triggering handleNotification() which
+    // reschedules, creating a rapid loop of notifications while the app is open.
+    const MIN_SCHEDULE_BUFFER_MS = 5000; // 5 seconds minimum buffer
+    const scheduledTimeMs = eligibility.candidateLocal.getTime();
+    const nowMs = now.getTime();
+    const timeUntilScheduledMs = scheduledTimeMs - nowMs;
+
+    if (timeUntilScheduledMs < MIN_SCHEDULE_BUFFER_MS) {
+      // Scheduled time is too close or in the past - force next day's reminder
+      log('[Reminder] Computed reminder time is in past/too close. Pushing to next day.', {
+        scheduledTime: eligibility.candidateLocal.toString(),
+        bufferMs: timeUntilScheduledMs,
+        minRequiredMs: MIN_SCHEDULE_BUFFER_MS,
+      });
+
+      const nextDayCandidate = new Date(eligibility.candidateLocal.getTime());
+      nextDayCandidate.setDate(nextDayCandidate.getDate() + 1);
+
+      // Recompute eligibility for the next day to apply quiet hours and spacing rules
+      eligibility = computeNextEligibleReminder({
+        now: nextDayCandidate,
+        preferredTimeLocal: state.reminderPreferredTimeLocal,
+        quietHoursStart: state.reminderQuietHoursStart,
+        quietHoursEnd: state.reminderQuietHoursEnd,
+        lastDeliveredAtUtc: state.reminderLastDeliveredAtUtc,
+        lastDeliveredLocalDate: state.reminderLastDeliveredLocalDate,
+      });
+    }
 
     // Single-slot scheduling: clear previous future reminders and keep exactly one.
     await cancelReminderSchedule('single_slot_reschedule');
