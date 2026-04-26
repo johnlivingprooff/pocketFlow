@@ -64,9 +64,14 @@ export default function RootLayout() {
           // Process recurring transactions after DB is ready
           await processRecurringTransactions();
           
-          // Industry standard: Only initialize reminder system when reminders are enabled
-          // This prevents unwanted notifications if user never set up reminders
-          const { useSettings } = await import('./src/store/useStore');
+          // Wait a moment for settings to hydrate from AsyncStorage
+          // This ensures we read actual persisted values, not defaults
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          const { useSettings, syncReminderPermissionStatus } = await import('./src/store/useStore');
+          
+          // Sync permission status with system (in case it changed)
+          await syncReminderPermissionStatus();
           const settings = useSettings.getState();
           
           if (settings.remindersEnabled && settings.reminderPermissionStatus === 'granted') {

@@ -198,10 +198,7 @@ export async function initializeReminderNotifications(): Promise<void> {
       // If disabled, don't show (just like Gmail filter emails)
       if (!state.remindersEnabled) {
         warn('[Reminder] Reminders disabled - not showing notification');
-        // Still schedule for later if re-enabled
-        setTimeout(() => {
-          void scheduleNextEligibleReminder('reminders_re_enabled');
-        }, 0);
+        // Don't schedule - user will explicitly enable when ready
         return reminderBehavior(false);
       }
 
