@@ -63,6 +63,7 @@ export default function EditCategory() {
     message: string;
     buttons: Array<{ text: string; onPress?: () => void }>;
   }>({ visible: false, title: '', message: '', buttons: [] });
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     loadCategory();
@@ -150,6 +151,7 @@ export default function EditCategory() {
   };
 
   const handleSave = async () => {
+    if (isSaving) return;
     if (!categoryId) return;
 
     if (!categoryName.trim()) {
@@ -172,6 +174,7 @@ export default function EditCategory() {
       return;
     }
 
+    setIsSaving(true);
     try {
       const budgetValue = monthlyBudget ? parseFloat(monthlyBudget) : null;
       const iconToSave = iconType === 'svg' ? selectedSvg : selectedEmoji;
@@ -210,6 +213,8 @@ export default function EditCategory() {
           buttons: [{ text: 'OK' }]
         });
       }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -589,15 +594,20 @@ export default function EditCategory() {
         {/* Save Button */}
         <TouchableOpacity
           onPress={handleSave}
+          disabled={isSaving}
           style={{
-            backgroundColor: t.accent,
+            backgroundColor: isSaving ? t.card : t.accent,
             padding: 16,
             borderRadius: 12,
             alignItems: 'center',
             marginBottom: 32
           }}
         >
-          <Text style={{ color: t.background, fontSize: 16, fontWeight: '700' }}>Update Category</Text>
+          {isSaving ? (
+            <ActivityIndicator color={t.background} />
+          ) : (
+            <Text style={{ color: t.background, fontSize: 16, fontWeight: '700' }}>Update Category</Text>
+          )}
         </TouchableOpacity>
       </View>
       </ScrollView>

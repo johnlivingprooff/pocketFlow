@@ -154,7 +154,7 @@ export default function CreateGoalScreen() {
       const error = err as Error;
       console.error('[Goal Create] Error creating goal:', error);
       logError("Failed to create goal:", { error: err });
-      showErrorAlert("Error", `Failed to create goal: ${error.message || 'Unknown error'}`);
+      showErrorAlert("Error", "Failed to create goal. Please try again.");
     } finally {
       setSaving(false);
     }

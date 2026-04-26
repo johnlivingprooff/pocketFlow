@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, FlatList, TouchableOpacity, TextInput, useColorScheme, Modal } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '../../src/store/useStore';
 import { theme } from '../../src/theme/theme';
 import { Link, router, useFocusEffect } from 'expo-router';
@@ -300,8 +301,9 @@ export default function CategoriesPage() {
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: t.background }}>
-      {loading ? (
+    <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
+      <View style={{ flex: 1, backgroundColor: t.background }}>
+        {loading ? (
         <SkeletonLoader />
       ) : (
         <FlatList
@@ -316,8 +318,9 @@ export default function CategoriesPage() {
               <Text style={{ color: t.textSecondary, fontSize: 16 }}>No categories found</Text>
             </View>
           }
-        />
-      )}
-    </View>
+/>
+        )}
+      </View>
+    </SafeAreaView>
   );
 }

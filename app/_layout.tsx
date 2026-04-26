@@ -63,12 +63,21 @@ export default function RootLayout() {
           await ensureTables();
           // Process recurring transactions after DB is ready
           await processRecurringTransactions();
-          // Initialize reminder system
-          log('[App] Initializing reminder notifications...');
-          await initializeReminderNotifications();
-          log('[App] Running reminder runtime gate check...');
-          await runReminderRuntimeGateCheck('app_start');
-          log('[App] Reminder initialization complete');
+          
+          // Industry standard: Only initialize reminder system when reminders are enabled
+          // This prevents unwanted notifications if user never set up reminders
+          const { useSettings } = await import('./src/store/useStore');
+          const settings = useSettings.getState();
+          
+          if (settings.remindersEnabled && settings.reminderPermissionStatus === 'granted') {
+            log('[App] User has reminders enabled - initializing notification system...');
+            await initializeReminderNotifications();
+            await runReminderRuntimeGateCheck('app_start');
+          } else {
+            log('[App] Reminders not enabled or permission not granted - skipping notification setup');
+          }
+          
+          log('[App] Initialization complete');
           await maybeRunAutoBackup();
           setDbReady(true);
         } catch (err: unknown) {

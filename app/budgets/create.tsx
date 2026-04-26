@@ -192,7 +192,7 @@ export default function CreateBudgetScreen() {
     } catch (err: any) {
       console.error('[Budget Create] Error creating budget:', err);
       logError('Failed to create budget:', { error: err });
-      showErrorAlert('Error', `Failed to create budget: ${err.message || 'Unknown error'}`);
+      showErrorAlert('Error', 'Failed to create budget. Please try again.');
     } finally {
       setSaving(false);
     }

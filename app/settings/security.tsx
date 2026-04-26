@@ -108,12 +108,7 @@ export default function SecuritySettings() {
   };
 
   const handleTestBiometric = async () => {
-    const auth = await authenticateWithBiometrics('Test biometric authentication');
-    if (auth.success) {
-      showConfirmAlert('Success', 'Biometric authentication successful!', dismissAlert);
-    } else {
-      showErrorAlert('Failed', auth.error || 'Authentication failed.');
-    }
+    // Test biometric removed - users can verify through the app lock instead
   };
 
   return (
@@ -121,7 +116,7 @@ export default function SecuritySettings() {
       <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 20 }}>
         {/* Header */}
         <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 24 }}>
-          Security Settings
+          Privacy Lock
         </Text>
 
         {/* Biometric Authentication */}
@@ -151,26 +146,6 @@ export default function SecuritySettings() {
                 />
               </View>
             </View>
-
-            {/* Test Biometric */}
-            {biometricAvailable && (
-              <TouchableOpacity
-                onPress={handleTestBiometric}
-                style={{ padding: 16 }}
-              >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <View>
-                    <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>
-                      Test {biometricType}
-                    </Text>
-                    <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>
-                      Verify authentication is working
-                    </Text>
-                  </View>
-                  <Text style={{ color: t.textSecondary, fontSize: 20 }}>›</Text>
-                </View>
-              </TouchableOpacity>
-            )}
           </View>
 
           {biometricEnabled && (

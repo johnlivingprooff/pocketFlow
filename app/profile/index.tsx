@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -104,12 +105,25 @@ export default function ProfilePage() {
   };
 
   const handleDeleteAccount = async () => {
-    try {
-      await deleteCloudAccount();
-      showSuccessAlert('Account deleted', 'Cloud account removed.', () => router.replace('/profile'));
-    } catch {
-      showErrorAlert('Delete failed', 'Could not remove the cloud account right now.');
-    }
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to delete your cloud account? This action cannot be undone and all synced data will be lost.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteCloudAccount();
+              showSuccessAlert('Account deleted', 'Cloud account removed.', () => router.replace('/profile'));
+            } catch {
+              showErrorAlert('Delete failed', 'Could not remove the cloud account right now.');
+            }
+          }
+        },
+      ]
+    );
   };
 
   const handleAcceptPendingInvite = async () => {

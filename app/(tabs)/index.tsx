@@ -77,7 +77,7 @@ export default function Home() {
   return (
     <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 36 }}>
-        <View style={{ marginBottom: 20, paddingTop: 10 }}>
+        <View style={{ marginBottom: 20, paddingTop: 20 }}>
           <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>{greeting}, {displayName}.</Text>
           <Text style={{ color: t.textSecondary, fontSize: 14, marginTop: 4 }}>
             Record money fast, then get out of the way.

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, useColorScheme, Modal, LayoutChangeEvent, GestureResponderEvent, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, useColorScheme, Modal, LayoutChangeEvent, GestureResponderEvent, StyleSheet, ActivityIndicator } from 'react-native';
 import { useSettings } from '../../src/store/useStore';
 import { theme } from '../../src/theme/theme';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -42,6 +42,7 @@ export default function CreateCategory() {
     message: string;
     buttons: Array<{ text: string; onPress?: () => void }>;
   }>({ visible: false, title: '', message: '', buttons: [] });
+  const [isSaving, setIsSaving] = useState(false);
 
   const isEmojiIcon = (iconValue: string): boolean => {
     if (!iconValue) return false;
@@ -97,6 +98,8 @@ export default function CreateCategory() {
   };
 
   const handleSave = async () => {
+    if (isSaving) return;
+    
     if (!categoryName.trim()) {
       setAlertConfig({
         visible: true,
@@ -117,6 +120,7 @@ export default function CreateCategory() {
       return;
     }
 
+    setIsSaving(true);
     try {
       const budgetValue = monthlyBudget ? parseFloat(monthlyBudget) : null;
       await createCategory({
@@ -154,6 +158,8 @@ export default function CreateCategory() {
           buttons: [{ text: 'OK' }]
         });
       }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -517,15 +523,20 @@ export default function CreateCategory() {
         {/* Save Button */}
         <TouchableOpacity
           onPress={handleSave}
+          disabled={isSaving}
           style={{
-            backgroundColor: t.accent,
+            backgroundColor: isSaving ? t.card : t.accent,
             padding: 16,
             borderRadius: 12,
             alignItems: 'center',
             marginBottom: 32
           }}
         >
-          <Text style={{ color: t.background, fontSize: 16, fontWeight: '700' }}>Save Category</Text>
+          {isSaving ? (
+            <ActivityIndicator color={t.background} />
+          ) : (
+            <Text style={{ color: t.background, fontSize: 16, fontWeight: '700' }}>Save Category</Text>
+          )}
         </TouchableOpacity>
       </View>
       </ScrollView>

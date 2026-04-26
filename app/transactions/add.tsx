@@ -626,7 +626,7 @@ export default function AddTransactionScreen() {
             contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 0, paddingBottom: 140 }}
             keyboardShouldPersistTaps="handled"
           >
-            <View style={{ marginBottom: 16, paddingTop: 6 }}>
+            <View style={{ marginBottom: 16, paddingTop: 20 }}>
               <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>
                 {isEditMode ? 'Edit entry' : 'Quick entry'}
               </Text>
@@ -1173,7 +1173,7 @@ function Keypad({ onPress, colors }: { onPress: (value: string) => void; colors:
   const keys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0', 'backspace'];
   return (
     <View style={{ backgroundColor: colors.background }}>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8 }}>
         {keys.map((key) => {
           const isBackspace = key === 'backspace';
           return (
@@ -1181,19 +1181,19 @@ function Keypad({ onPress, colors }: { onPress: (value: string) => void; colors:
               key={key}
               onPress={() => onPress(key)}
               style={{
-                width: '33.3333%',
-                paddingVertical: 14,
+                width: '31%',
+                margin: '1%',
+                paddingVertical: 16,
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: 12,
                 borderWidth: 1,
                 borderColor: colors.border,
                 backgroundColor: isBackspace ? colors.card : colors.background,
-                marginVertical: 4,
               }}
             >
-              <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: '700' }}>
-                {isBackspace ? 'Back' : key}
+              <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '600' }}>
+                {isBackspace ? '⌫' : key}
               </Text>
             </TouchableOpacity>
           );

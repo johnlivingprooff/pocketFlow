@@ -183,20 +183,37 @@ export async function initializeReminderNotifications(): Promise<void> {
 
   await ensureReminderChannel();
 
+  // Industry standard: Set up notification handler but ONLY schedule if user enabled
   Notifications.setNotificationHandler({
     handleNotification: async (notification: any) => {
+      // Non-reminder notifications always show
       if (!isReminderNotification(notification)) {
         return reminderBehavior(true);
       }
 
       const data = getReminderData(notification);
+      const state = useSettings.getState();
+
+      // Industry standard: Check if reminders are explicitly enabled
+      // If disabled, don't show (just like Gmail filter emails)
+      if (!state.remindersEnabled) {
+        warn('[Reminder] Reminders disabled - not showing notification');
+        // Still schedule for later if re-enabled
+        setTimeout(() => {
+          void scheduleNextEligibleReminder('reminders_re_enabled');
+        }, 0);
+        return reminderBehavior(false);
+      }
 
       // Test notifications should always show without delivery gate checks
       if (data.isTest) {
+        // Clear badge for test notifications (industry standard)
+        if (typeof Notifications.setBadgeCountAsync === 'function') {
+          await Notifications.setBadgeCountAsync(0);
+        }
         return reminderBehavior(true);
       }
 
-      const state = useSettings.getState();
       const now = new Date();
       const gate = evaluateReminderDeliveryGate({
         now,
@@ -216,11 +233,20 @@ export async function initializeReminderNotifications(): Promise<void> {
         return reminderBehavior(false);
       }
 
-      // Log successful delivery with timestamp validation
+      // Industry standard: Clear badge when notification is delivered
       log('[Reminder] Notification delivered and gate passed', {
         deliveredAt: now.toString(),
         lastDeliveredBefore: state.reminderLastDeliveredAtUtc,
       });
+      
+      // Clear badge count (like Gmail)
+      if (typeof Notifications.setBadgeCountAsync === 'function') {
+        try {
+          await Notifications.setBadgeCountAsync(0);
+        } catch (e) {
+          // Badge clearing is best-effort
+        }
+      }
 
       state.setReminderLastDelivered(now.toISOString(), formatLocalDate(now));
       state.setReminderNextScheduledAtUtc(null);
@@ -292,6 +318,7 @@ export async function scheduleNextEligibleReminder(reason: string = 'reschedule'
     await initializeReminderNotifications();
     const state = useSettings.getState();
 
+    // Industry standard: Don't schedule if reminders are disabled
     if (!state.remindersEnabled) {
       await cancelReminderSchedule('reminders_disabled');
       return;
@@ -299,15 +326,12 @@ export async function scheduleNextEligibleReminder(reason: string = 'reschedule'
 
     const permission = await syncReminderPermissionStatus();
 
-    // Request permission if not granted (for Android 13+ and initial setup)
+    // Industry standard: Don't auto-request permission if revoked
+    // Just disable reminders and wait for user to manually re-enable
     if (permission !== 'granted') {
-      const newPermission = await requestReminderPermission();
-      if (newPermission !== 'granted') {
-        // Keep reminder state coherent when permission was revoked outside the app.
-        state.setRemindersEnabled(false);
-        await cancelReminderSchedule('permission_not_granted');
-        return;
-      }
+      state.setRemindersEnabled(false);
+      await cancelReminderSchedule('permission_not_granted');
+      return;
     }
 
     const now = new Date();
@@ -397,14 +421,11 @@ export async function runReminderRuntimeGateCheck(source: string = 'runtime'): P
 
     const status = await syncReminderPermissionStatus();
 
+    // Only schedule if permission is already granted - don't auto-request permission
     if (status !== 'granted') {
-      // Request permission if not granted
-      const newPermission = await requestReminderPermission();
-      if (newPermission !== 'granted') {
-        state.setRemindersEnabled(false);
-        await cancelReminderSchedule(`runtime_${source}_permission_denied`);
-        return;
-      }
+      // Permission not granted - quietly skip scheduling without prompting
+      warn(`[Reminder] Runtime gate check skipped: permission ${status}`);
+      return;
     }
 
     await scheduleNextEligibleReminder(`runtime_${source}`);

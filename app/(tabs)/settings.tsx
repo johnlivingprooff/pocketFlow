@@ -99,6 +99,7 @@ export default function SettingsScreen() {
   const [csvExports, setCsvExports] = useState<Array<{ filename: string; uri: string; date: Date }>>([]);
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [showCsvRestoreModal, setShowCsvRestoreModal] = useState(false);
+  const [showBackupOptions, setShowBackupOptions] = useState(false);
   const [isLoadingBackup, setIsLoadingBackup] = useState(false);
   const [versionTapCount, setVersionTapCount] = useState(0);
   const [showDevOptions, setShowDevOptions] = useState(false);
@@ -407,9 +408,9 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Security Section */}
+        {/* Other Settings */}
         <View style={styles.section}>
-          {renderSectionHeader('SECURITY')}
+          {renderSectionHeader('OTHER SETTINGS')}
           <View style={[styles.listContainer, { backgroundColor: t.card, borderColor: t.border }]}>
             <TouchableOpacity
               activeOpacity={TAP_OPACITY}
@@ -420,42 +421,14 @@ export default function SettingsScreen() {
                 <SecurityShieldIcon size={24} color={t.primary} />
               </View>
               <View style={styles.listItemContent}>
-                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Security Settings</Text>
-                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>Passcode, Privacy, App Lock</Text>
-              </View>
-              <View style={styles.listItemRight}>
-                <Text style={[styles.statusText, { color: biometricEnabled ? t.success : t.textSecondary }]}>
-                  {biometricEnabled ? 'Active' : 'Setup'}
+                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Privacy Lock</Text>
+                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>
+                  {biometricAvailable && biometricEnabled ? `${biometricType} enabled` : 'Setup protection'}
                 </Text>
-                <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
               </View>
+              <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
             </TouchableOpacity>
 
-            <View style={styles.listItem}>
-              <View style={[styles.listIconLeft, { width: 32 }]}>
-                <FingerprintIcon size={24} color={t.primary} />
-              </View>
-              <View style={styles.listItemContent}>
-                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Biometric Unlock</Text>
-                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>
-                  {biometricAvailable ? `Use ${biometricType} to open app` : 'Not available'}
-                </Text>
-              </View>
-              <Switch
-                value={biometricEnabled}
-                onValueChange={handleBiometricToggle}
-                disabled={!biometricAvailable}
-                trackColor={{ false: t.border, true: `${t.primary}80` }}
-                thumbColor={biometricEnabled ? t.primary : t.textSecondary}
-              />
-            </View>
-          </View>
-        </View>
-
-        {/* Data Tools */}
-        <View style={styles.section}>
-          {renderSectionHeader('DATA & STORAGE')}
-          <View style={[styles.listContainer, { backgroundColor: t.card, borderColor: t.border }]}> 
             <TouchableOpacity
               activeOpacity={TAP_OPACITY}
               onPress={() => router.push('/settings/shared-wallets')}
@@ -467,7 +440,7 @@ export default function SettingsScreen() {
               <View style={styles.listItemContent}>
                 <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Shared Wallets</Text>
                 <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>
-                  {cloudSessionState === 'authenticated' ? 'Manage sharing and invites' : 'Sign in required'}
+                  {cloudSessionState === 'authenticated' ? 'Manage sharing' : 'Sign in required'}
                 </Text>
               </View>
               <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
@@ -487,71 +460,32 @@ export default function SettingsScreen() {
               <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleExportCSV} style={[styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1 }]}>
-              <View style={[styles.listIconLeft, { width: 32 }]}>
-                <ExportIcon size={24} color={t.primary} />
-              </View>
-              <View style={styles.listItemContent}>
-                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Export CSV</Text>
-              </View>
-              <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowCsvRestoreModal(true)} style={[styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1 }]}>
-              <View style={[styles.listIconLeft, { width: 32 }]}>
-                <CsvIcon size={24} color={t.primary} />
-              </View>
-              <View style={styles.listItemContent}>
-                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Restore CSV History</Text>
-                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>{csvExports.length ? `${csvExports.length} available` : 'None found'}</Text>
-              </View>
-              <Text style={[styles.chevron, { color: t.textTertiary }]}>â€º</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleCreateBackup} disabled={isLoadingBackup} style={[styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1, opacity: isLoadingBackup ? 0.6 : 1 }]}>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowBackupOptions(true)} style={[styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1 }]}>
               <View style={[styles.listIconLeft, { width: 32 }]}>
                 <BackupIcon size={24} color={t.primary} />
               </View>
               <View style={styles.listItemContent}>
-                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Create Backup</Text>
-                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>{isLoadingBackup ? 'Processing...' : 'Save data locally'}</Text>
+                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Backup Options</Text>
+                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>Create or restore backups</Text>
               </View>
               <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowBackupModal(true)} style={styles.listItem}>
-              <View style={[styles.listIconLeft, { width: 32 }]}>
-                <Text style={{ fontSize: 24, color: t.primary, lineHeight: 24 }}>↺</Text>
-              </View>
-              <View style={styles.listItemContent}>
-                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Restore Backup</Text>
-                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>{backups.length ? `${backups.length} available` : 'None found'}</Text>
-              </View>
-              <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Support & About */}
-        <View style={styles.section}>
-          {renderSectionHeader('ABOUT')}
-          <View style={[styles.listContainer, { backgroundColor: t.card, borderColor: t.border }]}> 
             <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleFeedback} style={[styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1 }]}>
               <View style={styles.listItemContent}>
                 <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Send Feedback</Text>
-                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>Help us improve pocketFlow</Text>
+                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>Help us improve</Text>
               </View>
               <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
             </TouchableOpacity>
-          </View>
 
-          <TouchableOpacity
-            activeOpacity={TAP_OPACITY}
-            onPress={handleVersionTap}
-            style={{ alignItems: 'center', paddingVertical: 12 }}
-          >
-            <Text style={[styles.versionPlainText, { color: t.textSecondary }]}>v{APP_VERSION}</Text>
-          </TouchableOpacity>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleVersionTap} style={styles.listItem}>
+              <View style={styles.listItemContent}>
+                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>About</Text>
+                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>v{APP_VERSION}</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Developer Options */}
@@ -711,6 +645,99 @@ export default function SettingsScreen() {
         </View>
       </Modal>
 
+      {/* Backup Options Drawer */}
+      <Modal visible={showBackupOptions} transparent animationType="slide" onRequestClose={() => setShowBackupOptions(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: t.card, borderColor: t.border, marginTop: 'auto' }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: t.border }]}>
+              <Text style={[styles.modalTitle, { color: t.textPrimary }]}>Backup Options</Text>
+              <Text style={[styles.modalSubtitle, { color: t.textSecondary }]}>Manage your data backups</Text>
+            </View>
+            <ScrollView style={{ maxHeight: 400 }}>
+              <TouchableOpacity
+                activeOpacity={TAP_OPACITY}
+                onPress={() => {
+                  setShowBackupOptions(false);
+                  handleCreateBackup();
+                }}
+                style={[styles.modalItem, { borderBottomColor: t.border }]}
+                disabled={isLoadingBackup}
+              >
+                <View style={[styles.listIconLeft, { width: 28 }]}>
+                  <BackupIcon size={20} color={t.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.modalItemTitle, { color: t.textPrimary }]}>Create Full Backup</Text>
+                  <Text style={[styles.modalItemDesc, { color: t.textSecondary }]}>JSON: Everything in database</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={TAP_OPACITY}
+                onPress={() => {
+                  setShowBackupOptions(false);
+                  handleExportCSV();
+                }}
+                style={[styles.modalItem, { borderBottomColor: t.border }]}
+              >
+                <View style={[styles.listIconLeft, { width: 28 }]}>
+                  <ExportIcon size={20} color={t.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.modalItemTitle, { color: t.textPrimary }]}>Export Transaction History</Text>
+                  <Text style={[styles.modalItemDesc, { color: t.textSecondary }]}>CSV: Transactions only</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={TAP_OPACITY}
+                onPress={() => {
+                  setShowBackupOptions(false);
+                  setShowBackupModal(true);
+                }}
+                style={[styles.modalItem, { borderBottomColor: t.border }]}
+              >
+                <View style={[styles.listIconLeft, { width: 28 }]}>
+                  <Text style={{ fontSize: 18, color: t.primary, lineHeight: 18 }}>↺</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.modalItemTitle, { color: t.textPrimary }]}>Restore Full Backup</Text>
+                  <Text style={[styles.modalItemDesc, { color: t.textSecondary }]}>{backups.length ? `${backups.length} backup(s) available` : 'No backups found'}</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={TAP_OPACITY}
+                onPress={() => {
+                  setShowBackupOptions(false);
+                  setShowCsvRestoreModal(true);
+                }}
+                style={styles.modalItem}
+              >
+                <View style={[styles.listIconLeft, { width: 28 }]}>
+                  <CsvIcon size={20} color={t.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.modalItemTitle, { color: t.textPrimary }]}>Restore from CSV</Text>
+                  <Text style={[styles.modalItemDesc, { color: t.textSecondary }]}>{csvExports.length ? `${csvExports.length} export(s) available` : 'No exports found'}</Text>
+                </View>
+              </TouchableOpacity>
+            </ScrollView>
+
+            <View style={{ padding: 16, backgroundColor: `${t.primary}08`, margin: 16, borderRadius: 8 }}>
+              <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '700', marginBottom: 4 }}>Backup locations</Text>
+              <Text style={{ color: t.textSecondary, fontSize: 11 }}>
+                JSON & CSV files are stored in: pocketflow_backup/ folder in your device storage.
+              </Text>
+            </View>
+
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowBackupOptions(false)} style={[styles.modalCloseButton, { borderTopColor: t.border }]}>
+              <Text style={[styles.modalCloseText, { color: t.primary }]}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <ThemedAlert
         visible={alertConfig.visible}
         title={alertConfig.title}
@@ -728,7 +755,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: 20,
     paddingBottom: 40,
-    paddingTop: 10,
+    paddingTop: 20,
   },
   header: {
     marginBottom: 20,

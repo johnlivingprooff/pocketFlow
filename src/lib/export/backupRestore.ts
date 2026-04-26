@@ -69,17 +69,17 @@ export async function createBackup(): Promise<{ success: boolean; uri?: string; 
       },
     };
 
-    // Create backups directory
-    const backupsDir = `${documentDir}backups`;
+    // Create pocketflow_backup directory
+    const backupDirPath = `${documentDir}pocketflow_backup`;
     try {
-      await FileSystem.makeDirectoryAsync(backupsDir, { intermediates: true });
+      await FileSystem.makeDirectoryAsync(backupDirPath, { intermediates: true });
     } catch (e) {
       // Directory might already exist
     }
 
     // Create backup file with timestamp
     const filename = `pocketFlow_backup_${Date.now()}.json`;
-    const fileUri = `${backupsDir}/${filename}`;
+    const fileUri = `${backupDirPath}/${filename}`;
     await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(backupData, null, 2), {
       encoding: FileSystem.EncodingType.UTF8,
     });
@@ -101,15 +101,15 @@ export async function listBackups(): Promise<{ filename: string; uri: string; da
       throw new Error('Document directory not available');
     }
 
-    const backupsDir = `${documentDir}backups`;
+    const backupDirPath = `${documentDir}pocketflow_backup`;
     
-    // Check if backups directory exists
-    const dirInfo = await FileSystem.getInfoAsync(backupsDir);
+    // Check if pocketflow_backup directory exists
+    const dirInfo = await FileSystem.getInfoAsync(backupDirPath);
     if (!dirInfo.exists) {
       return [];
     }
 
-    const files = await FileSystem.readDirectoryAsync(backupsDir);
+    const files = await FileSystem.readDirectoryAsync(backupDirPath);
     const backups = files
       .filter((f) => f.startsWith('pocketFlow_backup_') && f.endsWith('.json'))
       .map((f) => {
@@ -117,7 +117,7 @@ export async function listBackups(): Promise<{ filename: string; uri: string; da
         const timestamp = match ? parseInt(match[1]) : 0;
         return {
           filename: f,
-          uri: `${backupsDir}/${f}`,
+          uri: `${backupDirPath}/${f}`,
           date: new Date(timestamp),
         };
       })

@@ -32,10 +32,8 @@ export const ChartIcon: React.FC<IconProps> = ({ size = 24, color = '#000' }) =>
 );
 
 export const SettingsIcon: React.FC<IconProps> = ({ size = 24, color = '#000' }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <Circle cx="12" cy="12" r="10" />
-    <Path d="M9 9.5c0-.83.895-1.5 2-1.5s2 .67 2 1.5-1 1.5-2 1.5v1" />
-    <Line x1="12" y1="17" x2="12" y2="17" />
   </Svg>
 );
 export const PlusIcon: React.FC<IconProps> = ({ size = 24, color = '#000' }) => (
