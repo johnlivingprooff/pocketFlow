@@ -1,6 +1,6 @@
 {
   "name": "pocketflow",
-  "version": "2026.4.20",
+  "version": "2026.5.03",
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
