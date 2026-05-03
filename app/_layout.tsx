@@ -2,8 +2,7 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { Platform, View, ActivityIndicator, useColorScheme, AppState, AppStateStatus, Text, TouchableOpacity, StyleSheet, Image, TextStyle } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { useSettings } from '../src/store/useStore';
-import { useUI } from '../src/store/useStore';
+import { useSettings, useUI, syncReminderPermissionStatus } from '../src/store/useStore';
 import { useOnboarding } from '../src/store/useOnboarding';
 import { ensureTables, initDb } from '../src/lib/db';
 // Removed legacy write queue import (migrated to Nitro SQLite)
@@ -67,8 +66,6 @@ export default function RootLayout() {
           // Wait a moment for settings to hydrate from AsyncStorage
           // This ensures we read actual persisted values, not defaults
           await new Promise(resolve => setTimeout(resolve, 500));
-          
-          const { useSettings, syncReminderPermissionStatus } = await import('./src/store/useStore');
           
           // Sync permission status with system (in case it changed)
           await syncReminderPermissionStatus();
