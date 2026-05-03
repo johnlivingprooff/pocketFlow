@@ -21,7 +21,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.eiteone.pocketflow",
-      "buildNumber": "2026.4.20"
+      "buildNumber": "2026.5.3"
     },
     "android": {
       "adaptiveIcon": {
