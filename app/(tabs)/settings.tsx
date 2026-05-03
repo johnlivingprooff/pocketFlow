@@ -22,7 +22,7 @@ import { useAlert } from '../../src/lib/hooks/useAlert';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
 import { ThemePreview } from '../../src/components/ThemePreview';
 
-const APP_VERSION = "2026.4.20";
+const APP_VERSION = "2026.5.3";
 const TAP_OPACITY = 0.7;
 
 // --- Custom Premium Icons for Settings Grid ---
