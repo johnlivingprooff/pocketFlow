@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Platform, Modal, useColorScheme, KeyboardAvoidingView, Switch } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Platform, Modal, useColorScheme, KeyboardAvoidingView, Switch, Keyboard, Animated } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -7,7 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useSettings } from '../../src/store/useStore';
 import { useUI } from '../../src/store/useStore';
-import { theme, ThemeMode } from '../../src/theme/theme';
+import { theme, ThemeMode, shadows } from '../../src/theme/theme';
 import { addTransaction, transferBetweenWallets, updateTransaction, getById, deleteTransaction } from '../../src/lib/db/transactions';
 import { CalendarModal } from '@/components/CalendarModal';
 import { formatShortDate } from '../../src/utils/date';
@@ -65,6 +65,28 @@ export default function AddTransactionScreen() {
   }>({ visible: false, title: '', message: '', buttons: [] });
   const [showMore, setShowMore] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Keyboard state for floating tick button
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const floatingButtonOpacity = useState(new Animated.Value(0))[0];
+  const floatingButtonTranslateY = useState(new Animated.Value(100))[0];
+
+  useEffect(() => {
+    const showListener = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => {
+      setKeyboardVisible(true);
+      Animated.parallel([
+        Animated.timing(floatingButtonOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+        Animated.timing(floatingButtonTranslateY, { toValue: 0, duration: 250, useNativeDriver: true }),
+      ]).start();
+    });
+    const hideListener = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => {
+      Animated.parallel([
+        Animated.timing(floatingButtonOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+        Animated.timing(floatingButtonTranslateY, { toValue: 100, duration: 200, useNativeDriver: true }),
+      ]).start(() => setKeyboardVisible(false));
+    });
+    return () => { showListener.remove(); hideListener.remove(); };
+  }, []);
 
   const displayCurrency = useMemo(() => {
     const selected = wallets.find((w) => w.id === walletId);
@@ -912,6 +934,35 @@ export default function AddTransactionScreen() {
           themeMode={themeMode as ThemeMode}
           systemColorScheme={systemColorScheme || 'light'}
         />
+
+        {/* Floating tick button - appears above keyboard */}
+        {keyboardVisible && isValidAmount && !isSaving && (
+          <Animated.View
+            style={{
+              position: 'absolute',
+              bottom: Platform.OS === 'ios' ? 20 : 40,
+              right: 20,
+              opacity: floatingButtonOpacity,
+              transform: [{ translateY: floatingButtonTranslateY }],
+            }}
+          >
+            <TouchableOpacity
+              onPress={onSave}
+              disabled={!isValidAmount || isSaving || (type === 'transfer' && !toWalletId)}
+              style={{
+                backgroundColor: !isValidAmount || isSaving || (type === 'transfer' && !toWalletId) ? t.border : t.primary,
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                justifyContent: 'center',
+                alignItems: 'center',
+                ...shadows.lg,
+              }}
+            >
+              <Text style={{ color: '#fff', fontSize: 32, fontWeight: '600', lineHeight: 32 }}>✓</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
