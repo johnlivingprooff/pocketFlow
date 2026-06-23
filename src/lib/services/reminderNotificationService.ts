@@ -1,537 +1,193 @@
 import { Platform } from 'react-native';
-// @ts-ignore - expo-modules-core is available via expo
-import { requireNativeModule } from 'expo-modules-core';
+import * as Notifications from 'expo-notifications';
+import { SchedulableTriggerInputTypes } from 'expo-notifications';
 
-import { log, warn, error as logError } from '@/utils/logger';
+import { log, warn } from '@/utils/logger';
 import { useSettings, ReminderPermissionStatus } from '@/store/useStore';
 import {
-  computeNextEligibleReminder,
-  evaluateReminderDeliveryGate,
-  formatLocalDate,
+  isInsideQuietHours,
   DEFAULT_REMINDER_BODY,
   DEFAULT_REMINDER_TITLE,
 } from './reminderEligibility';
 
-// Safe lazy import of Notifications
-let Notifications: any = null;
-
-export async function getNotifications() {
-  if (Notifications) return Notifications;
-  try {
-    // Probe for native module first to avoid noisy load errors
-    try {
-      requireNativeModule('ExpoPushTokenManager');
-    } catch (e) {
-      // Native module missing - don't even try to import the JS package
-      // as it might contain top-level native requirements
-      warn('[Reminder] ExpoPushTokenManager native module not found');
-      return null;
-    }
-
-    // Dynamic import to avoid crash if native module is missing on load
-    Notifications = await import('expo-notifications');
-    return Notifications;
-  } catch (error) {
-    logError('[Reminder] Failed to load expo-notifications module', { error: String(error) });
-    return null;
-  }
-}
-
 export const REMINDER_CHANNEL_ID = 'expense-log-reminder';
+export const REMINDER_NOTIFICATION_ID = 'daily-expense-reminder';
 export const REMINDER_NOTIFICATION_KIND = 'expense_log_reminder';
 export const REMINDER_DEEP_LINK = '/transactions/add?type=expense';
 
-let remindersInitialized = false;
+// Set up the foreground handler once at module load (not inside a function).
+// Returns shouldShowAlert: false during quiet hours so the notification is
+// silently delivered but not shown as a banner.
+Notifications.setNotificationHandler({
+  handleNotification: async () => {
+    const { reminderQuietHoursStart, reminderQuietHoursEnd, remindersEnabled } =
+      useSettings.getState();
+    const show =
+      remindersEnabled &&
+      !isInsideQuietHours(new Date(), reminderQuietHoursStart, reminderQuietHoursEnd);
+    return {
+      shouldShowBanner: show,
+      shouldShowList: show,
+      shouldPlaySound: show,
+      shouldSetBadge: false,
+    };
+  },
+});
 
-interface ReminderNotificationData {
-  kind?: string;
-  deepLink?: string;
-  isTest?: boolean;
-  testCountsAsReal?: boolean;
-}
-
-function toReminderPermissionStatus(permissions: any): ReminderPermissionStatus { // Use any to avoid deep type deps if module missing
-  if (!permissions) return 'denied';
-
-  if (permissions.granted) {
-    return 'granted';
-  }
-
-  // IOS Provisisonal check - safe navigation
-  const isProvisional =
-    permissions.ios?.status === 3; // 3 is PROVISIONAL key in enum usually, but let's check structure if needed.
-  // Actually, let's trust the property access
-
-  // Safe access to imported enum if possible, or just check value
-  // Notifications.IosAuthorizationStatus.PROVISIONAL
-
-  if (Notifications && permissions.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL) {
-    return 'granted';
-  }
-
-  return permissions.canAskAgain ? 'undetermined' : 'denied';
-}
-
-function getReminderData(notification: any): ReminderNotificationData {
-  return (notification.request.content.data || {}) as ReminderNotificationData;
-}
-
-function isReminderNotification(notification: any): boolean {
-  const data = getReminderData(notification);
-  return data.kind === REMINDER_NOTIFICATION_KIND;
-}
-
-function reminderBehavior(shouldShowAlert: boolean): any {
-  return {
-    shouldShowAlert,
-    shouldShowBanner: shouldShowAlert,
-    shouldShowList: shouldShowAlert,
-    shouldPlaySound: shouldShowAlert,
-    shouldSetBadge: false,
-  };
-}
-
-async function ensureReminderChannel(): Promise<void> {
-  if (Platform.OS !== 'android') {
-    return;
-  }
-
-  const Notifications = await getNotifications();
-  if (!Notifications || typeof Notifications.setNotificationChannelAsync !== 'function') {
-    warn('[Reminder] Notifications.setNotificationChannelAsync is not available');
-    return;
-  }
-
+async function ensureChannel(): Promise<void> {
+  if (Platform.OS !== 'android') return;
   await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
     name: 'Expense reminders',
     description: 'Daily reminder to log expenses',
-    importance: Notifications.AndroidImportance ? Notifications.AndroidImportance.HIGH : 4,
+    importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility ? Notifications.AndroidNotificationVisibility.PUBLIC : 1,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     sound: 'default',
   });
 }
 
-export async function syncReminderPermissionStatus(): Promise<ReminderPermissionStatus> {
-  const Notifications = await getNotifications();
-  if (!Notifications || typeof Notifications.getPermissionsAsync !== 'function') {
-    warn('[Reminder] Notifications.getPermissionsAsync is not available');
-    return 'denied';
-  }
+function parsePreferredTime(timeLocal: string): { hour: number; minute: number } {
+  const [h, m] = timeLocal.split(':').map(Number);
+  return { hour: Number.isFinite(h) ? h : 20, minute: Number.isFinite(m) ? m : 0 };
+}
 
-  const permissions = await Notifications.getPermissionsAsync();
-  const status = toReminderPermissionStatus(permissions);
+function toReminderPermissionStatus(
+  result: Notifications.NotificationPermissionsStatus
+): ReminderPermissionStatus {
+  if (result.granted) return 'granted';
+  if (
+    result.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL ||
+    result.ios?.status === Notifications.IosAuthorizationStatus.EPHEMERAL
+  ) {
+    return 'granted';
+  }
+  return result.canAskAgain ? 'undetermined' : 'denied';
+}
+
+export async function syncReminderPermissionStatus(): Promise<ReminderPermissionStatus> {
+  const result = await Notifications.getPermissionsAsync();
+  const status = toReminderPermissionStatus(result);
   useSettings.getState().setReminderPermissionStatus(status);
   return status;
 }
 
-export async function canAskForReminderPermissionAgain(): Promise<boolean> {
-  const Notifications = await getNotifications();
-  if (!Notifications || typeof Notifications.canAskForPermissionsAsync !== 'function') {
-    warn('[Reminder] Notifications.canAskForPermissionsAsync is not available');
-    return false;
-  }
-
-  try {
-    return await Notifications.canAskForPermissionsAsync();
-  } catch (error) {
-    logError('[Reminder] Failed to check canAskForPermissionsAsync', { error: String(error) });
-    return false;
-  }
-}
-
 export async function requestReminderPermission(): Promise<ReminderPermissionStatus> {
-  const Notifications = await getNotifications();
-  if (!Notifications || typeof Notifications.requestPermissionsAsync !== 'function' || typeof Notifications.canAskForPermissionsAsync !== 'function') {
-    warn('[Reminder] Notifications permission methods are not available');
-    return 'denied';
-  }
-
-  // First check if we can ask for permissions
-  const canAsk = await Notifications.canAskForPermissionsAsync();
-
-  if (!canAsk) {
-    // Permission already denied, get current status
-    const permissions = await Notifications.getPermissionsAsync();
-    const status = toReminderPermissionStatus(permissions);
-    useSettings.getState().setReminderPermissionStatus(status);
-    return status;
-  }
-
   const result = await Notifications.requestPermissionsAsync({
-    ios: {
-      allowAlert: true,
-      allowSound: true,
-      allowBadge: false,
-    },
+    ios: { allowAlert: true, allowSound: true, allowBadge: false },
   });
   const status = toReminderPermissionStatus(result);
   useSettings.getState().setReminderPermissionStatus(status);
   return status;
 }
 
-export async function initializeReminderNotifications(): Promise<void> {
-  if (remindersInitialized) {
-    return;
-  }
+export async function canAskForReminderPermissionAgain(): Promise<boolean> {
+  const result = await Notifications.getPermissionsAsync();
+  return result.canAskAgain;
+}
 
-  const Notifications = await getNotifications();
-  if (!Notifications || typeof Notifications.setNotificationHandler !== 'function') {
-    warn('[Reminder] Notifications.setNotificationHandler is not available');
-    return;
-  }
+/** Schedule (or reschedule) the single daily repeating reminder. */
+export async function scheduleReminder(preferredTimeLocal: string): Promise<void> {
+  await ensureChannel();
+  // Cancel any existing reminder before scheduling a new one.
+  await Notifications.cancelScheduledNotificationAsync(REMINDER_NOTIFICATION_ID).catch(() => {});
 
-  await ensureReminderChannel();
+  const { hour, minute } = parsePreferredTime(preferredTimeLocal);
 
-  // Industry standard: Set up notification handler but ONLY schedule if user enabled
-  Notifications.setNotificationHandler({
-    handleNotification: async (notification: any) => {
-      // Non-reminder notifications always show
-      if (!isReminderNotification(notification)) {
-        return reminderBehavior(true);
-      }
-
-      const data = getReminderData(notification);
-      const state = useSettings.getState();
-
-      // Industry standard: Check if reminders are explicitly enabled
-      // If disabled, don't show (just like Gmail filter emails)
-      if (!state.remindersEnabled) {
-        warn('[Reminder] Reminders disabled - not showing notification');
-        // Don't schedule - user will explicitly enable when ready
-        return reminderBehavior(false);
-      }
-
-      // Test notifications should always show without delivery gate checks
-      if (data.isTest) {
-        // Clear badge for test notifications (industry standard)
-        if (typeof Notifications.setBadgeCountAsync === 'function') {
-          await Notifications.setBadgeCountAsync(0);
-        }
-        return reminderBehavior(true);
-      }
-
-      const now = new Date();
-      const gate = evaluateReminderDeliveryGate({
-        now,
-        remindersEnabled: state.remindersEnabled,
-        permissionGranted: state.reminderPermissionStatus === 'granted',
-        quietHoursStart: state.reminderQuietHoursStart,
-        quietHoursEnd: state.reminderQuietHoursEnd,
-        lastDeliveredAtUtc: state.reminderLastDeliveredAtUtc,
-        lastDeliveredLocalDate: state.reminderLastDeliveredLocalDate,
-      });
-
-      if (!gate.allowed) {
-        warn(`[Reminder] Delivery blocked by gate: ${gate.reason}`);
-        setTimeout(() => {
-          void scheduleNextEligibleReminder(`delivery_gate_blocked_${gate.reason}`);
-        }, 0);
-        return reminderBehavior(false);
-      }
-
-      // Industry standard: Clear badge when notification is delivered
-      log('[Reminder] Notification delivered and gate passed', {
-        deliveredAt: now.toString(),
-        lastDeliveredBefore: state.reminderLastDeliveredAtUtc,
-      });
-      
-      // Clear badge count (like Gmail)
-      if (typeof Notifications.setBadgeCountAsync === 'function') {
-        try {
-          await Notifications.setBadgeCountAsync(0);
-        } catch (e) {
-          // Badge clearing is best-effort
-        }
-      }
-
-      state.setReminderLastDelivered(now.toISOString(), formatLocalDate(now));
-      state.setReminderNextScheduledAtUtc(null);
-
-      setTimeout(() => {
-        void scheduleNextEligibleReminder('delivery_success');
-      }, 0);
-
-      return reminderBehavior(true);
+  await Notifications.scheduleNotificationAsync({
+    identifier: REMINDER_NOTIFICATION_ID,
+    content: {
+      title: DEFAULT_REMINDER_TITLE,
+      body: DEFAULT_REMINDER_BODY,
+      data: { kind: REMINDER_NOTIFICATION_KIND, deepLink: REMINDER_DEEP_LINK },
+      ...(Platform.OS === 'android' && { android: { channelId: REMINDER_CHANNEL_ID } }),
+    },
+    trigger: {
+      type: SchedulableTriggerInputTypes.DAILY,
+      hour,
+      minute,
+      ...(Platform.OS === 'android' && { channelId: REMINDER_CHANNEL_ID }),
     },
   });
 
-  remindersInitialized = true;
+  log('[Reminder] Daily reminder scheduled', { hour, minute });
 }
 
-export async function cancelReminderSchedule(reason: string = 'cancelled'): Promise<void> {
-  try {
-    const Notifications = await getNotifications();
-    if (!Notifications || typeof Notifications.getAllScheduledNotificationsAsync !== 'function' || typeof Notifications.cancelScheduledNotificationAsync !== 'function') {
-      warn('[Reminder] Notification scheduling methods are not available');
-      return;
-    }
-
-    const pending = await Notifications.getAllScheduledNotificationsAsync();
-    const reminderNotifications = pending.filter((item: any) => {
-      const data = (item.content.data || {}) as ReminderNotificationData;
-      return data.kind === REMINDER_NOTIFICATION_KIND && !data.isTest;
-    });
-
-    await Promise.all(
-      reminderNotifications.map((item: any) =>
-        Notifications!.cancelScheduledNotificationAsync(item.identifier)
-      )
-    );
-
-    useSettings.getState().setReminderNextScheduledAtUtc(null);
-    log(`[Reminder] Cancelled ${reminderNotifications.length} scheduled reminder(s): ${reason}`);
-  } catch (error) {
-    logError('[Reminder] Failed to cancel scheduled reminders', { reason, error: String(error) });
-  }
+export async function cancelReminder(): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(REMINDER_NOTIFICATION_ID).catch(() => {});
+  log('[Reminder] Daily reminder cancelled');
 }
 
-async function buildReminderContent(): Promise<any> {
-  const Notifications = await getNotifications();
-  if (!Notifications) return {}; // fallback
-
-  return {
-    title: DEFAULT_REMINDER_TITLE,
-    body: DEFAULT_REMINDER_BODY,
-    data: {
-      kind: REMINDER_NOTIFICATION_KIND,
-      deepLink: REMINDER_DEEP_LINK,
-      isTest: false,
-    },
-    ...(Platform.OS === 'android'
-      ? {
-        android: {
-          channelId: REMINDER_CHANNEL_ID,
-          priority: Notifications.AndroidNotificationPriority ? Notifications.AndroidNotificationPriority.HIGH : 2,
-          vibrationPattern: [0, 250, 250, 250],
-        },
-      }
-      : {}),
-  };
-}
-
-export async function scheduleNextEligibleReminder(reason: string = 'reschedule'): Promise<void> {
-  try {
-    await initializeReminderNotifications();
-    const state = useSettings.getState();
-
-    // Industry standard: Don't schedule if reminders are disabled
-    if (!state.remindersEnabled) {
-      await cancelReminderSchedule('reminders_disabled');
-      return;
-    }
-
-    const permission = await syncReminderPermissionStatus();
-
-    // Industry standard: Don't auto-request permission if revoked
-    // Just disable reminders and wait for user to manually re-enable
-    if (permission !== 'granted') {
-      state.setRemindersEnabled(false);
-      await cancelReminderSchedule('permission_not_granted');
-      return;
-    }
-
-    const now = new Date();
-    let eligibility = computeNextEligibleReminder({
-      now,
-      preferredTimeLocal: state.reminderPreferredTimeLocal,
-      quietHoursStart: state.reminderQuietHoursStart,
-      quietHoursEnd: state.reminderQuietHoursEnd,
-      lastDeliveredAtUtc: state.reminderLastDeliveredAtUtc,
-      lastDeliveredLocalDate: state.reminderLastDeliveredLocalDate,
-    });
-
-    // CRITICAL FIX: Validate that the scheduled time is in the future with a buffer.
-    // Without this check, if candidateLocal is within seconds of "now", expo-notifications
-    // will immediately deliver the notification, triggering handleNotification() which
-    // reschedules, creating a rapid loop of notifications while the app is open.
-    const MIN_SCHEDULE_BUFFER_MS = 5000; // 5 seconds minimum buffer
-    const scheduledTimeMs = eligibility.candidateLocal.getTime();
-    const nowMs = now.getTime();
-    const timeUntilScheduledMs = scheduledTimeMs - nowMs;
-
-    if (timeUntilScheduledMs < MIN_SCHEDULE_BUFFER_MS) {
-      // Scheduled time is too close or in the past - force next day's reminder
-      log('[Reminder] Computed reminder time is in past/too close. Pushing to next day.', {
-        scheduledTime: eligibility.candidateLocal.toString(),
-        bufferMs: timeUntilScheduledMs,
-        minRequiredMs: MIN_SCHEDULE_BUFFER_MS,
-      });
-
-      const nextDayCandidate = new Date(eligibility.candidateLocal.getTime());
-      nextDayCandidate.setDate(nextDayCandidate.getDate() + 1);
-
-      // Recompute eligibility for the next day to apply quiet hours and spacing rules
-      eligibility = computeNextEligibleReminder({
-        now: nextDayCandidate,
-        preferredTimeLocal: state.reminderPreferredTimeLocal,
-        quietHoursStart: state.reminderQuietHoursStart,
-        quietHoursEnd: state.reminderQuietHoursEnd,
-        lastDeliveredAtUtc: state.reminderLastDeliveredAtUtc,
-        lastDeliveredLocalDate: state.reminderLastDeliveredLocalDate,
-      });
-    }
-
-    // Single-slot scheduling: clear previous future reminders and keep exactly one.
-    await cancelReminderSchedule('single_slot_reschedule');
-
-    const Notifications = await getNotifications();
-    if (!Notifications || typeof Notifications.scheduleNotificationAsync !== 'function') {
-      warn('[Reminder] Notifications.scheduleNotificationAsync is not available');
-      return;
-    }
-
-    // Use explicit date trigger format for cross-platform compatibility
-    // Android doesn't support Date objects directly (interprets as 'calendar' type)
-    const trigger: any = {
-      type: 'date',
-      timestamp: eligibility.candidateLocal.getTime(),
-    };
-
-    await Notifications.scheduleNotificationAsync({
-      content: await buildReminderContent(),
-      trigger,
-    });
-
-    state.setReminderNextScheduledAtUtc(eligibility.candidateUtc);
-    log('[Reminder] Scheduled next eligible reminder', {
-      reason,
-      candidateLocal: eligibility.candidateLocal.toString(),
-      candidateUtc: eligibility.candidateUtc,
-      quietHoursAdjusted: eligibility.quietHoursAdjusted,
-      minimumSpacingApplied: eligibility.minimumSpacingApplied,
-      dailyGateApplied: eligibility.dailyGateApplied,
-    });
-  } catch (error) {
-    logError('[Reminder] Failed to schedule next reminder', { reason, error: String(error) });
-  }
-}
-
-export async function runReminderRuntimeGateCheck(source: string = 'runtime'): Promise<void> {
-  try {
-    const state = useSettings.getState();
-
-    if (!state.remindersEnabled) {
-      await cancelReminderSchedule(`runtime_${source}_disabled`);
-      return;
-    }
-
-    const status = await syncReminderPermissionStatus();
-
-    // Only schedule if permission is already granted - don't auto-request permission
-    if (status !== 'granted') {
-      // Permission not granted - quietly skip scheduling without prompting
-      warn(`[Reminder] Runtime gate check skipped: permission ${status}`);
-      return;
-    }
-
-    await scheduleNextEligibleReminder(`runtime_${source}`);
-  } catch (error) {
-    logError('[Reminder] Runtime gate check failed', { source, error: String(error) });
-  }
-}
-
+/** Called when the user toggles reminders on/off or changes the time. */
 export async function setRemindersEnabledAndReschedule(enabled: boolean): Promise<void> {
-  const state = useSettings.getState();
-  state.setRemindersEnabled(enabled);
+  useSettings.getState().setRemindersEnabled(enabled);
 
   if (!enabled) {
-    await cancelReminderSchedule('user_disabled');
+    await cancelReminder();
     return;
   }
 
-  const Notifications = await getNotifications();
-  if (!Notifications || typeof Notifications.canAskForPermissionsAsync !== 'function') {
-    warn('[Reminder] Notifications permission methods are not available');
-    return;
-  }
+  let status = await syncReminderPermissionStatus();
 
-  // First check if we can ask for permissions
-  const canAsk = await Notifications.canAskForPermissionsAsync();
-
-  if (!canAsk) {
-    // Cannot ask for permissions - check if we already have permission (e.g., provisional on iOS)
-    const currentPermission = await syncReminderPermissionStatus();
-    if (currentPermission !== 'granted') {
-      // Permission already denied
-      state.setRemindersEnabled(false);
-      await cancelReminderSchedule('permission_denied_on_enable');
-      return;
-    }
-    // Permission is granted (possibly provisional), proceed to schedule
-  }
-
-  const status = await requestReminderPermission();
   if (status !== 'granted') {
-    state.setRemindersEnabled(false);
-    await cancelReminderSchedule('permission_denied_on_enable');
+    status = await requestReminderPermission();
+  }
+
+  if (status !== 'granted') {
+    useSettings.getState().setRemindersEnabled(false);
+    await cancelReminder();
+    warn('[Reminder] Permission not granted – reminders disabled');
     return;
   }
 
-  await scheduleNextEligibleReminder('user_enabled');
+  const { reminderPreferredTimeLocal } = useSettings.getState();
+  await scheduleReminder(reminderPreferredTimeLocal);
 }
 
-export async function scheduleReminderTestNotification(countAsReal: boolean = false): Promise<void> {
-  try {
-    await initializeReminderNotifications();
-    await ensureReminderChannel();
+/** Called on app start / foreground to ensure the schedule is still in place. */
+export async function runReminderRuntimeGateCheck(): Promise<void> {
+  const { remindersEnabled, reminderPreferredTimeLocal } = useSettings.getState();
+  if (!remindersEnabled) return;
 
-    const Notifications = await getNotifications();
-    if (!Notifications) {
-      throw new Error('Notifications module missing');
-    }
-
-    if (typeof Notifications.scheduleNotificationAsync !== 'function') {
-      throw new Error('Notifications.scheduleNotificationAsync is not available');
-    }
-
-    // Request permission if not granted
-    const permission = await syncReminderPermissionStatus();
-    if (permission !== 'granted') {
-      const newPermission = await requestReminderPermission();
-      if (newPermission !== 'granted') {
-        throw new Error('Notification permission not granted');
-      }
-    }
-
-    // Schedule test notification to fire immediately
-    // Use null trigger for immediate notification (most reliable across platforms)
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: DEFAULT_REMINDER_TITLE,
-        body: DEFAULT_REMINDER_BODY,
-        data: {
-          kind: REMINDER_NOTIFICATION_KIND,
-          deepLink: REMINDER_DEEP_LINK,
-          isTest: true,
-          testCountsAsReal: countAsReal,
-        },
-        ...(Platform.OS === 'android'
-          ? {
-            android: {
-              channelId: REMINDER_CHANNEL_ID,
-              priority: Notifications.AndroidNotificationPriority ? Notifications.AndroidNotificationPriority.HIGH : 2,
-              vibrationPattern: [0, 250, 250, 250],
-            },
-          }
-          : {}),
-      },
-      trigger: null, // null = immediate notification
-    });
-
-    log('[Reminder] Test notification sent immediately');
-  } catch (error) {
-    logError('[Reminder] Failed to schedule test notification', { error: String(error) });
-    throw error; // Re-throw so UI can handle it
+  const status = await syncReminderPermissionStatus();
+  if (status !== 'granted') {
+    warn('[Reminder] Runtime check: permission not granted, skipping');
+    return;
   }
+
+  // Verify the notification is still scheduled (e.g. after device reboot).
+  const pending = await Notifications.getAllScheduledNotificationsAsync();
+  const exists = pending.some((n) => n.identifier === REMINDER_NOTIFICATION_ID);
+  if (!exists) {
+    log('[Reminder] Runtime check: reminder missing, rescheduling');
+    await scheduleReminder(reminderPreferredTimeLocal);
+  }
+}
+
+export async function scheduleReminderTestNotification(): Promise<void> {
+  await ensureChannel();
+  const status = await syncReminderPermissionStatus();
+  if (status !== 'granted') {
+    const next = await requestReminderPermission();
+    if (next !== 'granted') throw new Error('Notification permission not granted');
+  }
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: DEFAULT_REMINDER_TITLE,
+      body: DEFAULT_REMINDER_BODY,
+      data: { kind: REMINDER_NOTIFICATION_KIND, deepLink: REMINDER_DEEP_LINK, isTest: true },
+      ...(Platform.OS === 'android' && { android: { channelId: REMINDER_CHANNEL_ID } }),
+    },
+    trigger: null, // immediate
+  });
+
+  log('[Reminder] Test notification sent');
 }
 
 export function extractReminderDeepLink(
-  response: any
+  response: Notifications.NotificationResponse
 ): string | null {
-  const data = (response.notification.request.content.data || {}) as ReminderNotificationData;
-  if (data.kind !== REMINDER_NOTIFICATION_KIND) {
-    return null;
-  }
+  const data = response.notification.request.content.data as Record<string, unknown>;
+  if (data?.kind !== REMINDER_NOTIFICATION_KIND) return null;
   return typeof data.deepLink === 'string' ? data.deepLink : null;
 }
