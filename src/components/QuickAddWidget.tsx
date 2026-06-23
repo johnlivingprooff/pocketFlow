@@ -115,38 +115,6 @@ export function QuickAddWidget({
           </>
         )}
 
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: recentCategories.length > 0 ? 12 : 0 }}>
-          <TouchableOpacity
-            onPress={() => router.push('/transactions/history')}
-            style={{
-              flex: 1,
-              backgroundColor: t.background,
-              borderWidth: 1,
-              borderColor: t.border,
-              borderRadius: 10,
-              paddingVertical: 10,
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '700' }}>Open history</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => router.push({ pathname: '/transactions/add', params: { type: 'transfer' } })}
-            style={{
-              flex: 1,
-              backgroundColor: t.background,
-              borderWidth: 1,
-              borderColor: t.border,
-              borderRadius: 10,
-              paddingVertical: 10,
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '700' }}>Transfer</Text>
-          </TouchableOpacity>
-        </View>
-
         {/* Last transaction quick repeat */}
         {lastTransaction && (
           <TouchableOpacity

@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link, router } from 'expo-router';
+import { Link, router, useFocusEffect } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
 import { theme, ThemeMode } from '../../src/theme/theme';
 import { useWallets } from '../../src/lib/hooks/useWallets';
@@ -10,6 +10,8 @@ import { formatCurrency } from '../../src/utils/formatCurrency';
 import { formatShortDate } from '../../src/utils/date';
 import { EyeIcon, EyeOffIcon } from '../../src/assets/icons/EyeOffIcon';
 import { QuickAddWidget } from '../../src/components/QuickAddWidget';
+import TrendLineChart from '../../src/components/charts/TrendLineChart';
+import { getDailyIncomeExpense } from '../../src/lib/db/transactions';
 
 function getGreeting(now: Date = new Date()): string {
   const hour = now.getHours();
@@ -73,6 +75,23 @@ export default function Home() {
   }, [wallets, lastUsedWalletId]);
 
   const recentTransactions = transactions.slice(0, 5);
+
+  const [trendDays, setTrendDays] = useState<7 | 30 | 90>(7);
+  const [trendData, setTrendData] = useState<Array<{ date: string; income: number; expense: number }>>([]);
+  const [showTrendFilter, setShowTrendFilter] = useState(false);
+
+  const loadTrendData = useCallback(async (days: 7 | 30 | 90) => {
+    try {
+      const data = await getDailyIncomeExpense(days);
+      setTrendData(data);
+    } catch { }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadTrendData(trendDays);
+    }, [loadTrendData, trendDays])
+  );
 
   return (
     <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
@@ -233,6 +252,50 @@ export default function Home() {
                 </Link>
               );
             })
+          )}
+        </View>
+
+        <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 16, marginTop: 24 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <TouchableOpacity
+              onPress={() => setShowTrendFilter(v => !v)}
+              style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: t.background, borderWidth: 1, borderColor: t.border }}
+            >
+              <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '700' }}>Filter</Text>
+            </TouchableOpacity>
+            {([7, 30, 90] as const).map(d => (
+              <TouchableOpacity
+                key={d}
+                onPress={() => { setTrendDays(d); loadTrendData(d); }}
+                style={{
+                  paddingHorizontal: 14,
+                  paddingVertical: 6,
+                  borderRadius: 999,
+                  backgroundColor: trendDays === d ? t.primary : t.background,
+                  borderWidth: 1,
+                  borderColor: trendDays === d ? t.primary : t.border,
+                }}
+              >
+                <Text style={{ color: trendDays === d ? '#fff' : t.textPrimary, fontSize: 12, fontWeight: '700' }}>{d}d</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {trendData.length > 0 ? (
+            <TrendLineChart
+              data={trendData}
+              days={trendDays}
+              incomeColor={t.success}
+              expenseColor={t.danger}
+              textColor={t.textPrimary}
+              backgroundColor={t.card}
+              gridColor={t.border}
+              formatCurrency={(amount) => formatCurrency(amount, defaultCurrency)}
+            />
+          ) : (
+            <Text style={{ color: t.textSecondary, fontSize: 14, textAlign: 'center', paddingVertical: 40 }}>
+              No trend data yet
+            </Text>
           )}
         </View>
       </ScrollView>

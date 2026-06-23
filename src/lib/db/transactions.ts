@@ -1144,3 +1144,42 @@ export async function getTransactionsByCategory(category: string, period: '7days
 
   return result;
 }
+
+export async function getDailyIncomeExpense(days: number): Promise<Array<{ date: string; income: number; expense: number }>> {
+  const now = new Date();
+  now.setHours(23, 59, 59, 999);
+  const start = new Date(now);
+  start.setDate(start.getDate() - (days - 1));
+  start.setHours(0, 0, 0, 0);
+
+  const startStr = start.toISOString();
+  const endStr = now.toISOString();
+
+  const rows = await exec<{ date: string; income: number; expense: number }>(
+    `SELECT DATE(t.date) as date,
+       COALESCE(SUM(CASE WHEN t.type = 'income' AND (t.category IS NULL OR t.category != 'Transfer') THEN t.amount ELSE 0 END), 0) as income,
+       COALESCE(SUM(CASE WHEN t.type = 'expense' AND (t.category IS NULL OR t.category != 'Transfer') THEN ABS(t.amount) ELSE 0 END), 0) as expense
+     FROM transactions t
+     WHERE t.date BETWEEN ? AND ?
+     GROUP BY DATE(t.date)
+     ORDER BY DATE(t.date) ASC;`,
+    [startStr, endStr]
+  );
+
+  const rowMap = new Map(rows.map(r => [r.date, r]));
+
+  const result: Array<{ date: string; income: number; expense: number }> = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    const key = d.toISOString().slice(0, 10);
+    const row = rowMap.get(key);
+    result.push({
+      date: key,
+      income: row?.income ?? 0,
+      expense: row?.expense ?? 0,
+    });
+  }
+
+  return result;
+}
