@@ -6,7 +6,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
 import { getWallet, getWalletBalance, deleteWallet, updateWallet } from '../../src/lib/db/wallets';
-import { filterTransactions, getWalletIncomeExpense } from '../../src/lib/db/transactions';
+import { filterTransactions, getWalletIncomeExpense, getWalletTransferAmounts } from '../../src/lib/db/transactions';
 import { useAlert } from '../../src/lib/hooks/useAlert';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
 import { Transaction } from '../../src/types/transaction';
@@ -107,6 +107,8 @@ export default function WalletDetail() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [income, setIncome] = useState(0);
   const [expenses, setExpenses] = useState(0);
+  const [transferIn, setTransferIn] = useState(0);
+  const [transferOut, setTransferOut] = useState(0);
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('30days');
   const [isSharingBusy, setIsSharingBusy] = useState(false);
   const [members, setMembers] = useState<Array<{ userId: string; email: string; role: 'owner' | 'member'; joinedAt: string }>>([]);
@@ -229,6 +231,9 @@ export default function WalletDetail() {
     const totals = await getWalletIncomeExpense(walletId, startDate, endDate);
     setIncome(totals.income);
     setExpenses(totals.expense);
+    const transfers = await getWalletTransferAmounts(walletId, startDate, endDate);
+    setTransferIn(transfers.incoming);
+    setTransferOut(transfers.outgoing);
   };
 
   const loadTransactions = async (pageNum: number, shouldAppend: boolean = false) => {
@@ -494,15 +499,17 @@ export default function WalletDetail() {
           </Text>
         </View>
 
-        <Link href={{ pathname: '/transactions/add', params: { walletId: String(walletId), type: 'transfer' } }} asChild>
-          <TouchableOpacity style={{ flex: 1, backgroundColor: t.card, padding: 12, borderRadius: 12, borderLeftWidth: 4, borderLeftColor: t.primary, ...shadows.sm }}>
-            <Text style={{ color: t.textSecondary, fontSize: 11, marginBottom: 4 }}>Transfer</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '800' }}>⇄</Text>
-              <Text style={{ color: t.primary, fontSize: 12, fontWeight: '700', marginLeft: 4 }}>Send</Text>
-            </View>
-          </TouchableOpacity>
-        </Link>
+        <View style={{ flex: 1, backgroundColor: t.card, padding: 12, borderRadius: 12, borderLeftWidth: 4, borderLeftColor: t.primary, ...shadows.sm }}>
+          <Text style={{ color: t.textSecondary, fontSize: 11, marginBottom: 4 }}>Transfer</Text>
+          <View style={{ gap: 2 }}>
+            <Text style={{ color: t.success, fontSize: 14, fontWeight: '800' }} numberOfLines={1}>
+              In: {transferIn.toLocaleString()}
+            </Text>
+            <Text style={{ color: t.danger, fontSize: 14, fontWeight: '800' }} numberOfLines={1}>
+              Out: {transferOut.toLocaleString()}
+            </Text>
+          </View>
+        </View>
       </View>
 
       {/* Header for List */}

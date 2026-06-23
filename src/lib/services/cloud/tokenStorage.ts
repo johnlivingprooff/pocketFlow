@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 
 const ACCESS_TOKEN_KEY = 'cloud_access_token';
 const REFRESH_TOKEN_KEY = 'cloud_refresh_token';
+const CREDENTIALS_KEY = 'cloud_credentials';
 
 let memoryAccessToken: string | null = null;
 let memoryRefreshToken: string | null = null;
@@ -86,4 +87,36 @@ export async function getAccessToken(): Promise<string | null> {
 export async function getRefreshToken(): Promise<string | null> {
   const tokens = await getCloudTokens();
   return tokens?.refreshToken ?? null;
+}
+
+export interface StoredCredentials {
+  email: string;
+  password: string;
+}
+
+export async function storeCredentials(credentials: StoredCredentials): Promise<void> {
+  if (Platform.OS === 'web') {
+    await setWebItem(CREDENTIALS_KEY, JSON.stringify(credentials));
+    return;
+  }
+  await SecureStore.setItemAsync(CREDENTIALS_KEY, JSON.stringify(credentials));
+}
+
+export async function getCredentials(): Promise<StoredCredentials | null> {
+  if (Platform.OS === 'web') {
+    const raw = await getWebItem(CREDENTIALS_KEY);
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch { return null; }
+  }
+  const raw = await SecureStore.getItemAsync(CREDENTIALS_KEY);
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+}
+
+export async function clearCredentials(): Promise<void> {
+  if (Platform.OS === 'web') {
+    await deleteWebItem(CREDENTIALS_KEY);
+    return;
+  }
+  await SecureStore.deleteItemAsync(CREDENTIALS_KEY);
 }

@@ -138,44 +138,48 @@ export default function WalletsList() {
           </View>
         ) : null}
         
-        {/* Transfer Button */}
-        {wallets.length >= 2 && (
-          <TouchableOpacity
-            onPress={() => setTransferModalVisible(true)}
-            style={{
-              backgroundColor: t.accent,
-              borderRadius: 16,
-              padding: 18,
+        {/* Action Buttons Row */}
+        <View style={{ flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 12 }}>
+          {/* Transfer Button */}
+          {wallets.length >= 2 && (
+            <TouchableOpacity
+              onPress={() => setTransferModalVisible(true)}
+              style={{
+                flex: 1,
+                backgroundColor: t.accent,
+                borderRadius: 16,
+                padding: 18,
+                alignItems: 'center',
+                justifyContent: 'center',
+                ...shadows.sm,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '300' }}>⇄</Text>
+                <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '600' }}>Transfer Between Wallets</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+          
+          {/* Create Wallet Button */}
+          <Link href="/wallets/create" asChild>
+            <TouchableOpacity style={{ 
+              flex: 1,
+              backgroundColor: t.card, 
+              borderWidth: 2, 
+              borderColor: t.primary, 
+              borderStyle: 'dashed',
+              borderRadius: 16, 
+              padding: 18, 
               alignItems: 'center',
-              marginTop: 8,
-              marginBottom: 12,
-              ...shadows.sm,
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '300' }}>⇄</Text>
-              <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '600' }}>Transfer Between Wallets</Text>
-            </View>
-          </TouchableOpacity>
-        )}
-        
-        {/* Create Wallet Button */}
-        <Link href="/wallets/create" asChild>
-          <TouchableOpacity style={{ 
-            backgroundColor: t.card, 
-            borderWidth: 2, 
-            borderColor: t.primary, 
-            borderStyle: 'dashed',
-            borderRadius: 16, 
-            padding: 20, 
-            alignItems: 'center',
-            marginTop: 8,
-            ...shadows.sm
-          }}>
-            <Text style={{ color: t.primary, fontSize: 24, fontWeight: '300', marginBottom: 4 }}>+</Text>
-            <Text style={{ color: t.primary, fontSize: 14, fontWeight: '600' }}>Create New Wallet</Text>
-          </TouchableOpacity>
-        </Link>
+              justifyContent: 'center',
+              ...shadows.sm
+            }}>
+              <Text style={{ color: t.primary, fontSize: 24, fontWeight: '300', marginBottom: 4 }}>+</Text>
+              <Text style={{ color: t.primary, fontSize: 14, fontWeight: '600' }}>Create New Wallet</Text>
+            </TouchableOpacity>
+          </Link>
+        </View>
       </ScrollView>
 
       {/* Transfer Modal */}

@@ -478,6 +478,37 @@ export async function getWalletIncomeExpense(walletId: number, startDate?: Date,
   };
 }
 
+export async function getWalletTransferAmounts(walletId: number, startDate?: Date, endDate?: Date) {
+  const where: string[] = ['wallet_id = ?', 'category = "Transfer"'];
+  const params: any[] = [walletId];
+
+  if (startDate) {
+    where.push('date >= ?');
+    params.push(startDate.toISOString());
+  }
+  if (endDate) {
+    where.push('date <= ?');
+    params.push(endDate.toISOString());
+  }
+
+  const whereClause = where.join(' AND ');
+
+  const incoming = await exec<{ total: number }>(
+    `SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'income' AND ${whereClause};`,
+    params
+  );
+
+  const outgoing = await exec<{ total: number }>(
+    `SELECT COALESCE(SUM(ABS(amount)), 0) as total FROM transactions WHERE type = 'expense' AND ${whereClause};`,
+    params
+  );
+
+  return {
+    incoming: incoming[0]?.total ?? 0,
+    outgoing: outgoing[0]?.total ?? 0,
+  };
+}
+
 export async function categoryBreakdown() {
   const now = new Date();
   const cacheKey = generateCacheKey('categoryBreakdown', now.getFullYear(), now.getMonth());

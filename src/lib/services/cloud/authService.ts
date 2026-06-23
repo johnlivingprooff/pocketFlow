@@ -1,5 +1,5 @@
 import { cloudRequest } from './cloudApi';
-import { clearCloudTokens, getRefreshToken, storeCloudTokens } from './tokenStorage';
+import { clearCloudTokens, getRefreshToken, storeCloudTokens, storeCredentials, clearCredentials, getCredentials } from './tokenStorage';
 import { useSettings } from '@/store/useStore';
 import { CloudAuthResponse } from '@/types/cloud';
 
@@ -26,6 +26,27 @@ async function persistAuthResponse(response: CloudAuthResponse): Promise<void> {
   settings.setCloudSessionState('authenticated');
 }
 
+async function persistAuthResponseWithCredentials(response: CloudAuthResponse, credentials: AuthPayload): Promise<void> {
+  await persistAuthResponse(response);
+  await storeCredentials(credentials);
+}
+
+export async function autoLoginWithStoredCredentials(): Promise<boolean> {
+  const credentials = await getCredentials();
+  if (!credentials) return false;
+
+  try {
+    const response = await cloudRequest<CloudAuthResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    }, { auth: false });
+    await persistAuthResponse(response);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function createCloudAccount(payload: AuthPayload): Promise<void> {
   useSettings.getState().setCloudSessionState('authenticating');
   try {
@@ -33,7 +54,7 @@ export async function createCloudAccount(payload: AuthPayload): Promise<void> {
       method: 'POST',
       body: JSON.stringify(payload),
     }, { auth: false });
-    await persistAuthResponse(response);
+    await persistAuthResponseWithCredentials(response, payload);
   } catch (error) {
     useSettings.getState().setCloudSessionState('signed_out');
     throw error;
@@ -47,7 +68,7 @@ export async function signInCloudAccount(payload: AuthPayload): Promise<void> {
       method: 'POST',
       body: JSON.stringify(payload),
     }, { auth: false });
-    await persistAuthResponse(response);
+    await persistAuthResponseWithCredentials(response, payload);
   } catch (error) {
     useSettings.getState().setCloudSessionState('signed_out');
     throw error;
@@ -60,8 +81,11 @@ export async function hydrateCloudSession(): Promise<void> {
     useSettings.getState().setCloudUser(response.user);
     useSettings.getState().setCloudSessionState('authenticated');
   } catch {
-    await clearCloudTokens();
-    useSettings.getState().clearCloudSession();
+    const relogged = await autoLoginWithStoredCredentials();
+    if (!relogged) {
+      await clearCloudTokens();
+      useSettings.getState().clearCloudSession();
+    }
   }
 }
 
@@ -75,6 +99,7 @@ export async function signOutCloudAccount(): Promise<void> {
     );
   } finally {
     await clearCloudTokens();
+    await clearCredentials();
     useSettings.getState().clearCloudSession();
   }
 }
@@ -82,5 +107,6 @@ export async function signOutCloudAccount(): Promise<void> {
 export async function deleteCloudAccount(): Promise<void> {
   await cloudRequest<void>('/auth/account', { method: 'DELETE' }, { auth: true, retryOnUnauthorized: false });
   await clearCloudTokens();
+  await clearCredentials();
   useSettings.getState().clearCloudSession();
 }

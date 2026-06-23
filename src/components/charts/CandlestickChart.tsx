@@ -103,7 +103,7 @@ export default function CandlestickChart({
               {/* Label */}
               <SvgText
                 x={centerX}
-                y={chartHeight - 5}
+                y={chartHeight - 18}
                 fontSize={12}
                 fill={textColor}
                 textAnchor="middle"
@@ -115,7 +115,7 @@ export default function CandlestickChart({
               {/* Income value label */}
               <SvgText
                 x={centerX}
-                y={incomeY - 8}
+                y={incomeY - 12}
                 fontSize={10}
                 fill={textColor}
                 textAnchor="middle"
@@ -126,7 +126,7 @@ export default function CandlestickChart({
               {/* Expense value label */}
               <SvgText
                 x={centerX}
-                y={expenseY + expenseHeight + 15}
+                y={expenseY + expenseHeight + 20}
                 fontSize={10}
                 fill={textColor}
                 textAnchor="middle"

@@ -68,12 +68,14 @@ export default function AddTransactionScreen() {
 
   // Keyboard state for floating tick button
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const floatingButtonOpacity = useState(new Animated.Value(0))[0];
   const floatingButtonTranslateY = useState(new Animated.Value(100))[0];
 
   useEffect(() => {
-    const showListener = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => {
+    const showListener = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', (e) => {
       setKeyboardVisible(true);
+      setKeyboardHeight(e.endCoordinates.height);
       Animated.parallel([
         Animated.timing(floatingButtonOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
         Animated.timing(floatingButtonTranslateY, { toValue: 0, duration: 250, useNativeDriver: true }),
@@ -83,7 +85,7 @@ export default function AddTransactionScreen() {
       Animated.parallel([
         Animated.timing(floatingButtonOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
         Animated.timing(floatingButtonTranslateY, { toValue: 100, duration: 200, useNativeDriver: true }),
-      ]).start(() => setKeyboardVisible(false));
+      ]).start(() => { setKeyboardVisible(false); setKeyboardHeight(0); });
     });
     return () => { showListener.remove(); hideListener.remove(); };
   }, []);
@@ -940,7 +942,7 @@ export default function AddTransactionScreen() {
           <Animated.View
             style={{
               position: 'absolute',
-              bottom: Platform.OS === 'ios' ? 20 : 40,
+              bottom: keyboardHeight + (Platform.OS === 'ios' ? 16 : 24),
               right: 20,
               opacity: floatingButtonOpacity,
               transform: [{ translateY: floatingButtonTranslateY }],

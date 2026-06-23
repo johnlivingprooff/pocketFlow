@@ -35,10 +35,6 @@ export function QuickAddWidget({
     return cats;
   }, [recentTransactions]);
 
-  const handleQuickAdd = (type: 'expense' | 'income') => {
-    router.push({ pathname: '/transactions/add', params: { type } });
-  };
-
   const handleRepeatLast = () => {
     if (!lastTransaction) return;
     
@@ -77,47 +73,6 @@ export function QuickAddWidget({
         <Text style={{ color: t.textSecondary, fontSize: 12, marginBottom: 12 }}>
           Fast paths for the most common entries.
         </Text>
-
-        {/* One-tap expense/income buttons */}
-        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
-          <TouchableOpacity
-            onPress={() => handleQuickAdd('expense')}
-            style={{
-              flex: 1,
-              backgroundColor: t.danger + '15',
-              borderWidth: 1,
-              borderColor: t.danger + '40',
-              borderRadius: 12,
-              paddingVertical: 14,
-              alignItems: 'center',
-              flexDirection: 'row',
-              justifyContent: 'center',
-              gap: 8,
-            }}
-          >
-            <CategoryIcons.MoneySendIcon size={18} color={t.danger} />
-            <Text style={{ color: t.danger, fontSize: 14, fontWeight: '800' }}>Expense</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => handleQuickAdd('income')}
-            style={{
-              flex: 1,
-              backgroundColor: t.success + '15',
-              borderWidth: 1,
-              borderColor: t.success + '40',
-              borderRadius: 12,
-              paddingVertical: 14,
-              alignItems: 'center',
-              flexDirection: 'row',
-              justifyContent: 'center',
-              gap: 8,
-            }}
-          >
-            <CategoryIcons.MoneyReciveIcon size={18} color={t.success} />
-            <Text style={{ color: t.success, fontSize: 14, fontWeight: '800' }}>Income</Text>
-          </TouchableOpacity>
-        </View>
 
         {/* Recent category shortcuts */}
         {recentCategories.length > 0 && (

@@ -137,7 +137,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
        JOIN users u ON u.id = rt.user_id
        WHERE rt.token_hash = $1
          AND rt.revoked_at IS NULL
-         AND rt.expires_at > NOW()
+         AND rt.revoked_at IS NULL
        LIMIT 1`,
       [tokenHash]
     );

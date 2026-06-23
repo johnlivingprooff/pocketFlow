@@ -487,7 +487,7 @@ export default function EditTransaction() {
         <Animated.View
           style={{
             position: 'absolute',
-            bottom: keyboardHeight + (Platform.OS === 'ios' ? 10 : 20),
+            bottom: keyboardHeight + (Platform.OS === 'ios' ? 16 : 24),
             right: 20,
             opacity: floatingButtonOpacity,
             transform: [{ translateY: floatingButtonTranslateY }],

@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import { clearCloudTokens, getCloudTokens, getRefreshToken, storeCloudTokens } from './tokenStorage';
+import { clearCloudTokens, getCloudTokens, getRefreshToken, storeCloudTokens, getCredentials } from './tokenStorage';
 import { useSettings } from '@/store/useStore';
 import { CloudAuthResponse } from '@/types/cloud';
 
@@ -57,6 +57,35 @@ async function refreshAccessToken(): Promise<boolean> {
 
     if (!response.ok) {
       await clearCloudTokens();
+      return await loginWithSavedCredentials();
+    }
+
+    const data = (await response.json()) as CloudAuthResponse;
+    await storeCloudTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken });
+    useSettings.getState().setCloudUser(data.user);
+    useSettings.getState().setCloudSessionState('authenticated');
+    return true;
+  } catch {
+    await clearCloudTokens();
+    return await loginWithSavedCredentials();
+  }
+}
+
+async function loginWithSavedCredentials(): Promise<boolean> {
+  const credentials = await getCredentials();
+  if (!credentials) {
+    useSettings.getState().clearCloudSession();
+    return false;
+  }
+
+  try {
+    const response = await fetch(`${resolveCloudApiBaseUrl()}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(credentials),
+    });
+
+    if (!response.ok) {
       useSettings.getState().clearCloudSession();
       return false;
     }
@@ -67,7 +96,6 @@ async function refreshAccessToken(): Promise<boolean> {
     useSettings.getState().setCloudSessionState('authenticated');
     return true;
   } catch {
-    await clearCloudTokens();
     useSettings.getState().clearCloudSession();
     return false;
   }

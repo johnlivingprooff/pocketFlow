@@ -9,7 +9,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   JWT_SECRET: z.string().min(16),
   JWT_ACCESS_TOKEN_EXPIRES_SECONDS: z.string().default('900').transform((value: string) => Number(value)),
-  REFRESH_TOKEN_EXPIRES_DAYS: z.string().default('30').transform((value: string) => Number(value)),
+  REFRESH_TOKEN_EXPIRES_DAYS: z.string().default('36500').transform((value: string) => Number(value)),
   INVITATION_BASE_URL: z.string().default('https://yourdomain.com'),
   APP_DEEP_LINK_SCHEME: z.string().default('pocketflow'),
   ANDROID_PLAY_STORE_URL: z.string().default(''),

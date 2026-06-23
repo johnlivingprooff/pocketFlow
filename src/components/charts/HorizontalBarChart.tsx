@@ -62,21 +62,20 @@ export default function HorizontalBarChart({
               marginBottom: index === data.length - 1 ? 0 : barSpacing,
             }}
           >
-            <Svg width={chartWidth} height={barHeight}>
-              {/* Category label */}
-              <SvgText
-                x={0}
-                y={barHeight / 2 + 5}
-                fontSize={12}
-                fill={textColor}
-                fontWeight="500"
+            <View style={{ width: labelWidth, paddingRight: 8 }}>
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={{ color: textColor, fontSize: 12, fontWeight: '500' }}
               >
                 {item.category}
-              </SvgText>
+              </Text>
+            </View>
 
+            <Svg width={chartWidth - labelWidth} height={barHeight}>
               {/* Bar background */}
               <Rect
-                x={labelWidth}
+                x={0}
                 y={0}
                 width={barAreaWidth}
                 height={barHeight}
@@ -86,7 +85,7 @@ export default function HorizontalBarChart({
 
               {/* Bar fill */}
               <Rect
-                x={labelWidth}
+                x={0}
                 y={0}
                 width={barWidth}
                 height={barHeight}
@@ -96,7 +95,7 @@ export default function HorizontalBarChart({
 
               {/* Percentage */}
               <SvgText
-                x={labelWidth + barAreaWidth + 10}
+                x={barAreaWidth + 10}
                 y={barHeight / 2 + 5}
                 fontSize={12}
                 fill={textColor}
@@ -108,7 +107,7 @@ export default function HorizontalBarChart({
               {/* Value label on bar (if bar is wide enough) */}
               {barWidth > 60 && (
                 <SvgText
-                  x={labelWidth + barWidth - 8}
+                  x={barWidth - 8}
                   y={barHeight / 2 + 5}
                   fontSize={10}
                   fill="white"
