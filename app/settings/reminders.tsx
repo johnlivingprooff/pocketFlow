@@ -21,7 +21,7 @@ import { useAlert } from '@/lib/hooks/useAlert';
 import { ThemedAlert } from '@/components/ThemedAlert';
 import {
   canAskForReminderPermissionAgain,
-  cancelReminderSchedule,
+  cancelReminder,
   requestReminderPermission,
   scheduleReminderTestNotification,
   setRemindersEnabledAndReschedule,
@@ -276,7 +276,7 @@ export default function ReminderSettingsScreen() {
       const { nextStatus: nextPermissionStatus } = await refreshPermissionMeta();
 
       if (!enabled) {
-        await cancelReminderSchedule('settings_disabled');
+        await cancelReminder();
         showSuccessAlert('Saved', 'Reminders disabled.');
         return;
       }
@@ -304,7 +304,7 @@ export default function ReminderSettingsScreen() {
       return;
     }
     try {
-      await scheduleReminderTestNotification(false);
+      await scheduleReminderTestNotification();
       showSuccessAlert(
         'Test Sent',
         'A test notification has been sent. Check your notification tray.'

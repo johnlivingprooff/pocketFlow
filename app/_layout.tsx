@@ -2,16 +2,16 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { Platform, View, ActivityIndicator, useColorScheme, AppState, AppStateStatus, Text, TouchableOpacity, StyleSheet, Image, TextStyle } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { useSettings, useUI, syncReminderPermissionStatus } from '../src/store/useStore';
+import { useSettings, useUI } from '../src/store/useStore';
 import { useOnboarding } from '../src/store/useOnboarding';
 import { ensureTables, initDb } from '../src/lib/db';
 // Removed legacy write queue import (migrated to Nitro SQLite)
 import { processRecurringTransactions } from '../src/lib/services/recurringTransactionService';
+import * as Notifications from 'expo-notifications';
 import {
   extractReminderDeepLink,
-  initializeReminderNotifications,
   runReminderRuntimeGateCheck,
-  getNotifications,
+  syncReminderPermissionStatus,
 } from '../src/lib/services/reminderNotificationService';
 import { log } from '../src/utils/logger';
 import { theme, shadows } from '../src/theme/theme';
@@ -60,31 +60,20 @@ export default function RootLayout() {
         try {
           await initDb();
           await ensureTables();
-          // Process recurring transactions after DB is ready
           await processRecurringTransactions();
           
-          // Wait a moment for settings to hydrate from AsyncStorage
-          // This ensures we read actual persisted values, not defaults
+          // Wait for settings to hydrate from AsyncStorage
           await new Promise(resolve => setTimeout(resolve, 500));
           
-          // Sync permission status with system (in case it changed)
           await syncReminderPermissionStatus();
-          const settings = useSettings.getState();
-          
-          if (settings.remindersEnabled && settings.reminderPermissionStatus === 'granted') {
-            log('[App] User has reminders enabled - initializing notification system...');
-            await initializeReminderNotifications();
-            await runReminderRuntimeGateCheck('app_start');
-          } else {
-            log('[App] Reminders not enabled or permission not granted - skipping notification setup');
-          }
+          await runReminderRuntimeGateCheck();
           
           log('[App] Initialization complete');
           await maybeRunAutoBackup();
           setDbReady(true);
         } catch (err: unknown) {
           console.error('Failed to initialize database:', err);
-          setDbReady(true); // Still show app even if DB fails
+          setDbReady(true);
         }
       })();
     }
@@ -123,106 +112,35 @@ export default function RootLayout() {
     return () => subscription.remove();
   }, [biometricEnabled, biometricSetupComplete, lastAuthTime]);
 
-  const notificationResponseSubscription = useRef<any>(null);
-  const notificationReceivedSubscription = useRef<any>(null);
-
   useEffect(() => {
-    if (Platform.OS === 'web') {
-      return;
-    }
+    if (Platform.OS === 'web') return;
 
-    let isMounted = true;
-    (async () => {
-      try {
-        const Notifications = await getNotifications();
-        if (!isMounted) return;
+    const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const deepLink = extractReminderDeepLink(response);
+      if (deepLink) router.push(deepLink as never);
+    });
 
-        if (typeof Notifications?.addNotificationResponseReceivedListener !== 'function') {
-          console.warn('Notifications.addNotificationResponseReceivedListener is not available');
-          return;
-        }
-
-        notificationResponseSubscription.current = Notifications.addNotificationResponseReceivedListener(
-          (response: any) => {
-            const deepLink = extractReminderDeepLink(response);
-            if (!deepLink) {
-              return;
-            }
-            router.push(deepLink as never);
-          }
-        );
-      } catch (e) {
-        console.warn('Notifications module missing or failed to load');
-      }
-    })();
-
-    return () => {
-      isMounted = false;
-      notificationResponseSubscription.current?.remove();
-    };
+    return () => responseSub.remove();
   }, [router]);
-
-  useEffect(() => {
-    if (Platform.OS === 'web') {
-      return;
-    }
-
-    let isMounted = true;
-    (async () => {
-      try {
-        const Notifications = await getNotifications();
-        if (!isMounted) return;
-
-        if (typeof Notifications?.addNotificationReceivedListener !== 'function') {
-          console.warn('Notifications.addNotificationReceivedListener is not available');
-          return;
-        }
-
-        notificationReceivedSubscription.current = Notifications.addNotificationReceivedListener(
-          (notification: any) => {
-            log('[Reminder] Notification received', {
-              isReminder: notification.request.content.data?.kind === 'expense_log_reminder',
-            });
-          }
-        );
-      } catch (e) {
-        console.warn('Notifications module missing or failed to load');
-      }
-    })();
-
-    return () => {
-      isMounted = false;
-      notificationReceivedSubscription.current?.remove();
-    };
-  }, []);
 
   const handleAppStateChange = async (nextAppState: AppStateStatus) => {
     if (nextAppState === 'active') {
-      // App came to foreground, process recurring transactions
       if (Platform.OS !== 'web') {
-        // Clear all caches to ensure fresh data is loaded
-        // This prevents stale cached data from being displayed after app resume
         const { invalidateTransactionCaches } = await import('../src/lib/cache/queryCache');
         invalidateTransactionCaches();
 
         await processRecurringTransactions();
-        // Reuse existing app-resume lifecycle gate to keep reminder scheduling deterministic.
-        await runReminderRuntimeGateCheck('app_active');
+        await runReminderRuntimeGateCheck();
         await maybeRunAutoBackup();
       }
 
       if (biometricEnabled && biometricSetupComplete) {
-        // Check if auth is needed, but skip if user recently started picking an image
         if (!shouldSkipAuthForImagePicking() && shouldRequireAuth(lastAuthTime)) {
           setIsAuthenticated(false);
           performBiometricAuth();
         }
       }
     } else if (nextAppState === 'background' || nextAppState === 'inactive') {
-      // No write queue flush needed with Nitro SQLite (atomic writes)
-      // [App] App entering background state, Nitro SQLite handles atomicity.
-
-      // Force re-auth on next launch after the app is backgrounded/closed
       setLastAuthTime(null);
       setIsAuthenticated(false);
     }

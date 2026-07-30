@@ -76,21 +76,19 @@ export default function Home() {
 
   const recentTransactions = transactions.slice(0, 5);
 
-  const [trendDays, setTrendDays] = useState<7 | 30 | 90>(7);
   const [trendData, setTrendData] = useState<Array<{ date: string; income: number; expense: number }>>([]);
-  const [showTrendFilter, setShowTrendFilter] = useState(false);
 
-  const loadTrendData = useCallback(async (days: 7 | 30 | 90) => {
+  const loadTrendData = useCallback(async () => {
     try {
-      const data = await getDailyIncomeExpense(days);
+      const data = await getDailyIncomeExpense(7);
       setTrendData(data);
     } catch { }
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      loadTrendData(trendDays);
-    }, [loadTrendData, trendDays])
+      loadTrendData();
+    }, [loadTrendData])
   );
 
   return (
@@ -256,35 +254,11 @@ export default function Home() {
         </View>
 
         <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 16, marginTop: 24 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-            <TouchableOpacity
-              onPress={() => setShowTrendFilter(v => !v)}
-              style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: t.background, borderWidth: 1, borderColor: t.border }}
-            >
-              <Text style={{ color: t.textPrimary, fontSize: 12, fontWeight: '700' }}>Filter</Text>
-            </TouchableOpacity>
-            {([7, 30, 90] as const).map(d => (
-              <TouchableOpacity
-                key={d}
-                onPress={() => { setTrendDays(d); loadTrendData(d); }}
-                style={{
-                  paddingHorizontal: 14,
-                  paddingVertical: 6,
-                  borderRadius: 999,
-                  backgroundColor: trendDays === d ? t.primary : t.background,
-                  borderWidth: 1,
-                  borderColor: trendDays === d ? t.primary : t.border,
-                }}
-              >
-                <Text style={{ color: trendDays === d ? '#fff' : t.textPrimary, fontSize: 12, fontWeight: '700' }}>{d}d</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
 
           {trendData.length > 0 ? (
             <TrendLineChart
               data={trendData}
-              days={trendDays}
+              days={7}
               incomeColor={t.success}
               expenseColor={t.danger}
               textColor={t.textPrimary}

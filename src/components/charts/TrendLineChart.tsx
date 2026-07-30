@@ -26,19 +26,24 @@ function abbreviate(num: number): string {
   return (num / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'B';
 }
 
+function getDayAbbr(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'short' });
+}
+
 function getXLabels(days: number): number[] {
-  if (days <= 7) return Array.from({ length: days }, (_, i) => i + 1);
+  if (days <= 7) return Array.from({ length: days }, (_, i) => i);
   if (days <= 30) {
     const step = 5;
     const labels: number[] = [];
-    for (let i = 1; i <= days; i += step) labels.push(i);
-    if (labels[labels.length - 1] !== days) labels.push(days);
+    for (let i = 0; i < days; i += step) labels.push(i);
+    if (labels[labels.length - 1] !== days - 1) labels.push(days - 1);
     return labels;
   }
   const step = 15;
   const labels: number[] = [];
-  for (let i = 1; i <= days; i += step) labels.push(i);
-  if (labels[labels.length - 1] !== days) labels.push(days);
+  for (let i = 0; i < days; i += step) labels.push(i);
+  if (labels[labels.length - 1] !== days - 1) labels.push(days - 1);
   return labels;
 }
 
@@ -110,13 +115,13 @@ export default function TrendLineChart({
           );
         })}
 
-        {xLabels.map((dayNum) => {
-          const i = dayNum - 1;
+        {xLabels.map((i) => {
           if (i < 0 || i >= data.length) return null;
           const x = paddingLeft + (i / (data.length - 1)) * graphWidth;
+          const label = days <= 7 ? getDayAbbr(data[i].date) : i + 1;
           return (
-            <SvgText key={`x-${dayNum}`} x={x} y={chartHeight - 10} fill={textColor} fontSize={10} textAnchor="middle" opacity={0.6}>
-              {dayNum}
+            <SvgText key={`x-${i}`} x={x} y={chartHeight - 10} fill={textColor} fontSize={10} textAnchor="middle" opacity={0.6}>
+              {label}
             </SvgText>
           );
         })}
