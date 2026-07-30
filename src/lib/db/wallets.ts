@@ -103,12 +103,13 @@ export async function createWallet(w: Wallet) {
       w.is_primary ?? 0,
       w.exchange_rate ?? 1.0,
       nextDisplayOrder, // Ensure new wallet gets sequential display_order
+      w.overdraft_limit ?? 0,
     ];
     
     await enqueueWrite(async () => {
       await execRun(
-        `INSERT INTO wallets (name, currency, initial_balance, type, color, description, created_at, is_primary, exchange_rate, display_order)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        `INSERT INTO wallets (name, currency, initial_balance, type, color, description, created_at, is_primary, exchange_rate, display_order, overdraft_limit)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
         params
       );
     }, 'createWallet');
@@ -155,6 +156,7 @@ export async function updateWallet(id: number, w: Partial<Wallet>) {
   if (w.is_primary !== undefined) set('is_primary', w.is_primary);
   if (w.exchange_rate !== undefined) set('exchange_rate', w.exchange_rate);
   if (w.display_order !== undefined) set('display_order', w.display_order);
+  if (w.overdraft_limit !== undefined) set('overdraft_limit', w.overdraft_limit);
   if ((w as any).accountType !== undefined) set('accountType', (w as any).accountType);
   if ((w as any).accountNumber !== undefined) set('accountNumber', (w as any).accountNumber);
   if ((w as any).phoneNumber !== undefined) set('phoneNumber', (w as any).phoneNumber);

@@ -405,6 +405,11 @@ export default function WalletDetail() {
           <Text style={{ color: t.textPrimary, fontSize: 32, fontWeight: '800' }}>
             {balance.toLocaleString()} {currency}
           </Text>
+          {wallet && wallet.overdraft_limit ? (
+            <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>
+              Available: {(balance + wallet.overdraft_limit).toLocaleString()} {currency} (overdraft limit: {wallet.overdraft_limit.toLocaleString()} {currency})
+            </Text>
+          ) : null}
 
           <View style={{ marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: t.border }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>

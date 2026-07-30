@@ -159,8 +159,8 @@ export default function AnalyticsPage() {
           />
         </View>
 
-        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
-          <View style={{ flex: 1, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 16 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 24 }} contentContainerStyle={{ gap: 12 }}>
+          <View style={{ width: 160, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 16 }}>
             <Text style={{ color: t.textSecondary, fontSize: 11, fontWeight: '700' }}>NET FLOW</Text>
             <Text style={{ color: net >= 0 ? t.success : t.danger, fontSize: 22, fontWeight: '900', marginTop: 8 }}>
               {isLoading ? '...' : formatCurrency(net, defaultCurrency)}
@@ -168,29 +168,28 @@ export default function AnalyticsPage() {
             <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 6 }}>{quickScore.toFixed(1)}% savings rate</Text>
           </View>
 
-          <View style={{ flex: 1, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 16 }}>
+          <View style={{ width: 160, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 16 }}>
             <Text style={{ color: t.textSecondary, fontSize: 11, fontWeight: '700' }}>BIGGEST SPEND</Text>
             <Text style={{ color: t.textPrimary, fontSize: 22, fontWeight: '900', marginTop: 8 }}>
               {isLoading ? '...' : formatCurrency(largestPurchaseByPeriod[selectedMetricsPeriod] || 0, defaultCurrency)}
             </Text>
             <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 6 }}>Largest single transaction</Text>
           </View>
-        </View>
 
-        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
-          <View style={{ flex: 1, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 16 }}>
+          <View style={{ width: 160, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 16 }}>
             <Text style={{ color: t.textSecondary, fontSize: 11, fontWeight: '700' }}>INCOME</Text>
             <Text style={{ color: t.success, fontSize: 20, fontWeight: '800', marginTop: 8 }}>
               {isLoading ? '...' : formatCurrency(incomeByPeriod[selectedMetricsPeriod] || 0, defaultCurrency)}
             </Text>
           </View>
-          <View style={{ flex: 1, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 16 }}>
+
+          <View style={{ width: 160, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 16 }}>
             <Text style={{ color: t.textSecondary, fontSize: 11, fontWeight: '700' }}>SPENDING</Text>
             <Text style={{ color: t.danger, fontSize: 20, fontWeight: '800', marginTop: 8 }}>
               {isLoading ? '...' : formatCurrency(spendingRateByPeriod[selectedMetricsPeriod] || 0, defaultCurrency)}
             </Text>
           </View>
-        </View>
+        </ScrollView>
 
         <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 16, marginBottom: 24 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>

@@ -100,10 +100,10 @@ export default function CandlestickChart({
                 rx={2}
               />
 
-              {/* Label */}
+              {/* Period label (fixed at bottom) */}
               <SvgText
                 x={centerX}
-                y={chartHeight - 18}
+                y={chartHeight - 8}
                 fontSize={12}
                 fill={textColor}
                 textAnchor="middle"
@@ -115,7 +115,7 @@ export default function CandlestickChart({
               {/* Income value label */}
               <SvgText
                 x={centerX}
-                y={incomeY - 12}
+                y={incomeY - 8}
                 fontSize={10}
                 fill={textColor}
                 textAnchor="middle"
@@ -123,10 +123,10 @@ export default function CandlestickChart({
                 {formatCurrency(item.income)}
               </SvgText>
 
-              {/* Expense value label */}
+              {/* Expense value label (capped to stay above period labels) */}
               <SvgText
                 x={centerX}
-                y={expenseY + expenseHeight + 20}
+                y={Math.min(expenseY + expenseHeight + 12, chartHeight - 28)}
                 fontSize={10}
                 fill={textColor}
                 textAnchor="middle"

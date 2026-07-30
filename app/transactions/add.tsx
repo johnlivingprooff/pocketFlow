@@ -395,6 +395,11 @@ export default function AddTransactionScreen() {
   const numericAmount = useMemo(() => parseAmountValue(amount), [amount]);
   const isValidAmount = numericAmount > 0 && !Number.isNaN(numericAmount);
 
+  const selectedWallet = useMemo(() => wallets.find(w => w.id === walletId), [wallets, walletId]);
+  const overdraftLimit = selectedWallet?.overdraft_limit ?? 0;
+  const projectedBalance = numericAmount && walletId ? (balances[walletId] ?? 0) - (type === 'expense' ? numericAmount : 0) : null;
+  const showOverdraftWarning = type === 'expense' && overdraftLimit > 0 && projectedBalance !== null && projectedBalance < -overdraftLimit;
+
   const onSave = async () => {
     if (!isValidAmount) {
       setAlertConfig({
@@ -662,6 +667,14 @@ export default function AddTransactionScreen() {
             <TypeTabs current={type} onChange={setType} colors={t} />
 
             <AmountDisplay amount={amount} currency={displayCurrency} colors={t} evaluated={numericAmount} />
+
+            {showOverdraftWarning && (
+              <View style={{ backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#F59E0B', borderRadius: 10, padding: 10, marginBottom: 12 }}>
+                <Text style={{ color: '#92400E', fontSize: 12, fontWeight: '600' }}>
+                  ⚠️ This expense exceeds your overdraft limit of {formatCurrency(overdraftLimit, displayCurrency)}. Projected balance: {formatCurrency(projectedBalance!, displayCurrency)}
+                </Text>
+              </View>
+            )}
 
             <SectionLabel text={type === 'transfer' ? 'From wallet' : 'Wallet'} colors={t} />
             <WalletCarousel

@@ -22,6 +22,7 @@ export default function CreateWallet() {
   const [name, setName] = useState('');
   const [currency, setCurrency] = useState(defaultCurrency);
   const [initial, setInitial] = useState('0');
+  const [overdraftLimit, setOverdraftLimit] = useState('0');
   const [type, setType] = useState<WalletType>('Cash');
   const [description, setDescription] = useState('');
   const [exchangeRate, setExchangeRate] = useState('1.0');
@@ -68,7 +69,8 @@ export default function CreateWallet() {
         initial_balance: parseFloat(initial || '0'), 
         type, 
         description: description.trim(),
-        exchange_rate: parseFloat(exchangeRate || '1.0')
+        exchange_rate: parseFloat(exchangeRate || '1.0'),
+        overdraft_limit: parseFloat(overdraftLimit || '0'),
       };
 
       // Add conditional fields based on wallet type
@@ -272,6 +274,28 @@ export default function CreateWallet() {
         onChangeText={setInitial} 
         keyboardType="decimal-pad"
         placeholder="0.00"
+        placeholderTextColor={t.textTertiary}
+        style={{ 
+          backgroundColor: t.card,
+          borderWidth: 1, 
+          borderColor: t.border, 
+          color: t.textPrimary, 
+          padding: 12, 
+          borderRadius: 12, 
+          marginBottom: 16,
+          fontSize: 16
+        }} 
+      />
+
+      <Text style={{ color: t.textSecondary, fontSize: 14, fontWeight: '600', marginBottom: 6 }}>Overdraft Limit</Text>
+      <Text style={{ color: t.textTertiary, fontSize: 12, marginBottom: 6 }}>
+        Maximum negative balance allowed (0 = no overdraft)
+      </Text>
+      <TextInput 
+        value={overdraftLimit} 
+        onChangeText={setOverdraftLimit} 
+        keyboardType="decimal-pad"
+        placeholder="0"
         placeholderTextColor={t.textTertiary}
         style={{ 
           backgroundColor: t.card,

@@ -29,6 +29,7 @@ export default function EditWallet() {
   const [type, setType] = useState<any>('Cash');
   const [currency, setCurrency] = useState(defaultCurrency);
   const [exchangeRate, setExchangeRate] = useState<string>('1.0');
+  const [overdraftLimit, setOverdraftLimit] = useState<string>('0');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState<string | undefined>(undefined);
   const [isPrimary, setIsPrimary] = useState(0);
@@ -63,6 +64,7 @@ export default function EditWallet() {
         setType(w.type || 'Cash');
         setCurrency(w.currency);
         setExchangeRate(String(w.exchange_rate ?? 1.0));
+        setOverdraftLimit(String(w.overdraft_limit ?? 0));
         setDescription(w.description || '');
         setColor(w.color);
         setIsPrimary(w.is_primary ?? 0);
@@ -104,6 +106,7 @@ export default function EditWallet() {
         type,
         currency,
         exchange_rate: parseFloat(exchangeRate || '1.0'),
+        overdraft_limit: parseFloat(overdraftLimit || '0'),
         description: description.trim(),
         color: color || null,
         is_primary: isPrimary,
@@ -344,6 +347,28 @@ export default function EditWallet() {
             />
           </>
         )}
+
+        <Text style={{ color: t.textSecondary, fontSize: 14, fontWeight: '600', marginBottom: 6 }}>Overdraft Limit</Text>
+        <Text style={{ color: t.textTertiary, fontSize: 12, marginBottom: 6 }}>
+          Maximum negative balance allowed (0 = no overdraft)
+        </Text>
+        <TextInput 
+          value={overdraftLimit} 
+          onChangeText={setOverdraftLimit} 
+          keyboardType="decimal-pad"
+          placeholder="0"
+          placeholderTextColor={t.textTertiary}
+          style={{ 
+            backgroundColor: t.card,
+            borderWidth: 1, 
+            borderColor: t.border, 
+            color: t.textPrimary, 
+            padding: 12, 
+            borderRadius: 12, 
+            marginBottom: 16,
+            fontSize: 16
+          }} 
+        />
 
         <Text style={{ color: t.textSecondary, fontSize: 14, fontWeight: '600', marginBottom: 6 }}>Description (Optional)</Text>
         <TextInput 

@@ -24,6 +24,7 @@ export interface Wallet {
   description?: string;
   exchange_rate?: number; // Rate to convert to default currency (default: 1.0)
   display_order?: number; // Order for displaying wallets (default: 0)
+  overdraft_limit?: number; // How far below zero the wallet can go (default: 0)
   // Conditional fields
   accountType?: string; // For Bank Account
   accountNumber?: string; // For Bank Account

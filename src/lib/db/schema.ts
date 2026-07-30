@@ -75,7 +75,8 @@ function ensureWalletsTable(database: SchemaDatabase): void {
       is_shared INTEGER DEFAULT 0,
       share_id TEXT UNIQUE,
       shared_role TEXT,
-      sync_status TEXT DEFAULT 'offline'
+      sync_status TEXT DEFAULT 'offline',
+      overdraft_limit REAL DEFAULT 0
     );`
   );
 
@@ -94,6 +95,7 @@ function ensureWalletsTable(database: SchemaDatabase): void {
     addColumnIfMissing(database, columns, 'share_id', 'ALTER TABLE wallets ADD COLUMN share_id TEXT;');
     addColumnIfMissing(database, columns, 'shared_role', 'ALTER TABLE wallets ADD COLUMN shared_role TEXT;');
     addColumnIfMissing(database, columns, 'sync_status', "ALTER TABLE wallets ADD COLUMN sync_status TEXT DEFAULT 'offline';");
+    addColumnIfMissing(database, columns, 'overdraft_limit', 'ALTER TABLE wallets ADD COLUMN overdraft_limit REAL DEFAULT 0;');
   });
 
   ensureIndexes(database, [

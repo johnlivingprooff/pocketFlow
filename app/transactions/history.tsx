@@ -103,15 +103,43 @@ export default function HistoryScreen() {
     void loadCategories();
   }, []);
 
-  const loadData = useCallback(async (isLoadMore = false) => {
-    if (isLoadMore) {
-      setIsLoadingMore(true);
-    } else {
-      setIsLoadingTransactions(true);
-    }
-
+  const loadInitialData = useCallback(async () => {
+    setIsLoadingTransactions(true);
     try {
-      const nextPage = isLoadMore ? page + 1 : 0;
+      const txs = await filterTransactions({
+        startDate: startDate?.toISOString(),
+        endDate: endDate?.toISOString(),
+        category: filterCategory || undefined,
+        search: debouncedSearchQuery || undefined,
+        page: 0,
+        pageSize: PAGE_SIZE,
+      });
+
+      setTransactions(txs);
+      setPage(0);
+      setHasMore(txs.length === PAGE_SIZE);
+
+      if (startDate && endDate) {
+        const sum = await getIncomeExpenseForPeriod(startDate, endDate);
+        setSummary(sum);
+      } else {
+        const farPast = new Date(2000, 0, 1);
+        const farFuture = new Date(2100, 0, 1);
+        const sum = await getIncomeExpenseForPeriod(farPast, farFuture);
+        setSummary(sum);
+      }
+    } catch (error) {
+      console.error('Error loading transactions:', error);
+    } finally {
+      setIsLoadingTransactions(false);
+    }
+  }, [startDate, endDate, filterCategory, debouncedSearchQuery]);
+
+  const loadMoreData = useCallback(async () => {
+    if (isLoadingMore || !hasMore) return;
+    setIsLoadingMore(true);
+    try {
+      const nextPage = page + 1;
       const txs = await filterTransactions({
         startDate: startDate?.toISOString(),
         endDate: endDate?.toISOString(),
@@ -121,42 +149,25 @@ export default function HistoryScreen() {
         pageSize: PAGE_SIZE,
       });
 
-      if (isLoadMore) {
-        setTransactions((prev) => [...prev, ...txs]);
-        setPage(nextPage);
-      } else {
-        setTransactions(txs);
-        setPage(0);
-
-        if (startDate && endDate) {
-          const sum = await getIncomeExpenseForPeriod(startDate, endDate);
-          setSummary(sum);
-        } else {
-          const farPast = new Date(2000, 0, 1);
-          const farFuture = new Date(2100, 0, 1);
-          const sum = await getIncomeExpenseForPeriod(farPast, farFuture);
-          setSummary(sum);
-        }
-      }
-
+      setTransactions((prev) => [...prev, ...txs]);
+      setPage(nextPage);
       setHasMore(txs.length === PAGE_SIZE);
     } catch (error) {
-      console.error('Error loading transactions:', error);
+      console.error('Error loading more transactions:', error);
     } finally {
-      setIsLoadingTransactions(false);
       setIsLoadingMore(false);
     }
-  }, [page, startDate, endDate, filterCategory, debouncedSearchQuery]);
+  }, [page, isLoadingMore, hasMore, startDate, endDate, filterCategory, debouncedSearchQuery]);
 
   useEffect(() => {
-    void loadData(false);
-  }, [loadData]);
+    void loadInitialData();
+  }, [loadInitialData]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
       invalidateTransactionCaches();
-      await loadData(false);
+      await loadInitialData();
     } finally {
       setRefreshing(false);
     }
@@ -396,7 +407,7 @@ export default function HistoryScreen() {
         }
         ListFooterComponent={
           hasMore && transactions.length > 0 ? (
-            <TouchableOpacity onPress={() => void loadData(true)} style={{ paddingVertical: 16, alignItems: 'center' }}>
+            <TouchableOpacity onPress={() => void loadMoreData()} style={{ paddingVertical: 16, alignItems: 'center' }}>
               <Text style={{ color: t.primary, fontWeight: '700' }}>{isLoadingMore ? 'Loading more...' : 'Load more'}</Text>
             </TouchableOpacity>
           ) : (

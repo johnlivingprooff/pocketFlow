@@ -139,7 +139,7 @@ export default function WalletsList() {
         ) : null}
         
         {/* Action Buttons Row */}
-        <View style={{ flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 12 }}>
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 8, marginBottom: 12 }}>
           {/* Transfer Button */}
           {wallets.length >= 2 && (
             <TouchableOpacity
@@ -147,16 +147,16 @@ export default function WalletsList() {
               style={{
                 flex: 1,
                 backgroundColor: t.accent,
-                borderRadius: 16,
-                padding: 18,
+                borderRadius: 12,
+                padding: 12,
                 alignItems: 'center',
                 justifyContent: 'center',
                 ...shadows.sm,
               }}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '300' }}>⇄</Text>
-                <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '600' }}>Transfer Between Wallets</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '300' }}>⇄</Text>
+                <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600' }}>Transfer</Text>
               </View>
             </TouchableOpacity>
           )}
@@ -169,14 +169,14 @@ export default function WalletsList() {
               borderWidth: 2, 
               borderColor: t.primary, 
               borderStyle: 'dashed',
-              borderRadius: 16, 
-              padding: 18, 
+              borderRadius: 12, 
+              padding: 12, 
               alignItems: 'center',
               justifyContent: 'center',
               ...shadows.sm
             }}>
-              <Text style={{ color: t.primary, fontSize: 24, fontWeight: '300', marginBottom: 4 }}>+</Text>
-              <Text style={{ color: t.primary, fontSize: 14, fontWeight: '600' }}>Create New Wallet</Text>
+              <Text style={{ color: t.primary, fontSize: 20, fontWeight: '300', marginBottom: 2 }}>+</Text>
+              <Text style={{ color: t.primary, fontSize: 13, fontWeight: '600' }}>New Wallet</Text>
             </TouchableOpacity>
           </Link>
         </View>
