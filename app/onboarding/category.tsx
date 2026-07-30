@@ -50,27 +50,13 @@ const SVG_ICON_NAMES: CategoryIconName[] = [
 export default function CategoryTutorialScreen() {
   const { themeMode } = useSettings();
   const systemColorScheme = useColorScheme();
-  const { setCurrentStep, completeStep, previousSteps, goBackToPreviousStep } = useOnboarding();
+  const { setCurrentStep, completeStep } = useOnboarding();
   const router = useRouter();
   const t = theme(themeMode, systemColorScheme || 'light');
 
-  const stepRoutes: Record<string, string> = {
-    welcome: '/onboarding/welcome',
-    profile: '/onboarding/profile',
-    reminders: '/onboarding/reminders',
-    wallet: '/onboarding/wallet',
-    category: '/onboarding/category',
-    budget: '/onboarding/budget',
-    goal: '/onboarding/goal',
-    analytics: '/onboarding/analytics',
-  };
-
   const handleBack = () => {
-    const prevStep = previousSteps[previousSteps.length - 1];
-    if (prevStep && stepRoutes[prevStep]) {
-      goBackToPreviousStep();
-      router.push(stepRoutes[prevStep]);
-    }
+    setCurrentStep('wallet');
+    router.push('/onboarding/wallet');
   };
 
   const [categoryName, setCategoryName] = useState('');
@@ -140,7 +126,7 @@ export default function CategoryTutorialScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top', 'bottom']}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -152,7 +138,7 @@ export default function CategoryTutorialScreen() {
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
       >
         <OnboardingHeader 
-          canGoBack={previousSteps.length > 0}
+          canGoBack={true}
           onBack={handleBack}
           currentStep="category"
         />

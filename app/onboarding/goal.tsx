@@ -21,28 +21,14 @@ import { useColorScheme } from 'react-native';
 
 export default function GoalTutorialScreen() {
   const { themeMode, defaultCurrency } = useSettings();
-  const { setCurrentStep, completeStep, createdWalletId, previousSteps, goBackToPreviousStep } = useOnboarding();
+  const { setCurrentStep, completeStep, createdWalletId } = useOnboarding();
   const router = useRouter();
   const systemColorScheme = useColorScheme();
   const t = theme(themeMode, systemColorScheme || 'light');
 
-  const stepRoutes: Record<string, string> = {
-    welcome: '/onboarding/welcome',
-    profile: '/onboarding/profile',
-    reminders: '/onboarding/reminders',
-    wallet: '/onboarding/wallet',
-    category: '/onboarding/category',
-    budget: '/onboarding/budget',
-    goal: '/onboarding/goal',
-    analytics: '/onboarding/analytics',
-  };
-
   const handleBack = () => {
-    const prevStep = previousSteps[previousSteps.length - 1];
-    if (prevStep && stepRoutes[prevStep]) {
-      goBackToPreviousStep();
-      router.push(stepRoutes[prevStep]);
-    }
+    setCurrentStep('budget');
+    router.push('/onboarding/budget');
   };
 
   const [goalName, setGoalName] = useState('');
@@ -103,7 +89,7 @@ export default function GoalTutorialScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top', 'bottom']}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -115,7 +101,7 @@ export default function GoalTutorialScreen() {
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
       >
         <OnboardingHeader
-          canGoBack={previousSteps.length > 0}
+          canGoBack={true}
           onBack={handleBack}
           currentStep="goal"
         />

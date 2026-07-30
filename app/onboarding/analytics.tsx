@@ -27,7 +27,7 @@ export default function AnalyticsTutorialScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <OnboardingHeader canGoBack={true} onBack={handleBack} currentStep="analytics" />
 

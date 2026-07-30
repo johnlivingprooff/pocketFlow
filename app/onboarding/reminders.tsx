@@ -56,62 +56,30 @@ export default function OnboardingRemindersScreen() {
   const {
     setCurrentStep,
     completeStep,
-    previousSteps,
-    goBackToPreviousStep,
-    formData,
-    saveFormData,
   } = useOnboarding();
 
   const t = useMemo(() => theme(themeMode, systemColorScheme || 'light'), [themeMode, systemColorScheme]);
 
   const [enabled, setEnabled] = useState<boolean>(
-    formData.reminders?.enabled ?? remindersEnabled ?? false
+    remindersEnabled ?? false
   );
   const [preferredTimeLocal, setPreferredTimeLocal] = useState<string>(
-    formData.reminders?.preferredTimeLocal ?? reminderPreferredTimeLocal ?? '20:00'
+    reminderPreferredTimeLocal ?? '20:00'
   );
   const [useQuietHours, setUseQuietHours] = useState<boolean>(
-    Boolean(
-      formData.reminders?.quietHoursStart ??
-        formData.reminders?.quietHoursEnd ??
-        reminderQuietHoursStart ??
-        reminderQuietHoursEnd
-    )
+    Boolean(reminderQuietHoursStart ?? reminderQuietHoursEnd)
   );
   const [quietHoursStart, setQuietHoursStart] = useState<string>(
-    formData.reminders?.quietHoursStart ?? reminderQuietHoursStart ?? '21:00'
+    reminderQuietHoursStart ?? '21:00'
   );
   const [quietHoursEnd, setQuietHoursEnd] = useState<string>(
-    formData.reminders?.quietHoursEnd ?? reminderQuietHoursEnd ?? '07:00'
+    reminderQuietHoursEnd ?? '07:00'
   );
   const [pickerTarget, setPickerTarget] = useState<PickerTarget>(null);
 
-  useEffect(() => {
-    saveFormData('reminders', {
-      enabled,
-      preferredTimeLocal,
-      quietHoursStart: useQuietHours ? quietHoursStart : null,
-      quietHoursEnd: useQuietHours ? quietHoursEnd : null,
-    });
-  }, [enabled, preferredTimeLocal, quietHoursStart, quietHoursEnd, useQuietHours, saveFormData]);
-
-  const stepRoutes: Record<string, string> = {
-    welcome: '/onboarding/welcome',
-    profile: '/onboarding/profile',
-    reminders: '/onboarding/reminders',
-    wallet: '/onboarding/wallet',
-    category: '/onboarding/category',
-    budget: '/onboarding/budget',
-    goal: '/onboarding/goal',
-    analytics: '/onboarding/analytics',
-  };
-
   const handleBack = () => {
-    const previousStep = previousSteps[previousSteps.length - 1];
-    if (previousStep && stepRoutes[previousStep]) {
-      goBackToPreviousStep();
-      router.push(stepRoutes[previousStep]);
-    }
+    setCurrentStep('profile');
+    router.push('/onboarding/profile');
   };
 
   const handleToggleEnabled = async (nextEnabled: boolean) => {
@@ -225,9 +193,9 @@ export default function OnboardingRemindersScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <OnboardingHeader canGoBack={previousSteps.length > 0} onBack={handleBack} currentStep="reminders" />
+        <OnboardingHeader canGoBack={true} onBack={handleBack} currentStep="reminders" />
 
         <View style={styles.header}>
           <Text style={styles.emoji}>🔔</Text>

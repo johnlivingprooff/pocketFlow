@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../src/theme/theme';
 import { useSettings } from '../../src/store/useStore';
 import { useOnboarding } from '../../src/store/useOnboarding';
-import { OnboardingProgress } from '../../src/components/OnboardingProgress';
+import { OnboardingHeader } from '../../src/components/OnboardingHeader';
 
 export default function WelcomeOnboardingScreen() {
   const router = useRouter();
@@ -15,10 +15,10 @@ export default function WelcomeOnboardingScreen() {
   const t = theme(themeMode, systemColorScheme || 'light');
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['top', 'left', 'right', 'bottom']}>
       <View style={{ flex: 1, padding: 24, justifyContent: 'space-between' }}>
         <View>
-          <OnboardingProgress currentStep={1} totalSteps={3} />
+          <OnboardingHeader canGoBack={false} currentStep="welcome" />
           <View style={{ marginTop: 40 }}>
             <Text style={{ color: t.textPrimary, fontSize: 34, fontWeight: '900', lineHeight: 40 }}>Track money without slowing down.</Text>
             <Text style={{ color: t.textSecondary, fontSize: 16, lineHeight: 24, marginTop: 16 }}>

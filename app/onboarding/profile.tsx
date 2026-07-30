@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '../../src/store/useStore';
 import { theme } from '../../src/theme/theme';
 import { useOnboarding } from '../../src/store/useOnboarding';
-import { OnboardingProgress } from '../../src/components/OnboardingProgress';
+import { OnboardingHeader } from '../../src/components/OnboardingHeader';
 
 export default function ProfileOnboardingScreen() {
   const router = useRouter();
@@ -17,18 +17,22 @@ export default function ProfileOnboardingScreen() {
   const [name, setName] = useState(userInfo?.name === 'User' ? '' : (userInfo?.name || ''));
   const [currency, setCurrency] = useState('MWK');
 
+  const handleBack = () => {
+    router.push('/onboarding/welcome');
+  };
+
   const handleContinue = () => {
     setUserInfo({ name: name.trim() || 'pFlowr' });
     useSettings.getState().setDefaultCurrency(currency);
     completeStep('profile');
-    router.replace('/onboarding/wallet');
+    router.push('/onboarding/wallet');
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['top', 'left', 'right', 'bottom']}>
       <View style={{ flex: 1, padding: 24, justifyContent: 'space-between' }}>
         <View>
-          <OnboardingProgress currentStep={2} totalSteps={3} />
+          <OnboardingHeader canGoBack={true} onBack={handleBack} currentStep="profile" />
           <Text style={{ color: t.textPrimary, fontSize: 30, fontWeight: '900', marginTop: 32 }}>Set your basics</Text>
           <Text style={{ color: t.textSecondary, fontSize: 15, lineHeight: 22, marginTop: 12 }}>
             Just enough to personalize the app and make amounts feel familiar from day one.

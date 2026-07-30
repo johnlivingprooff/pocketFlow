@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '../../src/store/useStore';
 import { theme } from '../../src/theme/theme';
 import { useOnboarding } from '../../src/store/useOnboarding';
-import { OnboardingProgress } from '../../src/components/OnboardingProgress';
+import { OnboardingHeader } from '../../src/components/OnboardingHeader';
 import { addWallet } from '../../src/lib/db/wallets';
 
 export default function WalletOnboardingScreen() {
@@ -25,6 +25,10 @@ export default function WalletOnboardingScreen() {
     if (walletType === 'Mobile Money') return '#10B981';
     return '#F59E0B';
   }, [walletType]);
+
+  const handleBack = () => {
+    router.push('/onboarding/profile');
+  };
 
   const finishOnboarding = async () => {
     if (isSaving) return;
@@ -48,10 +52,10 @@ export default function WalletOnboardingScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['top', 'left', 'right', 'bottom']}>
       <View style={{ flex: 1, padding: 24, justifyContent: 'space-between' }}>
         <View>
-          <OnboardingProgress currentStep={3} totalSteps={3} />
+          <OnboardingHeader canGoBack={true} onBack={handleBack} currentStep="wallet" />
           <Text style={{ color: t.textPrimary, fontSize: 30, fontWeight: '900', marginTop: 32 }}>Create your first wallet</Text>
           <Text style={{ color: t.textSecondary, fontSize: 15, lineHeight: 22, marginTop: 12 }}>
             One wallet is enough to start. You can add the rest later.
