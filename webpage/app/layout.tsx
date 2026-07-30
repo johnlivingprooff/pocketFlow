@@ -9,12 +9,14 @@ const publicSans = Public_Sans({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-sans',
+  weight: ['400', '500', '600', '700'],
 });
 
 const sora = Sora({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-display',
+  weight: ['500', '600', '700', '800'],
 });
 
 export const metadata: Metadata = {
@@ -52,7 +54,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={clsx(publicSans.variable, sora.variable, 'bg-[var(--bg-soft)] font-sans text-slate-900 antialiased')}>
+      <body
+        className={clsx(
+          publicSans.variable,
+          sora.variable,
+          'bg-white font-sans text-slate-900 antialiased'
+        )}
+      >
         <Navigation />
         <div className="pt-20 sm:pt-24">{children}</div>
         <Footer />
