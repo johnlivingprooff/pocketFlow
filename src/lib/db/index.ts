@@ -1,7 +1,6 @@
 
 import { open } from 'react-native-nitro-sqlite';
 import type { NitroSQLiteConnection } from 'react-native-nitro-sqlite';
-import { enableSimpleNullHandling } from 'react-native-nitro-sqlite';
 import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 import { log, error as logError, warn } from '@/utils/logger';
@@ -22,9 +21,6 @@ async function resolveDbPath(): Promise<string> {
 }
 
 async function openDb(): Promise<NitroSQLiteConnection> {
-  // Enable simple null handling for nitro-sqlite
-  enableSimpleNullHandling(true);
-  
   let db: NitroSQLiteConnection;
   try {
     db = open({ name: 'pocketflow.db' });

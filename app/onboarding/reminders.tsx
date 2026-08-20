@@ -14,10 +14,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
-import { theme, colors } from '@/theme/theme';
+import { theme } from '@/theme/theme';
 import { useSettings } from '@/store/useStore';
 import { useOnboarding } from '@/store/useOnboarding';
 import { OnboardingHeader } from '@/components/OnboardingHeader';
+import { HelpLink } from '@/components/HelpLink';
 import {
   canAskForReminderPermissionAgain,
   requestReminderPermission,
@@ -257,11 +258,13 @@ export default function OnboardingRemindersScreen() {
           )}
         </View>
 
-        <View style={[styles.infoBox, { backgroundColor: colors.deepGold + '10' }]}>
-          <Text style={[styles.infoText, { color: t.textPrimary }]}>
-            This uses local notifications, works offline, and follows strict daily + spacing gates.
-          </Text>
-        </View>
+        <HelpLink
+          title="Reminders"
+          items={[
+            'Uses local notifications and works offline.',
+            'Follows strict daily + spacing gates to avoid notification fatigue.',
+          ]}
+        />
 
         <View style={styles.buttonContainer}>
           <Pressable style={[styles.button, { backgroundColor: t.primary }]} onPress={handleContinue}>
@@ -362,15 +365,6 @@ const styles = StyleSheet.create({
   timeText: {
     fontSize: 15,
     fontWeight: '600',
-  },
-  infoBox: {
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 24,
-  },
-  infoText: {
-    fontSize: 13,
-    lineHeight: 19,
   },
   buttonContainer: {
     gap: 12,

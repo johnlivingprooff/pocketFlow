@@ -6,7 +6,7 @@ import * as Sharing from 'expo-sharing';
 import { useSettings } from '../../src/store/useStore';
 import { useOnboarding } from '../../src/store/useOnboarding';
 import { theme, ThemeMode, colors } from '../../src/theme/theme';
-import { Link, useRouter } from 'expo-router';
+import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { CURRENCIES } from '../../src/constants/currencies';
 import { checkBiometricAvailability, authenticateWithBiometrics } from '../../src/lib/services/biometricService';
 import { createBackup, listBackups, restoreFromBackup } from '../../src/lib/export/backupRestore';
@@ -17,12 +17,13 @@ import { CsvIcon } from '../../src/assets/icons/CsvIcon';
 import { ExportIcon } from '../../src/assets/icons/ExportIcon';
 import { ReceiptIcon } from '../../src/assets/icons/ReceiptIcon';
 import { FingerprintIcon } from '../../src/assets/icons/FingerprintIcon';
+import { DriveIcon } from '../../src/assets/icons/DriveIcon';
 import { SettingsIcon as CategorySettingsIcon, MoneyIcon } from '../../src/assets/icons/CategoryIcons';
 import { useAlert } from '../../src/lib/hooks/useAlert';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
 import { ThemePreview } from '../../src/components/ThemePreview';
 
-const APP_VERSION = "2026.7.30";
+const APP_VERSION = "2026.8.20";
 const TAP_OPACITY = 0.7;
 
 // --- Custom Premium Icons for Settings Grid ---
@@ -70,6 +71,12 @@ const BellIcon = ({ color, size = 24 }: { color: string; size?: number }) => (
   </Svg>
 );
 
+const SmsIcon = ({ color, size = 24 }: { color: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+  </Svg>
+);
+
 const SecurityShieldIcon = ({ color, size = 24 }: { color: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
@@ -86,6 +93,7 @@ export default function SettingsScreen() {
     defaultCurrency,
     userInfo,
     cloudSessionState,
+    driveAccount,
   } = useSettings();
   const { resetOnboarding } = useOnboarding();
   const systemColorScheme = useColorScheme();
@@ -103,9 +111,25 @@ export default function SettingsScreen() {
   const [isLoadingBackup, setIsLoadingBackup] = useState(false);
   const [versionTapCount, setVersionTapCount] = useState(0);
   const [showDevOptions, setShowDevOptions] = useState(false);
+  const [pendingSmsCount, setPendingSmsCount] = useState(0);
 
   const { alertConfig, showErrorAlert, showConfirmAlert, showSuccessAlert, dismissAlert } = useAlert();
   const router = useRouter();
+
+  const loadPendingSmsCount = async () => {
+    try {
+      const { countPendingSms } = await import('../../src/lib/db/pendingTransactions');
+      setPendingSmsCount(await countPendingSms());
+    } catch {
+      setPendingSmsCount(0);
+    }
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      void loadPendingSmsCount();
+    }, [])
+  );
 
   useEffect(() => {
     checkBiometrics();
@@ -405,6 +429,19 @@ export default function SettingsScreen() {
                 <Text style={[styles.gridLabel, { color: t.textPrimary }]}>Reminders</Text>
               </TouchableOpacity>
             </Link>
+            <Link href="/settings/sms-monitoring" asChild>
+              <TouchableOpacity style={[styles.gridItem, { backgroundColor: t.card, borderColor: t.border }]} activeOpacity={TAP_OPACITY}>
+                {pendingSmsCount > 0 && (
+                  <View style={[styles.smsBadge, { backgroundColor: colors.negativeRed }]}>
+                    <Text style={styles.smsBadgeText}>{pendingSmsCount}</Text>
+                  </View>
+                )}
+                <View style={[styles.gridIcon, { backgroundColor: `${t.primary}15` }]}>
+                  <SmsIcon size={36} color={t.primary} />
+                </View>
+                <Text style={[styles.gridLabel, { color: t.textPrimary }]}>SMS Auto-Log</Text>
+              </TouchableOpacity>
+            </Link>
           </View>
         </View>
 
@@ -467,6 +504,23 @@ export default function SettingsScreen() {
               <View style={styles.listItemContent}>
                 <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Backup Options</Text>
                 <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>Create or restore backups</Text>
+              </View>
+              <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={TAP_OPACITY}
+              onPress={() => router.push('/settings/drive-backup')}
+              style={[styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1 }]}
+            >
+              <View style={[styles.listIconLeft, { width: 32 }]}>
+                <DriveIcon size={24} color={t.primary} />
+              </View>
+              <View style={styles.listItemContent}>
+                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Drive Backup</Text>
+                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>
+                  {driveAccount ? `Linked to ${driveAccount.email}` : 'Encrypted Google Drive backup'}
+                </Text>
               </View>
               <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
             </TouchableOpacity>
@@ -888,6 +942,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 4,
     textAlign: 'center', // Center the text below the icon
+  },
+  smsBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+  },
+  smsBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
   },
   listContainer: {
     borderRadius: 16,

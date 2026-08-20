@@ -2,7 +2,7 @@
   "expo": {
     "name": "pocketFlow",
     "slug": "pocketflow",
-    "version": "2026.7.30",
+    "version": "2026.8.20",
     "orientation": "portrait",
     "icon": "./assets/app_icon.png",
     "userInterfaceStyle": "automatic",
@@ -21,7 +21,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.eiteone.pocketflow",
-      "buildNumber": "2026.7.30"
+      "buildNumber": "2026.8.20"
     },
     "android": {
       "adaptiveIcon": {
@@ -34,14 +34,15 @@
         "android.permission.USE_FINGERPRINT"
       ],
       "package": "com.eiteone.pocketflow",
-      "versionCode": 20260730
+      "versionCode": 20260820
     },
     "web": {
       "favicon": "./assets/app_icon.png"
     },
-    "scheme": "pocketflow",
+    "scheme": ["pocketflow", "com.eiteone.pocketflow"],
     "plugins": [
       "expo-router",
+      "./plugins/withSmsReader/app.plugin.js",
       "expo-sqlite",
       [
         "expo-local-authentication",
@@ -64,6 +65,11 @@
       "router": {},
       "enableLogging": true,
       "cloudApiBaseUrl": "https://cloud.pf.eiteone.org",
+      "googleDrive": {
+        "iosClientId": "",
+        "androidClientId": "359785782496-rn26t21q027mc8jqp3cmg21ch3fghcdf.apps.googleusercontent.com",
+        "webClientId": "359785782496-ibm0flkg3onbhtv6lac34j9sdlrbnd5h.apps.googleusercontent.com"
+      },
       "eas": {
         "projectId": "e63eeb3a-bc99-4112-b2c0-d0568d5593d3"
       }

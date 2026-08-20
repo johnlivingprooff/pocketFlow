@@ -14,6 +14,7 @@ import {
   syncReminderPermissionStatus,
 } from '../src/lib/services/reminderNotificationService';
 import { log } from '../src/utils/logger';
+import { runSmsRuntimeGateCheck } from '../src/lib/services/smsTransactionService';
 import { theme, shadows } from '../src/theme/theme';
 import { authenticateWithBiometrics, shouldRequireAuth } from '../src/lib/services/biometricService';
 import { FingerprintIcon } from '../src/assets/icons/FingerprintIcon';
@@ -67,6 +68,7 @@ export default function RootLayout() {
           
           await syncReminderPermissionStatus();
           await runReminderRuntimeGateCheck();
+          await runSmsRuntimeGateCheck();
           
           log('[App] Initialization complete');
           await maybeRunAutoBackup();
@@ -131,6 +133,7 @@ export default function RootLayout() {
 
         await processRecurringTransactions();
         await runReminderRuntimeGateCheck();
+        await runSmsRuntimeGateCheck();
         await maybeRunAutoBackup();
       }
 
@@ -191,9 +194,10 @@ export default function RootLayout() {
     backupInProgressRef.current = true;
     try {
       const result = await createBackup();
-      if (result.success) {
+      if (result.success && result.uri) {
         setLastBackupAt(Date.now());
         console.log('[AutoBackup] Backup created at', result.uri);
+        await maybeUploadAutoBackupToDrive(result.uri);
       } else {
         console.warn('[AutoBackup] Backup failed:', result.error);
       }
@@ -201,6 +205,28 @@ export default function RootLayout() {
       console.error('[AutoBackup] Unexpected error creating backup:', error);
     } finally {
       backupInProgressRef.current = false;
+    }
+  };
+
+  const maybeUploadAutoBackupToDrive = async (backupUri: string) => {
+    const settings = useSettings.getState();
+    if (!settings.driveAccount || !settings.driveAutoBackupEnabled) return;
+    try {
+      const { uploadExistingBackupToDrive } =
+        await import('../src/lib/services/drive/driveBackupService');
+      const remote = await uploadExistingBackupToDrive(backupUri);
+      useSettings.getState().setDriveLastSyncAt(Date.now());
+      console.log('[AutoBackup] Encrypted backup uploaded to Drive:', remote.name);
+    } catch (err) {
+      const skipSilently =
+        err instanceof Error &&
+        err.name === 'DriveBackupError' &&
+        (err as { code?: string }).code === 'drive_no_passphrase';
+      if (skipSilently) {
+        console.warn('[AutoBackup] Drive upload skipped: passphrase not set');
+      } else {
+        console.warn('[AutoBackup] Drive upload failed:', err instanceof Error ? err.message : String(err));
+      }
     }
   };
 
@@ -376,6 +402,19 @@ export default function RootLayout() {
         },
         headerShadowVisible: false,
       }} />
+      <Stack.Screen name="settings/drive-backup" options={{
+        headerShown: true,
+        title: 'Drive Backup',
+        headerStyle: {
+          backgroundColor: t.background,
+        },
+        headerTintColor: t.textPrimary,
+        headerTitleStyle: {
+          color: t.textPrimary,
+          fontWeight: '700' as TextStyle['fontWeight'],
+        },
+        headerShadowVisible: false,
+      }} />
       <Stack.Screen name="budget/index" options={{ headerShown: false }} />
       <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
       <Stack.Screen name="onboarding/welcome" options={{ headerShown: false }} />
@@ -391,6 +430,32 @@ export default function RootLayout() {
       <Stack.Screen name="settings/reminders" options={{
         headerShown: true,
         title: 'Reminder Settings',
+        headerStyle: {
+          backgroundColor: t.background,
+        },
+        headerTintColor: t.textPrimary,
+        headerTitleStyle: {
+          color: t.textPrimary,
+          fontWeight: '700' as TextStyle['fontWeight'],
+        },
+        headerShadowVisible: false,
+      }} />
+      <Stack.Screen name="settings/sms-monitoring" options={{
+        headerShown: true,
+        title: 'SMS Auto-Log',
+        headerStyle: {
+          backgroundColor: t.background,
+        },
+        headerTintColor: t.textPrimary,
+        headerTitleStyle: {
+          color: t.textPrimary,
+          fontWeight: '700' as TextStyle['fontWeight'],
+        },
+        headerShadowVisible: false,
+      }} />
+      <Stack.Screen name="sms/pending" options={{
+        headerShown: true,
+        title: 'Pending SMS Entries',
         headerStyle: {
           backgroundColor: t.background,
         },

@@ -16,7 +16,14 @@ export interface CloudUser {
   accountStatus: 'active';
 }
 
+export interface DriveAccount {
+  email: string;
+  name: string;
+}
+
 export type ReminderPermissionStatus = 'granted' | 'denied' | 'undetermined';
+
+export type SmsPermissionStatus = 'granted' | 'denied' | 'undetermined';
 
 interface SettingsState {
   // User Info
@@ -36,12 +43,19 @@ interface SettingsState {
   reminderLastDeliveredLocalDate: string | null; // YYYY-MM-DD at delivery time
   reminderNextScheduledAtUtc: string | null; // ISO timestamp in UTC
   reminderPermissionStatus: ReminderPermissionStatus;
+  // SMS transaction scanning (Android only)
+  smsScanningEnabled: boolean;
+  smsPermissionStatus: SmsPermissionStatus;
   // Security
   biometricEnabled: boolean;
   biometricSetupComplete: boolean;
   lastAuthTime: number | null;
   // Backups
   lastBackupAt: number | null;
+  // Google Drive cloud backup
+  driveAccount: DriveAccount | null;
+  driveAutoBackupEnabled: boolean;
+  driveLastSyncAt: number | null;
   // Privacy
   hideBalances: boolean;
   // Smart Defaults
@@ -63,10 +77,15 @@ interface SettingsState {
   setReminderLastDelivered: (deliveredAtUtc: string | null, deliveredLocalDate: string | null) => void;
   setReminderNextScheduledAtUtc: (nextScheduledAtUtc: string | null) => void;
   setReminderPermissionStatus: (status: ReminderPermissionStatus) => void;
+  setSmsScanningEnabled: (enabled: boolean) => void;
+  setSmsPermissionStatus: (status: SmsPermissionStatus) => void;
   setBiometricEnabled: (v: boolean) => void;
   setBiometricSetupComplete: (v: boolean) => void;
   setLastAuthTime: (time: number | null) => void;
   setLastBackupAt: (time: number | null) => void;
+  setDriveAccount: (account: DriveAccount | null) => void;
+  setDriveAutoBackupEnabled: (enabled: boolean) => void;
+  setDriveLastSyncAt: (time: number | null) => void;
   setHideBalances: (v: boolean) => void;
   setLastUsedWalletId: (id: number | null) => void;
   setLastUsedCategory: (category: string | null) => void;
@@ -94,10 +113,15 @@ const initialState = {
   reminderLastDeliveredLocalDate: null,
   reminderNextScheduledAtUtc: null,
   reminderPermissionStatus: 'undetermined' as ReminderPermissionStatus,
+  smsScanningEnabled: false,
+  smsPermissionStatus: 'undetermined' as SmsPermissionStatus,
   biometricEnabled: false,
   biometricSetupComplete: false,
   lastAuthTime: null,
   lastBackupAt: null,
+  driveAccount: null,
+  driveAutoBackupEnabled: false,
+  driveLastSyncAt: null,
   hideBalances: false,
   lastUsedWalletId: null,
   lastUsedCategory: null,
@@ -125,10 +149,15 @@ export const useSettings = create<SettingsState>()(
         set({ reminderLastDeliveredAtUtc, reminderLastDeliveredLocalDate }),
       setReminderNextScheduledAtUtc: (reminderNextScheduledAtUtc) => set({ reminderNextScheduledAtUtc }),
       setReminderPermissionStatus: (reminderPermissionStatus) => set({ reminderPermissionStatus }),
+      setSmsScanningEnabled: (smsScanningEnabled) => set({ smsScanningEnabled }),
+      setSmsPermissionStatus: (smsPermissionStatus) => set({ smsPermissionStatus }),
       setBiometricEnabled: (biometricEnabled) => set({ biometricEnabled }),
       setBiometricSetupComplete: (biometricSetupComplete) => set({ biometricSetupComplete }),
       setLastAuthTime: (lastAuthTime) => set({ lastAuthTime }),
       setLastBackupAt: (lastBackupAt) => set({ lastBackupAt }),
+      setDriveAccount: (driveAccount) => set({ driveAccount }),
+      setDriveAutoBackupEnabled: (driveAutoBackupEnabled) => set({ driveAutoBackupEnabled }),
+      setDriveLastSyncAt: (driveLastSyncAt) => set({ driveLastSyncAt }),
       setHideBalances: (hideBalances) => set({ hideBalances }),
       setLastUsedWalletId: (lastUsedWalletId) => set({ lastUsedWalletId }),
       setLastUsedCategory: (lastUsedCategory) => set({ lastUsedCategory }),

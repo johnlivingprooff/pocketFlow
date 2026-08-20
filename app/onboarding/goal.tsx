@@ -17,6 +17,7 @@ import { useSettings } from '../../src/store/useStore';
 import { useOnboarding } from '../../src/store/useOnboarding';
 import { createGoal } from '../../src/lib/db/goals';
 import { OnboardingHeader } from '../../src/components/OnboardingHeader';
+import { HelpLink } from '../../src/components/HelpLink';
 import { useColorScheme } from 'react-native';
 
 export default function GoalTutorialScreen() {
@@ -182,12 +183,10 @@ export default function GoalTutorialScreen() {
           </View>
         </View>
 
-        {/* Info Box */}
-        <View style={[styles.infoBox, { backgroundColor: colors.positiveGreen + '10' }]}>
-          <Text style={[styles.infoText, { color: t.textPrimary }]}>
-            💡 <Text style={{ fontWeight: '600' }}>Tip:</Text> Link goals to specific wallets to automatically track your progress as you save!
-          </Text>
-        </View>
+        <HelpLink
+          title="Tip"
+          items={['Link goals to specific wallets to automatically track your progress as you save!']}
+        />
 
         {/* Buttons */}
         <View style={styles.buttonContainer}>
@@ -259,15 +258,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     fontSize: 16,
     borderWidth: 1,
-  },
-  infoBox: {
-    padding: 16,
-    borderRadius: 10,
-    marginBottom: 24,
-  },
-  infoText: {
-    fontSize: 14,
-    lineHeight: 20,
   },
   buttonContainer: {
     gap: 12,

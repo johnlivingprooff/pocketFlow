@@ -8,6 +8,7 @@ import { checkBiometricAvailability, authenticateWithBiometrics } from '../../sr
 import { clearDatabase } from '../../src/lib/db';
 import { useAlert } from '../../src/lib/hooks/useAlert';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
+import { HelpLink } from '../../src/components/HelpLink';
 
 export default function SecuritySettings() {
   const router = useRouter();
@@ -209,24 +210,15 @@ export default function SecuritySettings() {
           </View>
         </View>
 
-        {/* Security Tips */}
-        <View style={{ marginBottom: 32 }}>
-          <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 12 }}>
-            SECURITY TIPS
-          </Text>
-
-          <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 16 }}>
-            <Text style={{ color: t.textPrimary, fontSize: 14, marginBottom: 8 }}>
-              💡 Keep your data safe:
-            </Text>
-            <Text style={{ color: t.textSecondary, fontSize: 12, lineHeight: 18 }}>
-              • Enable biometric lock for added security{'\n'}
-              • Regularly backup your data{'\n'}
-              • Never share your device PIN or biometrics{'\n'}
-              • Keep your device OS updated
-            </Text>
-          </View>
-        </View>
+        <HelpLink
+          title="Security tips"
+          items={[
+            'Enable biometric lock for added security',
+            'Regularly backup your data',
+            'Never share your device PIN or biometrics',
+            'Keep your device OS updated',
+          ]}
+        />
       </ScrollView>
 
       {/* Themed Alert Component */}

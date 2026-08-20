@@ -19,6 +19,7 @@ import { theme, shadows, colors } from '../../src/theme/theme';
 import { useSettings } from '../../src/store/useStore';
 import { useOnboarding } from '../../src/store/useOnboarding';
 import { createCategory } from '../../src/lib/db/categories';
+import { HelpLink } from '../../src/components/HelpLink';
 import { EmojiPicker } from '../../src/components/EmojiPicker';
 import { OnboardingHeader } from '../../src/components/OnboardingHeader';
 import * as CategoryIcons from '../../src/assets/icons/CategoryIcons';
@@ -297,12 +298,10 @@ export default function CategoryTutorialScreen() {
           </View>
         </View>
 
-        {/* Info Box */}
-        <View style={[styles.infoBox, { backgroundColor: colors.deepGold + '10' }]}>
-          <Text style={[styles.infoText, { color: t.textPrimary }]}>
-            💡 <Text style={{ fontWeight: '600' }}>Tip:</Text> You can always add more categories later from the Categories screen!
-          </Text>
-        </View>
+        <HelpLink
+          title="Tip"
+          items={['You can always add more categories later from the Categories screen!']}
+        />
 
         {/* Buttons */}
         <View style={styles.buttonContainer}>
@@ -468,15 +467,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     fontSize: 16,
     borderWidth: 1,
-  },
-  infoBox: {
-    padding: 16,
-    borderRadius: 10,
-    marginBottom: 24,
-  },
-  infoText: {
-    fontSize: 14,
-    lineHeight: 20,
   },
   buttonContainer: {
     gap: 12,

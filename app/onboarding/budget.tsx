@@ -16,6 +16,7 @@ import { theme, shadows, colors } from '../../src/theme/theme';
 import { useSettings } from '../../src/store/useStore';
 import { useOnboarding } from '../../src/store/useOnboarding';
 import { createBudget } from '../../src/lib/db/budgets';
+import { HelpLink } from '../../src/components/HelpLink';
 import { SelectModal, SelectOption } from '../../src/components/SelectModal';
 import { getCategories, type Category } from '../../src/lib/db/categories';
 import { OnboardingHeader } from '../../src/components/OnboardingHeader';
@@ -235,12 +236,10 @@ export default function BudgetTutorialScreen() {
           </View>
         </View>
 
-        {/* Info Box */}
-        <View style={[styles.infoBox, { backgroundColor: colors.deepGold + '10' }]}>
-          <Text style={[styles.infoText, { color: t.textPrimary }]}>
-            💡 <Text style={{ fontWeight: '600' }}>Tip:</Text> The app will alert you when you're close to or over your budget!
-          </Text>
-        </View>
+        <HelpLink
+          title="Tip"
+          items={['The app will alert you when you are close to or over your budget!']}
+        />
 
         {/* Buttons */}
         <View style={styles.buttonContainer}>
@@ -341,15 +340,6 @@ const styles = StyleSheet.create({
   },
   selectText: {
     fontSize: 16,
-  },
-  infoBox: {
-    padding: 16,
-    borderRadius: 10,
-    marginBottom: 24,
-  },
-  infoText: {
-    fontSize: 14,
-    lineHeight: 20,
   },
   buttonContainer: {
     gap: 12,

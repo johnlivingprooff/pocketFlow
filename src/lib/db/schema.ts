@@ -172,6 +172,34 @@ function ensureTransactionsTable(database: SchemaDatabase): void {
   });
 }
 
+function ensurePendingSmsTable(database: SchemaDatabase): void {
+  database.execute(
+    `CREATE TABLE IF NOT EXISTS pending_sms_transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      provider TEXT,
+      sender TEXT NOT NULL,
+      body TEXT NOT NULL,
+      amount REAL,
+      type TEXT CHECK(type IN ('income', 'expense')),
+      balance_after REAL,
+      reference TEXT,
+      occurred_at TEXT,
+      detected_at TEXT NOT NULL,
+      dedupe_key TEXT NOT NULL UNIQUE,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'confirmed', 'ignored')),
+      suggested_wallet_id INTEGER,
+      transaction_id INTEGER,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );`
+  );
+
+  ensureIndexes(database, [
+    'CREATE INDEX IF NOT EXISTS idx_pending_sms_status ON pending_sms_transactions(status);',
+    'CREATE INDEX IF NOT EXISTS idx_pending_sms_detected ON pending_sms_transactions(detected_at);',
+    'CREATE INDEX IF NOT EXISTS idx_pending_sms_suggested_wallet ON pending_sms_transactions(suggested_wallet_id);',
+  ]);
+}
+
 function ensureCategoriesTable(database: SchemaDatabase): void {
   database.execute(
     `CREATE TABLE IF NOT EXISTS categories (
@@ -638,6 +666,7 @@ export async function ensureSchema(database: SchemaDatabase, schemaVersion: numb
   await migratePresetCategoryIcons(database);
   ensureGoalsTable(database);
   ensureBudgetsTable(database);
+  ensurePendingSmsTable(database);
   await seedPresetCategories(database);
 }
 
