@@ -1,6 +1,7 @@
 import { exec, execRun } from './index';
 import { error as logError, log } from '../../utils/logger';
 import { enqueueWrite } from './writeQueue';
+import { scheduleProfileSync } from '../services/cloud/profileSyncScheduler';
 
 export type Category = {
   id?: number;
@@ -37,6 +38,7 @@ export async function createCategory(category: Category): Promise<number> {
     const writeTime = Date.now() - startTime;
     log(`[DB] Category created in ${writeTime}ms, name: ${category.name}, type: ${category.type}, timestamp: ${new Date().toISOString()}`);
     
+    scheduleProfileSync();
     return result.lastInsertRowId;
   } catch (err: any) {
     const writeTime = Date.now() - startTime;
@@ -77,12 +79,14 @@ export async function updateCategory(id: number, category: Partial<Category>): P
   await enqueueWrite(async () => {
     await execRun(`UPDATE categories SET ${fields.join(', ')} WHERE id = ?;`, params);
   }, 'updateCategory');
+  scheduleProfileSync();
 }
 
 export async function deleteCategory(id: number): Promise<void> {
   await enqueueWrite(async () => {
     await execRun('DELETE FROM categories WHERE id = ?;', [id]);
   }, 'deleteCategory');
+  scheduleProfileSync();
 }
 
 export async function getCategories(type?: 'income' | 'expense'): Promise<Category[]> {

@@ -5,6 +5,7 @@ import { analyticsCache, generateCacheKey, invalidateTransactionCaches } from '.
 import { log } from '../../utils/logger';
 import { enqueueWrite } from './writeQueue';
 import { refreshDerivedFinanceStateForWallets } from './derivedState';
+import { scheduleProfileSync } from '../services/cloud/profileSyncScheduler';
 
 async function refreshDerivedState(walletIds: readonly number[]): Promise<void> {
   try {
@@ -55,6 +56,8 @@ export async function addTransaction(t: Transaction) {
   refreshDerivedState([t.wallet_id]).catch((err) =>
     console.error('Failed to refresh derived state after transaction:', err)
   );
+
+  scheduleProfileSync();
 }
 
 /**
@@ -87,6 +90,8 @@ export async function addTransactionsBatch(transactions: Transaction[]): Promise
     refreshDerivedState(affectedWallets).catch((err) =>
       console.error('Failed to refresh derived state after batch transaction insert:', err)
     );
+
+    scheduleProfileSync();
   }, `batch_transactions_${transactions.length}`);
 }
 
@@ -191,6 +196,8 @@ export async function updateTransaction(id: number, t: Partial<Transaction>) {
   refreshDerivedState(Array.from(affectedWalletIds)).catch((err) =>
     console.error('Failed to refresh derived state after transaction update:', err)
   );
+
+  scheduleProfileSync();
 }
 
 export async function deleteTransaction(id: number) {
@@ -216,6 +223,8 @@ export async function deleteTransaction(id: number) {
       console.error('Failed to refresh derived state after transaction delete:', err)
     );
   }
+
+  scheduleProfileSync();
 }
 
 export async function getTransactions(page = 0, pageSize = 20) {

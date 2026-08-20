@@ -9,6 +9,7 @@ import { globalRateLimiter } from './middleware/rateLimit';
 import authRoutes from './routes/auth';
 import walletRoutes from './routes/wallets';
 import invitationRoutes from './routes/invitations';
+import profileRoutes from './routes/profile';
 
 const app = express();
 
@@ -99,11 +100,13 @@ app.get('/invite/:token', (req: Request, res: Response) => {
 app.use('/v1/auth', authRoutes);
 app.use('/v1/wallets', walletRoutes);
 app.use('/v1/invitations', invitationRoutes);
+app.use('/v1/profile', profileRoutes);
 
 // Legacy routes (deprecated, redirect to v1)
 app.use('/auth', authRoutes);
 app.use('/wallets', walletRoutes);
 app.use('/invitations', invitationRoutes);
+app.use('/profile', profileRoutes);
 
 // 404 handler
 app.use(notFoundHandler);
@@ -289,6 +292,7 @@ function renderRootLandingPage(): string {
             <li><code>/v1/auth</code> for authentication</li>
             <li><code>/v1/wallets</code> for wallet operations</li>
             <li><code>/v1/invitations</code> for shared-wallet invites</li>
+            <li><code>/v1/profile</code> for user setup snapshots</li>
           </ul>
         </article>
         <article class="card">

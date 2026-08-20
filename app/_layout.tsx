@@ -21,6 +21,7 @@ import { FingerprintIcon } from '../src/assets/icons/FingerprintIcon';
 import { createBackup } from '../src/lib/export/backupRestore';
 import { WebShell } from '../src/components/web/WebShell';
 import { hydrateCloudSession } from '../src/lib/services/cloud/authService';
+import { pushProfileToCloud, restoreProfileIfFreshInstall } from '../src/lib/services/cloud/profileService';
 
 export default function RootLayout() {
   const {
@@ -50,9 +51,14 @@ export default function RootLayout() {
   }, [themeMode, systemColorScheme]);
 
   useEffect(() => {
-    hydrateCloudSession().catch(() => {
-      // best effort
-    });
+    hydrateCloudSession()
+      .then(() => restoreProfileIfFreshInstall())
+      // Ensure the profile row exists for already-logged-in users
+      // (the push is auth-gated and a no-op when not signed in)
+      .then(() => pushProfileToCloud())
+      .catch(() => {
+        // best effort
+      });
   }, []);
 
   useEffect(() => {

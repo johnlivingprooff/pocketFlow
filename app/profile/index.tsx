@@ -27,6 +27,7 @@ import {
   signOutCloudAccount,
 } from '../../src/lib/services/cloud/authService';
 import { acceptWalletInvitation } from '../../src/lib/services/cloud/sharedWalletService';
+import { restoreProfileIfFreshInstall, pushProfileToCloud } from '../../src/lib/services/cloud/profileService';
 
 export default function ProfilePage() {
   const { themeMode, userInfo, setUserInfo } = useSettings();
@@ -87,7 +88,17 @@ export default function ProfilePage() {
     setIsSubmittingAuth(true);
     try {
       await signInCloudAccount({ email: cloudEmail.trim(), password: cloudPassword });
-      showSuccessAlert('Signed in', 'Cloud session active.');
+      const restore = await restoreProfileIfFreshInstall();
+      // Upload local setup so the cloud profile exists (auth-gated no-op otherwise)
+      await pushProfileToCloud();
+      if (restore.restored) {
+        showSuccessAlert(
+          'Welcome back',
+          `Your setup was restored: ${restore.wallets} wallet${restore.wallets === 1 ? '' : 's'} and ${restore.categories} custom categor${restore.categories === 1 ? 'y' : 'ies'}.`
+        );
+      } else {
+        showSuccessAlert('Signed in', 'Cloud session active.');
+      }
     } catch {
       showErrorAlert('Sign in failed', 'Invalid credentials or network error.');
     } finally {

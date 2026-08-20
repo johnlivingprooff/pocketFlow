@@ -4,6 +4,7 @@ import { invalidateWalletCaches } from '../cache/queryCache';
 import { error as logError, log, generateOperationId, metrics, warn } from '../../utils/logger';
 import { detectJSEngine, toSafeInteger, isSafeInteger } from '../../utils/platform';
 import { enqueueWrite } from './writeQueue';
+import { scheduleProfileSync } from '../services/cloud/profileSyncScheduler';
 
 // Idempotency tracking for wallet reorder operations
 // Prevents duplicate reorders within a short time window
@@ -127,6 +128,7 @@ export async function createWallet(w: Wallet) {
     
     // Invalidate wallet caches after creation
     invalidateWalletCaches();
+    scheduleProfileSync();
   } catch (err: any) {
     const writeTime = Date.now() - startTime;
     logError('[DB] Failed to create wallet', { 
@@ -174,6 +176,7 @@ export async function updateWallet(id: number, w: Partial<Wallet>) {
   
   // Invalidate wallet caches after update
   invalidateWalletCaches();
+  scheduleProfileSync();
 }
 
 export async function deleteWallet(id: number) {
@@ -183,6 +186,7 @@ export async function deleteWallet(id: number) {
   
   // Invalidate wallet caches after deletion
   invalidateWalletCaches();
+  scheduleProfileSync();
 }
 
 export async function getWallets(): Promise<Wallet[]> {
@@ -270,6 +274,7 @@ export async function updateWalletsOrder(orderUpdates: Array<{ id: number; displ
     }
     metrics.increment('db.wallet.reorder.success');
     invalidateWalletCaches();
+    scheduleProfileSync();
   } catch (err: any) {
     const duration = Date.now() - startTime;
     if (!__DEV__) {
@@ -310,6 +315,7 @@ export async function setPrimaryWallet(id: number) {
     
     invalidateWalletCaches();
   }, 'set_primary_wallet');
+  scheduleProfileSync();
 }
 
 export async function getWalletBalance(id: number): Promise<number> {

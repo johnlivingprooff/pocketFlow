@@ -15,6 +15,7 @@ interface OnboardingState {
   completeStep: (step: OnboardingStep) => void;
   skipStep: (step: OnboardingStep) => void;
   setCurrentStep: (step: OnboardingStep) => void;
+  markOnboardingComplete: () => void;
   resetOnboarding: () => void;
 }
 
@@ -75,6 +76,14 @@ export const useOnboarding = create<OnboardingState>()(
         });
       },
       setCurrentStep: (step) => set({ currentStep: step }),
+      markOnboardingComplete: () =>
+        set({
+          currentStep: 'wallet',
+          completedSteps: ['welcome', 'profile', 'wallet'],
+          skippedSteps: [],
+          hasCompletedOnboarding: true,
+          isOnboardingComplete: true,
+        }),
       resetOnboarding: () => set(initialState),
     }),
     {

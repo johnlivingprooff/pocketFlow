@@ -1,18 +1,16 @@
 import React from 'react';
-import Svg, { Path, G } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 
 interface DriveIconProps {
   size?: number;
   color?: string;
 }
 
+// Official Google Drive logo (Simple Icons), filled with the theme color.
 export function DriveIcon({ size = 24, color = '#000' }: DriveIconProps) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <G stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <Path d="M4.5 18.5 8.2 11l-1.05-1.85a1.52 1.52 0 0 1 .02-1.53L9.6 3.9a1.51 1.51 0 0 1 2.05-.53l7.9 4.52c.7.4 1.06 1.19.9 1.95L16.9 18.5Z" />
-        <Path d="M9 3.5 4.6 18.5H19.5" />
-      </G>
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <Path d="M12.01 1.485c-2.082 0-3.754.02-3.743.047.01.02 1.708 3.001 3.774 6.62l3.76 6.574h3.76c2.081 0 3.753-.02 3.742-.047-.005-.02-1.708-3.001-3.775-6.62l-3.76-6.574zm-4.76 1.73a789.828 789.861 0 0 0-3.63 6.319L0 15.868l1.89 3.298 1.885 3.297 3.62-6.335 3.618-6.33-1.88-3.287C8.1 4.704 7.255 3.22 7.25 3.214zm2.259 12.653-.203.348c-.114.198-.96 1.672-1.88 3.287a423.93 423.948 0 0 1-1.698 2.97c-.01.026 3.24.042 7.222.042h7.244l1.796-3.157c.992-1.734 1.85-3.23 1.906-3.323l.104-.167h-7.249z" />
     </Svg>
   );
 }
