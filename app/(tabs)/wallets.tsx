@@ -12,7 +12,7 @@ import { invalidateWalletCaches } from '../../src/lib/cache/queryCache';
 
 export default function WalletsList() {
   const { wallets, balances, loading, refresh } = useWallets();
-  const { themeMode, userInfo } = useSettings();
+  const { themeMode, userInfo, setUserInfo } = useSettings();
   const systemColorScheme = useColorScheme();
   const t = theme(themeMode, systemColorScheme || 'light');
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
@@ -75,7 +75,7 @@ export default function WalletsList() {
           <Link href="/profile" asChild>
             <TouchableOpacity style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.primary, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', ...shadows.sm }}>
               {userInfo?.profileImage ? (
-                <Image source={{ uri: userInfo.profileImage }} style={{ width: 48, height: 48, borderRadius: 24 }} />
+                <Image source={{ uri: userInfo.profileImage }} style={{ width: 48, height: 48, borderRadius: 24 }} onError={() => setUserInfo({ profileImage: null })} />
               ) : (
                 <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700' }}>
                   {(userInfo?.name || 'U').charAt(0).toUpperCase()}

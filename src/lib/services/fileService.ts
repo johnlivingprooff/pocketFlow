@@ -70,6 +70,40 @@ export async function saveReceiptImageFromUri(sourceUri: string): Promise<string
   }
 }
 
+export async function saveProfileAvatar(sourceUri: string): Promise<string> {
+  if (!sourceUri) {
+    throw new Error('Source URI is required');
+  }
+
+  try {
+    const documentDir = FileSystem.documentDirectory;
+    if (!documentDir) {
+      throw new Error('Document directory not available');
+    }
+    const dir = `${documentDir}profile`;
+    await ensureDir(dir);
+    const destUri = `${dir}/avatar_${Date.now()}.jpg`;
+    await FileSystem.copyAsync({
+      from: sourceUri,
+      to: destUri,
+    });
+    return destUri;
+  } catch (error) {
+    console.error('Error saving profile avatar:', error);
+    throw new Error('Failed to save profile image');
+  }
+}
+
+export async function deleteProfileAvatarIfOwned(uri: string | null | undefined): Promise<void> {
+  if (!uri || !FileSystem.documentDirectory) return;
+  if (!uri.startsWith(`${FileSystem.documentDirectory}profile/`)) return;
+  try {
+    await FileSystem.deleteAsync(uri, { idempotent: true });
+  } catch (error) {
+    console.error('Error deleting previous profile avatar:', error);
+  }
+}
+
 export async function exportData(json: any) {
   try {
     const documentDir = FileSystem.documentDirectory;

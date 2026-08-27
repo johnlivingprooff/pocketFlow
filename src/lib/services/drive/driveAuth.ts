@@ -6,6 +6,7 @@ import { Platform } from 'react-native';
 import { DRIVE_SCOPES, getDriveClientIds, getPlatformDriveClientId, driveSetupHint } from './driveConfig';
 import {
   clearDriveTokens,
+  clearDriveBackupFolderId,
   getDriveTokens,
   getDriveProfile,
   storeDriveTokens,
@@ -129,6 +130,7 @@ export async function signInToDrive(): Promise<DriveProfile> {
   }
 
   const profile = await fetchDriveProfile(accessToken);
+  await clearDriveBackupFolderId();
   await storeDriveTokens({ accessToken, refreshToken: refreshToken ?? '', issuedAt, expiresIn, profile });
   log('[Drive] Signed in as', { email: profile.email });
   return profile;

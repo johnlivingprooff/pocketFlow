@@ -74,6 +74,7 @@ export interface CloudCategoryProfile {
 }
 
 export interface CloudSettingsProfile {
+  name: string;
   themeMode: 'light' | 'dark' | 'system';
   defaultCurrency: string;
   remindersEnabled: boolean;

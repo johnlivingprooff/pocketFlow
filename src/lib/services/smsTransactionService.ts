@@ -156,8 +156,12 @@ export async function getSmsPermissionStatus(): Promise<SmsPermissionStatus> {
 }
 
 /** Request READ_SMS + RECEIVE_SMS with an explanatory rationale. */
-export async function requestSmsPermission(): Promise<boolean> {
-  if (Platform.OS !== 'android') return false;
+export async function requestSmsPermission(): Promise<{
+  granted: boolean;
+  /** System auto-denied the prompt (e.g. Xiaomi/MIUI) - manual grant required. */
+  blocked: boolean;
+}> {
+  if (Platform.OS !== 'android') return { granted: false, blocked: false };
 
   const rationale = {
     title: 'Read transaction SMS',
@@ -176,11 +180,15 @@ export async function requestSmsPermission(): Promise<boolean> {
     const granted =
       readResult === PermissionsAndroid.RESULTS.GRANTED &&
       receiveResult === PermissionsAndroid.RESULTS.GRANTED;
-    useSettings.getState().setSmsPermissionStatus(granted ? 'granted' : 'denied');
-    return granted;
+    const blocked = [readResult, receiveResult].some(
+      (result) => result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN
+    );
+
+    useSettings.getState().setSmsPermissionStatus(granted ? 'granted' : blocked ? 'denied' : 'denied');
+    return { granted, blocked };
   } catch (err: unknown) {
     logError('[SmsService] Permission request failed', { error: err });
-    return false;
+    return { granted: false, blocked: false };
   }
 }
 
@@ -217,7 +225,7 @@ export async function setSmsScanningEnabled(enabled: boolean): Promise<boolean> 
   }
 
   if (enabled) {
-    const granted = await requestSmsPermission();
+    const { granted } = await requestSmsPermission();
     if (!granted) {
       useSettings.getState().setSmsScanningEnabled(false);
       warn('[SmsService] SMS permission not granted - scanning disabled');

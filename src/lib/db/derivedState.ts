@@ -11,6 +11,8 @@ import {
 type GoalRow = {
   id: number;
   linkedWalletIds: string | null;
+  startDate: string;
+  endDate: string;
 };
 
 type BudgetRow = {
@@ -56,6 +58,17 @@ function toDateMs(dateValue: string): number {
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function periodBoundsMs(startDate: string, endDate: string): { startMs: number; endMs: number } {
+  const startMs = toDateMs(startDate);
+  let endMs = toDateMs(endDate);
+  if (endDate.length === 10) {
+    endMs += DAY_MS - 1;
+  }
+  return { startMs, endMs };
+}
+
 function resolveBudgetCategoryNames(
   budget: {
     categoryIds: number[];
@@ -92,7 +105,10 @@ function resolveBudgetCategoryNames(
 
 async function loadGoalRows(): Promise<Array<GoalRow & { walletIds: number[] }>> {
   const rows = await exec<GoalRow>(
-    `SELECT id, linked_wallet_ids as linkedWalletIds
+    `SELECT id,
+            linked_wallet_ids as linkedWalletIds,
+            start_date as startDate,
+            target_date as endDate
      FROM goals`
   );
 
@@ -131,28 +147,53 @@ async function buildGoalUpdates(goals: Array<GoalRow & { walletIds: number[] }>)
     return [];
   }
 
-  const placeholders = relevantWalletIds.map(() => '?').join(', ');
-  const incomeRows = await exec<{ total: number; wallet_id: number }>(
-    `SELECT wallet_id, COALESCE(SUM(amount), 0) as total
-     FROM transactions
-     WHERE type = 'income'
-       AND (category IS NULL OR category <> 'Transfer')
-       AND wallet_id IN (${placeholders})
-     GROUP BY wallet_id`,
-    relevantWalletIds
-  );
-
-  const incomeByWalletId = new Map<number, number>(
-    incomeRows.map((row) => [row.wallet_id, row.total ?? 0])
-  );
-
-  return goals.map((goal) => ({
-    currentProgress: goal.walletIds.reduce(
-      (sum, walletId) => sum + (incomeByWalletId.get(walletId) ?? 0),
-      0
-    ),
+  const goalBounds = goals.map((goal) => ({
     id: goal.id,
+    walletIdSet: new Set(goal.walletIds),
+    ...periodBoundsMs(goal.startDate, goal.endDate),
   }));
+
+  const rangeStartMs = Math.min(...goalBounds.map((bound) => bound.startMs));
+  const rangeEndMs = Math.max(...goalBounds.map((bound) => bound.endMs));
+
+  const placeholders = relevantWalletIds.map(() => '?').join(', ');
+  const incomeRows = await exec<{ amount: number; date: string; wallet_id: number }>(
+    `SELECT t.wallet_id,
+            t.date,
+            t.amount
+     FROM transactions t
+     WHERE t.type = 'income'
+       AND (t.category IS NULL OR t.category <> 'Transfer')
+       AND t.wallet_id IN (${placeholders})
+       AND t.date BETWEEN ? AND ?`,
+    [
+      ...relevantWalletIds,
+      new Date(rangeStartMs).toISOString(),
+      new Date(rangeEndMs).toISOString(),
+    ]
+  );
+
+  return goals.map((goal) => {
+    const bound = goalBounds.find((candidate) => candidate.id === goal.id);
+    if (!bound) {
+      return { currentProgress: 0, id: goal.id };
+    }
+
+    const currentProgress = incomeRows.reduce((sum, row) => {
+      if (!bound.walletIdSet.has(row.wallet_id)) {
+        return sum;
+      }
+
+      const rowDateMs = toDateMs(row.date);
+      if (rowDateMs < bound.startMs || rowDateMs > bound.endMs) {
+        return sum;
+      }
+
+      return sum + (row.amount ?? 0);
+    }, 0);
+
+    return { currentProgress, id: goal.id };
+  });
 }
 
 async function buildBudgetUpdates(
@@ -187,8 +228,22 @@ async function buildBudgetUpdates(
     }
   }
 
-  const rangeStartMs = Math.min(...budgets.map((budget) => toDateMs(budget.startDate)));
-  const rangeEndMs = Math.max(...budgets.map((budget) => toDateMs(budget.endDate)));
+  const budgetBounds = budgets.map((budget) => ({
+    id: budget.id,
+    walletIdSet: new Set(budget.linkedWalletIdsResolved),
+    allowedCategoryNames: resolveBudgetCategoryNames(
+      {
+        categoryIds: budget.categoryIdsResolved,
+        subcategoryIds: budget.subcategoryIdsResolved,
+      },
+      categoryNameById,
+      childNamesByParentId
+    ),
+    ...periodBoundsMs(budget.startDate, budget.endDate),
+  }));
+
+  const rangeStartMs = Math.min(...budgetBounds.map((bound) => bound.startMs));
+  const rangeEndMs = Math.max(...budgetBounds.map((bound) => bound.endMs));
   const placeholders = relevantWalletIds.map(() => '?').join(', ');
   const expenseRows = await exec<{
     amount: number;
@@ -213,30 +268,18 @@ async function buildBudgetUpdates(
     ]
   );
 
-  return budgets.map((budget) => {
-    const walletIdSet = new Set(budget.linkedWalletIdsResolved);
-    const allowedCategoryNames = resolveBudgetCategoryNames(
-      {
-        categoryIds: budget.categoryIdsResolved,
-        subcategoryIds: budget.subcategoryIdsResolved,
-      },
-      categoryNameById,
-      childNamesByParentId
-    );
-    const startMs = toDateMs(budget.startDate);
-    const endMs = toDateMs(budget.endDate);
-
+  return budgetBounds.map((bound) => {
     const currentSpending = expenseRows.reduce((sum, row) => {
-      if (!walletIdSet.has(row.wallet_id)) {
+      if (!bound.walletIdSet.has(row.wallet_id)) {
         return sum;
       }
 
       const rowDateMs = toDateMs(row.date);
-      if (rowDateMs < startMs || rowDateMs > endMs) {
+      if (rowDateMs < bound.startMs || rowDateMs > bound.endMs) {
         return sum;
       }
 
-      if (allowedCategoryNames && (!row.category || !allowedCategoryNames.has(row.category))) {
+      if (bound.allowedCategoryNames && (!row.category || !bound.allowedCategoryNames.has(row.category))) {
         return sum;
       }
 
@@ -245,7 +288,7 @@ async function buildBudgetUpdates(
 
     return {
       currentSpending,
-      id: budget.id,
+      id: bound.id,
     };
   });
 }

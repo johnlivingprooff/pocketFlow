@@ -126,16 +126,14 @@ export async function uploadDriveBackupFile(
     throw new DriveBackupError('drive_unsupported_platform', 'Drive uploads are not supported on web.');
   }
   const token = await getDriveAccessToken();
-  const folderId = await ensureBackupFolder();
+  let folderId = await ensureBackupFolder();
   const info = await FileSystem.getInfoAsync(fileUri);
   if (!info.exists || typeof info.size !== 'number') {
     throw new DriveBackupError('drive_file_missing', 'Backup file not found on device.');
   }
 
-  // 1. Initialize resumable session with JSON metadata.
-  const initRes = await fetch(
-    `${DRIVE_UPLOAD_BASE}/files?uploadType=resumable`,
-    {
+  const initSession = (parentFolderId: string) =>
+    fetch(`${DRIVE_UPLOAD_BASE}/files?uploadType=resumable`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -145,12 +143,18 @@ export async function uploadDriveBackupFile(
       },
       body: JSON.stringify({
         name: fileName,
-        parents: [folderId],
+        parents: [parentFolderId],
         mimeType: 'application/json',
         description: 'pocketFlow encrypted backup (AES-256-CBC + HMAC-SHA256)',
       }),
-    }
-  );
+    });
+
+  let initRes = await initSession(folderId);
+  if (initRes.status === 404) {
+    await resetDriveFolderCache();
+    folderId = await ensureBackupFolder();
+    initRes = await initSession(folderId);
+  }
   if (!initRes.ok) {
     let detail = `HTTP ${initRes.status}`;
     try {

@@ -81,6 +81,7 @@ export default function DriveBackupScreen() {
   const [uploading, setUploading] = useState(false);
   const [uploadStage, setUploadStage] = useState<DriveBackupProgressStage | null>(null);
   const [uploadPercent, setUploadPercent] = useState(0);
+  const [uploadBtnWidth, setUploadBtnWidth] = useState(0);
   const uploadTargetRef = useRef(0);
   const uploadProgressRef = useRef(0);
   const [restoringFile, setRestoringFile] = useState<DriveRemoteFile | null>(null);
@@ -460,10 +461,13 @@ export default function DriveBackupScreen() {
                   activeOpacity={TAP_OPACITY}
                   onPress={handleUploadNow}
                   disabled={uploading || !driveAccount}
+                  onLayout={(e) => setUploadBtnWidth(e.nativeEvent.layout.width)}
                   style={[
                     styles.primaryButton,
                     {
-                      backgroundColor: !driveAccount ? t.border : t.primary,
+                      backgroundColor: 'transparent',
+                      borderWidth: 1.5,
+                      borderColor: !driveAccount ? t.border : t.primary,
                       flex: 1,
                       overflow: 'hidden',
                       paddingVertical: uploading ? 0 : 13,
@@ -472,24 +476,32 @@ export default function DriveBackupScreen() {
                 >
                   {uploading ? (
                     <View style={styles.uploadProgressWrap}>
-                      <View style={[styles.uploadProgressTrack, { backgroundColor: 'rgba(255,255,255,0.18)' }]} />
-                      <View
-                        style={[
-                          styles.uploadProgressFill,
-                          {
-                            width: `${Math.min(100, Math.max(0, uploadPercent))}%`,
-                            backgroundColor: 'rgba(255,255,255,0.35)',
-                          },
-                        ]}
-                      />
-                      <Text style={[styles.uploadProgressLabel, { color: '#FFF' }]}>
+                      <View style={[styles.uploadProgressTrack, { backgroundColor: `${t.primary}26` }]} />
+                      {uploadBtnWidth > 0 && (
+                        <View
+                          style={[
+                            styles.uploadProgressClip,
+                            { width: Math.round((uploadBtnWidth * Math.min(100, Math.max(0, uploadPercent))) / 100) },
+                          ]}
+                        >
+                          <View style={[styles.uploadProgressSolid, { backgroundColor: t.primary, width: uploadBtnWidth }]} />
+                          <Text style={[styles.uploadProgressLabel, { color: '#FFFFFF', width: uploadBtnWidth }]}>
+                            {uploadStage === 'uploading'
+                              ? `Uploading backup ${Math.round(uploadPercent)}%`
+                              : `Creating backup ${Math.round(uploadPercent)}%`}
+                          </Text>
+                        </View>
+                      )}
+                      <Text style={[styles.uploadProgressLabel, { color: t.primary }]}>
                         {uploadStage === 'uploading'
                           ? `Uploading backup ${Math.round(uploadPercent)}%`
                           : `Creating backup ${Math.round(uploadPercent)}%`}
                       </Text>
                     </View>
                   ) : (
-                    <Text style={[styles.primaryButtonText, { color: '#FFF' }]}>Upload backup now</Text>
+                    <Text style={[styles.primaryButtonText, { color: !driveAccount ? t.textTertiary : t.primary }]}>
+                      Upload backup now
+                    </Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -739,16 +751,29 @@ const styles = StyleSheet.create({
   },
   uploadProgressTrack: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 12,
   },
-  uploadProgressFill: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 12,
+  uploadProgressClip: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    overflow: 'hidden',
+  },
+  uploadProgressSolid: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
   },
   uploadProgressLabel: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    textAlign: 'center',
+    textAlignVertical: 'center',
     fontWeight: '800',
     fontSize: 14,
-    textAlign: 'center',
   },
   secondaryButton: {
     borderRadius: 12,

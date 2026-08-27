@@ -3,12 +3,17 @@
  * Bump the pocketFlow build version to today's date (or a given date).
  *
  * Updates every place the version appears:
- *   - app.json               (expo.version, ios.buildNumber, android.versionCode)
- *   - package.json           (version)
- *   - package-lock.json      (version)
- *   - eas.json               (APP_VERSION_NAME / APP_VERSION_CODE for all profiles)
+ *   - app.json                (expo.version, ios.buildNumber, android.versionCode)
+ *   - package.json            (version)
+ *   - package-lock.json       (version)
+ *   - eas.json                (APP_VERSION_NAME / APP_VERSION_CODE for all profiles)
  *   - app/(tabs)/settings.tsx (APP_VERSION const)
  *   - webpage/lib/links.ts    (RELEASE_VERSION / RELEASE_FILENAME)
+ *   - android/app/build.gradle (versionCode, versionName — what Android Settings shows)
+ *   - ios/pocketFlow/Info.plist (CFBundleShortVersionString, CFBundleVersion)
+ *
+ * The native files are updated by pattern (not by old-value lookup), so they
+ * stay in sync even if a previous bump missed them.
  *
  * Usage:
  *   node scripts/bump-version.js                # use today's date
@@ -83,6 +88,40 @@ function resolveTarget() {
   };
 }
 
+function updateAndroidGradle(contents, newVersion, newVersionCode) {
+  let updated = contents
+    .replace(/versionCode\s+\d+/, `versionCode ${newVersionCode}`)
+    .replace(/versionName\s+"[^"]*"/, `versionName "${newVersion}"`);
+  if (!/versionName\s+"/.test(updated)) {
+    throw new Error('android/app/build.gradle: could not locate versionName entry.');
+  }
+  if (!/versionCode\s+\d+/.test(updated)) {
+    throw new Error('android/app/build.gradle: could not locate versionCode entry.');
+  }
+  return updated;
+}
+
+function updateIosInfoPlist(contents, newVersion, newVersionCode) {
+  const shortRe = /(<key>CFBundleShortVersionString<\/key>\s*<string>)[^<]*(<\/string>)/;
+  const buildRe = /(<key>CFBundleVersion<\/key>\s*<string>)[^<]*(<\/string>)/;
+  if (!shortRe.test(contents)) {
+    throw new Error('ios/pocketFlow/Info.plist: could not locate CFBundleShortVersionString.');
+  }
+  if (!buildRe.test(contents)) {
+    throw new Error('ios/pocketFlow/Info.plist: could not locate CFBundleVersion.');
+  }
+  return contents.replace(shortRe, `$1${newVersion}$2`).replace(buildRe, `$1${newVersionCode}$2`);
+}
+
+function applyNativeUpdates(rel, newVersion, newVersionCode) {
+  const original = readFile(rel);
+  const updated =
+    rel.endsWith('.gradle')
+      ? updateAndroidGradle(original, newVersion, newVersionCode)
+      : updateIosInfoPlist(original, newVersion, newVersionCode);
+  return { original, updated };
+}
+
 function main() {
   const target = resolveTarget();
 
@@ -121,6 +160,32 @@ function main() {
     } else {
       writeFile(rel, updated);
       console.log(`  - ${rel}: updated`);
+    }
+  }
+
+  const NATIVE_FILES = [
+    'android/app/build.gradle',
+    'ios/pocketFlow/Info.plist',
+  ];
+  for (const rel of NATIVE_FILES) {
+    if (!fs.existsSync(path.join(ROOT, rel))) {
+      console.log(`  - ${rel}: skipped (missing)`);
+      continue;
+    }
+    try {
+      const { original, updated } = applyNativeUpdates(rel, newVersion, newVersionCode);
+      if (updated === original) {
+        console.log(`  - ${rel}: no change`);
+        continue;
+      }
+      if (target.dryRun) {
+        console.log(`  - ${rel}: would update`);
+      } else {
+        writeFile(rel, updated);
+        console.log(`  - ${rel}: updated`);
+      }
+    } catch (err) {
+      console.warn(`  - ${rel}: WARNING ${err.message}`);
     }
   }
 }

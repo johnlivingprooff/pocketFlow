@@ -47,7 +47,9 @@ function settingsChanged(prev: Record<string, unknown>, next: Record<string, unk
       return true;
     }
   }
-  return false;
+  const prevUser = prev.userInfo as { name?: string } | undefined;
+  const nextUser = next.userInfo as { name?: string } | undefined;
+  return prevUser?.name !== nextUser?.name;
 }
 
 // Push when the synced subset of settings changes (the rest is device-local).

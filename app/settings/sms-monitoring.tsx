@@ -45,7 +45,7 @@ export default function SmsMonitoringSettingsScreen() {
   );
   const compact = width <= 360;
   const router = useRouter();
-  const { alertConfig, showErrorAlert, showSuccessAlert, dismissAlert } = useAlert();
+  const { alertConfig, showAlert, showErrorAlert, showSuccessAlert, dismissAlert } = useAlert();
 
   const [enabled, setEnabled] = useState(smsScanningEnabled);
   const [permissionStatus, setPermissionStatus] = useState(smsPermissionStatus);
@@ -125,6 +125,7 @@ export default function SmsMonitoringSettingsScreen() {
         await refreshPendingCount();
       } else {
         setPendingCount(null);
+        await handleRequestPermission();
       }
     } catch (err: unknown) {
       logError('[SmsSettings] Toggle failed', { error: err });
@@ -132,6 +133,49 @@ export default function SmsMonitoringSettingsScreen() {
         'SMS Scanning Error',
         'Could not update SMS scanning. Please try again.'
       );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRequestPermission = async () => {
+    if (!isAndroid) return;
+    setBusy(true);
+    try {
+      const result = await requestSmsPermission();
+      if (result.granted) {
+        setSmsPermissionStatus('granted');
+        setPermissionStatus('granted');
+        setEnabled(true);
+        await refreshPendingCount();
+        showSuccessAlert(
+          'SMS Access Granted',
+          'New transaction SMS will appear as pending entries to confirm.'
+        );
+        return;
+      }
+      if (result.blocked) {
+        // Xiaomi/MIUI and some OEMs auto-deny SMS prompts: manual grant only.
+        setAwaitingSettingsReturn(true);
+        showAlert(
+          'SMS Access Blocked by System',
+          'This device (e.g. Xiaomi/MIUI) does not allow SMS permission to be granted in-app.\n\n' +
+            'Open the pocketFlow app settings and turn on "SMS" manually (or "Receive SMS" where listed), then tap Refresh Permission.\n\n' +
+            'Developer option: adb shell pm grant com.eiteone.pocketflow android.permission.READ_SMS',
+          [
+            { text: 'Not Now', style: 'cancel' },
+            { text: 'Open App Settings', style: 'success', onPress: () => void openSystemSettings() },
+          ]
+        );
+        return;
+      }
+      showErrorAlert(
+        'Permission Required',
+        'SMS access was denied. Please allow it when prompted, or open app settings to enable SMS access for pocketFlow.'
+      );
+    } catch (err: unknown) {
+      logError('[SmsSettings] Permission request failed', { error: err });
+      showErrorAlert('Permission Error', 'Could not request SMS access. Please try again.');
     } finally {
       setBusy(false);
     }
@@ -261,13 +305,19 @@ export default function SmsMonitoringSettingsScreen() {
               ]}
             >
               <Text style={[styles.permissionCalloutText, { color: t.textPrimary }]}>
-                Grant SMS access to allow automatic entries. You will be prompted when you turn scanning on.
+                Some devices (Xiaomi/MIUI) block in-app SMS permission prompts. If requesting fails, grant it manually from system settings.
               </Text>
               <Pressable
-                onPress={() => void handleToggle(true)}
+                onPress={() => void openSystemSettings()}
                 style={[styles.permissionCalloutButton, { backgroundColor: t.primary }]}
               >
-                <Text style={styles.permissionCalloutButtonText}>Allow SMS Access</Text>
+                <Text style={styles.permissionCalloutButtonText}>Open App Settings</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => void handleRequestPermission()}
+                style={[styles.permissionCalloutButton, styles.permissionCalloutButtonAlt, { borderColor: t.border }]}
+              >
+                <Text style={[styles.permissionCalloutButtonAltText, { color: t.textPrimary }]}>Request Permission</Text>
               </Pressable>
             </View>
           )}
@@ -309,6 +359,7 @@ export default function SmsMonitoringSettingsScreen() {
             'Parsing is best-effort: always check the amount and wallet before confirming.',
             'Messages are never uploaded or shared.',
             'Requires a development build (not available in Expo Go) and Android.',
+            'Xiaomi/MIUI note: SMS permission is often auto-blocked. Grant it manually in App info → Permissions → SMS, or via: adb shell pm grant com.eiteone.pocketflow android.permission.READ_SMS',
           ]}
         />
       </ScrollView>
@@ -424,6 +475,14 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     paddingVertical: 10,
     alignItems: 'center',
+  },
+  permissionCalloutButtonAlt: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+  },
+  permissionCalloutButtonAltText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   permissionCalloutButtonText: {
     color: '#FFFFFF',

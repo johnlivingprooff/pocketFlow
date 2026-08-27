@@ -55,6 +55,7 @@ export async function buildProfileSnapshot(): Promise<CloudProfilePayload> {
 
   const s = useSettings.getState();
   const settings: CloudSettingsProfile = {
+    name: s.userInfo?.name ?? '',
     themeMode: s.themeMode,
     defaultCurrency: s.defaultCurrency,
     remindersEnabled: s.remindersEnabled,
@@ -140,6 +141,9 @@ async function applyProfile(profile: CloudProfile): Promise<void> {
   }
 
   const s = useSettings.getState();
+  if (profile.settings.name) {
+    s.setUserInfo({ name: profile.settings.name });
+  }
   s.setThemeMode(profile.settings.themeMode);
   s.setDefaultCurrency(profile.settings.defaultCurrency);
   s.setRemindersEnabled(profile.settings.remindersEnabled);

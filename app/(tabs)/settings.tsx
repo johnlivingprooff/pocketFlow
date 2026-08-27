@@ -23,25 +23,27 @@ import { useAlert } from '../../src/lib/hooks/useAlert';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
 import { ThemePreview } from '../../src/components/ThemePreview';
 
-const APP_VERSION = "2026.8.20";
+const APP_VERSION = "2026.8.26";
 const TAP_OPACITY = 0.7;
 
 // --- Custom Premium Icons for Settings Grid ---
 
 const ThemePaletteIcon = ({ color, size = 24 }: { color: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M13.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.5" />
-    <Path d="M9.07 15a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5Z" />
-    <Path d="M16 8.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5Z" />
-    <Path d="M16 13a3 3 0 0 0-3-3" />
+    <Circle cx="13.5" cy="6.5" r="0.5" fill={color} />
+    <Circle cx="17.5" cy="10.5" r="0.5" fill={color} />
+    <Circle cx="8.5" cy="7.5" r="0.5" fill={color} />
+    <Circle cx="6.5" cy="12.5" r="0.5" fill={color} />
+    <Path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c0.926 0 1.648-0.746 1.648-1.688 0-0.437-0.18-0.835-0.437-1.125-0.29-0.289-0.438-0.652-0.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
   </Svg>
 );
 
 const CurrencyExchangeIcon = ({ color, size = 24 }: { color: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <Circle cx="12" cy="12" r="8" />
-    <Path d="M12 16v-8" />
-    <Path d="M9.5 10c0-1.1 1.1-2 2.5-2s2.5.9 2.5 2-1.1 2-2.5 2-2.5.9-2.5 2 1.1 2 2.5 2 2.5-.9 2.5-2" />
+    <Rect x="2" y="6" width="20" height="12" rx="2" />
+    <Circle cx="12" cy="12" r="2" />
+    <Path d="M6 12h0.01" />
+    <Path d="M18 12h0.01" />
   </Svg>
 );
 
@@ -92,6 +94,7 @@ export default function SettingsScreen() {
     setBiometricSetupComplete,
     defaultCurrency,
     userInfo,
+    setUserInfo,
     cloudSessionState,
     driveAccount,
   } = useSettings();
@@ -346,7 +349,7 @@ export default function SettingsScreen() {
             <View style={styles.profileContent}>
               <View style={[styles.avatarContainer, { backgroundColor: t.primary }]}>
                 {userInfo?.profileImage ? (
-                  <Image source={{ uri: userInfo.profileImage }} style={styles.avatarImage} />
+                  <Image source={{ uri: userInfo.profileImage }} style={styles.avatarImage} onError={() => setUserInfo({ profileImage: null })} />
                 ) : (
                   <Text style={styles.avatarText}>{(userInfo?.name || 'U').charAt(0).toUpperCase()}</Text>
                 )}
@@ -396,7 +399,11 @@ export default function SettingsScreen() {
         {/* Management Grid */}
         <View style={styles.section}>
           {renderSectionHeader('QUICK ACCESS')}
-          <View style={styles.gridContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.gridContainer}
+          >
             <Link href="/categories" asChild>
               <TouchableOpacity style={[styles.gridItem, { backgroundColor: t.card, borderColor: t.border }]} activeOpacity={TAP_OPACITY}>
                 <View style={[styles.gridIcon, { backgroundColor: `${t.primary}15` }]}>
@@ -442,7 +449,7 @@ export default function SettingsScreen() {
                 <Text style={[styles.gridLabel, { color: t.textPrimary }]}>SMS Auto-Log</Text>
               </TouchableOpacity>
             </Link>
-          </View>
+          </ScrollView>
         </View>
 
         {/* Other Settings */}
@@ -915,20 +922,21 @@ const styles = StyleSheet.create({
   },
   gridContainer: {
     flexDirection: 'row',
-    gap: 16,
-    flexWrap: 'wrap',
-    justifyContent: 'center', // Center the section items
+    gap: 12,
+    paddingRight: 4,
+    paddingVertical: 2,
   },
   gridItem: {
-    width: '45%',
-    flexDirection: 'column', // Stack icon and text vertically
+    width: 128,
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    padding: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 18,
     borderRadius: 24,
     borderWidth: 1,
-    minHeight: 140,
+    minHeight: 132,
   },
   gridIcon: {
     width: 64,

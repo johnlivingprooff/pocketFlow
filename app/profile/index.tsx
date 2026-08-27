@@ -17,7 +17,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows } from '../../src/theme/theme';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useAlert } from '../../src/lib/hooks/useAlert';
+import { saveProfileAvatar, deleteProfileAvatarIfOwned } from '../../src/lib/services/fileService';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
 import { PlusIcon } from '../../src/assets/icons/PlusIcon';
 import {
@@ -48,16 +50,29 @@ export default function ProfilePage() {
   const { cloudSessionState, cloudUser } = useSettings();
 
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      const uri = result.assets[0].uri;
-      setUserInfo({ profileImage: uri });
+      if (!result.canceled && result.assets[0]) {
+        const manip = await ImageManipulator.manipulateAsync(
+          result.assets[0].uri,
+          [{ resize: { width: 1000 } }],
+          { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }
+        );
+        const persistentUri = await saveProfileAvatar(manip.uri);
+        const previousUri = safeUser.profileImage;
+        setUserInfo({ profileImage: persistentUri });
+        if (previousUri !== persistentUri) {
+          await deleteProfileAvatarIfOwned(previousUri);
+        }
+      }
+    } catch {
+      showErrorAlert('Photo not saved', 'Could not save the selected photo. Please try again.');
     }
   };
 
@@ -196,9 +211,10 @@ export default function ProfilePage() {
         <View style={{ alignItems: 'center', marginBottom: 32 }}>
           <TouchableOpacity onPress={pickImage} style={{ position: 'relative' }}>
             {safeUser.profileImage ? (
-              <Image 
-                source={{ uri: safeUser.profileImage }} 
+              <Image
+                source={{ uri: safeUser.profileImage }}
                 style={{ width: 120, height: 120, borderRadius: 60, backgroundColor: t.card }}
+                onError={() => setUserInfo({ profileImage: null })}
               />
             ) : (
               <View style={{ 
