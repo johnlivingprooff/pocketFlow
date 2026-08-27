@@ -47,13 +47,13 @@ export function AnimatedProgressBar({
   }));
 
   return (
-    <View style={[styles.container, { backgroundColor, height, borderRadius, overflow: 'hidden' }]}>
+    <View style={StyleSheet.flatten([styles.container, { backgroundColor, height, borderRadius, overflow: 'hidden' }]) as any}>
       <Animated.View
-        style={[
+        style={StyleSheet.flatten([
           styles.fill,
           { backgroundColor: fillColor, borderRadius },
           animatedStyle,
-        ]}
+        ]) as any}
       />
     </View>
   );

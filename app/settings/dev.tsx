@@ -55,53 +55,53 @@ export default function DevSettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top']}>
+    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: t.background }]) as any} edges={['left', 'right', 'top']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.title, { color: t.textPrimary }]}>Developer Settings</Text>
+        <Text style={StyleSheet.flatten([styles.title, { color: t.textPrimary }]) as any}>Developer Settings</Text>
         
         {/* Onboarding Status */}
-        <View style={[styles.section, { backgroundColor: t.card }]}>
-          <Text style={[styles.sectionTitle, { color: t.textPrimary }]}>Onboarding Status</Text>
+        <View style={StyleSheet.flatten([styles.section, { backgroundColor: t.card }]) as any}>
+          <Text style={StyleSheet.flatten([styles.sectionTitle, { color: t.textPrimary }]) as any}>Onboarding Status</Text>
           <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: t.textSecondary }]}>Completed:</Text>
-            <Text style={[styles.value, { color: isOnboardingComplete ? colors.positiveGreen : colors.negativeRed }]}>
+            <Text style={StyleSheet.flatten([styles.label, { color: t.textSecondary }]) as any}>Completed:</Text>
+            <Text style={StyleSheet.flatten([styles.value, { color: isOnboardingComplete ? colors.positiveGreen : colors.negativeRed }]) as any}>
               {isOnboardingComplete || hasCompletedOnboarding ? 'Yes' : 'No'}
             </Text>
           </View>
           <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: t.textSecondary }]}>Current Step:</Text>
-            <Text style={[styles.value, { color: t.textPrimary }]}>{currentStep}</Text>
+            <Text style={StyleSheet.flatten([styles.label, { color: t.textSecondary }]) as any}>Current Step:</Text>
+            <Text style={StyleSheet.flatten([styles.value, { color: t.textPrimary }]) as any}>{currentStep}</Text>
           </View>
           <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: t.textSecondary }]}>Steps Completed:</Text>
-            <Text style={[styles.value, { color: t.textPrimary }]}>{completedSteps.length}</Text>
+            <Text style={StyleSheet.flatten([styles.label, { color: t.textSecondary }]) as any}>Steps Completed:</Text>
+            <Text style={StyleSheet.flatten([styles.value, { color: t.textPrimary }]) as any}>{completedSteps.length}</Text>
           </View>
         </View>
 
         {/* Actions */}
         <View style={styles.actions}>
           <Pressable
-            style={[styles.button, { backgroundColor: colors.deepGold }]}
+            style={StyleSheet.flatten([styles.button, { backgroundColor: colors.deepGold }]) as any}
             onPress={handleStartOnboarding}
           >
-            <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
+            <Text style={StyleSheet.flatten([styles.buttonText, { color: '#FFFFFF' }]) as any}>
               View Onboarding
             </Text>
           </Pressable>
 
           <Pressable
-            style={[styles.button, { backgroundColor: colors.negativeRed }]}
+            style={StyleSheet.flatten([styles.button, { backgroundColor: colors.negativeRed }]) as any}
             onPress={handleResetOnboarding}
           >
-            <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
+            <Text style={StyleSheet.flatten([styles.buttonText, { color: '#FFFFFF' }]) as any}>
               Restart Onboarding
             </Text>
           </Pressable>
         </View>
 
         {/* Warning */}
-        <View style={[styles.warning, { backgroundColor: colors.negativeRed + '15' }]}>
-          <Text style={[styles.warningText, { color: colors.negativeRed }]}>
+        <View style={StyleSheet.flatten([styles.warning, { backgroundColor: colors.negativeRed + '15' }]) as any}>
+          <Text style={StyleSheet.flatten([styles.warningText, { color: colors.negativeRed }]) as any}>
             ⚠️ This screen is for development only. It will be removed or protected in production builds.
           </Text>
         </View>

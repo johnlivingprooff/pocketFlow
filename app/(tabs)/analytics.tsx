@@ -21,6 +21,7 @@ import {
 } from '../../src/lib/insights/analyticsDashboard';
 import { useAlert } from '../../src/lib/hooks/useAlert';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
+import { AppOnlyBlock } from '../../src/components/web/AppOnlyBlock';
 
 function abbreviateNumber(num: number): string {
   if (num < 999) return Math.round(num).toLocaleString('en-US');
@@ -136,6 +137,21 @@ export default function AnalyticsPage() {
   const net = (incomeExpense?.netSavings || 0);
   const quickScore = incomeExpense?.savingsRate || 0;
   const topCategories = chartData.slice(0, 5);
+
+  if (Platform.OS === 'web') {
+    return (
+      <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, paddingTop: 20, gap: 16 }}>
+          <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>Insights</Text>
+          <AppOnlyBlock
+            title="Analytics are app-only"
+            message="Spending insights, category breakdowns, net-flow, biggest spend and trends are computed locally from your on-device transactions. On the web you can review shared-wallet transactions per wallet, but full analytics stay in the app."
+          />
+        </ScrollView>
+        <ThemedAlert visible={alertConfig.visible} title={alertConfig.title} message={alertConfig.message} buttons={alertConfig.buttons} onDismiss={dismissAlert} themeMode={themeMode as ThemeMode} systemColorScheme={systemColorScheme || 'light'} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>

@@ -31,20 +31,20 @@ export default function NotFoundScreen() {
   const router = useRouter();
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: t.background }]}>
+    <SafeAreaView style={StyleSheet.flatten([styles.safeArea, { backgroundColor: t.background }]) as any}>
       <View style={styles.content}>
         <NotFoundIcon color={t.primary} />
-        <Text style={[styles.title, { color: t.textPrimary, fontSize: fs['4xl'] }]}>404</Text>
-        <Text style={[styles.heading, { color: t.textPrimary, fontSize: fs.xl }]}>Page Not Found</Text>
-        <Text style={[styles.subtitle, { color: t.textSecondary, fontSize: fs.base }]}>
+        <Text style={StyleSheet.flatten([styles.title, { color: t.textPrimary, fontSize: fs['4xl'] }]) as any}>404</Text>
+        <Text style={StyleSheet.flatten([styles.heading, { color: t.textPrimary, fontSize: fs.xl }]) as any}>Page Not Found</Text>
+        <Text style={StyleSheet.flatten([styles.subtitle, { color: t.textSecondary, fontSize: fs.base }]) as any}>
           The page you&apos;re looking for doesn&apos;t exist or has moved.
         </Text>
         <TouchableOpacity
           activeOpacity={TAP_OPACITY}
           onPress={() => router.replace('/')}
-          style={[styles.button, { backgroundColor: t.primary }]}
+          style={StyleSheet.flatten([styles.button, { backgroundColor: t.primary }]) as any}
         >
-          <Text style={[styles.buttonLabel, { color: '#FFFFFF', fontSize: fs.base }]}>Go Home</Text>
+          <Text style={StyleSheet.flatten([styles.buttonLabel, { color: '#FFFFFF', fontSize: fs.base }]) as any}>Go Home</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

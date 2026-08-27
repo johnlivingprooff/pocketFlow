@@ -36,18 +36,18 @@ export function GoalAlertBanner({ goals, colors, defaultCurrency, formatCurrency
       <Pressable
         key={goal.id}
         onPress={() => router.push(`/goals/${goal.id}`)}
-        style={[styles.alertCard, { backgroundColor: `${alertColor}${ALERT_BACKGROUND_OPACITY}`, borderColor: alertColor }]}
+        style={StyleSheet.flatten([styles.alertCard, { backgroundColor: `${alertColor}${ALERT_BACKGROUND_OPACITY}`, borderColor: alertColor }]) as any}
       >
         <View style={styles.alertHeader}>
           <Text style={styles.alertIcon}>{icon}</Text>
           <View style={styles.alertContent}>
-            <Text style={[styles.alertTitle, { color: alertColor }]}>
+            <Text style={StyleSheet.flatten([styles.alertTitle, { color: alertColor }]) as any}>
               {title}
             </Text>
-            <Text style={[styles.alertGoalName, { color: colors.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.alertGoalName, { color: colors.textPrimary }]) as any}>
               {goal.name}
             </Text>
-            <Text style={[styles.alertDetails, { color: colors.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.alertDetails, { color: colors.textSecondary }]) as any}>
               {isAtRisk 
                 ? `Need ${formatCurrency(goal.monthlyRequired, defaultCurrency)}/month to stay on track`
                 : `${goal.daysRemaining} days left • ${formatCurrency(goal.targetAmount - goal.currentProgress, defaultCurrency)} remaining`

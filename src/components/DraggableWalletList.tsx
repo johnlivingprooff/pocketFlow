@@ -358,7 +358,7 @@ function DraggableItem({
   );
 
   return (
-    <Animated.View style={[styles.item, animStyle]}>
+    <Animated.View style={StyleSheet.flatten([styles.item, animStyle]) as any}>
       {content}
     </Animated.View>
   );

@@ -31,20 +31,20 @@ export function HelpLink({ title, items, label = 'Learn how it works' }: HelpLin
         style={styles.linkWrap}
         hitSlop={{ top: 8, bottom: 8 }}
       >
-        <Text style={[styles.linkText, { color: t.primary }]}>{label}</Text>
+        <Text style={StyleSheet.flatten([styles.linkText, { color: t.primary }]) as any}>{label}</Text>
       </TouchableOpacity>
 
       <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.overlay}>
-          <View style={[styles.container, { backgroundColor: t.card, borderColor: t.border }]}>
-            <View style={[styles.header, { borderBottomColor: t.border }]}>
-              <Text style={[styles.title, { color: t.textPrimary }]}>{title}</Text>
+          <View style={StyleSheet.flatten([styles.container, { backgroundColor: t.card, borderColor: t.border }]) as any}>
+            <View style={StyleSheet.flatten([styles.header, { borderBottomColor: t.border }]) as any}>
+              <Text style={StyleSheet.flatten([styles.title, { color: t.textPrimary }]) as any}>{title}</Text>
             </View>
             <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
               {items.map((item, i) => (
                 <View key={i} style={styles.row}>
-                  <Text style={[styles.bullet, { color: t.primary }]}>•</Text>
-                  <Text style={[styles.itemText, { color: t.textSecondary }]}>{item}</Text>
+                  <Text style={StyleSheet.flatten([styles.bullet, { color: t.primary }]) as any}>•</Text>
+                  <Text style={StyleSheet.flatten([styles.itemText, { color: t.textSecondary }]) as any}>{item}</Text>
                 </View>
               ))}
             </ScrollView>
@@ -52,7 +52,7 @@ export function HelpLink({ title, items, label = 'Learn how it works' }: HelpLin
               <TouchableOpacity
                 activeOpacity={TAP_OPACITY}
                 onPress={() => setVisible(false)}
-                style={[styles.closeButton, { backgroundColor: t.primary }]}
+                style={StyleSheet.flatten([styles.closeButton, { backgroundColor: t.primary }]) as any}
               >
                 <Text style={styles.closeText}>Got it</Text>
               </TouchableOpacity>

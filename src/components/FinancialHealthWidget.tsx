@@ -91,7 +91,7 @@ export const HomeSummaryWidget = React.memo(function HomeSummaryWidgetComponent(
     const renderHeader = () => (
         <View style={styles.header}>
             <TouchableOpacity
-                style={[styles.selectorInline, { backgroundColor: colors.background + 'A0', borderColor: colors.border }]}
+                style={StyleSheet.flatten([styles.selectorInline, { backgroundColor: colors.background + 'A0', borderColor: colors.border }]) as any}
                 onPress={() => setPickerVisible(true)}
             >
                 <Text style={{ color: colors.textPrimary, fontSize: 10, fontWeight: '800', maxWidth: 140 }} numberOfLines={1}>
@@ -166,23 +166,23 @@ export const HomeSummaryWidget = React.memo(function HomeSummaryWidgetComponent(
 
                 <View style={styles.progressBarContainer}>
                     <View
-                        style={[styles.progressBar, {
+                        style={StyleSheet.flatten([styles.progressBar, {
                             width: `${Math.min(100, displayProgress)}%`,
                             backgroundColor: barColor,
-                        }]}
+                        }]) as any}
                     />
                 </View>
 
                 <View style={styles.footer}>
                     <View>
                         <Text style={styles.footerLabel}>{label1}</Text>
-                        <Text style={[styles.footerValue, { color: colors.textPrimary }]}>
+                        <Text style={StyleSheet.flatten([styles.footerValue, { color: colors.textPrimary }]) as any}>
                             {hideBalances ? '***' : formatCurrency(val1, defaultCurrency)}
                         </Text>
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
                         <Text style={styles.footerLabel}>{label2}</Text>
-                        <Text style={[styles.footerValue, { color: colors.textPrimary }]}>
+                        <Text style={StyleSheet.flatten([styles.footerValue, { color: colors.textPrimary }]) as any}>
                             {hideBalances ? '***' : formatCurrency(val2, defaultCurrency)}
                         </Text>
                     </View>
@@ -193,7 +193,7 @@ export const HomeSummaryWidget = React.memo(function HomeSummaryWidgetComponent(
 
     return (
         <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={StyleSheet.flatten([styles.card, { backgroundColor: colors.card, borderColor: colors.border }]) as any}>
                 {renderContent()}
             </View>
 
@@ -208,7 +208,7 @@ export const HomeSummaryWidget = React.memo(function HomeSummaryWidgetComponent(
                     activeOpacity={1}
                     onPress={() => setPickerVisible(false)}
                 >
-                    <View style={[styles.modalContent, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <View style={StyleSheet.flatten([styles.modalContent, { backgroundColor: colors.card, borderColor: colors.border }]) as any}>
                         <FlatList
                             data={options}
                             keyExtractor={(item) => String(item.id)}

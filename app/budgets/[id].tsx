@@ -97,9 +97,9 @@ export default function BudgetDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading...</Text>
+          <Text style={StyleSheet.flatten([styles.loadingText, { color: colors.textSecondary }]) as any}>Loading...</Text>
         </View>
       </SafeAreaView>
     );
@@ -107,9 +107,9 @@ export default function BudgetDetailScreen() {
 
   if (!budget) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Budget not found</Text>
+          <Text style={StyleSheet.flatten([styles.loadingText, { color: colors.textSecondary }]) as any}>Budget not found</Text>
         </View>
       </SafeAreaView>
     );
@@ -122,14 +122,14 @@ export default function BudgetDetailScreen() {
     : colors.success;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Header Card */}
-        <View style={[styles.headerCard, { backgroundColor: colors.card }]}>
-          <Text style={[styles.budgetName, { color: colors.textPrimary }]}>
+        <View style={StyleSheet.flatten([styles.headerCard, { backgroundColor: colors.card }]) as any}>
+          <Text style={StyleSheet.flatten([styles.budgetName, { color: colors.textPrimary }]) as any}>
             {budget.name}
           </Text>
-          <Text style={[styles.periodType, { color: colors.textSecondary }]}>
+          <Text style={StyleSheet.flatten([styles.periodType, { color: colors.textSecondary }]) as any}>
             {budget.periodType === 'custom'
               ? `${new Date(budget.startDate).toLocaleDateString()} - ${new Date(budget.endDate).toLocaleDateString()}`
               : budget.periodType === 'weekly'
@@ -139,92 +139,92 @@ export default function BudgetDetailScreen() {
         </View>
 
         {/* Progress Section */}
-        <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Progress</Text>
+        <View style={StyleSheet.flatten([styles.section, { backgroundColor: colors.card }]) as any}>
+          <Text style={StyleSheet.flatten([styles.sectionTitle, { color: colors.textPrimary }]) as any}>Progress</Text>
 
           <View style={styles.progressContainer}>
             <View
-              style={[
+              style={StyleSheet.flatten([
                 styles.progressBar,
                 {
                   width: `${Math.min(budget.percentageUsed || 0, 100)}%`,
                   backgroundColor: statusColor,
                 },
-              ]}
+              ]) as any}
             />
           </View>
 
           <View style={styles.progressStats}>
             <View style={styles.statItem}>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Spent</Text>
-              <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+              <Text style={StyleSheet.flatten([styles.statLabel, { color: colors.textSecondary }]) as any}>Spent</Text>
+              <Text style={StyleSheet.flatten([styles.statValue, { color: colors.textPrimary }]) as any}>
                 {formatCurrency(budget.currentSpending, defaultCurrency)}
               </Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Limit</Text>
-              <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+              <Text style={StyleSheet.flatten([styles.statLabel, { color: colors.textSecondary }]) as any}>Limit</Text>
+              <Text style={StyleSheet.flatten([styles.statValue, { color: colors.textPrimary }]) as any}>
                 {formatCurrency(budget.limitAmount, defaultCurrency)}
               </Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+              <Text style={StyleSheet.flatten([styles.statLabel, { color: colors.textSecondary }]) as any}>
                 {budget.isOverBudget ? 'Over' : 'Remaining'}
               </Text>
-              <Text style={[styles.statValue, { color: statusColor }]}>
+              <Text style={StyleSheet.flatten([styles.statValue, { color: statusColor }]) as any}>
                 {formatCurrency(Math.abs(budget.remainingBalance), defaultCurrency)}
               </Text>
             </View>
           </View>
 
-          <View style={[styles.percentageContainer, { backgroundColor: colors.background }]}>
-            <Text style={[styles.percentageText, { color: colors.textSecondary }]}>
+          <View style={StyleSheet.flatten([styles.percentageContainer, { backgroundColor: colors.background }]) as any}>
+            <Text style={StyleSheet.flatten([styles.percentageText, { color: colors.textSecondary }]) as any}>
               {budget.percentageUsed?.toFixed(1) || '0'}% of limit used
             </Text>
           </View>
         </View>
 
         {/* Details Section */}
-        <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Details</Text>
+        <View style={StyleSheet.flatten([styles.section, { backgroundColor: colors.card }]) as any}>
+          <Text style={StyleSheet.flatten([styles.sectionTitle, { color: colors.textPrimary }]) as any}>Details</Text>
 
           <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Period</Text>
-            <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.detailLabel, { color: colors.textSecondary }]) as any}>Period</Text>
+            <Text style={StyleSheet.flatten([styles.detailValue, { color: colors.textPrimary }]) as any}>
               {budget.periodType.charAt(0).toUpperCase() + budget.periodType.slice(1)}
             </Text>
           </View>
 
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View style={StyleSheet.flatten([styles.divider, { backgroundColor: colors.border }]) as any} />
 
           <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.detailLabel, { color: colors.textSecondary }]) as any}>
               Start Date
             </Text>
-            <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.detailValue, { color: colors.textPrimary }]) as any}>
               {new Date(budget.startDate).toLocaleDateString()}
             </Text>
           </View>
 
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View style={StyleSheet.flatten([styles.divider, { backgroundColor: colors.border }]) as any} />
 
           <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.detailLabel, { color: colors.textSecondary }]) as any}>
               End Date
             </Text>
-            <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.detailValue, { color: colors.textPrimary }]) as any}>
               {new Date(budget.endDate).toLocaleDateString()}
             </Text>
           </View>
 
           {budget.daysRemaining !== undefined && budget.daysRemaining > 0 && (
             <>
-              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              <View style={StyleSheet.flatten([styles.divider, { backgroundColor: colors.border }]) as any} />
               <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+                <Text style={StyleSheet.flatten([styles.detailLabel, { color: colors.textSecondary }]) as any}>
                   Days Remaining
                 </Text>
-                <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
+                <Text style={StyleSheet.flatten([styles.detailValue, { color: colors.textPrimary }]) as any}>
                   {budget.daysRemaining} day{budget.daysRemaining !== 1 ? 's' : ''}
                 </Text>
               </View>
@@ -233,10 +233,10 @@ export default function BudgetDetailScreen() {
 
           {budget.notes && (
             <>
-              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              <View style={StyleSheet.flatten([styles.divider, { backgroundColor: colors.border }]) as any} />
               <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Notes</Text>
-                <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
+                <Text style={StyleSheet.flatten([styles.detailLabel, { color: colors.textSecondary }]) as any}>Notes</Text>
+                <Text style={StyleSheet.flatten([styles.detailValue, { color: colors.textPrimary }]) as any}>
                   {budget.notes}
                 </Text>
               </View>
@@ -245,19 +245,19 @@ export default function BudgetDetailScreen() {
         </View>
 
         {/* Status Section */}
-        <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Status</Text>
+        <View style={StyleSheet.flatten([styles.section, { backgroundColor: colors.card }]) as any}>
+          <Text style={StyleSheet.flatten([styles.sectionTitle, { color: colors.textPrimary }]) as any}>Status</Text>
 
           <View
-            style={[
+            style={StyleSheet.flatten([
               styles.statusBadge,
               {
                 backgroundColor: `${statusColor}20`,
                 borderColor: statusColor,
               },
-            ]}
+            ]) as any}
           >
-            <Text style={[styles.statusText, { color: statusColor }]}>
+            <Text style={StyleSheet.flatten([styles.statusText, { color: statusColor }]) as any}>
               {budget.isOverBudget
                 ? '❌ Over Budget'
                 : (budget.percentageUsed || 0) > 75
@@ -271,24 +271,24 @@ export default function BudgetDetailScreen() {
         <View style={styles.actionsContainer}>
           <Pressable
             onPress={handleEdit}
-            style={[
+            style={StyleSheet.flatten([
               styles.actionButton,
               { backgroundColor: colors.primary },
-            ]}
+            ]) as any}
           >
-            <Text style={[styles.actionButtonText, { color: colors.background }]}>
+            <Text style={StyleSheet.flatten([styles.actionButtonText, { color: colors.background }]) as any}>
               Edit Budget
             </Text>
           </Pressable>
 
           <Pressable
             onPress={handleDelete}
-            style={[
+            style={StyleSheet.flatten([
               styles.actionButton,
               { backgroundColor: colors.danger },
-            ]}
+            ]) as any}
           >
-            <Text style={[styles.actionButtonText, { color: colors.background }]}>
+            <Text style={StyleSheet.flatten([styles.actionButtonText, { color: colors.background }]) as any}>
               Delete Budget
             </Text>
           </Pressable>

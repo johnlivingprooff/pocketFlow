@@ -40,7 +40,7 @@ export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
   const systemColorScheme = useColorScheme();
-  const [dbReady, setDbReady] = useState(Platform.OS === 'web');
+  const [dbReady, setDbReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const backupInProgressRef = useRef(false);
@@ -62,29 +62,27 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    if (Platform.OS !== 'web') {
-      (async () => {
-        try {
-          await initDb();
-          await ensureTables();
+    (async () => {
+      try {
+        await initDb();
+        await ensureTables();
+        if (Platform.OS !== 'web') {
           await processRecurringTransactions();
-          
-          // Wait for settings to hydrate from AsyncStorage
           await new Promise(resolve => setTimeout(resolve, 500));
-          
           await syncReminderPermissionStatus();
           await runReminderRuntimeGateCheck();
           await runSmsRuntimeGateCheck();
-          
-          log('[App] Initialization complete');
+          log('[App] Initialization complete (native)');
           await maybeRunAutoBackup();
-          setDbReady(true);
-        } catch (err: unknown) {
-          console.error('Failed to initialize database:', err);
-          setDbReady(true);
+        } else {
+          log('[App] Initialization complete (web – shared wallets only)');
         }
-      })();
-    }
+        setDbReady(true);
+      } catch (err: unknown) {
+        console.error('Failed to initialize database:', err);
+        setDbReady(true);
+      }
+    })();
   }, []);
 
   useEffect(() => {
@@ -526,7 +524,7 @@ export default function RootLayout() {
 
       {/* Show biometric auth overlay if not authenticated */}
       {!isAuthenticated && biometricEnabled && biometricSetupComplete && (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: t.background, justifyContent: 'center', alignItems: 'center', padding: 32, zIndex: 1000 }]}>
+        <View style={StyleSheet.flatten([StyleSheet.absoluteFill, { backgroundColor: t.background, justifyContent: 'center', alignItems: 'center', padding: 32, zIndex: 1000 }]) as any}>
           {/* App Logo */}
           <Image
             source={require('../assets/logo.png')}

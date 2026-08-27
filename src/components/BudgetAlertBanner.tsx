@@ -32,18 +32,18 @@ export function BudgetAlertBanner({ budgets, colors, defaultCurrency, formatCurr
       <Pressable
         key={budget.id}
         onPress={() => router.push(`/budgets/${budget.id}`)}
-        style={[styles.alertCard, { backgroundColor: `${alertColor}${ALERT_BACKGROUND_OPACITY}`, borderColor: alertColor }]}
+        style={StyleSheet.flatten([styles.alertCard, { backgroundColor: `${alertColor}${ALERT_BACKGROUND_OPACITY}`, borderColor: alertColor }]) as any}
       >
         <View style={styles.alertHeader}>
           <Text style={styles.alertIcon}>{icon}</Text>
           <View style={styles.alertContent}>
-            <Text style={[styles.alertTitle, { color: alertColor }]}>
+            <Text style={StyleSheet.flatten([styles.alertTitle, { color: alertColor }]) as any}>
               {title}
             </Text>
-            <Text style={[styles.alertBudgetName, { color: colors.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.alertBudgetName, { color: colors.textPrimary }]) as any}>
               {budget.name}
             </Text>
-            <Text style={[styles.alertDetails, { color: colors.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.alertDetails, { color: colors.textSecondary }]) as any}>
               {isOver 
                 ? `You've exceeded by ${formatCurrency(Math.abs(budget.remainingBalance), defaultCurrency)}`
                 : `${formatCurrency(Math.abs(budget.remainingBalance), defaultCurrency)} remaining (${budget.percentageUsed?.toFixed(0)}% used)`

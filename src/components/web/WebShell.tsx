@@ -49,7 +49,7 @@ export function WebShell({ children }: WebShellProps) {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: t.background }]}>
+    <View style={StyleSheet.flatten([styles.container, { backgroundColor: t.background }]) as any}>
       {/* Left Rail Navigation */}
       <LeftRail
         expanded={railExpanded}
@@ -60,13 +60,13 @@ export function WebShell({ children }: WebShellProps) {
 
       {/* Center Content Area */}
       <View
-        style={[
+        style={StyleSheet.flatten([
           styles.contentArea,
           {
             marginLeft: railWidth,
             marginRight: shouldShowRightPanel ? 320 : 0,
           },
-        ]}
+        ]) as any}
       >
         {children}
       </View>
@@ -83,14 +83,14 @@ export function WebShell({ children }: WebShellProps) {
       {/* Mobile-only: Right Panel Toggle Button (floating) */}
       {!isLargeScreen && !rightPanelOpen && (
         <TouchableOpacity
-          style={[
+          style={StyleSheet.flatten([
             styles.rightPanelToggle,
             {
               backgroundColor: t.primary,
               bottom: 24,
               right: 24,
             },
-          ]}
+          ]) as any}
           onPress={() => setRightPanelOpen(true)}
         >
           <View

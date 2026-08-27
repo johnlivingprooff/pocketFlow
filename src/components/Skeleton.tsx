@@ -57,7 +57,7 @@ export function Skeleton({
 
   return (
     <View
-      style={[
+      style={StyleSheet.flatten([
         styles.skeleton,
         {
           backgroundColor: colors.border,
@@ -65,7 +65,7 @@ export function Skeleton({
           height: dims.height,
           borderRadius: variant === 'circle' ? dims.height / 2 : 8,
         },
-      ]}
+      ]) as any}
     />
   );
 }
@@ -91,7 +91,7 @@ export function SkeletonCard({
   showFooter = true 
 }: SkeletonCardProps) {
   return (
-    <View style={[styles.cardContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View style={StyleSheet.flatten([styles.cardContainer, { backgroundColor: colors.card, borderColor: colors.border }]) as any}>
       {showHeader && (
         <View style={styles.header}>
           <Skeleton colors={colors} variant="circle" height={40} />

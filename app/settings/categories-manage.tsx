@@ -183,17 +183,17 @@ export default function CategoryManageScreen() {
   const renderCategory = (category: CategoryWithChildren) => (
     <View key={category.id}>
       {/* Parent Category */}
-      <View style={[styles.categoryItem, { backgroundColor: colors.card }]}>
+      <View style={StyleSheet.flatten([styles.categoryItem, { backgroundColor: colors.card }]) as any}>
         <View style={styles.categoryContent}>
-          <View style={[styles.iconContainer, { backgroundColor: colors.primary }]}>
+          <View style={StyleSheet.flatten([styles.iconContainer, { backgroundColor: colors.primary }]) as any}>
             {renderCategoryIcon(category.icon, category.name, category.type, 20, '#FFFFFF')}
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.categoryName, { color: colors.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.categoryName, { color: colors.textPrimary }]) as any}>
               {category.name}
             </Text>
             {category.children && category.children.length > 0 && (
-              <Text style={[styles.subcategoryCount, { color: colors.textSecondary }]}>
+              <Text style={StyleSheet.flatten([styles.subcategoryCount, { color: colors.textSecondary }]) as any}>
                 {category.children.length} subcategories
               </Text>
             )}
@@ -204,25 +204,25 @@ export default function CategoryManageScreen() {
             onPress={() => handleEditCategory(category)}
             style={({ pressed }) => [styles.actionButton, { opacity: pressed ? 0.6 : 1 }]}
           >
-            <Text style={[styles.actionText, { color: colors.primary }]}>Edit</Text>
+            <Text style={StyleSheet.flatten([styles.actionText, { color: colors.primary }]) as any}>Edit</Text>
           </Pressable>
           <Pressable
             onPress={() => handleDeleteCategory(category)}
             style={({ pressed }) => [styles.actionButton, { opacity: pressed ? 0.6 : 1 }]}
           >
-            <Text style={[styles.actionText, { color: colors.danger }]}>Delete</Text>
+            <Text style={StyleSheet.flatten([styles.actionText, { color: colors.danger }]) as any}>Delete</Text>
           </Pressable>
         </View>
       </View>
 
       {/* Subcategories */}
       {category.children && category.children.map((child) => (
-        <View key={child.id} style={[styles.subcategoryItem, { backgroundColor: colors.card }]}>
+        <View key={child.id} style={StyleSheet.flatten([styles.subcategoryItem, { backgroundColor: colors.card }]) as any}>
           <View style={styles.categoryContent}>
-            <View style={[styles.iconContainer, { backgroundColor: colors.primary, marginLeft: 24, width: 32, height: 32 }]}>
+            <View style={StyleSheet.flatten([styles.iconContainer, { backgroundColor: colors.primary, marginLeft: 24, width: 32, height: 32 }]) as any}>
               {renderCategoryIcon(child.icon, child.name, child.type, 16, '#FFFFFF')}
             </View>
-            <Text style={[styles.subcategoryName, { color: colors.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.subcategoryName, { color: colors.textSecondary }]) as any}>
               {child.name}
             </Text>
           </View>
@@ -231,13 +231,13 @@ export default function CategoryManageScreen() {
               onPress={() => handleEditCategory(child)}
               style={({ pressed }) => [styles.actionButton, { opacity: pressed ? 0.6 : 1 }]}
             >
-              <Text style={[styles.actionText, { color: colors.primary }]}>Edit</Text>
+              <Text style={StyleSheet.flatten([styles.actionText, { color: colors.primary }]) as any}>Edit</Text>
             </Pressable>
             <Pressable
               onPress={() => handleDeleteCategory(child)}
               style={({ pressed }) => [styles.actionButton, { opacity: pressed ? 0.6 : 1 }]}
             >
-              <Text style={[styles.actionText, { color: colors.danger }]}>Delete</Text>
+              <Text style={StyleSheet.flatten([styles.actionText, { color: colors.danger }]) as any}>Delete</Text>
             </Pressable>
           </View>
         </View>
@@ -251,9 +251,9 @@ export default function CategoryManageScreen() {
           setFormData({ name: '', icon: '📊' });
           setCreateModalVisible(true);
         }}
-        style={[styles.addSubcategoryButton, { borderColor: colors.primary }]}
+        style={StyleSheet.flatten([styles.addSubcategoryButton, { borderColor: colors.primary }]) as any}
       >
-        <Text style={[styles.addSubcategoryText, { color: colors.primary }]}>
+        <Text style={StyleSheet.flatten([styles.addSubcategoryText, { color: colors.primary }]) as any}>
           + Add Subcategory
         </Text>
       </Pressable>
@@ -261,37 +261,37 @@ export default function CategoryManageScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
       {/* Type Selector */}
-      <View style={[styles.typeSelector, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+      <View style={StyleSheet.flatten([styles.typeSelector, { backgroundColor: colors.card, borderBottomColor: colors.border }]) as any}>
         <Pressable
           onPress={() => setCategoryType('expense')}
-          style={[
+          style={StyleSheet.flatten([
             styles.typeButton,
             categoryType === 'expense' && { borderBottomColor: colors.primary, borderBottomWidth: 2 },
-          ]}
+          ]) as any}
         >
           <Text
-            style={[
+            style={StyleSheet.flatten([
               styles.typeButtonText,
               { color: categoryType === 'expense' ? colors.primary : colors.textSecondary },
-            ]}
+            ]) as any}
           >
             Expense
           </Text>
         </Pressable>
         <Pressable
           onPress={() => setCategoryType('income')}
-          style={[
+          style={StyleSheet.flatten([
             styles.typeButton,
             categoryType === 'income' && { borderBottomColor: colors.primary, borderBottomWidth: 2 },
-          ]}
+          ]) as any}
         >
           <Text
-            style={[
+            style={StyleSheet.flatten([
               styles.typeButtonText,
               { color: categoryType === 'income' ? colors.primary : colors.textSecondary },
-            ]}
+            ]) as any}
           >
             Income
           </Text>
@@ -306,11 +306,11 @@ export default function CategoryManageScreen() {
       >
         {loading ? (
           <View style={styles.emptyState}>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Loading...</Text>
+            <Text style={StyleSheet.flatten([styles.emptyText, { color: colors.textSecondary }]) as any}>Loading...</Text>
           </View>
         ) : categories.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No categories</Text>
+            <Text style={StyleSheet.flatten([styles.emptyText, { color: colors.textSecondary }]) as any}>No categories</Text>
           </View>
         ) : (
           categories.map(renderCategory)
@@ -325,7 +325,7 @@ export default function CategoryManageScreen() {
           setFormData({ name: '', icon: '📊' });
           setCreateModalVisible(true);
         }}
-        style={[styles.fab, { backgroundColor: colors.primary }]}
+        style={StyleSheet.flatten([styles.fab, { backgroundColor: colors.primary }]) as any}
       >
         <Text style={styles.fabText}>+</Text>
       </Pressable>
@@ -337,23 +337,23 @@ export default function CategoryManageScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
         >
-        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}> 
-          <View style={[styles.modalContent, { backgroundColor: colors.background }]}> 
-            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+        <View style={StyleSheet.flatten([styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]) as any}> 
+          <View style={StyleSheet.flatten([styles.modalContent, { backgroundColor: colors.background }]) as any}> 
+            <View style={StyleSheet.flatten([styles.modalHeader, { borderBottomColor: colors.border }]) as any}>
+              <Text style={StyleSheet.flatten([styles.modalTitle, { color: colors.textPrimary }]) as any}>
                 {isCreatingSubcategory
                   ? `Add Subcategory under ${selectedParent?.name}`
                   : 'Create Category'}
               </Text>
               <Pressable onPress={() => setCreateModalVisible(false)}>
-                <Text style={[styles.closeButton, { color: colors.textSecondary }]}>✕</Text>
+                <Text style={StyleSheet.flatten([styles.closeButton, { color: colors.textSecondary }]) as any}>✕</Text>
               </Pressable>
             </View>
 
             <View style={styles.formFields}>
-              <Text style={[styles.label, { color: colors.textPrimary }]}>Icon</Text>
+              <Text style={StyleSheet.flatten([styles.label, { color: colors.textPrimary }]) as any}>Icon</Text>
               <TextInput
-                style={[styles.iconInput, { color: colors.textPrimary, borderColor: colors.border }]}
+                style={StyleSheet.flatten([styles.iconInput, { color: colors.textPrimary, borderColor: colors.border }]) as any}
                 value={formData.icon}
                 onChangeText={(text) => setFormData({ ...formData, icon: text.slice(0, 2) })}
                 maxLength={2}
@@ -361,9 +361,9 @@ export default function CategoryManageScreen() {
                 placeholderTextColor={colors.textSecondary}
               />
 
-              <Text style={[styles.label, { color: colors.textPrimary }]}>Name</Text>
+              <Text style={StyleSheet.flatten([styles.label, { color: colors.textPrimary }]) as any}>Name</Text>
               <TextInput
-                style={[styles.input, { color: colors.textPrimary, borderColor: colors.border }]}
+                style={StyleSheet.flatten([styles.input, { color: colors.textPrimary, borderColor: colors.border }]) as any}
                 value={formData.name}
                 onChangeText={(text) => setFormData({ ...formData, name: text })}
                 placeholder="Category name"
@@ -372,16 +372,16 @@ export default function CategoryManageScreen() {
 
               <Pressable
                 onPress={handleCreateCategory}
-                style={[styles.submitButton, { backgroundColor: colors.primary }]}
+                style={StyleSheet.flatten([styles.submitButton, { backgroundColor: colors.primary }]) as any}
               >
                 <Text style={styles.submitButtonText}>Create</Text>
               </Pressable>
 
               <Pressable
                 onPress={() => setCreateModalVisible(false)}
-                style={[styles.cancelButton, { borderColor: colors.border }]}
+                style={StyleSheet.flatten([styles.cancelButton, { borderColor: colors.border }]) as any}
               >
-                <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Cancel</Text>
+                <Text style={StyleSheet.flatten([styles.cancelButtonText, { color: colors.textSecondary }]) as any}>Cancel</Text>
               </Pressable>
             </View>
           </View>
@@ -396,19 +396,19 @@ export default function CategoryManageScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
         >
-        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}> 
-          <View style={[styles.modalContent, { backgroundColor: colors.background }]}> 
-            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Edit Category</Text>
+        <View style={StyleSheet.flatten([styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]) as any}> 
+          <View style={StyleSheet.flatten([styles.modalContent, { backgroundColor: colors.background }]) as any}> 
+            <View style={StyleSheet.flatten([styles.modalHeader, { borderBottomColor: colors.border }]) as any}>
+              <Text style={StyleSheet.flatten([styles.modalTitle, { color: colors.textPrimary }]) as any}>Edit Category</Text>
               <Pressable onPress={() => setEditModalVisible(false)}>
-                <Text style={[styles.closeButton, { color: colors.textSecondary }]}>✕</Text>
+                <Text style={StyleSheet.flatten([styles.closeButton, { color: colors.textSecondary }]) as any}>✕</Text>
               </Pressable>
             </View>
 
             <View style={styles.formFields}>
-              <Text style={[styles.label, { color: colors.textPrimary }]}>Icon</Text>
+              <Text style={StyleSheet.flatten([styles.label, { color: colors.textPrimary }]) as any}>Icon</Text>
               <TextInput
-                style={[styles.iconInput, { color: colors.textPrimary, borderColor: colors.border }]}
+                style={StyleSheet.flatten([styles.iconInput, { color: colors.textPrimary, borderColor: colors.border }]) as any}
                 value={formData.icon}
                 onChangeText={(text) => setFormData({ ...formData, icon: text.slice(0, 2) })}
                 maxLength={2}
@@ -416,9 +416,9 @@ export default function CategoryManageScreen() {
                 placeholderTextColor={colors.textSecondary}
               />
 
-              <Text style={[styles.label, { color: colors.textPrimary }]}>Name</Text>
+              <Text style={StyleSheet.flatten([styles.label, { color: colors.textPrimary }]) as any}>Name</Text>
               <TextInput
-                style={[styles.input, { color: colors.textPrimary, borderColor: colors.border }]}
+                style={StyleSheet.flatten([styles.input, { color: colors.textPrimary, borderColor: colors.border }]) as any}
                 value={formData.name}
                 onChangeText={(text) => setFormData({ ...formData, name: text })}
                 placeholder="Category name"
@@ -427,16 +427,16 @@ export default function CategoryManageScreen() {
 
               <Pressable
                 onPress={handleUpdateCategory}
-                style={[styles.submitButton, { backgroundColor: colors.primary }]}
+                style={StyleSheet.flatten([styles.submitButton, { backgroundColor: colors.primary }]) as any}
               >
                 <Text style={styles.submitButtonText}>Update</Text>
               </Pressable>
 
               <Pressable
                 onPress={() => setEditModalVisible(false)}
-                style={[styles.cancelButton, { borderColor: colors.border }]}
+                style={StyleSheet.flatten([styles.cancelButton, { borderColor: colors.border }]) as any}
               >
-                <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Cancel</Text>
+                <Text style={StyleSheet.flatten([styles.cancelButtonText, { color: colors.textSecondary }]) as any}>Cancel</Text>
               </Pressable>
             </View>
           </View>

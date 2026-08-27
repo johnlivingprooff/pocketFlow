@@ -34,53 +34,53 @@ export function FinancialSummaryCard({
       : colors.success;
 
     return (
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>
+      <View style={StyleSheet.flatten([styles.card, { backgroundColor: colors.card }]) as any}>
+        <Text style={StyleSheet.flatten([styles.title, { color: colors.textPrimary }]) as any}>
           Total Budget Summary
         </Text>
         
         <View style={styles.mainAmount}>
-          <Text style={[styles.mainLabel, { color: colors.textSecondary }]}>
+          <Text style={StyleSheet.flatten([styles.mainLabel, { color: colors.textSecondary }]) as any}>
             Total Allocated
           </Text>
-          <Text style={[styles.mainValue, { color: colors.textPrimary }]}>
+          <Text style={StyleSheet.flatten([styles.mainValue, { color: colors.textPrimary }]) as any}>
             {formatCurrency(totalBudget, defaultCurrency)}
           </Text>
         </View>
 
         <View style={styles.progressBarContainer}>
           <View
-            style={[
+            style={StyleSheet.flatten([
               styles.progressBarFill,
               {
                 width: `${Math.min(overallPercentage, 100)}%`,
                 backgroundColor: summaryColor,
               },
-            ]}
+            ]) as any}
           />
         </View>
 
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.statLabel, { color: colors.textSecondary }]) as any}>
               Spent
             </Text>
-            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.statValue, { color: colors.textPrimary }]) as any}>
               {formatCurrency(totalSpent, defaultCurrency)}
             </Text>
-            <Text style={[styles.statPercentage, { color: summaryColor }]}>
+            <Text style={StyleSheet.flatten([styles.statPercentage, { color: summaryColor }]) as any}>
               {overallPercentage.toFixed(0)}%
             </Text>
           </View>
           
           <View style={styles.statItem}>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.statLabel, { color: colors.textSecondary }]) as any}>
               {totalRemaining >= 0 ? 'Remaining' : 'Over'}
             </Text>
-            <Text style={[styles.statValue, { color: summaryColor }]}>
+            <Text style={StyleSheet.flatten([styles.statValue, { color: summaryColor }]) as any}>
               {formatCurrency(Math.abs(totalRemaining), defaultCurrency)}
             </Text>
-            <Text style={[styles.statSubtext, { color: colors.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.statSubtext, { color: colors.textSecondary }]) as any}>
               {budgets.length} budget{budgets.length !== 1 ? 's' : ''}
             </Text>
           </View>
@@ -96,53 +96,53 @@ export function FinancialSummaryCard({
     const summaryColor = overallPercentage >= 75 ? colors.success : colors.primary;
 
     return (
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>
+      <View style={StyleSheet.flatten([styles.card, { backgroundColor: colors.card }]) as any}>
+        <Text style={StyleSheet.flatten([styles.title, { color: colors.textPrimary }]) as any}>
           Total Goals Summary
         </Text>
         
         <View style={styles.mainAmount}>
-          <Text style={[styles.mainLabel, { color: colors.textSecondary }]}>
+          <Text style={StyleSheet.flatten([styles.mainLabel, { color: colors.textSecondary }]) as any}>
             Total Target
           </Text>
-          <Text style={[styles.mainValue, { color: colors.textPrimary }]}>
+          <Text style={StyleSheet.flatten([styles.mainValue, { color: colors.textPrimary }]) as any}>
             {formatCurrency(totalTarget, defaultCurrency)}
           </Text>
         </View>
 
         <View style={styles.progressBarContainer}>
           <View
-            style={[
+            style={StyleSheet.flatten([
               styles.progressBarFill,
               {
                 width: `${Math.min(overallPercentage, 100)}%`,
                 backgroundColor: summaryColor,
               },
-            ]}
+            ]) as any}
           />
         </View>
 
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.statLabel, { color: colors.textSecondary }]) as any}>
               Saved
             </Text>
-            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.statValue, { color: colors.textPrimary }]) as any}>
               {formatCurrency(totalProgress, defaultCurrency)}
             </Text>
-            <Text style={[styles.statPercentage, { color: summaryColor }]}>
+            <Text style={StyleSheet.flatten([styles.statPercentage, { color: summaryColor }]) as any}>
               {overallPercentage.toFixed(0)}%
             </Text>
           </View>
           
           <View style={styles.statItem}>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.statLabel, { color: colors.textSecondary }]) as any}>
               Remaining
             </Text>
-            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.statValue, { color: colors.textPrimary }]) as any}>
               {formatCurrency(Math.max(0, totalRemaining), defaultCurrency)}
             </Text>
-            <Text style={[styles.statSubtext, { color: colors.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.statSubtext, { color: colors.textSecondary }]) as any}>
               {goals.length} goal{goals.length !== 1 ? 's' : ''}
             </Text>
           </View>

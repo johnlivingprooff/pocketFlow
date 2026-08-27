@@ -164,32 +164,32 @@ export default function CreateGoalScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading...</Text>
+          <Text style={StyleSheet.flatten([styles.loadingText, { color: colors.textSecondary }]) as any}>Loading...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.section}>
-            <Text style={[styles.label, { color: colors.textPrimary }]}>Goal Name *</Text>
+            <Text style={StyleSheet.flatten([styles.label, { color: colors.textPrimary }]) as any}>Goal Name *</Text>
             <TextInput
-              style={[
+              style={StyleSheet.flatten([
                 styles.input,
                 {
                   backgroundColor: colors.card,
                   color: colors.textPrimary,
                   borderColor: colors.border,
                 },
-              ]}
+              ]) as any}
               placeholder="e.g., Emergency Fund"
               placeholderTextColor={colors.textSecondary}
               value={name}
@@ -199,16 +199,16 @@ export default function CreateGoalScreen() {
           </View>
 
           <View style={styles.section}>
-            <Text style={[styles.label, { color: colors.textPrimary }]}>Target Amount ({defaultCurrency}) *</Text>
+            <Text style={StyleSheet.flatten([styles.label, { color: colors.textPrimary }]) as any}>Target Amount ({defaultCurrency}) *</Text>
             <TextInput
-              style={[
+              style={StyleSheet.flatten([
                 styles.input,
                 {
                   backgroundColor: colors.card,
                   color: colors.textPrimary,
                   borderColor: colors.border,
                 },
-              ]}
+              ]) as any}
               placeholder="e.g., 5000"
               placeholderTextColor={colors.textSecondary}
               value={targetAmount}
@@ -219,23 +219,23 @@ export default function CreateGoalScreen() {
           </View>
 
           <View style={styles.section}>
-            <Text style={[styles.label, { color: colors.textPrimary }]}>Start Date *</Text>
+            <Text style={StyleSheet.flatten([styles.label, { color: colors.textPrimary }]) as any}>Start Date *</Text>
             <Pressable
               onPress={() => setShowStartPicker(true)}
               disabled={saving}
-              style={[
+              style={StyleSheet.flatten([
                 styles.dateInput,
                 {
                   backgroundColor: colors.card,
                   borderColor: colors.border,
                 },
-              ]}
+              ]) as any}
             >
               <Text
-                style={[
+                style={StyleSheet.flatten([
                   styles.dateText,
                   { color: startDate ? colors.textPrimary : colors.textSecondary },
-                ]}
+                ]) as any}
               >
                 {formatDisplayDate(startDate)}
               </Text>
@@ -251,27 +251,27 @@ export default function CreateGoalScreen() {
                 title="Select start date"
               />
             )}
-            <Text style={[styles.helperText, { color: colors.textSecondary }]}>When do you want to start tracking this goal?</Text>
+            <Text style={StyleSheet.flatten([styles.helperText, { color: colors.textSecondary }]) as any}>When do you want to start tracking this goal?</Text>
           </View>
 
           <View style={styles.section}>
-            <Text style={[styles.label, { color: colors.textPrimary }]}>Target Date *</Text>
+            <Text style={StyleSheet.flatten([styles.label, { color: colors.textPrimary }]) as any}>Target Date *</Text>
             <Pressable
               onPress={() => setShowTargetPicker(true)}
               disabled={saving}
-              style={[
+              style={StyleSheet.flatten([
                 styles.dateInput,
                 {
                   backgroundColor: colors.card,
                   borderColor: colors.border,
                 },
-              ]}
+              ]) as any}
             >
               <Text
-                style={[
+                style={StyleSheet.flatten([
                   styles.dateText,
                   { color: targetDate ? colors.textPrimary : colors.textSecondary },
-                ]}
+                ]) as any}
               >
                 {formatDisplayDate(targetDate)}
               </Text>
@@ -287,11 +287,11 @@ export default function CreateGoalScreen() {
                 title="Select target date"
               />
             )}
-            <Text style={[styles.helperText, { color: colors.textSecondary }]}>Select your target completion date</Text>
+            <Text style={StyleSheet.flatten([styles.helperText, { color: colors.textSecondary }]) as any}>Select your target completion date</Text>
           </View>
 
           <View style={styles.section}>
-            <Text style={[styles.label, { color: colors.textPrimary }]}>Wallets *</Text>
+            <Text style={StyleSheet.flatten([styles.label, { color: colors.textPrimary }]) as any}>Wallets *</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.walletScroll}>
               {/* All Wallets option */}
               <Pressable
@@ -305,22 +305,22 @@ export default function CreateGoalScreen() {
                     setSelectedWallets(allWalletIds);
                   }
                 }}
-                style={[
+                style={StyleSheet.flatten([
                   styles.walletButton,
                   {
                     backgroundColor: selectedWallets.length === wallets.length && wallets.length > 0 ? colors.primary : colors.card,
                     borderColor: colors.border,
                   },
-                ]}
+                ]) as any}
                 disabled={saving}
               >
                 <Text
-                  style={[
+                  style={StyleSheet.flatten([
                     styles.walletButtonText,
                     {
                       color: selectedWallets.length === wallets.length && wallets.length > 0 ? colors.background : colors.textPrimary,
                     },
-                  ]}
+                  ]) as any}
                 >
                   All Wallets
                 </Text>
@@ -338,22 +338,22 @@ export default function CreateGoalScreen() {
                         setSelectedWallets(prev => [...prev, wallet.id!]);
                       }
                     }}
-                    style={[
+                    style={StyleSheet.flatten([
                       styles.walletButton,
                       {
                         backgroundColor: isSelected ? colors.primary : colors.card,
                         borderColor: colors.border,
                       },
-                    ]}
+                    ]) as any}
                     disabled={saving}
                   >
                     <Text
-                      style={[
+                      style={StyleSheet.flatten([
                         styles.walletButtonText,
                         {
                           color: isSelected ? colors.background : colors.textPrimary,
                         },
-                      ]}
+                      ]) as any}
                     >
                       {wallet.name}
                     </Text>
@@ -362,16 +362,16 @@ export default function CreateGoalScreen() {
               })}
             </ScrollView>
             {selectedWallets.length > 0 && (
-              <Text style={[styles.selectionSummary, { color: colors.textSecondary }]}>
+              <Text style={StyleSheet.flatten([styles.selectionSummary, { color: colors.textSecondary }]) as any}>
                 {selectedWallets.length === wallets.length ? 'All wallets selected' : `${selectedWallets.length} wallet${selectedWallets.length === 1 ? '' : 's'} selected`}
               </Text>
             )}
           </View>
 
           <View style={styles.section}>
-            <Text style={[styles.label, { color: colors.textPrimary }]}>Notes</Text>
+            <Text style={StyleSheet.flatten([styles.label, { color: colors.textPrimary }]) as any}>Notes</Text>
             <TextInput
-              style={[
+              style={StyleSheet.flatten([
                 styles.input,
                 styles.notesInput,
                 {
@@ -379,7 +379,7 @@ export default function CreateGoalScreen() {
                   color: colors.textPrimary,
                   borderColor: colors.border,
                 },
-              ]}
+              ]) as any}
               placeholder="Optional notes..."
               placeholderTextColor={colors.textSecondary}
               value={notes}
@@ -393,14 +393,14 @@ export default function CreateGoalScreen() {
           <Pressable
             onPress={handleCreate}
             disabled={saving}
-            style={[
+            style={StyleSheet.flatten([
               styles.createButton,
               {
                 backgroundColor: saving ? colors.border : colors.primary,
               },
-            ]}
+            ]) as any}
           >
-            <Text style={[styles.createButtonText, { color: colors.background }]}>
+            <Text style={StyleSheet.flatten([styles.createButtonText, { color: colors.background }]) as any}>
               {saving ? "Creating..." : "Create Goal"}
             </Text>
           </Pressable>

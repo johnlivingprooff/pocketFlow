@@ -236,31 +236,31 @@ export default function SmsMonitoringSettingsScreen() {
         : `${t.border}`;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top']}>
-      <ScrollView contentContainerStyle={[styles.content, compact && styles.contentCompact]}>
-        <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
+    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: t.background }]) as any} edges={['left', 'right', 'top']}>
+      <ScrollView contentContainerStyle={StyleSheet.flatten([styles.content, compact && styles.contentCompact]) as any}>
+        <View style={StyleSheet.flatten([styles.card, { backgroundColor: t.card, borderColor: t.border }]) as any}>
           <View
-            style={[
+            style={StyleSheet.flatten([
               styles.statusHero,
               {
                 backgroundColor: statusBg,
                 borderColor: `${statusColor}44`,
               },
-            ]}
+            ]) as any}
           >
             <View style={styles.statusHeroRow}>
-              <Text style={[styles.statusHeroTitle, { color: t.textPrimary }]}>SMS Monitoring Status</Text>
-              <View style={[styles.statusBadge, { backgroundColor: `${statusColor}18`, borderColor: `${statusColor}40` }]}>
-                <Text style={[styles.statusBadgeText, { color: statusColor }]}>{statusLabel}</Text>
+              <Text style={StyleSheet.flatten([styles.statusHeroTitle, { color: t.textPrimary }]) as any}>SMS Monitoring Status</Text>
+              <View style={StyleSheet.flatten([styles.statusBadge, { backgroundColor: `${statusColor}18`, borderColor: `${statusColor}40` }]) as any}>
+                <Text style={StyleSheet.flatten([styles.statusBadgeText, { color: statusColor }]) as any}>{statusLabel}</Text>
               </View>
             </View>
-            <Text style={[styles.statusHeroMessage, { color: t.textSecondary }]}>{statusMessage}</Text>
+            <Text style={StyleSheet.flatten([styles.statusHeroMessage, { color: t.textSecondary }]) as any}>{statusMessage}</Text>
           </View>
 
           <View style={styles.rowBetween}>
             <View style={styles.rowText}>
-              <Text style={[styles.label, { color: t.textPrimary }]}>Auto-log from SMS</Text>
-              <Text style={[styles.subLabel, { color: t.textSecondary }]}>
+              <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>Auto-log from SMS</Text>
+              <Text style={StyleSheet.flatten([styles.subLabel, { color: t.textSecondary }]) as any}>
                 Read transaction messages from Airtel Money, TNM Mpamba and banks.
               </Text>
             </View>
@@ -272,9 +272,9 @@ export default function SmsMonitoringSettingsScreen() {
           </View>
 
           <View style={styles.metaRow}>
-            <Text style={[styles.metaLabel, { color: t.textSecondary }]}>SMS permission</Text>
+            <Text style={StyleSheet.flatten([styles.metaLabel, { color: t.textSecondary }]) as any}>SMS permission</Text>
             <Text
-              style={[
+              style={StyleSheet.flatten([
                 styles.metaValue,
                 {
                   color:
@@ -284,7 +284,7 @@ export default function SmsMonitoringSettingsScreen() {
                         ? t.warning
                         : t.danger,
                 },
-              ]}
+              ]) as any}
             >
               {permissionStatus === 'granted'
                 ? 'Allowed'
@@ -296,54 +296,54 @@ export default function SmsMonitoringSettingsScreen() {
 
           {isAndroid && permissionStatus !== 'granted' && (
             <View
-              style={[
+              style={StyleSheet.flatten([
                 styles.permissionCallout,
                 {
                   backgroundColor: `${t.warning}12`,
                   borderColor: `${t.warning}40`,
                 },
-              ]}
+              ]) as any}
             >
-              <Text style={[styles.permissionCalloutText, { color: t.textPrimary }]}>
+              <Text style={StyleSheet.flatten([styles.permissionCalloutText, { color: t.textPrimary }]) as any}>
                 Some devices (Xiaomi/MIUI) block in-app SMS permission prompts. If requesting fails, grant it manually from system settings.
               </Text>
               <Pressable
                 onPress={() => void openSystemSettings()}
-                style={[styles.permissionCalloutButton, { backgroundColor: t.primary }]}
+                style={StyleSheet.flatten([styles.permissionCalloutButton, { backgroundColor: t.primary }]) as any}
               >
                 <Text style={styles.permissionCalloutButtonText}>Open App Settings</Text>
               </Pressable>
               <Pressable
                 onPress={() => void handleRequestPermission()}
-                style={[styles.permissionCalloutButton, styles.permissionCalloutButtonAlt, { borderColor: t.border }]}
+                style={StyleSheet.flatten([styles.permissionCalloutButton, styles.permissionCalloutButtonAlt, { borderColor: t.border }]) as any}
               >
-                <Text style={[styles.permissionCalloutButtonAltText, { color: t.textPrimary }]}>Request Permission</Text>
+                <Text style={StyleSheet.flatten([styles.permissionCalloutButtonAltText, { color: t.textPrimary }]) as any}>Request Permission</Text>
               </Pressable>
             </View>
           )}
 
-          <Pressable onPress={handleRefresh} style={[styles.secondaryButton, { borderColor: t.border }]}>
-            <Text style={[styles.secondaryButtonText, { color: t.textPrimary }]}>Refresh Permission</Text>
+          <Pressable onPress={handleRefresh} style={StyleSheet.flatten([styles.secondaryButton, { borderColor: t.border }]) as any}>
+            <Text style={StyleSheet.flatten([styles.secondaryButtonText, { color: t.textPrimary }]) as any}>Refresh Permission</Text>
           </Pressable>
         </View>
 
-        <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
+        <View style={StyleSheet.flatten([styles.card, { backgroundColor: t.card, borderColor: t.border }]) as any}>
           <View style={styles.rowBetween}>
             <View style={styles.rowText}>
-              <Text style={[styles.label, { color: t.textPrimary }]}>Pending entries</Text>
-              <Text style={[styles.subLabel, { color: t.textSecondary }]}>
+              <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>Pending entries</Text>
+              <Text style={StyleSheet.flatten([styles.subLabel, { color: t.textSecondary }]) as any}>
                 Detected SMS transactions waiting for your confirmation.
               </Text>
             </View>
             {pendingCount !== null && pendingCount > 0 && (
-              <View style={[styles.countBadge, { backgroundColor: t.primary }]}>
+              <View style={StyleSheet.flatten([styles.countBadge, { backgroundColor: t.primary }]) as any}>
                 <Text style={styles.countBadgeText}>{pendingCount}</Text>
               </View>
             )}
           </View>
           <Pressable
             onPress={() => router.push('/sms/pending')}
-            style={[styles.primaryButton, { backgroundColor: pendingCount ? t.primary : t.border }]}
+            style={StyleSheet.flatten([styles.primaryButton, { backgroundColor: pendingCount ? t.primary : t.border }]) as any}
           >
             <Text style={styles.primaryButtonText}>
               {pendingCount ? `Review ${pendingCount} pending` : 'Review pending entries'}

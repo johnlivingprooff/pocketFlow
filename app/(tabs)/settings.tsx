@@ -330,7 +330,7 @@ export default function SettingsScreen() {
 
   const renderSectionHeader = (title: string) => (
     <View style={styles.sectionHeaderContainer}>
-      <Text style={[styles.sectionHeaderTitle, { color: t.textSecondary }]}>{title}</Text>
+      <Text style={StyleSheet.flatten([styles.sectionHeaderTitle, { color: t.textSecondary }]) as any}>{title}</Text>
     </View>
   );
 
@@ -340,14 +340,14 @@ export default function SettingsScreen() {
 
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: t.textPrimary }]}>Settings</Text>
+          <Text style={StyleSheet.flatten([styles.headerTitle, { color: t.textPrimary }]) as any}>Settings</Text>
         </View>
 
         {/* Profile Card */}
         <Link href="/profile" asChild>
-          <TouchableOpacity activeOpacity={TAP_OPACITY} style={[styles.profileCard, { backgroundColor: t.card, borderColor: t.border }]}>
+          <TouchableOpacity activeOpacity={TAP_OPACITY} style={StyleSheet.flatten([styles.profileCard, { backgroundColor: t.card, borderColor: t.border }]) as any}>
             <View style={styles.profileContent}>
-              <View style={[styles.avatarContainer, { backgroundColor: t.primary }]}>
+              <View style={StyleSheet.flatten([styles.avatarContainer, { backgroundColor: t.primary }]) as any}>
                 {userInfo?.profileImage ? (
                   <Image source={{ uri: userInfo.profileImage }} style={styles.avatarImage} onError={() => setUserInfo({ profileImage: null })} />
                 ) : (
@@ -355,11 +355,11 @@ export default function SettingsScreen() {
                 )}
               </View>
               <View style={styles.profileInfo}>
-                <Text style={[styles.profileName, { color: t.textPrimary }]}>{userInfo?.name || 'Your Profile'}</Text>
-                <Text style={[styles.profileEmail, { color: t.textSecondary }]}>{userInfo?.email || 'Tap to sign in or edit details'}</Text>
+                <Text style={StyleSheet.flatten([styles.profileName, { color: t.textPrimary }]) as any}>{userInfo?.name || 'Your Profile'}</Text>
+                <Text style={StyleSheet.flatten([styles.profileEmail, { color: t.textSecondary }]) as any}>{userInfo?.email || 'Tap to sign in or edit details'}</Text>
               </View>
-              <View style={[styles.editBadge, { backgroundColor: `${t.primary}15` }]}>
-                <Text style={[styles.editBadgeText, { color: t.primary }]}>Edit</Text>
+              <View style={StyleSheet.flatten([styles.editBadge, { backgroundColor: `${t.primary}15` }]) as any}>
+                <Text style={StyleSheet.flatten([styles.editBadgeText, { color: t.primary }]) as any}>Edit</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -368,30 +368,30 @@ export default function SettingsScreen() {
         {/* Quick Preferences */}
         <View style={styles.prefsRow}>
           <TouchableOpacity
-            style={[styles.prefItem, { backgroundColor: t.card, borderColor: t.border }]}
+            style={StyleSheet.flatten([styles.prefItem, { backgroundColor: t.card, borderColor: t.border }]) as any}
             onPress={() => setShowThemePicker(true)}
             activeOpacity={TAP_OPACITY}
           >
-            <View style={[styles.prefIconCircle, { backgroundColor: `${t.primary}15` }]}>
+            <View style={StyleSheet.flatten([styles.prefIconCircle, { backgroundColor: `${t.primary}15` }]) as any}>
               <ThemePaletteIcon size={22} color={t.primary} />
             </View>
             <View>
-              <Text style={[styles.prefLabel, { color: t.textSecondary }]}>Theme</Text>
-              <Text style={[styles.prefValue, { color: t.textPrimary }]} numberOfLines={1}>{getThemeLabel()}</Text>
+              <Text style={StyleSheet.flatten([styles.prefLabel, { color: t.textSecondary }]) as any}>Theme</Text>
+              <Text style={StyleSheet.flatten([styles.prefValue, { color: t.textPrimary }]) as any} numberOfLines={1}>{getThemeLabel()}</Text>
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.prefItem, { backgroundColor: t.card, borderColor: t.border }]}
+            style={StyleSheet.flatten([styles.prefItem, { backgroundColor: t.card, borderColor: t.border }]) as any}
             onPress={() => setShowCurrencyPicker(true)}
             activeOpacity={TAP_OPACITY}
           >
-            <View style={[styles.prefIconCircle, { backgroundColor: `${t.primary}15` }]}>
+            <View style={StyleSheet.flatten([styles.prefIconCircle, { backgroundColor: `${t.primary}15` }]) as any}>
               <CurrencyExchangeIcon size={22} color={t.primary} />
             </View>
             <View>
-              <Text style={[styles.prefLabel, { color: t.textSecondary }]}>Currency</Text>
-              <Text style={[styles.prefValue, { color: t.textPrimary }]} numberOfLines={1}>{defaultCurrency}</Text>
+              <Text style={StyleSheet.flatten([styles.prefLabel, { color: t.textSecondary }]) as any}>Currency</Text>
+              <Text style={StyleSheet.flatten([styles.prefValue, { color: t.textPrimary }]) as any} numberOfLines={1}>{defaultCurrency}</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -405,48 +405,48 @@ export default function SettingsScreen() {
             contentContainerStyle={styles.gridContainer}
           >
             <Link href="/categories" asChild>
-              <TouchableOpacity style={[styles.gridItem, { backgroundColor: t.card, borderColor: t.border }]} activeOpacity={TAP_OPACITY}>
-                <View style={[styles.gridIcon, { backgroundColor: `${t.primary}15` }]}>
+              <TouchableOpacity style={StyleSheet.flatten([styles.gridItem, { backgroundColor: t.card, borderColor: t.border }]) as any} activeOpacity={TAP_OPACITY}>
+                <View style={StyleSheet.flatten([styles.gridIcon, { backgroundColor: `${t.primary}15` }]) as any}>
                   <LayersIcon size={36} color={t.primary} />
                 </View>
-                <Text style={[styles.gridLabel, { color: t.textPrimary }]}>Categories</Text>
+                <Text style={StyleSheet.flatten([styles.gridLabel, { color: t.textPrimary }]) as any}>Categories</Text>
               </TouchableOpacity>
             </Link>
             <Link href="/budget" asChild>
-              <TouchableOpacity style={[styles.gridItem, { backgroundColor: t.card, borderColor: t.border }]} activeOpacity={TAP_OPACITY}>
-                <View style={[styles.gridIcon, { backgroundColor: `${t.primary}15` }]}>
+              <TouchableOpacity style={StyleSheet.flatten([styles.gridItem, { backgroundColor: t.card, borderColor: t.border }]) as any} activeOpacity={TAP_OPACITY}>
+                <View style={StyleSheet.flatten([styles.gridIcon, { backgroundColor: `${t.primary}15` }]) as any}>
                   <BudgetPieIcon size={36} color={t.primary} />
                 </View>
-                <Text style={[styles.gridLabel, { color: t.textPrimary }]}>Budgets</Text>
+                <Text style={StyleSheet.flatten([styles.gridLabel, { color: t.textPrimary }]) as any}>Budgets</Text>
               </TouchableOpacity>
             </Link>
             <Link href="/settings/recurring" asChild>
-              <TouchableOpacity style={[styles.gridItem, { backgroundColor: t.card, borderColor: t.border }]} activeOpacity={TAP_OPACITY}>
-                <View style={[styles.gridIcon, { backgroundColor: `${t.primary}15` }]}>
+              <TouchableOpacity style={StyleSheet.flatten([styles.gridItem, { backgroundColor: t.card, borderColor: t.border }]) as any} activeOpacity={TAP_OPACITY}>
+                <View style={StyleSheet.flatten([styles.gridIcon, { backgroundColor: `${t.primary}15` }]) as any}>
                   <CycleIcon size={36} color={t.primary} />
                 </View>
-                <Text style={[styles.gridLabel, { color: t.textPrimary }]}>Recurring</Text>
+                <Text style={StyleSheet.flatten([styles.gridLabel, { color: t.textPrimary }]) as any}>Recurring</Text>
               </TouchableOpacity>
             </Link>
             <Link href="/settings/reminders" asChild>
-              <TouchableOpacity style={[styles.gridItem, { backgroundColor: t.card, borderColor: t.border }]} activeOpacity={TAP_OPACITY}>
-                <View style={[styles.gridIcon, { backgroundColor: `${t.primary}15` }]}>
+              <TouchableOpacity style={StyleSheet.flatten([styles.gridItem, { backgroundColor: t.card, borderColor: t.border }]) as any} activeOpacity={TAP_OPACITY}>
+                <View style={StyleSheet.flatten([styles.gridIcon, { backgroundColor: `${t.primary}15` }]) as any}>
                   <BellIcon size={36} color={t.primary} />
                 </View>
-                <Text style={[styles.gridLabel, { color: t.textPrimary }]}>Reminders</Text>
+                <Text style={StyleSheet.flatten([styles.gridLabel, { color: t.textPrimary }]) as any}>Reminders</Text>
               </TouchableOpacity>
             </Link>
             <Link href="/settings/sms-monitoring" asChild>
-              <TouchableOpacity style={[styles.gridItem, { backgroundColor: t.card, borderColor: t.border }]} activeOpacity={TAP_OPACITY}>
+              <TouchableOpacity style={StyleSheet.flatten([styles.gridItem, { backgroundColor: t.card, borderColor: t.border }]) as any} activeOpacity={TAP_OPACITY}>
                 {pendingSmsCount > 0 && (
-                  <View style={[styles.smsBadge, { backgroundColor: colors.negativeRed }]}>
+                  <View style={StyleSheet.flatten([styles.smsBadge, { backgroundColor: colors.negativeRed }]) as any}>
                     <Text style={styles.smsBadgeText}>{pendingSmsCount}</Text>
                   </View>
                 )}
-                <View style={[styles.gridIcon, { backgroundColor: `${t.primary}15` }]}>
+                <View style={StyleSheet.flatten([styles.gridIcon, { backgroundColor: `${t.primary}15` }]) as any}>
                   <SmsIcon size={36} color={t.primary} />
                 </View>
-                <Text style={[styles.gridLabel, { color: t.textPrimary }]}>SMS Auto-Log</Text>
+                <Text style={StyleSheet.flatten([styles.gridLabel, { color: t.textPrimary }]) as any}>SMS Auto-Log</Text>
               </TouchableOpacity>
             </Link>
           </ScrollView>
@@ -455,95 +455,95 @@ export default function SettingsScreen() {
         {/* Other Settings */}
         <View style={styles.section}>
           {renderSectionHeader('OTHER SETTINGS')}
-          <View style={[styles.listContainer, { backgroundColor: t.card, borderColor: t.border }]}>
+          <View style={StyleSheet.flatten([styles.listContainer, { backgroundColor: t.card, borderColor: t.border }]) as any}>
             <TouchableOpacity
               activeOpacity={TAP_OPACITY}
               onPress={() => router.push('/settings/security')}
-              style={[styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1, flexDirection: 'row', alignItems: 'center' }]}
+              style={StyleSheet.flatten([styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1, flexDirection: 'row', alignItems: 'center' }]) as any}
             >
-              <View style={[styles.listIconLeft, { width: 32 }]}>
+              <View style={StyleSheet.flatten([styles.listIconLeft, { width: 32 }]) as any}>
                 <SecurityShieldIcon size={24} color={t.primary} />
               </View>
               <View style={styles.listItemContent}>
-                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Privacy Lock</Text>
-                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>
+                <Text style={StyleSheet.flatten([styles.listItemTitle, { color: t.textPrimary }]) as any}>Privacy Lock</Text>
+                <Text style={StyleSheet.flatten([styles.listItemSubtitle, { color: t.textSecondary }]) as any}>
                   {biometricAvailable && biometricEnabled ? `${biometricType} enabled` : 'Setup protection'}
                 </Text>
               </View>
-              <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
+              <Text style={StyleSheet.flatten([styles.chevron, { color: t.textTertiary }]) as any}>›</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               activeOpacity={TAP_OPACITY}
               onPress={() => router.push('/settings/shared-wallets')}
-              style={[styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1, flexDirection: 'row', alignItems: 'center' }]}
+              style={StyleSheet.flatten([styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1, flexDirection: 'row', alignItems: 'center' }]) as any}
             >
-              <View style={[styles.listIconLeft, { width: 32 }]}>
+              <View style={StyleSheet.flatten([styles.listIconLeft, { width: 32 }]) as any}>
                 <Text style={{ fontSize: 20, color: t.primary, lineHeight: 20 }}>◎</Text>
               </View>
               <View style={styles.listItemContent}>
-                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Shared Wallets</Text>
-                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>
+                <Text style={StyleSheet.flatten([styles.listItemTitle, { color: t.textPrimary }]) as any}>Shared Wallets</Text>
+                <Text style={StyleSheet.flatten([styles.listItemSubtitle, { color: t.textSecondary }]) as any}>
                   {cloudSessionState === 'authenticated' ? 'Manage sharing' : 'Sign in required'}
                 </Text>
               </View>
-              <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
+              <Text style={StyleSheet.flatten([styles.chevron, { color: t.textTertiary }]) as any}>›</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               activeOpacity={TAP_OPACITY}
               onPress={() => router.push('/settings/receipts')}
-              style={[styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1, flexDirection: 'row', alignItems: 'center' }]}
+              style={StyleSheet.flatten([styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1, flexDirection: 'row', alignItems: 'center' }]) as any}
             >
-              <View style={[styles.listIconLeft, { width: 32 }]}>
+              <View style={StyleSheet.flatten([styles.listIconLeft, { width: 32 }]) as any}>
                 <ReceiptIcon size={24} color={t.primary} />
               </View>
               <View style={styles.listItemContent}>
-                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Receipt Gallery</Text>
+                <Text style={StyleSheet.flatten([styles.listItemTitle, { color: t.textPrimary }]) as any}>Receipt Gallery</Text>
               </View>
-              <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
+              <Text style={StyleSheet.flatten([styles.chevron, { color: t.textTertiary }]) as any}>›</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowBackupOptions(true)} style={[styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1 }]}>
-              <View style={[styles.listIconLeft, { width: 32 }]}>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowBackupOptions(true)} style={StyleSheet.flatten([styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1 }]) as any}>
+              <View style={StyleSheet.flatten([styles.listIconLeft, { width: 32 }]) as any}>
                 <BackupIcon size={24} color={t.primary} />
               </View>
               <View style={styles.listItemContent}>
-                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Backup Options</Text>
-                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>Create or restore backups</Text>
+                <Text style={StyleSheet.flatten([styles.listItemTitle, { color: t.textPrimary }]) as any}>Backup Options</Text>
+                <Text style={StyleSheet.flatten([styles.listItemSubtitle, { color: t.textSecondary }]) as any}>Create or restore backups</Text>
               </View>
-              <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
+              <Text style={StyleSheet.flatten([styles.chevron, { color: t.textTertiary }]) as any}>›</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               activeOpacity={TAP_OPACITY}
               onPress={() => router.push('/settings/drive-backup')}
-              style={[styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1 }]}
+              style={StyleSheet.flatten([styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1 }]) as any}
             >
-              <View style={[styles.listIconLeft, { width: 32 }]}>
+              <View style={StyleSheet.flatten([styles.listIconLeft, { width: 32 }]) as any}>
                 <DriveIcon size={24} color={t.primary} />
               </View>
               <View style={styles.listItemContent}>
-                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Drive Backup</Text>
-                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>
+                <Text style={StyleSheet.flatten([styles.listItemTitle, { color: t.textPrimary }]) as any}>Drive Backup</Text>
+                <Text style={StyleSheet.flatten([styles.listItemSubtitle, { color: t.textSecondary }]) as any}>
                   {driveAccount ? `Linked to ${driveAccount.email}` : 'Encrypted Google Drive backup'}
                 </Text>
               </View>
-              <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
+              <Text style={StyleSheet.flatten([styles.chevron, { color: t.textTertiary }]) as any}>›</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleFeedback} style={[styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1 }]}>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleFeedback} style={StyleSheet.flatten([styles.listItem, { borderBottomColor: t.border, borderBottomWidth: 1 }]) as any}>
               <View style={styles.listItemContent}>
-                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>Send Feedback</Text>
-                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>Help us improve</Text>
+                <Text style={StyleSheet.flatten([styles.listItemTitle, { color: t.textPrimary }]) as any}>Send Feedback</Text>
+                <Text style={StyleSheet.flatten([styles.listItemSubtitle, { color: t.textSecondary }]) as any}>Help us improve</Text>
               </View>
-              <Text style={[styles.chevron, { color: t.textTertiary }]}>›</Text>
+              <Text style={StyleSheet.flatten([styles.chevron, { color: t.textTertiary }]) as any}>›</Text>
             </TouchableOpacity>
 
             <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleVersionTap} style={styles.listItem}>
               <View style={styles.listItemContent}>
-                <Text style={[styles.listItemTitle, { color: t.textPrimary }]}>About</Text>
-                <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>v{APP_VERSION}</Text>
+                <Text style={StyleSheet.flatten([styles.listItemTitle, { color: t.textPrimary }]) as any}>About</Text>
+                <Text style={StyleSheet.flatten([styles.listItemSubtitle, { color: t.textSecondary }]) as any}>v{APP_VERSION}</Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -553,11 +553,11 @@ export default function SettingsScreen() {
         {showDevOptions && (
           <View style={styles.section}>
             {renderSectionHeader('DEVELOPER MODE')}
-            <View style={[styles.listContainer, { backgroundColor: t.card, borderColor: colors.negativeRed }]}>
+            <View style={StyleSheet.flatten([styles.listContainer, { backgroundColor: t.card, borderColor: colors.negativeRed }]) as any}>
               <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleRestartOnboarding} style={styles.listItem}>
                 <View style={styles.listItemContent}>
-                  <Text style={[styles.listItemTitle, { color: colors.negativeRed }]}>Restart Onboarding</Text>
-                  <Text style={[styles.listItemSubtitle, { color: t.textSecondary }]}>Reset app state</Text>
+                  <Text style={StyleSheet.flatten([styles.listItemTitle, { color: colors.negativeRed }]) as any}>Restart Onboarding</Text>
+                  <Text style={StyleSheet.flatten([styles.listItemSubtitle, { color: t.textSecondary }]) as any}>Reset app state</Text>
                 </View>
                 <Text style={{ fontSize: 18, color: colors.negativeRed }}>⟲</Text>
               </TouchableOpacity>
@@ -570,10 +570,10 @@ export default function SettingsScreen() {
       {/* Theme Picker Modal */}
       <Modal visible={showThemePicker} transparent animationType="fade" onRequestClose={() => setShowThemePicker(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: t.card, borderColor: t.border }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: t.border }]}>
-              <Text style={[styles.modalTitle, { color: t.textPrimary }]}>Select Theme</Text>
-              <Text style={[styles.modalSubtitle, { color: t.textSecondary }]}>Choose your preferred look</Text>
+          <View style={StyleSheet.flatten([styles.modalContainer, { backgroundColor: t.card, borderColor: t.border }]) as any}>
+            <View style={StyleSheet.flatten([styles.modalHeader, { borderBottomColor: t.border }]) as any}>
+              <Text style={StyleSheet.flatten([styles.modalTitle, { color: t.textPrimary }]) as any}>Select Theme</Text>
+              <Text style={StyleSheet.flatten([styles.modalSubtitle, { color: t.textSecondary }]) as any}>Choose your preferred look</Text>
             </View>
             <ScrollView style={{ maxHeight: 400 }}>
               {themeOptions.map((option) => (
@@ -581,14 +581,14 @@ export default function SettingsScreen() {
                   key={option.value}
                   activeOpacity={TAP_OPACITY}
                   onPress={() => { setThemeMode(option.value); setShowThemePicker(false); }}
-                  style={[styles.modalItem, { borderBottomColor: t.border }]}
+                  style={StyleSheet.flatten([styles.modalItem, { borderBottomColor: t.border }]) as any}
                 >
                   <ThemePreview themeMode={option.value} isSelected={themeMode === option.value} />
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.modalItemTitle, { color: themeMode === option.value ? t.primary : t.textPrimary }]}>
+                    <Text style={StyleSheet.flatten([styles.modalItemTitle, { color: themeMode === option.value ? t.primary : t.textPrimary }]) as any}>
                       {option.label}
                     </Text>
-                    <Text style={[styles.modalItemDesc, { color: t.textSecondary }]}>{option.description}</Text>
+                    <Text style={StyleSheet.flatten([styles.modalItemDesc, { color: t.textSecondary }]) as any}>{option.description}</Text>
                   </View>
                   {themeMode === option.value && (
                     <Text style={{ color: t.primary, fontSize: 18, fontWeight: 'bold' }}>✓</Text>
@@ -596,8 +596,8 @@ export default function SettingsScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowThemePicker(false)} style={[styles.modalCloseButton, { borderTopColor: t.border }]}>
-              <Text style={[styles.modalCloseText, { color: t.primary }]}>Close</Text>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowThemePicker(false)} style={StyleSheet.flatten([styles.modalCloseButton, { borderTopColor: t.border }]) as any}>
+              <Text style={StyleSheet.flatten([styles.modalCloseText, { color: t.primary }]) as any}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -606,21 +606,21 @@ export default function SettingsScreen() {
       {/* Currency Picker Modal */}
       <Modal visible={showCurrencyPicker} transparent animationType="fade" onRequestClose={() => setShowCurrencyPicker(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: t.card, borderColor: t.border }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: t.border }]}>
-              <Text style={[styles.modalTitle, { color: t.textPrimary }]}>Select Currency</Text>
+          <View style={StyleSheet.flatten([styles.modalContainer, { backgroundColor: t.card, borderColor: t.border }]) as any}>
+            <View style={StyleSheet.flatten([styles.modalHeader, { borderBottomColor: t.border }]) as any}>
+              <Text style={StyleSheet.flatten([styles.modalTitle, { color: t.textPrimary }]) as any}>Select Currency</Text>
             </View>
             <FlatList
               data={CURRENCIES}
               keyExtractor={(item) => item}
               renderItem={({ item }) => (
-                <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => { useSettings.getState().setDefaultCurrency(item); setShowCurrencyPicker(false); }} style={[styles.modalItem, { borderBottomColor: t.border }]}>
+                <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => { useSettings.getState().setDefaultCurrency(item); setShowCurrencyPicker(false); }} style={StyleSheet.flatten([styles.modalItem, { borderBottomColor: t.border }]) as any}>
                   <Text style={{ color: defaultCurrency === item ? t.primary : t.textPrimary, fontSize: 16, fontWeight: defaultCurrency === item ? '700' : '500' }}>{item}</Text>
                 </TouchableOpacity>
               )}
             />
-            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowCurrencyPicker(false)} style={[styles.modalCloseButton, { borderTopColor: t.border }]}>
-              <Text style={[styles.modalCloseText, { color: t.primary }]}>Close</Text>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowCurrencyPicker(false)} style={StyleSheet.flatten([styles.modalCloseButton, { borderTopColor: t.border }]) as any}>
+              <Text style={StyleSheet.flatten([styles.modalCloseText, { color: t.primary }]) as any}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -629,9 +629,9 @@ export default function SettingsScreen() {
       {/* CSV Restore Modal */}
       <Modal visible={showCsvRestoreModal} transparent animationType="fade" onRequestClose={() => setShowCsvRestoreModal(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: t.card, borderColor: t.border }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: t.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-              <Text style={[styles.modalTitle, { color: t.textPrimary }]}>CSV Exports</Text>
+          <View style={StyleSheet.flatten([styles.modalContainer, { backgroundColor: t.card, borderColor: t.border }]) as any}>
+            <View style={StyleSheet.flatten([styles.modalHeader, { borderBottomColor: t.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]) as any}>
+              <Text style={StyleSheet.flatten([styles.modalTitle, { color: t.textPrimary }]) as any}>CSV Exports</Text>
               <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowCsvRestoreModal(false)}>
                 <Text style={{ fontSize: 24, color: t.textSecondary }}>Ã—</Text>
               </TouchableOpacity>
@@ -645,7 +645,7 @@ export default function SettingsScreen() {
                 data={csvExports}
                 keyExtractor={(item) => item.uri}
                 renderItem={({ item }) => (
-                  <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => handleRestoreCsv(item.uri)} style={[styles.modalItem, { borderBottomColor: t.border }]}>
+                  <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => handleRestoreCsv(item.uri)} style={StyleSheet.flatten([styles.modalItem, { borderBottomColor: t.border }]) as any}>
                     <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600' }}>
                       {item.date.toLocaleDateString()}
                     </Text>
@@ -660,8 +660,8 @@ export default function SettingsScreen() {
                 Rebuilds wallets, categories, and transactions only. It cannot restore receipts, initial balances, recurring rules, budgets, or goals from CSV alone.
               </Text>
             </View>
-            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowCsvRestoreModal(false)} style={[styles.modalCloseButton, { borderTopColor: t.border }]}>
-              <Text style={[styles.modalCloseText, { color: t.primary }]}>Close</Text>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowCsvRestoreModal(false)} style={StyleSheet.flatten([styles.modalCloseButton, { borderTopColor: t.border }]) as any}>
+              <Text style={StyleSheet.flatten([styles.modalCloseText, { color: t.primary }]) as any}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -670,9 +670,9 @@ export default function SettingsScreen() {
       {/* Backup Restore Modal */}
       <Modal visible={showBackupModal} transparent animationType="fade" onRequestClose={() => setShowBackupModal(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: t.card, borderColor: t.border }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: t.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-              <Text style={[styles.modalTitle, { color: t.textPrimary }]}>Backups</Text>
+          <View style={StyleSheet.flatten([styles.modalContainer, { backgroundColor: t.card, borderColor: t.border }]) as any}>
+            <View style={StyleSheet.flatten([styles.modalHeader, { borderBottomColor: t.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]) as any}>
+              <Text style={StyleSheet.flatten([styles.modalTitle, { color: t.textPrimary }]) as any}>Backups</Text>
               <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowBackupModal(false)}>
                 <Text style={{ fontSize: 24, color: t.textSecondary }}>×</Text>
               </TouchableOpacity>
@@ -686,7 +686,7 @@ export default function SettingsScreen() {
                 data={backups}
                 keyExtractor={(item) => item.uri}
                 renderItem={({ item }) => (
-                  <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => handleRestoreBackup(item.uri)} style={[styles.modalItem, { borderBottomColor: t.border }]}>
+                  <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => handleRestoreBackup(item.uri)} style={StyleSheet.flatten([styles.modalItem, { borderBottomColor: t.border }]) as any}>
                     <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '600' }}>
                       {item.date.toLocaleDateString()}
                     </Text>
@@ -699,8 +699,8 @@ export default function SettingsScreen() {
               <Text style={{ color: t.warning, fontSize: 12, fontWeight: '700', marginBottom: 4 }}>Note</Text>
               <Text style={{ color: t.textSecondary, fontSize: 11 }}>Restoring will replace all current data.</Text>
             </View>
-            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowBackupModal(false)} style={[styles.modalCloseButton, { borderTopColor: t.border }]}>
-              <Text style={[styles.modalCloseText, { color: t.primary }]}>Close</Text>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowBackupModal(false)} style={StyleSheet.flatten([styles.modalCloseButton, { borderTopColor: t.border }]) as any}>
+              <Text style={StyleSheet.flatten([styles.modalCloseText, { color: t.primary }]) as any}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -709,10 +709,10 @@ export default function SettingsScreen() {
       {/* Backup Options Drawer */}
       <Modal visible={showBackupOptions} transparent animationType="slide" onRequestClose={() => setShowBackupOptions(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: t.card, borderColor: t.border, marginTop: 'auto' }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: t.border }]}>
-              <Text style={[styles.modalTitle, { color: t.textPrimary }]}>Backup Options</Text>
-              <Text style={[styles.modalSubtitle, { color: t.textSecondary }]}>Manage your data backups</Text>
+          <View style={StyleSheet.flatten([styles.modalContainer, { backgroundColor: t.card, borderColor: t.border, marginTop: 'auto' }]) as any}>
+            <View style={StyleSheet.flatten([styles.modalHeader, { borderBottomColor: t.border }]) as any}>
+              <Text style={StyleSheet.flatten([styles.modalTitle, { color: t.textPrimary }]) as any}>Backup Options</Text>
+              <Text style={StyleSheet.flatten([styles.modalSubtitle, { color: t.textSecondary }]) as any}>Manage your data backups</Text>
             </View>
             <ScrollView style={{ maxHeight: 400 }}>
               <TouchableOpacity
@@ -721,15 +721,15 @@ export default function SettingsScreen() {
                   setShowBackupOptions(false);
                   handleCreateBackup();
                 }}
-                style={[styles.modalItem, { borderBottomColor: t.border }]}
+                style={StyleSheet.flatten([styles.modalItem, { borderBottomColor: t.border }]) as any}
                 disabled={isLoadingBackup}
               >
-                <View style={[styles.listIconLeft, { width: 28 }]}>
+                <View style={StyleSheet.flatten([styles.listIconLeft, { width: 28 }]) as any}>
                   <BackupIcon size={20} color={t.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.modalItemTitle, { color: t.textPrimary }]}>Create Full Backup</Text>
-                  <Text style={[styles.modalItemDesc, { color: t.textSecondary }]}>JSON: Everything in database</Text>
+                  <Text style={StyleSheet.flatten([styles.modalItemTitle, { color: t.textPrimary }]) as any}>Create Full Backup</Text>
+                  <Text style={StyleSheet.flatten([styles.modalItemDesc, { color: t.textSecondary }]) as any}>JSON: Everything in database</Text>
                 </View>
               </TouchableOpacity>
 
@@ -739,14 +739,14 @@ export default function SettingsScreen() {
                   setShowBackupOptions(false);
                   handleExportCSV();
                 }}
-                style={[styles.modalItem, { borderBottomColor: t.border }]}
+                style={StyleSheet.flatten([styles.modalItem, { borderBottomColor: t.border }]) as any}
               >
-                <View style={[styles.listIconLeft, { width: 28 }]}>
+                <View style={StyleSheet.flatten([styles.listIconLeft, { width: 28 }]) as any}>
                   <ExportIcon size={20} color={t.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.modalItemTitle, { color: t.textPrimary }]}>Export Transaction History</Text>
-                  <Text style={[styles.modalItemDesc, { color: t.textSecondary }]}>CSV: Transactions only</Text>
+                  <Text style={StyleSheet.flatten([styles.modalItemTitle, { color: t.textPrimary }]) as any}>Export Transaction History</Text>
+                  <Text style={StyleSheet.flatten([styles.modalItemDesc, { color: t.textSecondary }]) as any}>CSV: Transactions only</Text>
                 </View>
               </TouchableOpacity>
 
@@ -756,14 +756,14 @@ export default function SettingsScreen() {
                   setShowBackupOptions(false);
                   setShowBackupModal(true);
                 }}
-                style={[styles.modalItem, { borderBottomColor: t.border }]}
+                style={StyleSheet.flatten([styles.modalItem, { borderBottomColor: t.border }]) as any}
               >
-                <View style={[styles.listIconLeft, { width: 28 }]}>
+                <View style={StyleSheet.flatten([styles.listIconLeft, { width: 28 }]) as any}>
                   <Text style={{ fontSize: 18, color: t.primary, lineHeight: 18 }}>↺</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.modalItemTitle, { color: t.textPrimary }]}>Restore Full Backup</Text>
-                  <Text style={[styles.modalItemDesc, { color: t.textSecondary }]}>{backups.length ? `${backups.length} backup(s) available` : 'No backups found'}</Text>
+                  <Text style={StyleSheet.flatten([styles.modalItemTitle, { color: t.textPrimary }]) as any}>Restore Full Backup</Text>
+                  <Text style={StyleSheet.flatten([styles.modalItemDesc, { color: t.textSecondary }]) as any}>{backups.length ? `${backups.length} backup(s) available` : 'No backups found'}</Text>
                 </View>
               </TouchableOpacity>
 
@@ -775,12 +775,12 @@ export default function SettingsScreen() {
                 }}
                 style={styles.modalItem}
               >
-                <View style={[styles.listIconLeft, { width: 28 }]}>
+                <View style={StyleSheet.flatten([styles.listIconLeft, { width: 28 }]) as any}>
                   <CsvIcon size={20} color={t.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.modalItemTitle, { color: t.textPrimary }]}>Restore from CSV</Text>
-                  <Text style={[styles.modalItemDesc, { color: t.textSecondary }]}>{csvExports.length ? `${csvExports.length} export(s) available` : 'No exports found'}</Text>
+                  <Text style={StyleSheet.flatten([styles.modalItemTitle, { color: t.textPrimary }]) as any}>Restore from CSV</Text>
+                  <Text style={StyleSheet.flatten([styles.modalItemDesc, { color: t.textSecondary }]) as any}>{csvExports.length ? `${csvExports.length} export(s) available` : 'No exports found'}</Text>
                 </View>
               </TouchableOpacity>
             </ScrollView>
@@ -792,8 +792,8 @@ export default function SettingsScreen() {
               </Text>
             </View>
 
-            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowBackupOptions(false)} style={[styles.modalCloseButton, { borderTopColor: t.border }]}>
-              <Text style={[styles.modalCloseText, { color: t.primary }]}>Close</Text>
+            <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowBackupOptions(false)} style={StyleSheet.flatten([styles.modalCloseButton, { borderTopColor: t.border }]) as any}>
+              <Text style={StyleSheet.flatten([styles.modalCloseText, { color: t.primary }]) as any}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -127,7 +127,7 @@ export default function CategoryTutorialScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top', 'bottom']}>
+    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: t.background }]) as any} edges={['left', 'right', 'top', 'bottom']}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -147,10 +147,10 @@ export default function CategoryTutorialScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.emoji}>🏷️</Text>
-          <Text style={[styles.title, { color: t.textPrimary }]}>
+          <Text style={StyleSheet.flatten([styles.title, { color: t.textPrimary }]) as any}>
             Create a Custom Category
           </Text>
-          <Text style={[styles.subtitle, { color: t.textSecondary }]}>
+          <Text style={StyleSheet.flatten([styles.subtitle, { color: t.textSecondary }]) as any}>
             Categories help you organize and track your spending. We have many built-in, but you can add your own!
           </Text>
         </View>
@@ -158,28 +158,28 @@ export default function CategoryTutorialScreen() {
         {/* Form */}
         <View style={styles.form}>
           <View style={styles.field}>
-            <Text style={[styles.label, { color: t.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>
               Category Type
             </Text>
             <View style={styles.typeRow}>
               <Pressable
-                style={[
+                style={StyleSheet.flatten([
                   styles.typeButton,
                   {
                     backgroundColor: categoryType === 'expense' ? colors.negativeRed + '20' : colors.mutedGrey + '10',
                     borderColor: categoryType === 'expense' ? colors.negativeRed : colors.mutedGrey + '30',
                   },
-                ]}
+                ]) as any}
                 onPress={() => setCategoryType('expense')}
               >
                 <Text
-                  style={[
+                  style={StyleSheet.flatten([
                     styles.typeButtonText,
                     {
                       color: categoryType === 'expense' ? colors.negativeRed : t.textPrimary,
                       fontWeight: categoryType === 'expense' ? '700' : '500',
                     },
-                  ]}
+                  ]) as any}
                   numberOfLines={1}
                   adjustsFontSizeToFit
                 >
@@ -187,23 +187,23 @@ export default function CategoryTutorialScreen() {
                 </Text>
               </Pressable>
               <Pressable
-                style={[
+                style={StyleSheet.flatten([
                   styles.typeButton,
                   {
                     backgroundColor: categoryType === 'income' ? colors.positiveGreen + '20' : colors.mutedGrey + '10',
                     borderColor: categoryType === 'income' ? colors.positiveGreen : colors.mutedGrey + '30',
                   },
-                ]}
+                ]) as any}
                 onPress={() => setCategoryType('income')}
               >
                 <Text
-                  style={[
+                  style={StyleSheet.flatten([
                     styles.typeButtonText,
                     {
                       color: categoryType === 'income' ? colors.positiveGreen : t.textPrimary,
                       fontWeight: categoryType === 'income' ? '700' : '500',
                     },
-                  ]}
+                  ]) as any}
                   numberOfLines={1}
                   adjustsFontSizeToFit
                 >
@@ -214,7 +214,7 @@ export default function CategoryTutorialScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={[styles.label, { color: t.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>
               Icon Type
             </Text>
             <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -254,14 +254,14 @@ export default function CategoryTutorialScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={[styles.label, { color: t.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>
               Category Icon
             </Text>
             <Pressable
-              style={[
+              style={StyleSheet.flatten([
                 styles.iconButton,
                 { backgroundColor: t.card, borderColor: t.primary, borderWidth: 2 },
-              ]}
+              ]) as any}
               onPress={() => iconType === 'emoji' ? setShowEmojiPicker(true) : setShowSvgPicker(true)}
             >
               <View style={styles.selectedIconDisplay}>
@@ -271,25 +271,25 @@ export default function CategoryTutorialScreen() {
                   renderCategoryIcon(selectedSvg, 32, t.textPrimary)
                 )}
               </View>
-              <Text style={[styles.iconButtonText, { color: t.textSecondary }]}>
+              <Text style={StyleSheet.flatten([styles.iconButtonText, { color: t.textSecondary }]) as any}>
                 Tap to change
               </Text>
             </Pressable>
           </View>
 
           <View style={styles.field}>
-            <Text style={[styles.label, { color: t.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>
               Category Name <Text style={{ color: colors.negativeRed }}>*</Text>
             </Text>
             <TextInput
-              style={[
+              style={StyleSheet.flatten([
                 styles.input,
                 {
                   backgroundColor: t.card,
                   color: t.textPrimary,
                   borderColor: t.border,
                 },
-              ]}
+              ]) as any}
               placeholder="e.g., Coffee, Subscriptions, Side Hustle"
               placeholderTextColor={t.textSecondary}
               value={categoryName}
@@ -306,19 +306,19 @@ export default function CategoryTutorialScreen() {
         {/* Buttons */}
         <View style={styles.buttonContainer}>
           <Pressable
-            style={[
+            style={StyleSheet.flatten([
               styles.button,
               { backgroundColor: t.primary, opacity: isCreating ? 0.6 : 1 },
-            ]}
+            ]) as any}
             onPress={handleCreateCategory}
             disabled={isCreating}
           >
-            <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
+            <Text style={StyleSheet.flatten([styles.buttonText, { color: '#FFFFFF' }]) as any}>
               {isCreating ? 'Creating...' : 'Create Category'}
             </Text>
           </Pressable>
           <Pressable style={styles.skipButton} onPress={handleSkip}>
-            <Text style={[styles.skipText, { color: t.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.skipText, { color: t.textSecondary }]) as any}>
               Skip this step
             </Text>
           </Pressable>
@@ -328,11 +328,11 @@ export default function CategoryTutorialScreen() {
       {/* Emoji Picker Modal */}
       {showEmojiPicker && (
         <Modal visible={showEmojiPicker} animationType="slide" transparent={true}>
-          <SafeAreaView style={[styles.pickerModalContainer, { backgroundColor: t.background }]} edges={['top']}>
-            <View style={[styles.pickerModalHeader, { borderBottomColor: t.border }]}>
-              <Text style={[styles.pickerModalTitle, { color: t.textPrimary }]}>Select Emoji</Text>
+          <SafeAreaView style={StyleSheet.flatten([styles.pickerModalContainer, { backgroundColor: t.background }]) as any} edges={['top']}>
+            <View style={StyleSheet.flatten([styles.pickerModalHeader, { borderBottomColor: t.border }]) as any}>
+              <Text style={StyleSheet.flatten([styles.pickerModalTitle, { color: t.textPrimary }]) as any}>Select Emoji</Text>
               <Pressable onPress={() => setShowEmojiPicker(false)} style={styles.pickerModalCloseButton}>
-                <Text style={[styles.pickerModalCloseText, { color: t.textPrimary }]}>Done</Text>
+                <Text style={StyleSheet.flatten([styles.pickerModalCloseText, { color: t.textPrimary }]) as any}>Done</Text>
               </Pressable>
             </View>
             <EmojiPicker
@@ -349,11 +349,11 @@ export default function CategoryTutorialScreen() {
 
       {/* SVG Icon Picker Modal */}
       <Modal visible={showSvgPicker} animationType="slide" transparent={true}>
-        <SafeAreaView style={[styles.pickerModalContainer, { backgroundColor: t.background }]} edges={['top']}>
-          <View style={[styles.pickerModalHeader, { borderBottomColor: t.border }]}>
-            <Text style={[styles.pickerModalTitle, { color: t.textPrimary }]}>Select Icon</Text>
+        <SafeAreaView style={StyleSheet.flatten([styles.pickerModalContainer, { backgroundColor: t.background }]) as any} edges={['top']}>
+          <View style={StyleSheet.flatten([styles.pickerModalHeader, { borderBottomColor: t.border }]) as any}>
+            <Text style={StyleSheet.flatten([styles.pickerModalTitle, { color: t.textPrimary }]) as any}>Select Icon</Text>
             <Pressable onPress={() => setShowSvgPicker(false)} style={styles.pickerModalCloseButton}>
-              <Text style={[styles.pickerModalCloseText, { color: t.textPrimary }]}>Done</Text>
+              <Text style={StyleSheet.flatten([styles.pickerModalCloseText, { color: t.textPrimary }]) as any}>Done</Text>
             </Pressable>
           </View>
           <FlatList
@@ -362,13 +362,13 @@ export default function CategoryTutorialScreen() {
             contentContainerStyle={styles.pickerIconGridContainer}
             renderItem={({ item }) => (
               <Pressable
-                style={[
+                style={StyleSheet.flatten([
                   styles.pickerIconGridItem,
                   {
                     backgroundColor: selectedSvg === item ? t.primary : t.card,
                     borderColor: selectedSvg === item ? t.primary : t.border,
                   },
-                ]}
+                ]) as any}
                 onPress={() => {
                   setSelectedSvg(item);
                   setShowSvgPicker(false);

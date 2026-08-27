@@ -199,16 +199,16 @@ export default function EditBudgetScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading...</Text>
+          <Text style={StyleSheet.flatten([styles.loadingText, { color: colors.textSecondary }]) as any}>Loading...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -216,16 +216,16 @@ export default function EditBudgetScreen() {
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {/* Budget Name */}
           <View style={styles.section}>
-            <Text style={[styles.label, { color: colors.textPrimary }]}>Budget Name *</Text>
+            <Text style={StyleSheet.flatten([styles.label, { color: colors.textPrimary }]) as any}>Budget Name *</Text>
             <TextInput
-              style={[
+              style={StyleSheet.flatten([
                 styles.input,
                 {
                   backgroundColor: colors.card,
                   color: colors.textPrimary,
                   borderColor: colors.border,
                 },
-              ]}
+              ]) as any}
               value={name}
               onChangeText={setName}
               editable={!saving}
@@ -234,18 +234,18 @@ export default function EditBudgetScreen() {
 
           {/* Limit Amount */}
           <View style={styles.section}>
-            <Text style={[styles.label, { color: colors.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.label, { color: colors.textPrimary }]) as any}>
               Spending Limit ({defaultCurrency}) *
             </Text>
             <TextInput
-              style={[
+              style={StyleSheet.flatten([
                 styles.input,
                 {
                   backgroundColor: colors.card,
                   color: colors.textPrimary,
                   borderColor: colors.border,
                 },
-              ]}
+              ]) as any}
               value={limitAmount}
               onChangeText={setLimitAmount}
               keyboardType="decimal-pad"
@@ -255,7 +255,7 @@ export default function EditBudgetScreen() {
 
           {/* Category Selection */}
           <View style={styles.section}>
-            <Text style={[styles.label, { color: colors.textPrimary }]}>Categories *</Text>
+            <Text style={StyleSheet.flatten([styles.label, { color: colors.textPrimary }]) as any}>Categories *</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
               {categories.map((cat) => {
                 const isSelected = selectedCategories.includes(cat.id!);
@@ -269,13 +269,13 @@ export default function EditBudgetScreen() {
                         setSelectedCategories(prev => [...prev, cat.id!]);
                       }
                     }}
-                    style={[
+                    style={StyleSheet.flatten([
                       styles.categoryButton,
                       {
                         backgroundColor: isSelected ? colors.primary : colors.card,
                         borderColor: colors.border,
                       },
-                    ]}
+                    ]) as any}
                     disabled={saving}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -293,12 +293,12 @@ export default function EditBudgetScreen() {
                         return null;
                       })()}
                       <Text
-                        style={[
+                        style={StyleSheet.flatten([
                           styles.categoryButtonText,
                           {
                             color: isSelected ? colors.background : colors.textPrimary,
                           },
-                        ]}
+                        ]) as any}
                       >
                         {cat.name}
                       </Text>
@@ -308,7 +308,7 @@ export default function EditBudgetScreen() {
               })}
             </ScrollView>
             {selectedCategories.length > 0 && (
-              <Text style={[styles.selectionSummary, { color: colors.textSecondary }]}>
+              <Text style={StyleSheet.flatten([styles.selectionSummary, { color: colors.textSecondary }]) as any}>
                 {selectedCategories.length} categor{selectedCategories.length === 1 ? 'y' : 'ies'} selected
               </Text>
             )}
@@ -316,7 +316,7 @@ export default function EditBudgetScreen() {
 
           {/* Wallet Selection */}
           <View style={styles.section}>
-            <Text style={[styles.label, { color: colors.textPrimary }]}>Wallets *</Text>
+            <Text style={StyleSheet.flatten([styles.label, { color: colors.textPrimary }]) as any}>Wallets *</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.walletScroll}>
               {/* All Wallets option */}
               <Pressable
@@ -330,22 +330,22 @@ export default function EditBudgetScreen() {
                     setSelectedWallets(allWalletIds);
                   }
                 }}
-                style={[
+                style={StyleSheet.flatten([
                   styles.walletButton,
                   {
                     backgroundColor: selectedWallets.length === wallets.length && wallets.length > 0 ? colors.primary : colors.card,
                     borderColor: colors.border,
                   },
-                ]}
+                ]) as any}
                 disabled={saving}
               >
                 <Text
-                  style={[
+                  style={StyleSheet.flatten([
                     styles.walletButtonText,
                     {
                       color: selectedWallets.length === wallets.length && wallets.length > 0 ? colors.background : colors.textPrimary,
                     },
-                  ]}
+                  ]) as any}
                 >
                   All Wallets
                 </Text>
@@ -363,22 +363,22 @@ export default function EditBudgetScreen() {
                         setSelectedWallets(prev => [...prev, wallet.id!]);
                       }
                     }}
-                    style={[
+                    style={StyleSheet.flatten([
                       styles.walletButton,
                       {
                         backgroundColor: isSelected ? colors.primary : colors.card,
                         borderColor: colors.border,
                       },
-                    ]}
+                    ]) as any}
                     disabled={saving}
                   >
                     <Text
-                      style={[
+                      style={StyleSheet.flatten([
                         styles.walletButtonText,
                         {
                           color: isSelected ? colors.background : colors.textPrimary,
                         },
-                      ]}
+                      ]) as any}
                     >
                       {wallet.name}
                     </Text>
@@ -387,7 +387,7 @@ export default function EditBudgetScreen() {
               })}
             </ScrollView>
             {selectedWallets.length > 0 && (
-              <Text style={[styles.selectionSummary, { color: colors.textSecondary }]}>
+              <Text style={StyleSheet.flatten([styles.selectionSummary, { color: colors.textSecondary }]) as any}>
                 {selectedWallets.length === wallets.length ? 'All wallets selected' : `${selectedWallets.length} wallet${selectedWallets.length === 1 ? '' : 's'} selected`}
               </Text>
             )}
@@ -395,24 +395,24 @@ export default function EditBudgetScreen() {
 
           {/* Period Type */}
           <View style={styles.section}>
-            <Text style={[styles.label, { color: colors.textPrimary }]}>Period Type *</Text>
+            <Text style={StyleSheet.flatten([styles.label, { color: colors.textPrimary }]) as any}>Period Type *</Text>
             <View style={styles.periodButtonsContainer}>
               {(['weekly', 'monthly', 'custom'] as const).map((type) => (
                 <Pressable
                   key={type}
                   onPress={() => setPeriodType(type)}
-                  style={[
+                  style={StyleSheet.flatten([
                     styles.periodButton,
                     {
                       backgroundColor:
                         periodType === type ? colors.primary : colors.card,
                       borderColor: colors.border,
                     },
-                  ]}
+                  ]) as any}
                   disabled={saving}
                 >
                   <Text
-                    style={[
+                    style={StyleSheet.flatten([
                       styles.periodButtonText,
                       {
                         color:
@@ -420,7 +420,7 @@ export default function EditBudgetScreen() {
                             ? colors.background
                             : colors.textPrimary,
                       },
-                    ]}
+                    ]) as any}
                   >
                     {type.charAt(0).toUpperCase() + type.slice(1)}
                   </Text>
@@ -431,23 +431,23 @@ export default function EditBudgetScreen() {
 
           {/* Start Date */}
           <View style={styles.section}>
-            <Text style={[styles.label, { color: colors.textPrimary }]}>Start Date *</Text>
+            <Text style={StyleSheet.flatten([styles.label, { color: colors.textPrimary }]) as any}>Start Date *</Text>
             <Pressable
               onPress={() => setShowStartPicker(true)}
               disabled={saving}
-              style={[
+              style={StyleSheet.flatten([
                 styles.dateInput,
                 {
                   backgroundColor: colors.card,
                   borderColor: colors.border,
                 },
-              ]}
+              ]) as any}
             >
               <Text
-                style={[
+                style={StyleSheet.flatten([
                   styles.dateText,
                   { color: startDate ? colors.textPrimary : colors.textSecondary },
-                ]}
+                ]) as any}
               >
                 {formatDisplayDate(startDate)}
               </Text>
@@ -471,24 +471,24 @@ export default function EditBudgetScreen() {
 
           {/* End Date */}
           <View style={styles.section}>
-            <Text style={[styles.label, { color: colors.textPrimary }]}>End Date *</Text>
+            <Text style={StyleSheet.flatten([styles.label, { color: colors.textPrimary }]) as any}>End Date *</Text>
             <Pressable
               onPress={() => periodType === 'custom' && setShowEndPicker(true)}
               disabled={periodType !== 'custom' || saving}
-              style={[
+              style={StyleSheet.flatten([
                 styles.dateInput,
                 {
                   backgroundColor: colors.card,
                   borderColor: colors.border,
                   opacity: periodType !== 'custom' ? 0.75 : 1,
                 },
-              ]}
+              ]) as any}
             >
               <Text
-                style={[
+                style={StyleSheet.flatten([
                   styles.dateText,
                   { color: endDate ? colors.textPrimary : colors.textSecondary },
-                ]}
+                ]) as any}
               >
                 {formatDisplayDate(endDate)}
               </Text>
@@ -509,9 +509,9 @@ export default function EditBudgetScreen() {
 
           {/* Notes */}
           <View style={styles.section}>
-            <Text style={[styles.label, { color: colors.textPrimary }]}>Notes</Text>
+            <Text style={StyleSheet.flatten([styles.label, { color: colors.textPrimary }]) as any}>Notes</Text>
             <TextInput
-              style={[
+              style={StyleSheet.flatten([
                 styles.input,
                 styles.notesInput,
                 {
@@ -519,7 +519,7 @@ export default function EditBudgetScreen() {
                   color: colors.textPrimary,
                   borderColor: colors.border,
                 },
-              ]}
+              ]) as any}
               value={notes}
               onChangeText={setNotes}
               multiline
@@ -532,14 +532,14 @@ export default function EditBudgetScreen() {
           <Pressable
             onPress={handleUpdate}
             disabled={saving}
-            style={[
+            style={StyleSheet.flatten([
               styles.updateButton,
               {
                 backgroundColor: saving ? colors.border : colors.primary,
               },
-            ]}
+            ]) as any}
           >
-            <Text style={[styles.updateButtonText, { color: colors.background }]}>
+            <Text style={StyleSheet.flatten([styles.updateButtonText, { color: colors.background }]) as any}>
               {saving ? 'Updating...' : 'Update Budget'}
             </Text>
           </Pressable>

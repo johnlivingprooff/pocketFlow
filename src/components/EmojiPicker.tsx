@@ -118,13 +118,13 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
           <TouchableOpacity
             key={`${emoji}-${index}`}
             onPress={() => handleEmojiSelect(emoji)}
-            style={[
+            style={StyleSheet.flatten([
               styles.emojiButton,
               {
                 backgroundColor: selectedEmoji === emoji ? themeColors.primary : themeColors.card,
                 borderColor: selectedEmoji === emoji ? themeColors.primary : themeColors.border,
               }
-            ]}
+            ]) as any}
           >
             <Text style={styles.emojiText}>{emoji}</Text>
           </TouchableOpacity>
@@ -133,7 +133,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
         {/* Add Custom Emoji Button */}
         <TouchableOpacity
           onPress={() => setModalVisible(true)}
-          style={[
+          style={StyleSheet.flatten([
             styles.emojiButton,
             styles.addButton,
             {
@@ -141,9 +141,9 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
               borderColor: themeColors.primary,
               borderStyle: 'dashed',
             }
-          ]}
+          ]) as any}
         >
-          <Text style={[styles.addButtonText, { color: themeColors.primary }]}>+</Text>
+          <Text style={StyleSheet.flatten([styles.addButtonText, { color: themeColors.primary }]) as any}>+</Text>
         </TouchableOpacity>
       </View>
 
@@ -159,23 +159,23 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
         }}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: themeColors.card }]}>
-            <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
+          <View style={StyleSheet.flatten([styles.modalContent, { backgroundColor: themeColors.card }]) as any}>
+            <Text style={StyleSheet.flatten([styles.modalTitle, { color: themeColors.textPrimary }]) as any}>
               Add Custom Emoji
             </Text>
-            <Text style={[styles.modalDescription, { color: themeColors.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.modalDescription, { color: themeColors.textSecondary }]) as any}>
               Enter an emoji (text and numbers not allowed)
             </Text>
 
             <TextInput
-              style={[
+              style={StyleSheet.flatten([
                 styles.input,
                 { 
                   backgroundColor: themeColors.background,
                   borderColor: error ? '#EF4444' : themeColors.border,
                   color: themeColors.textPrimary,
                 }
-              ]}
+              ]) as any}
               value={customEmoji}
               onChangeText={(text) => {
                 setCustomEmoji(text);
@@ -188,7 +188,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
             />
 
             {error && (
-              <Text style={[styles.errorText, { color: '#EF4444' }]}>{error}</Text>
+              <Text style={StyleSheet.flatten([styles.errorText, { color: '#EF4444' }]) as any}>{error}</Text>
             )}
 
             <View style={styles.modalButtons}>
@@ -198,18 +198,18 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
                   setCustomEmoji('');
                   setError('');
                 }}
-                style={[styles.modalButton, { backgroundColor: themeColors.background }]}
+                style={StyleSheet.flatten([styles.modalButton, { backgroundColor: themeColors.background }]) as any}
               >
-                <Text style={[styles.modalButtonText, { color: themeColors.textPrimary }]}>
+                <Text style={StyleSheet.flatten([styles.modalButtonText, { color: themeColors.textPrimary }]) as any}>
                   Cancel
                 </Text>
               </TouchableOpacity>
               
               <TouchableOpacity
                 onPress={handleCustomEmojiSubmit}
-                style={[styles.modalButton, { backgroundColor: themeColors.accent }]}
+                style={StyleSheet.flatten([styles.modalButton, { backgroundColor: themeColors.accent }]) as any}
               >
-                <Text style={[styles.modalButtonText, { color: themeColors.background }]}>
+                <Text style={StyleSheet.flatten([styles.modalButtonText, { color: themeColors.background }]) as any}>
                   Add
                 </Text>
               </TouchableOpacity>

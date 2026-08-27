@@ -27,9 +27,9 @@ export function OnboardingScreenWrapper({
     <Animated.View
       entering={FadeIn.duration(300)}
       exiting={FadeOut.duration(200)}
-      style={[styles.container, { backgroundColor }]}
+      style={StyleSheet.flatten([styles.container, { backgroundColor }]) as any}
     >
-      <SafeAreaView style={[styles.container, { backgroundColor }]} edges={edges}>
+      <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor }]) as any} edges={edges}>
         {children}
       </SafeAreaView>
     </Animated.View>

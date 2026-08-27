@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, TextProps, useColorScheme } from 'react-native';
+import { Text, TextProps, StyleSheet, useColorScheme } from 'react-native';
 import { theme, useScaledFontSizes, ThemeMode } from '../theme/theme';
 import { useSettings } from '../store/useStore';
 
@@ -40,14 +40,16 @@ export function ThemedText({
 
   return (
     <Text
-      style={[
-        {
-          fontSize: scaledSizes[size],
-          fontWeight: weight,
-          color: colorMap[color],
-        },
-        style,
-      ]}
+      style={
+        StyleSheet.flatten([
+          {
+            fontSize: scaledSizes[size],
+            fontWeight: weight,
+            color: colorMap[color],
+          },
+          style,
+        ]) as any
+      }
       {...props}
     >
       {children}

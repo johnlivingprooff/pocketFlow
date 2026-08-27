@@ -90,7 +90,7 @@ export default function GoalTutorialScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top', 'bottom']}>
+    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: t.background }]) as any} edges={['left', 'right', 'top', 'bottom']}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -110,10 +110,10 @@ export default function GoalTutorialScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.emoji}>🎯</Text>
-          <Text style={[styles.title, { color: t.textPrimary }]}>
+          <Text style={StyleSheet.flatten([styles.title, { color: t.textPrimary }]) as any}>
             Create a Savings Goal
           </Text>
-          <Text style={[styles.subtitle, { color: t.textSecondary }]}>
+          <Text style={StyleSheet.flatten([styles.subtitle, { color: t.textSecondary }]) as any}>
             Set financial goals and track your progress towards achieving them!
           </Text>
         </View>
@@ -121,18 +121,18 @@ export default function GoalTutorialScreen() {
         {/* Form */}
         <View style={styles.form}>
           <View style={styles.field}>
-            <Text style={[styles.label, { color: t.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>
               Goal Name <Text style={{ color: colors.negativeRed }}>*</Text>
             </Text>
             <TextInput
-              style={[
+              style={StyleSheet.flatten([
                 styles.input,
                 {
                   backgroundColor: colors.mutedGrey + '10',
                   color: t.textPrimary,
                   borderColor: colors.mutedGrey + '30',
                 },
-              ]}
+              ]) as any}
               placeholder="e.g., New Laptop, Emergency Fund, Vacation"
               placeholderTextColor={t.textSecondary}
               value={goalName}
@@ -141,18 +141,18 @@ export default function GoalTutorialScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={[styles.label, { color: t.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>
               Target Amount ({defaultCurrency}) <Text style={{ color: colors.negativeRed }}>*</Text>
             </Text>
             <TextInput
-              style={[
+              style={StyleSheet.flatten([
                 styles.input,
                 {
                   backgroundColor: colors.mutedGrey + '10',
                   color: t.textPrimary,
                   borderColor: colors.mutedGrey + '30',
                 },
-              ]}
+              ]) as any}
               placeholder="50000"
               placeholderTextColor={t.textSecondary}
               value={targetAmount}
@@ -162,18 +162,18 @@ export default function GoalTutorialScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={[styles.label, { color: t.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>
               Time to Achieve (months) <Text style={{ color: colors.negativeRed }}>*</Text>
             </Text>
             <TextInput
-              style={[
+              style={StyleSheet.flatten([
                 styles.input,
                 {
                   backgroundColor: colors.mutedGrey + '10',
                   color: t.textPrimary,
                   borderColor: colors.mutedGrey + '30',
                 },
-              ]}
+              ]) as any}
               placeholder="3"
               placeholderTextColor={t.textSecondary}
               value={targetMonths}
@@ -191,19 +191,19 @@ export default function GoalTutorialScreen() {
         {/* Buttons */}
         <View style={styles.buttonContainer}>
           <Pressable
-            style={[
+            style={StyleSheet.flatten([
               styles.button,
               { backgroundColor: t.primary, opacity: isCreating ? 0.6 : 1 },
-            ]}
+            ]) as any}
             onPress={handleCreateGoal}
             disabled={isCreating}
           >
-            <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
+            <Text style={StyleSheet.flatten([styles.buttonText, { color: '#FFFFFF' }]) as any}>
               {isCreating ? 'Creating...' : 'Create Goal'}
             </Text>
           </Pressable>
           <Pressable style={styles.skipButton} onPress={handleSkip}>
-            <Text style={[styles.skipText, { color: t.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.skipText, { color: t.textSecondary }]) as any}>
               Skip this step
             </Text>
           </Pressable>

@@ -71,18 +71,18 @@ export function Tooltip({
           style={styles.backdrop}
           onPress={handleDismiss}
         >
-          <View style={[styles.tooltip, { backgroundColor: t.card, borderColor: t.border }]}>
-            <Text style={[styles.title, { color: t.textPrimary }]}>
+          <View style={StyleSheet.flatten([styles.tooltip, { backgroundColor: t.card, borderColor: t.border }]) as any}>
+            <Text style={StyleSheet.flatten([styles.title, { color: t.textPrimary }]) as any}>
               {title}
             </Text>
-            <Text style={[styles.message, { color: t.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.message, { color: t.textSecondary }]) as any}>
               {message}
             </Text>
             <Pressable
-              style={[styles.dismissButton, { borderColor: t.border }]}
+              style={StyleSheet.flatten([styles.dismissButton, { borderColor: t.border }]) as any}
               onPress={handleDismiss}
             >
-              <Text style={[styles.dismissText, { color: t.textPrimary }]}>
+              <Text style={StyleSheet.flatten([styles.dismissText, { color: t.textPrimary }]) as any}>
                 Got it
               </Text>
             </Pressable>

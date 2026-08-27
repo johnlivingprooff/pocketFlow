@@ -44,48 +44,48 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal }) => {
   }
 
   return (
-    <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
+    <View style={StyleSheet.flatten([styles.card, { backgroundColor: t.card, borderColor: t.border }]) as any}>
       {/* Header with name and status */}
       <View style={styles.header}>
-        <Text style={[styles.goalName, { color: t.textPrimary }]}>
+        <Text style={StyleSheet.flatten([styles.goalName, { color: t.textPrimary }]) as any}>
           {goal.name}
         </Text>
-        <View style={[styles.statusBadge, { backgroundColor: statusBgColor }]}>
-          <Text style={[styles.statusText, { color: progressColor }]}>{statusText}</Text>
+        <View style={StyleSheet.flatten([styles.statusBadge, { backgroundColor: statusBgColor }]) as any}>
+          <Text style={StyleSheet.flatten([styles.statusText, { color: progressColor }]) as any}>{statusText}</Text>
         </View>
       </View>
 
       {/* Progress Bar */}
-      <View style={[styles.progressBarContainer, { backgroundColor: t.background, borderColor: t.border }]}>
+      <View style={StyleSheet.flatten([styles.progressBarContainer, { backgroundColor: t.background, borderColor: t.border }]) as any}>
         <View
-          style={[
+          style={StyleSheet.flatten([
             styles.progressBarFill,
             {
               width: `${percentage}%`,
               backgroundColor: progressColor,
             },
-          ]}
+          ]) as any}
         />
       </View>
 
       {/* Saved and Remaining Info */}
       <View style={styles.infoRow}>
         <View style={styles.infoItem}>
-          <Text style={[styles.infoLabel, { color: t.textSecondary }]}>Saved</Text>
-          <Text style={[styles.infoValue, { color: t.textPrimary }]}>
+          <Text style={StyleSheet.flatten([styles.infoLabel, { color: t.textSecondary }]) as any}>Saved</Text>
+          <Text style={StyleSheet.flatten([styles.infoValue, { color: t.textPrimary }]) as any}>
             {formatCurrency(goal.currentProgress, defaultCurrency)}
           </Text>
         </View>
 
         <View style={styles.percentageItem}>
-          <Text style={[styles.percentageText, { color: progressColor }]}>
+          <Text style={StyleSheet.flatten([styles.percentageText, { color: progressColor }]) as any}>
             {percentage.toFixed(0)}%
           </Text>
         </View>
 
-        <View style={[styles.infoItem, { alignItems: 'flex-end' }]}>
-          <Text style={[styles.infoLabel, { color: t.textSecondary }]}>Remaining</Text>
-          <Text style={[styles.infoValue, { color: remaining > 0 ? t.textPrimary : t.success }]}>
+        <View style={StyleSheet.flatten([styles.infoItem, { alignItems: 'flex-end' }]) as any}>
+          <Text style={StyleSheet.flatten([styles.infoLabel, { color: t.textSecondary }]) as any}>Remaining</Text>
+          <Text style={StyleSheet.flatten([styles.infoValue, { color: remaining > 0 ? t.textPrimary : t.success }]) as any}>
             {formatCurrency(remaining, defaultCurrency)}
           </Text>
         </View>
@@ -94,10 +94,10 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal }) => {
       {/* Footer with target, deadline and details link */}
       <View style={styles.footer}>
         <View style={styles.footerLeft}>
-          <Text style={[styles.targetText, { color: t.textSecondary }]}>
+          <Text style={StyleSheet.flatten([styles.targetText, { color: t.textSecondary }]) as any}>
             Target: {formatCurrency(goal.targetAmount, defaultCurrency)}
           </Text>
-          <Text style={[styles.deadlineText, { color: daysRemaining < 0 ? t.danger : daysRemaining <= 7 ? t.warning : t.textSecondary }]}>
+          <Text style={StyleSheet.flatten([styles.deadlineText, { color: daysRemaining < 0 ? t.danger : daysRemaining <= 7 ? t.warning : t.textSecondary }]) as any}>
             {daysRemaining < 0
               ? `${Math.abs(daysRemaining)} days overdue`
               : daysRemaining === 0
@@ -106,7 +106,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal }) => {
           </Text>
         </View>
         <TouchableOpacity onPress={() => router.push(`/goals/${goal.id}`)}>
-          <Text style={[styles.detailsLink, { color: t.primary }]}>Details ›</Text>
+          <Text style={StyleSheet.flatten([styles.detailsLink, { color: t.primary }]) as any}>Details ›</Text>
         </TouchableOpacity>
       </View>
     </View>

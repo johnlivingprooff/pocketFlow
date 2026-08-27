@@ -7,18 +7,25 @@ import { theme, shadows } from '../../src/theme/theme';
 import { WalletCard } from '../../src/components/WalletCard';
 import { TransferModal } from '../../src/components/TransferModal';
 import { transferBetweenWallets } from '../../src/lib/db/transactions';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { invalidateWalletCaches } from '../../src/lib/cache/queryCache';
+import { Platform, Linking } from 'react-native';
+import { webSharedWalletsOnlyFilter } from '../../src/lib/platform/webGuards';
+import { AppOnlyBlock, WebAuthWall } from '../../src/components/web/AppOnlyBlock';
 
 export default function WalletsList() {
   const { wallets, balances, loading, refresh } = useWallets();
-  const { themeMode, userInfo, setUserInfo } = useSettings();
+  const { themeMode, userInfo, setUserInfo, cloudSessionState } = useSettings();
   const systemColorScheme = useColorScheme();
   const t = theme(themeMode, systemColorScheme || 'light');
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const [transferModalVisible, setTransferModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const router = useRouter();
+  const isWeb = Platform.OS === 'web';
+  const displayWallets = isWeb ? webSharedWalletsOnlyFilter(wallets) : wallets;
+  const hiddenCount = isWeb ? wallets.length - displayWallets.length : 0;
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -41,15 +48,15 @@ export default function WalletsList() {
 
   // Filter wallets based on search query
   const filteredWallets = useMemo(() => {
-    if (!searchQuery.trim()) return wallets;
+    if (!searchQuery.trim()) return displayWallets;
     const query = searchQuery.toLowerCase();
-    return wallets.filter(wallet => 
+    return displayWallets.filter(wallet => 
       wallet.name.toLowerCase().includes(query) ||
       wallet.currency.toLowerCase().includes(query)
     );
-  }, [wallets, searchQuery]);
+  }, [displayWallets, searchQuery]);
 
-  const showSearch = wallets.length > 10;
+  const showSearch = displayWallets.length > 10;
 
   return (
     <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
@@ -64,12 +71,27 @@ export default function WalletsList() {
           />
         }
       >
+        {/* Web: auth mandatory for shared wallets; personal wallets hidden */}
+        {isWeb && cloudSessionState !== 'authenticated' ? (
+          <View style={{ marginBottom: 16, paddingTop: 20 }}>
+            <WebAuthWall onPress={() => router.push('/profile' as never)} />
+          </View>
+        ) : null}
+        {isWeb && hiddenCount > 0 ? (
+          <View style={{ marginBottom: 16 }}>
+            <AppOnlyBlock
+              title={`${hiddenCount} personal wallet${hiddenCount === 1 ? '' : 's'} hidden on the web`}
+              message="Personal (non-shared) wallets stay on-device and are only available in the mobile app. On the web you only see and edit shared wallets."
+              showDownloadCTA={false}
+            />
+          </View>
+        ) : null}
         {/* Header Section */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 20 }}>
           <View>
-            <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>Wallets</Text>
+            <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>{isWeb ? 'Shared wallets' : 'Wallets'}</Text>
               <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>
-                {wallets.length === 0 ? 'Manage your payment methods' : `${wallets.length} wallet${wallets.length !== 1 ? 's' : ''}`}
+                {displayWallets.length === 0 ? (isWeb ? 'No shared wallets yet – create one after signing in' : 'Manage your payment methods') : `${displayWallets.length} wallet${displayWallets.length !== 1 ? 's' : ''}${isWeb ? ' (shared only)' : ''}`}
               </Text>
           </View>
           <Link href="/profile" asChild>
@@ -140,8 +162,8 @@ export default function WalletsList() {
         
         {/* Action Buttons Row */}
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 8, marginBottom: 12 }}>
-          {/* Transfer Button */}
-          {wallets.length >= 2 && (
+          {/* Transfer Button — hidden on web unless at least 2 shared wallets */}
+          {displayWallets.length >= 2 && (
             <TouchableOpacity
               onPress={() => setTransferModalVisible(true)}
               style={{
@@ -161,8 +183,8 @@ export default function WalletsList() {
             </TouchableOpacity>
           )}
           
-          {/* Create Wallet Button */}
-          <Link href="/wallets/create" asChild>
+          {/* Create Wallet Button — on web this must be a shared wallet (requires account) */}
+          <Link href={isWeb ? "/settings/shared-wallets" as never : "/wallets/create" as never} asChild>
             <TouchableOpacity style={{ 
               flex: 1,
               backgroundColor: t.card, 
@@ -176,10 +198,19 @@ export default function WalletsList() {
               ...shadows.sm
             }}>
               <Text style={{ color: t.primary, fontSize: 20, fontWeight: '300', marginBottom: 2 }}>+</Text>
-              <Text style={{ color: t.primary, fontSize: 13, fontWeight: '600' }}>New Wallet</Text>
+              <Text style={{ color: t.primary, fontSize: 13, fontWeight: '600' }}>{isWeb ? 'New Shared Wallet' : 'New Wallet'}</Text>
             </TouchableOpacity>
           </Link>
         </View>
+        {isWeb ? (
+          <View style={{ marginBottom: 12 }}>
+            <AppOnlyBlock
+              title="Need a personal wallet?"
+              message="Personal wallets are intentionally app-only for offline privacy. Install the Android/iOS app to create and manage them."
+              showDownloadCTA={true}
+            />
+          </View>
+        ) : null}
       </ScrollView>
 
       {/* Transfer Modal */}

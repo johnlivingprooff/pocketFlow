@@ -194,24 +194,24 @@ export default function OnboardingRemindersScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top', 'bottom']}>
+    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: t.background }]) as any} edges={['left', 'right', 'top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <OnboardingHeader canGoBack={true} onBack={handleBack} currentStep="reminders" />
 
         <View style={styles.header}>
           <Text style={styles.emoji}>🔔</Text>
-          <Text style={[styles.title, { color: t.textPrimary }]}>Reminders</Text>
-          <Text style={[styles.subtitle, { color: t.textSecondary }]}>
+          <Text style={StyleSheet.flatten([styles.title, { color: t.textPrimary }]) as any}>Reminders</Text>
+          <Text style={StyleSheet.flatten([styles.subtitle, { color: t.textSecondary }]) as any}>
             We&apos;ll remind you once per day, and never more often than every 12 hours.
           </Text>
         </View>
 
         <View style={styles.form}>
-          <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
+          <View style={StyleSheet.flatten([styles.card, { backgroundColor: t.card, borderColor: t.border }]) as any}>
             <View style={styles.rowBetween}>
               <View style={styles.rowText}>
-                <Text style={[styles.label, { color: t.textPrimary }]}>Enable reminders</Text>
-                <Text style={[styles.helperText, { color: t.textSecondary }]}>
+                <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>Enable reminders</Text>
+                <Text style={StyleSheet.flatten([styles.helperText, { color: t.textSecondary }]) as any}>
                   Keep expense tracking consistent with one gentle reminder.
                 </Text>
               </View>
@@ -221,19 +221,19 @@ export default function OnboardingRemindersScreen() {
 
           {enabled && (
             <>
-              <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
-                <Text style={[styles.label, { color: t.textPrimary }]}>Preferred reminder time</Text>
+              <View style={StyleSheet.flatten([styles.card, { backgroundColor: t.card, borderColor: t.border }]) as any}>
+                <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>Preferred reminder time</Text>
                 <Pressable
                   onPress={() => setPickerTarget('preferred')}
-                  style={[styles.timeButton, { backgroundColor: t.background, borderColor: t.border }]}
+                  style={StyleSheet.flatten([styles.timeButton, { backgroundColor: t.background, borderColor: t.border }]) as any}
                 >
-                  <Text style={[styles.timeText, { color: t.textPrimary }]}>{preferredTimeLocal}</Text>
+                  <Text style={StyleSheet.flatten([styles.timeText, { color: t.textPrimary }]) as any}>{preferredTimeLocal}</Text>
                 </Pressable>
               </View>
 
-              <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
+              <View style={StyleSheet.flatten([styles.card, { backgroundColor: t.card, borderColor: t.border }]) as any}>
                 <View style={styles.rowBetween}>
-                  <Text style={[styles.label, { color: t.textPrimary }]}>Use quiet hours</Text>
+                  <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>Use quiet hours</Text>
                   <Switch value={useQuietHours} onValueChange={setUseQuietHours} />
                 </View>
 
@@ -241,15 +241,15 @@ export default function OnboardingRemindersScreen() {
                   <View style={styles.quietRow}>
                     <Pressable
                       onPress={() => setPickerTarget('quietStart')}
-                      style={[styles.timeButton, styles.quietButton, { backgroundColor: t.background, borderColor: t.border }]}
+                      style={StyleSheet.flatten([styles.timeButton, styles.quietButton, { backgroundColor: t.background, borderColor: t.border }]) as any}
                     >
-                      <Text style={[styles.timeText, { color: t.textPrimary }]}>Start {quietHoursStart}</Text>
+                      <Text style={StyleSheet.flatten([styles.timeText, { color: t.textPrimary }]) as any}>Start {quietHoursStart}</Text>
                     </Pressable>
                     <Pressable
                       onPress={() => setPickerTarget('quietEnd')}
-                      style={[styles.timeButton, styles.quietButton, { backgroundColor: t.background, borderColor: t.border }]}
+                      style={StyleSheet.flatten([styles.timeButton, styles.quietButton, { backgroundColor: t.background, borderColor: t.border }]) as any}
                     >
-                      <Text style={[styles.timeText, { color: t.textPrimary }]}>End {quietHoursEnd}</Text>
+                      <Text style={StyleSheet.flatten([styles.timeText, { color: t.textPrimary }]) as any}>End {quietHoursEnd}</Text>
                     </Pressable>
                   </View>
                 )}
@@ -267,11 +267,11 @@ export default function OnboardingRemindersScreen() {
         />
 
         <View style={styles.buttonContainer}>
-          <Pressable style={[styles.button, { backgroundColor: t.primary }]} onPress={handleContinue}>
-            <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>Continue</Text>
+          <Pressable style={StyleSheet.flatten([styles.button, { backgroundColor: t.primary }]) as any} onPress={handleContinue}>
+            <Text style={StyleSheet.flatten([styles.buttonText, { color: '#FFFFFF' }]) as any}>Continue</Text>
           </Pressable>
           <Pressable style={styles.skipButton} onPress={handleSkip}>
-            <Text style={[styles.skipText, { color: t.textSecondary }]}>Skip for now</Text>
+            <Text style={StyleSheet.flatten([styles.skipText, { color: t.textSecondary }]) as any}>Skip for now</Text>
           </Pressable>
         </View>
       </ScrollView>

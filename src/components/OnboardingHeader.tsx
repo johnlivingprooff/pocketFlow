@@ -28,11 +28,11 @@ export function OnboardingHeader({
   const totalSteps = STEP_ORDER.length;
 
   return (
-    <View style={[styles.container, backgroundColor && { backgroundColor }]}>
+    <View style={StyleSheet.flatten([styles.container, backgroundColor && { backgroundColor }]) as any}>
       {canGoBack && onBack && (
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={onBack} hitSlop={8}>
-            <Text style={[styles.backButtonText, { color: t.textPrimary }]}>← Back</Text>
+            <Text style={StyleSheet.flatten([styles.backButtonText, { color: t.textPrimary }]) as any}>← Back</Text>
           </Pressable>
         </View>
       )}

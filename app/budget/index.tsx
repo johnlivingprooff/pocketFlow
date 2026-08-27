@@ -265,14 +265,14 @@ export default function BudgetGoalsScreen() {
     }
 
     return (
-      <View key={item.id} style={[styles.categoryCard, { backgroundColor: colors.card }]}>
+      <View key={item.id} style={StyleSheet.flatten([styles.categoryCard, { backgroundColor: colors.card }]) as any}>
         {/* Header with name and status badge */}
         <View style={styles.categoryHeader}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.categoryName, { color: colors.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.categoryName, { color: colors.textPrimary }]) as any}>
               {item.name}
             </Text>
-            <Text style={[styles.categorySubtext, { color: colors.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.categorySubtext, { color: colors.textSecondary }]) as any}>
               {item.periodType === 'custom'
                 ? `${new Date(item.startDate).toLocaleDateString()} - ${new Date(item.endDate).toLocaleDateString()}`
                 : item.periodType === 'weekly'
@@ -280,55 +280,55 @@ export default function BudgetGoalsScreen() {
                   : 'Monthly'}
             </Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: statusBgColor }]}>
-            <Text style={[styles.statusBadgeText, { color: statusColor }]}>{statusText}</Text>
+          <View style={StyleSheet.flatten([styles.statusBadge, { backgroundColor: statusBgColor }]) as any}>
+            <Text style={StyleSheet.flatten([styles.statusBadgeText, { color: statusColor }]) as any}>{statusText}</Text>
           </View>
         </View>
 
         {/* Progress Bar */}
-        <View style={[styles.progressContainer, { backgroundColor: colors.border }]}>
+        <View style={StyleSheet.flatten([styles.progressContainer, { backgroundColor: colors.border }]) as any}>
           <View
-            style={[
+            style={StyleSheet.flatten([
               styles.progressBar,
               {
                 width: `${Math.min(item.percentageUsed || 0, 100)}%`,
                 backgroundColor: statusColor,
               },
-            ]}
+            ]) as any}
           />
         </View>
 
         {/* Budget Info */}
         <View style={styles.budgetInfo}>
           <View>
-            <Text style={[styles.budgetLabel, { color: colors.textSecondary }]}>SPENT</Text>
-            <Text style={[styles.budgetValue, { color: item.isOverBudget ? colors.danger : colors.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.budgetLabel, { color: colors.textSecondary }]) as any}>SPENT</Text>
+            <Text style={StyleSheet.flatten([styles.budgetValue, { color: item.isOverBudget ? colors.danger : colors.textPrimary }]) as any}>
               {formatCurrency(item.currentSpending, defaultCurrency)}
             </Text>
           </View>
 
           <View style={{ alignItems: 'center' }}>
-            <Text style={[styles.percentageText, { color: statusColor }]}>
+            <Text style={StyleSheet.flatten([styles.percentageText, { color: statusColor }]) as any}>
               {item.percentageUsed?.toFixed(0) || '0'}%
             </Text>
           </View>
 
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={[styles.budgetLabel, { color: colors.textSecondary }]}>REMAINING</Text>
-            <Text style={[styles.budgetValue, { color: item.isOverBudget ? colors.danger : colors.success }]}>
+            <Text style={StyleSheet.flatten([styles.budgetLabel, { color: colors.textSecondary }]) as any}>REMAINING</Text>
+            <Text style={StyleSheet.flatten([styles.budgetValue, { color: item.isOverBudget ? colors.danger : colors.success }]) as any}>
               {formatCurrency(Math.abs(item.remainingBalance), defaultCurrency)}
             </Text>
           </View>
         </View>
 
         {/* Footer with limit and details */}
-        <View style={[styles.cardFooter, { borderTopColor: colors.border }]}>
+        <View style={StyleSheet.flatten([styles.cardFooter, { borderTopColor: colors.border }]) as any}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.limitText, { color: colors.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.limitText, { color: colors.textSecondary }]) as any}>
               Limit: {formatCurrency(item.limitAmount, defaultCurrency)}
             </Text>
             {item.daysRemaining !== undefined && item.daysRemaining > 0 && (
-              <Text style={[styles.daysText, { color: colors.textSecondary }]}>
+              <Text style={StyleSheet.flatten([styles.daysText, { color: colors.textSecondary }]) as any}>
                 {item.daysRemaining} day{item.daysRemaining !== 1 ? 's' : ''} left •
                 Avg: {formatCurrency(item.averageDailySpend, defaultCurrency)}/day
               </Text>
@@ -336,10 +336,10 @@ export default function BudgetGoalsScreen() {
           </View>
           <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
             <Pressable onPress={() => handleViewBudget(item.id!)} hitSlop={8}>
-              <Text style={[styles.detailsLink, { color: colors.primary }]}>Details ›</Text>
+              <Text style={StyleSheet.flatten([styles.detailsLink, { color: colors.primary }]) as any}>Details ›</Text>
             </Pressable>
             <Pressable onPress={() => handleDeleteBudget(item.id!)} hitSlop={12}>
-              <Text style={[styles.deleteButton, { color: colors.textTertiary }]}>✕</Text>
+              <Text style={StyleSheet.flatten([styles.deleteButton, { color: colors.textTertiary }]) as any}>✕</Text>
             </Pressable>
           </View>
         </View>
@@ -370,76 +370,76 @@ export default function BudgetGoalsScreen() {
     const badge = getMilestoneBadge(item.progressPercentage || 0);
 
     return (
-      <View key={item.id} style={[styles.categoryCard, { backgroundColor: colors.card }]}>
+      <View key={item.id} style={StyleSheet.flatten([styles.categoryCard, { backgroundColor: colors.card }]) as any}>
         {/* Header with name, milestone badge, and status */}
         <View style={styles.categoryHeader}>
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={[styles.categoryName, { color: colors.textPrimary }]}>
+              <Text style={StyleSheet.flatten([styles.categoryName, { color: colors.textPrimary }]) as any}>
                 {item.name}
               </Text>
               {badge && <Text style={styles.milestoneBadge}>{badge}</Text>}
             </View>
-            <Text style={[styles.categorySubtext, { color: colors.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.categorySubtext, { color: colors.textSecondary }]) as any}>
               Target: {formatCurrency(item.targetAmount, defaultCurrency)}
             </Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: statusBgColor }]}>
-            <Text style={[styles.statusBadgeText, { color: statusColor }]}>{statusText}</Text>
+          <View style={StyleSheet.flatten([styles.statusBadge, { backgroundColor: statusBgColor }]) as any}>
+            <Text style={StyleSheet.flatten([styles.statusBadgeText, { color: statusColor }]) as any}>{statusText}</Text>
           </View>
         </View>
 
         {/* Progress Bar */}
-        <View style={[styles.progressContainer, { backgroundColor: colors.border }]}>
+        <View style={StyleSheet.flatten([styles.progressContainer, { backgroundColor: colors.border }]) as any}>
           <View
-            style={[
+            style={StyleSheet.flatten([
               styles.progressBar,
               {
                 width: `${Math.min(item.progressPercentage || 0, 100)}%`,
                 backgroundColor: statusColor,
               },
-            ]}
+            ]) as any}
           />
         </View>
 
         {/* Goal Info */}
         <View style={styles.budgetInfo}>
           <View>
-            <Text style={[styles.budgetLabel, { color: colors.textSecondary }]}>PROGRESS</Text>
-            <Text style={[styles.budgetValue, { color: colors.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.budgetLabel, { color: colors.textSecondary }]) as any}>PROGRESS</Text>
+            <Text style={StyleSheet.flatten([styles.budgetValue, { color: colors.textPrimary }]) as any}>
               {formatCurrency(item.currentProgress, defaultCurrency)}
             </Text>
           </View>
 
           <View style={{ alignItems: 'center' }}>
-            <Text style={[styles.percentageText, { color: statusColor }]}>
+            <Text style={StyleSheet.flatten([styles.percentageText, { color: statusColor }]) as any}>
               {item.progressPercentage?.toFixed(0) || '0'}%
             </Text>
           </View>
 
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={[styles.budgetLabel, { color: colors.textSecondary }]}>MONTHLY</Text>
-            <Text style={[styles.budgetValue, { color: colors.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.budgetLabel, { color: colors.textSecondary }]) as any}>MONTHLY</Text>
+            <Text style={StyleSheet.flatten([styles.budgetValue, { color: colors.textPrimary }]) as any}>
               {formatCurrency(item.monthlyRequired, defaultCurrency)}
             </Text>
           </View>
         </View>
 
         {/* Footer with deadline and details */}
-        <View style={[styles.cardFooter, { borderTopColor: colors.border }]}>
+        <View style={StyleSheet.flatten([styles.cardFooter, { borderTopColor: colors.border }]) as any}>
           <View style={{ flex: 1 }}>
             {item.daysRemaining && item.daysRemaining > 0 && (
-              <Text style={[styles.daysText, { color: colors.textSecondary }]}>
+              <Text style={StyleSheet.flatten([styles.daysText, { color: colors.textSecondary }]) as any}>
                 {item.daysRemaining} day{item.daysRemaining !== 1 ? 's' : ''} until deadline
               </Text>
             )}
           </View>
           <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
             <Pressable onPress={() => handleEditGoal(item.id!)} hitSlop={8}>
-              <Text style={[styles.detailsLink, { color: colors.primary }]}>Details ›</Text>
+              <Text style={StyleSheet.flatten([styles.detailsLink, { color: colors.primary }]) as any}>Details ›</Text>
             </Pressable>
             <Pressable onPress={() => handleDeleteGoal(item.id!)} hitSlop={12}>
-              <Text style={[styles.deleteButton, { color: colors.textTertiary }]}>✕</Text>
+              <Text style={StyleSheet.flatten([styles.deleteButton, { color: colors.textTertiary }]) as any}>✕</Text>
             </Pressable>
           </View>
         </View>
@@ -450,57 +450,57 @@ export default function BudgetGoalsScreen() {
   return (
     <SafeAreaView
       edges={['top', 'left', 'right']}
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}
     >
-      <View style={[styles.header, { paddingTop: 12, paddingHorizontal: 16, paddingBottom: 8 }]}>
+      <View style={StyleSheet.flatten([styles.header, { paddingTop: 12, paddingHorizontal: 16, paddingBottom: 8 }]) as any}>
         <Pressable onPress={() => router.push('/(tabs)/settings')} hitSlop={12} style={styles.backButton}>
-          <Text style={[styles.backIcon, { color: colors.primary }]}>‹</Text>
-          <Text style={[styles.backText, { color: colors.primary }]}>Settings</Text>
+          <Text style={StyleSheet.flatten([styles.backIcon, { color: colors.primary }]) as any}>‹</Text>
+          <Text style={StyleSheet.flatten([styles.backText, { color: colors.primary }]) as any}>Settings</Text>
         </Pressable>
-        <Text style={[styles.screenTitle, { color: colors.textPrimary }]}>Planning</Text>
+        <Text style={StyleSheet.flatten([styles.screenTitle, { color: colors.textPrimary }]) as any}>Planning</Text>
         <View style={{ width: 44 }} />
       </View>
 
       <View
-        style={[
+        style={StyleSheet.flatten([
           styles.tabBar,
           { backgroundColor: colors.card, borderBottomColor: colors.border },
-        ]}
+        ]) as any}
       >
         <Pressable
-          style={[
+          style={StyleSheet.flatten([
             styles.tab,
             {
               borderBottomColor: activeTab === 'budget' ? colors.primary : 'transparent',
               borderBottomWidth: 2,
             },
-          ]}
+          ]) as any}
           onPress={() => switchTab('budget')}
         >
           <Text
-            style={[
+            style={StyleSheet.flatten([
               styles.tabText,
               { color: activeTab === 'budget' ? colors.primary : colors.textSecondary },
-            ]}
+            ]) as any}
           >
             Budgets
           </Text>
         </Pressable>
         <Pressable
-          style={[
+          style={StyleSheet.flatten([
             styles.tab,
             {
               borderBottomColor: activeTab === 'goals' ? colors.primary : 'transparent',
               borderBottomWidth: 2,
             },
-          ]}
+          ]) as any}
           onPress={() => switchTab('goals')}
         >
           <Text
-            style={[
+            style={StyleSheet.flatten([
               styles.tabText,
               { color: activeTab === 'goals' ? colors.primary : colors.textSecondary },
-            ]}
+            ]) as any}
           >
             Goals
           </Text>
@@ -509,7 +509,7 @@ export default function BudgetGoalsScreen() {
 
       <View style={{ flex: 1 }}>
         <GestureDetector gesture={pan}>
-          <Animated.View style={[{ flexDirection: 'row', width: SCREEN_WIDTH * 2, height: '100%' }, animatedStyle]}>
+          <Animated.View style={StyleSheet.flatten([{ flexDirection: 'row', width: SCREEN_WIDTH * 2, height: '100%' }, animatedStyle]) as any}>
             {/* Budget Tab Content */}
             <View style={{ width: SCREEN_WIDTH, height: '100%' }}>
               <ScrollView
@@ -527,36 +527,36 @@ export default function BudgetGoalsScreen() {
               >
                 {loading ? (
                   <View style={styles.emptyState}>
-                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Loading...</Text>
+                    <Text style={StyleSheet.flatten([styles.emptyText, { color: colors.textSecondary }]) as any}>Loading...</Text>
                   </View>
                 ) : budgets.length === 0 ? (
                   <View style={styles.emptyState}>
                     <EmptyBudgetIcon size={80} color={colors.textTertiary} />
-                    <Text style={[styles.emptyText, { color: colors.textPrimary }]}>
+                    <Text style={StyleSheet.flatten([styles.emptyText, { color: colors.textPrimary }]) as any}>
                       No budgets yet
                     </Text>
-                    <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                    <Text style={StyleSheet.flatten([styles.emptySubtext, { color: colors.textSecondary }]) as any}>
                       Set spending limits for categories like groceries, dining, or entertainment to stay on track
                     </Text>
                     <View style={styles.emptyBenefits}>
                       <View style={styles.benefitItem}>
                         <CheckCircleIcon size={16} color={colors.success} />
-                        <Text style={[styles.benefitText, { color: colors.textSecondary }]}>Track real-time spending</Text>
+                        <Text style={StyleSheet.flatten([styles.benefitText, { color: colors.textSecondary }]) as any}>Track real-time spending</Text>
                       </View>
                       <View style={styles.benefitItem}>
                         <CheckCircleIcon size={16} color={colors.success} />
-                        <Text style={[styles.benefitText, { color: colors.textSecondary }]}>Get alerts when limits are reached</Text>
+                        <Text style={StyleSheet.flatten([styles.benefitText, { color: colors.textSecondary }]) as any}>Get alerts when limits are reached</Text>
                       </View>
                       <View style={styles.benefitItem}>
                         <CheckCircleIcon size={16} color={colors.success} />
-                        <Text style={[styles.benefitText, { color: colors.textSecondary }]}>Weekly or monthly periods</Text>
+                        <Text style={StyleSheet.flatten([styles.benefitText, { color: colors.textSecondary }]) as any}>Weekly or monthly periods</Text>
                       </View>
                     </View>
                     <Pressable
                       onPress={() => router.push('/budgets/create')}
-                      style={[styles.createButton, { backgroundColor: colors.primary }]}
+                      style={StyleSheet.flatten([styles.createButton, { backgroundColor: colors.primary }]) as any}
                     >
-                      <Text style={[styles.createButtonText, { color: colors.background }]}>
+                      <Text style={StyleSheet.flatten([styles.createButtonText, { color: colors.background }]) as any}>
                         Create Your First Budget
                       </Text>
                     </Pressable>
@@ -582,30 +582,30 @@ export default function BudgetGoalsScreen() {
                     />
 
                     {/* Budget Dashboard Summary */}
-                    <View style={[styles.dashboardCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                      <Text style={[styles.dashboardTitle, { color: colors.textPrimary }]}>
+                    <View style={StyleSheet.flatten([styles.dashboardCard, { backgroundColor: colors.card, borderColor: colors.border }]) as any}>
+                      <Text style={StyleSheet.flatten([styles.dashboardTitle, { color: colors.textPrimary }]) as any}>
                         Budget Overview
                       </Text>
                       <View style={styles.dashboardGrid}>
-                        <View style={[styles.dashboardStatCard, { backgroundColor: colors.background }]}>
-                          <Text style={[styles.dashboardStatLabel, { color: colors.textSecondary }]}>TOTAL</Text>
-                          <Text style={[styles.dashboardStatValue, { color: colors.textPrimary }]}>{budgets.length}</Text>
+                        <View style={StyleSheet.flatten([styles.dashboardStatCard, { backgroundColor: colors.background }]) as any}>
+                          <Text style={StyleSheet.flatten([styles.dashboardStatLabel, { color: colors.textSecondary }]) as any}>TOTAL</Text>
+                          <Text style={StyleSheet.flatten([styles.dashboardStatValue, { color: colors.textPrimary }]) as any}>{budgets.length}</Text>
                         </View>
-                        <View style={[styles.dashboardStatCard, { backgroundColor: colors.success + '15' }]}>
-                          <Text style={[styles.dashboardStatLabel, { color: colors.success }]}>ON TRACK</Text>
-                          <Text style={[styles.dashboardStatValue, { color: colors.success }]}>
+                        <View style={StyleSheet.flatten([styles.dashboardStatCard, { backgroundColor: colors.success + '15' }]) as any}>
+                          <Text style={StyleSheet.flatten([styles.dashboardStatLabel, { color: colors.success }]) as any}>ON TRACK</Text>
+                          <Text style={StyleSheet.flatten([styles.dashboardStatValue, { color: colors.success }]) as any}>
                             {budgets.filter(b => !b.isOverBudget && (b.percentageUsed || 0) <= 75).length}
                           </Text>
                         </View>
-                        <View style={[styles.dashboardStatCard, { backgroundColor: colors.warning + '15' }]}>
-                          <Text style={[styles.dashboardStatLabel, { color: colors.warning }]}>WARNING</Text>
-                          <Text style={[styles.dashboardStatValue, { color: colors.warning }]}>
+                        <View style={StyleSheet.flatten([styles.dashboardStatCard, { backgroundColor: colors.warning + '15' }]) as any}>
+                          <Text style={StyleSheet.flatten([styles.dashboardStatLabel, { color: colors.warning }]) as any}>WARNING</Text>
+                          <Text style={StyleSheet.flatten([styles.dashboardStatValue, { color: colors.warning }]) as any}>
                             {budgets.filter(b => !b.isOverBudget && (b.percentageUsed || 0) > 75).length}
                           </Text>
                         </View>
-                        <View style={[styles.dashboardStatCard, { backgroundColor: colors.danger + '15' }]}>
-                          <Text style={[styles.dashboardStatLabel, { color: colors.danger }]}>OVER</Text>
-                          <Text style={[styles.dashboardStatValue, { color: colors.danger }]}>
+                        <View style={StyleSheet.flatten([styles.dashboardStatCard, { backgroundColor: colors.danger + '15' }]) as any}>
+                          <Text style={StyleSheet.flatten([styles.dashboardStatLabel, { color: colors.danger }]) as any}>OVER</Text>
+                          <Text style={StyleSheet.flatten([styles.dashboardStatValue, { color: colors.danger }]) as any}>
                             {budgets.filter(b => b.isOverBudget).length}
                           </Text>
                         </View>
@@ -636,36 +636,36 @@ export default function BudgetGoalsScreen() {
               >
                 {loading ? (
                   <View style={styles.emptyState}>
-                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Loading...</Text>
+                    <Text style={StyleSheet.flatten([styles.emptyText, { color: colors.textSecondary }]) as any}>Loading...</Text>
                   </View>
                 ) : goals.length === 0 ? (
                   <View style={styles.emptyState}>
                     <EmptyGoalIcon size={80} color={colors.textTertiary} />
-                    <Text style={[styles.emptyText, { color: colors.textPrimary }]}>
+                    <Text style={StyleSheet.flatten([styles.emptyText, { color: colors.textPrimary }]) as any}>
                       No goals yet
                     </Text>
-                    <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                    <Text style={StyleSheet.flatten([styles.emptySubtext, { color: colors.textSecondary }]) as any}>
                       Set savings goals like emergency funds, vacations, or big purchases to build financial security
                     </Text>
                     <View style={styles.emptyBenefits}>
                       <View style={styles.benefitItem}>
                         <CheckCircleIcon size={16} color={colors.success} />
-                        <Text style={[styles.benefitText, { color: colors.textSecondary }]}>Track progress automatically</Text>
+                        <Text style={StyleSheet.flatten([styles.benefitText, { color: colors.textSecondary }]) as any}>Track progress automatically</Text>
                       </View>
                       <View style={styles.benefitItem}>
                         <CheckCircleIcon size={16} color={colors.success} />
-                        <Text style={[styles.benefitText, { color: colors.textSecondary }]}>See required monthly savings</Text>
+                        <Text style={StyleSheet.flatten([styles.benefitText, { color: colors.textSecondary }]) as any}>See required monthly savings</Text>
                       </View>
                       <View style={styles.benefitItem}>
                         <CheckCircleIcon size={16} color={colors.success} />
-                        <Text style={[styles.benefitText, { color: colors.textSecondary }]}>Stay motivated with milestones</Text>
+                        <Text style={StyleSheet.flatten([styles.benefitText, { color: colors.textSecondary }]) as any}>Stay motivated with milestones</Text>
                       </View>
                     </View>
                     <Pressable
                       onPress={() => router.push('/goals/create')}
-                      style={[styles.createButton, { backgroundColor: colors.primary }]}
+                      style={StyleSheet.flatten([styles.createButton, { backgroundColor: colors.primary }]) as any}
                     >
-                      <Text style={[styles.createButtonText, { color: colors.background }]}>
+                      <Text style={StyleSheet.flatten([styles.createButtonText, { color: colors.background }]) as any}>
                         Create Your First Goal
                       </Text>
                     </Pressable>
@@ -691,30 +691,30 @@ export default function BudgetGoalsScreen() {
                     />
 
                     {/* Goals Dashboard Summary */}
-                    <View style={[styles.dashboardCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                      <Text style={[styles.dashboardTitle, { color: colors.textPrimary }]}>
+                    <View style={StyleSheet.flatten([styles.dashboardCard, { backgroundColor: colors.card, borderColor: colors.border }]) as any}>
+                      <Text style={StyleSheet.flatten([styles.dashboardTitle, { color: colors.textPrimary }]) as any}>
                         Goal Overview
                       </Text>
                       <View style={styles.dashboardGrid}>
-                        <View style={[styles.dashboardStatCard, { backgroundColor: colors.background }]}>
-                          <Text style={[styles.dashboardStatLabel, { color: colors.textSecondary }]}>TOTAL</Text>
-                          <Text style={[styles.dashboardStatValue, { color: colors.textPrimary }]}>{goals.length}</Text>
+                        <View style={StyleSheet.flatten([styles.dashboardStatCard, { backgroundColor: colors.background }]) as any}>
+                          <Text style={StyleSheet.flatten([styles.dashboardStatLabel, { color: colors.textSecondary }]) as any}>TOTAL</Text>
+                          <Text style={StyleSheet.flatten([styles.dashboardStatValue, { color: colors.textPrimary }]) as any}>{goals.length}</Text>
                         </View>
-                        <View style={[styles.dashboardStatCard, { backgroundColor: colors.success + '15' }]}>
-                          <Text style={[styles.dashboardStatLabel, { color: colors.success }]}>ACHIEVED</Text>
-                          <Text style={[styles.dashboardStatValue, { color: colors.success }]}>
+                        <View style={StyleSheet.flatten([styles.dashboardStatCard, { backgroundColor: colors.success + '15' }]) as any}>
+                          <Text style={StyleSheet.flatten([styles.dashboardStatLabel, { color: colors.success }]) as any}>ACHIEVED</Text>
+                          <Text style={StyleSheet.flatten([styles.dashboardStatValue, { color: colors.success }]) as any}>
                             {goals.filter(g => (g.progressPercentage || 0) >= 100).length}
                           </Text>
                         </View>
-                        <View style={[styles.dashboardStatCard, { backgroundColor: colors.primary + '15' }]}>
-                          <Text style={[styles.dashboardStatLabel, { color: colors.primary }]}>ON TRACK</Text>
-                          <Text style={[styles.dashboardStatValue, { color: colors.primary }]}>
+                        <View style={StyleSheet.flatten([styles.dashboardStatCard, { backgroundColor: colors.primary + '15' }]) as any}>
+                          <Text style={StyleSheet.flatten([styles.dashboardStatLabel, { color: colors.primary }]) as any}>ON TRACK</Text>
+                          <Text style={StyleSheet.flatten([styles.dashboardStatValue, { color: colors.primary }]) as any}>
                             {goals.filter(g => g.onTrack && (g.progressPercentage || 0) < 100).length}
                           </Text>
                         </View>
-                        <View style={[styles.dashboardStatCard, { backgroundColor: colors.warning + '15' }]}>
-                          <Text style={[styles.dashboardStatLabel, { color: colors.warning }]}>BEHIND</Text>
-                          <Text style={[styles.dashboardStatValue, { color: colors.warning }]}>
+                        <View style={StyleSheet.flatten([styles.dashboardStatCard, { backgroundColor: colors.warning + '15' }]) as any}>
+                          <Text style={StyleSheet.flatten([styles.dashboardStatLabel, { color: colors.warning }]) as any}>BEHIND</Text>
+                          <Text style={StyleSheet.flatten([styles.dashboardStatValue, { color: colors.warning }]) as any}>
                             {goals.filter(g => !g.onTrack && (g.progressPercentage || 0) < 100).length}
                           </Text>
                         </View>
@@ -745,7 +745,7 @@ export default function BudgetGoalsScreen() {
       {/* Floating Action Button */}
       {!loading && (
         <Pressable
-          style={[styles.fab, { backgroundColor: colors.primary }]}
+          style={StyleSheet.flatten([styles.fab, { backgroundColor: colors.primary }]) as any}
           onPress={activeTab === 'budget' ? handleCreateBudget : handleCreateGoal}
         >
           <PlusIcon size={24} color={colors.background} />

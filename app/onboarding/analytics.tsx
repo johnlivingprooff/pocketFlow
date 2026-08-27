@@ -27,17 +27,17 @@ export default function AnalyticsTutorialScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top', 'bottom']}>
+    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: t.background }]) as any} edges={['left', 'right', 'top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <OnboardingHeader canGoBack={true} onBack={handleBack} currentStep="analytics" />
 
         {/* Header */}
         <View style={styles.header}>
           <ChartIcon size={48} color={colors.deepGold} />
-          <Text style={[styles.title, { color: t.textPrimary }]}>
+          <Text style={StyleSheet.flatten([styles.title, { color: t.textPrimary }]) as any}>
             You're All Set!
           </Text>
-          <Text style={[styles.subtitle, { color: t.textSecondary }]}> 
+          <Text style={StyleSheet.flatten([styles.subtitle, { color: t.textSecondary }]) as any}> 
             Quick recap before you start using pocketFlow:
           </Text>
         </View>
@@ -89,49 +89,49 @@ export default function AnalyticsTutorialScreen() {
         </View>
 
         {/* Analytics Info */}
-        <View style={[styles.card, { backgroundColor: colors.deepGold + '10' }]}> 
-          <Text style={[styles.cardTitle, { color: t.textPrimary }]}>
+        <View style={StyleSheet.flatten([styles.card, { backgroundColor: colors.deepGold + '10' }]) as any}> 
+          <Text style={StyleSheet.flatten([styles.cardTitle, { color: t.textPrimary }]) as any}>
             📊 About Analytics
           </Text>
-          <Text style={[styles.cardText, { color: t.textSecondary }]}>
+          <Text style={StyleSheet.flatten([styles.cardText, { color: t.textSecondary }]) as any}>
             The Analytics tab shows you:
           </Text>
           <View style={styles.features}>
-            <Text style={[styles.featureText, { color: t.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.featureText, { color: t.textSecondary }]) as any}>
               • Income vs Expense trends over time
             </Text>
-            <Text style={[styles.featureText, { color: t.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.featureText, { color: t.textSecondary }]) as any}>
               • Spending breakdown by category
             </Text>
-            <Text style={[styles.featureText, { color: t.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.featureText, { color: t.textSecondary }]) as any}>
               • Budget and goal progress
             </Text>
-            <Text style={[styles.featureText, { color: t.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.featureText, { color: t.textSecondary }]) as any}>
               • Financial health insights
             </Text>
           </View>
         </View>
 
         {/* Optional transfer guide */}
-        <View style={[styles.card, { backgroundColor: t.card, borderWidth: 1, borderColor: t.border }]}> 
+        <View style={StyleSheet.flatten([styles.card, { backgroundColor: t.card, borderWidth: 1, borderColor: t.border }]) as any}> 
           <Pressable style={styles.transferHeaderRow} onPress={() => setShowTransferTips((prev) => !prev)}>
-            <Text style={[styles.cardTitle, { color: t.textPrimary }]}>🔄 Optional: Transfer Guide</Text>
-            <Text style={[styles.transferToggle, { color: t.primary }]}>{showTransferTips ? 'Hide' : 'Show'}</Text>
+            <Text style={StyleSheet.flatten([styles.cardTitle, { color: t.textPrimary }]) as any}>🔄 Optional: Transfer Guide</Text>
+            <Text style={StyleSheet.flatten([styles.transferToggle, { color: t.primary }]) as any}>{showTransferTips ? 'Hide' : 'Show'}</Text>
           </Pressable>
           {showTransferTips && (
             <View style={styles.features}>
-              <Text style={[styles.featureText, { color: t.textSecondary }]}>• Open Wallets tab</Text>
-              <Text style={[styles.featureText, { color: t.textSecondary }]}>• Tap Transfer</Text>
-              <Text style={[styles.featureText, { color: t.textSecondary }]}>• Choose source and destination wallets</Text>
-              <Text style={[styles.featureText, { color: t.textSecondary }]}>• Enter amount and confirm</Text>
-              <Text style={[styles.featureText, { color: t.textSecondary }]}>• Transfers move money only; they do not count as income or expense</Text>
+              <Text style={StyleSheet.flatten([styles.featureText, { color: t.textSecondary }]) as any}>• Open Wallets tab</Text>
+              <Text style={StyleSheet.flatten([styles.featureText, { color: t.textSecondary }]) as any}>• Tap Transfer</Text>
+              <Text style={StyleSheet.flatten([styles.featureText, { color: t.textSecondary }]) as any}>• Choose source and destination wallets</Text>
+              <Text style={StyleSheet.flatten([styles.featureText, { color: t.textSecondary }]) as any}>• Enter amount and confirm</Text>
+              <Text style={StyleSheet.flatten([styles.featureText, { color: t.textSecondary }]) as any}>• Transfers move money only; they do not count as income or expense</Text>
             </View>
           )}
         </View>
 
         {/* Final Message */}
-        <View style={[styles.finalBox, { backgroundColor: colors.positiveGreen + '10' }]}> 
-          <Text style={[styles.finalText, { color: t.textPrimary }]}> 
+        <View style={StyleSheet.flatten([styles.finalBox, { backgroundColor: colors.positiveGreen + '10' }]) as any}> 
+          <Text style={StyleSheet.flatten([styles.finalText, { color: t.textPrimary }]) as any}> 
             🎉 <Text style={{ fontWeight: '700' }}>Congratulations!</Text> You are set up and ready to track your first transaction from the + button anytime.
           </Text>
         </View>
@@ -139,10 +139,10 @@ export default function AnalyticsTutorialScreen() {
         {/* Buttons */}
         <View style={styles.buttonContainer}>
           <Pressable
-            style={[styles.button, { backgroundColor: t.primary }]}
+            style={StyleSheet.flatten([styles.button, { backgroundColor: t.primary }]) as any}
             onPress={handleFinish}
           >
-            <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
+            <Text style={StyleSheet.flatten([styles.buttonText, { color: '#FFFFFF' }]) as any}>
               Start Using pocketFlow
             </Text>
           </Pressable>
@@ -166,10 +166,10 @@ function AchievementItem({ icon, title, description, t }: AchievementItemProps) 
         {icon}
       </View>
       <View style={styles.achievementText}>
-        <Text style={[styles.achievementTitle, { color: t.textPrimary }]}>
+        <Text style={StyleSheet.flatten([styles.achievementTitle, { color: t.textPrimary }]) as any}>
           {title}
         </Text>
-        <Text style={[styles.achievementDescription, { color: t.textSecondary }]}>
+        <Text style={StyleSheet.flatten([styles.achievementDescription, { color: t.textSecondary }]) as any}>
           {description}
         </Text>
       </View>

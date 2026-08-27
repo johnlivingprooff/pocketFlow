@@ -122,7 +122,7 @@ export default function BudgetTutorialScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top', 'bottom']}>
+    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: t.background }]) as any} edges={['left', 'right', 'top', 'bottom']}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -142,10 +142,10 @@ export default function BudgetTutorialScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.emoji}>📊</Text>
-          <Text style={[styles.title, { color: t.textPrimary }]}>
+          <Text style={StyleSheet.flatten([styles.title, { color: t.textPrimary }]) as any}>
             Create a Budget
           </Text>
-          <Text style={[styles.subtitle, { color: t.textSecondary }]}>
+          <Text style={StyleSheet.flatten([styles.subtitle, { color: t.textSecondary }]) as any}>
             Budgets help you control spending in specific categories. Set limits and track your progress!
           </Text>
         </View>
@@ -153,18 +153,18 @@ export default function BudgetTutorialScreen() {
         {/* Form */}
         <View style={styles.form}>
           <View style={styles.field}>
-            <Text style={[styles.label, { color: t.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>
               Budget Name <Text style={{ color: colors.negativeRed }}>*</Text>
             </Text>
             <TextInput
-              style={[
+              style={StyleSheet.flatten([
                 styles.input,
                 {
                   backgroundColor: colors.mutedGrey + '10',
                   color: t.textPrimary,
                   borderColor: colors.mutedGrey + '30',
                 },
-              ]}
+              ]) as any}
               placeholder="e.g., Monthly Groceries, Transportation Budget"
               placeholderTextColor={t.textSecondary}
               value={budgetName}
@@ -173,39 +173,39 @@ export default function BudgetTutorialScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={[styles.label, { color: t.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>
               Category <Text style={{ color: colors.negativeRed }}>*</Text>
             </Text>
             <Pressable
-              style={[
+              style={StyleSheet.flatten([
                 styles.input,
                 {
                   backgroundColor: colors.mutedGrey + '10',
                   borderColor: colors.mutedGrey + '30',
                   justifyContent: 'center',
                 },
-              ]}
+              ]) as any}
               onPress={() => setShowCategoryModal(true)}
             >
-              <Text style={[styles.selectText, { color: selectedCategory ? t.textPrimary : t.textSecondary }]}>
+              <Text style={StyleSheet.flatten([styles.selectText, { color: selectedCategory ? t.textPrimary : t.textSecondary }]) as any}>
                 {categories.find(c => c.id !== undefined && c.id.toString() === selectedCategory)?.name || 'Select a category'}
               </Text>
             </Pressable>
           </View>
 
           <View style={styles.field}>
-            <Text style={[styles.label, { color: t.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>
               Budget Amount ({defaultCurrency}) <Text style={{ color: colors.negativeRed }}>*</Text>
             </Text>
             <TextInput
-              style={[
+              style={StyleSheet.flatten([
                 styles.input,
                 {
                   backgroundColor: colors.mutedGrey + '10',
                   color: t.textPrimary,
                   borderColor: colors.mutedGrey + '30',
                 },
-              ]}
+              ]) as any}
               placeholder="5000"
               placeholderTextColor={t.textSecondary}
               value={limitAmount}
@@ -215,21 +215,21 @@ export default function BudgetTutorialScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={[styles.label, { color: t.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>
               Budget Period
             </Text>
             <Pressable
-              style={[
+              style={StyleSheet.flatten([
                 styles.input,
                 {
                   backgroundColor: colors.mutedGrey + '10',
                   borderColor: colors.mutedGrey + '30',
                   justifyContent: 'center',
                 },
-              ]}
+              ]) as any}
               onPress={() => setShowPeriodModal(true)}
             >
-              <Text style={[styles.selectText, { color: t.textPrimary }]}>
+              <Text style={StyleSheet.flatten([styles.selectText, { color: t.textPrimary }]) as any}>
                 {periodType}
               </Text>
             </Pressable>
@@ -244,19 +244,19 @@ export default function BudgetTutorialScreen() {
         {/* Buttons */}
         <View style={styles.buttonContainer}>
           <Pressable
-            style={[
+            style={StyleSheet.flatten([
               styles.button,
               { backgroundColor: t.primary, opacity: isCreating ? 0.6 : 1 },
-            ]}
+            ]) as any}
             onPress={handleCreateBudget}
             disabled={isCreating}
           >
-            <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
+            <Text style={StyleSheet.flatten([styles.buttonText, { color: '#FFFFFF' }]) as any}>
               {isCreating ? 'Creating...' : 'Create Budget'}
             </Text>
           </Pressable>
           <Pressable style={styles.skipButton} onPress={handleSkip}>
-            <Text style={[styles.skipText, { color: t.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.skipText, { color: t.textSecondary }]) as any}>
               Skip this step
             </Text>
           </Pressable>

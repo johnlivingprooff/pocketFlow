@@ -15,37 +15,37 @@ export function ThemePreview({ themeMode, isSelected }: ThemePreviewProps) {
   const previewTheme = theme(themeMode, 'light');
   
   return (
-    <View style={[
+    <View style={StyleSheet.flatten([
       styles.previewCard,
       { 
         backgroundColor: previewTheme.card,
         borderColor: isSelected ? previewTheme.primary : previewTheme.border,
         borderWidth: isSelected ? 2 : 1,
       }
-    ]}>
+    ]) as any}>
       {/* Header preview */}
-      <View style={[styles.headerPreview, { backgroundColor: previewTheme.background }]}>
-        <View style={[styles.circle, { backgroundColor: previewTheme.primary }]} />
-        <View style={[styles.line, { backgroundColor: previewTheme.textPrimary, width: '60%' }]} />
+      <View style={StyleSheet.flatten([styles.headerPreview, { backgroundColor: previewTheme.background }]) as any}>
+        <View style={StyleSheet.flatten([styles.circle, { backgroundColor: previewTheme.primary }]) as any} />
+        <View style={StyleSheet.flatten([styles.line, { backgroundColor: previewTheme.textPrimary, width: '60%' }]) as any} />
       </View>
       
       {/* Card preview */}
-      <View style={[styles.cardPreview, { backgroundColor: previewTheme.card, borderColor: previewTheme.border }]}>
-        <View style={[styles.smallLine, { backgroundColor: previewTheme.textPrimary }]} />
-        <View style={[styles.smallLine, { backgroundColor: previewTheme.textSecondary, width: '70%' }]} />
+      <View style={StyleSheet.flatten([styles.cardPreview, { backgroundColor: previewTheme.card, borderColor: previewTheme.border }]) as any}>
+        <View style={StyleSheet.flatten([styles.smallLine, { backgroundColor: previewTheme.textPrimary }]) as any} />
+        <View style={StyleSheet.flatten([styles.smallLine, { backgroundColor: previewTheme.textSecondary, width: '70%' }]) as any} />
         
         {/* Button preview */}
-        <View style={[styles.buttonPreview, { backgroundColor: previewTheme.primary }]}>
-          <View style={[styles.buttonLine, { backgroundColor: '#FFFFFF' }]} />
+        <View style={StyleSheet.flatten([styles.buttonPreview, { backgroundColor: previewTheme.primary }]) as any}>
+          <View style={StyleSheet.flatten([styles.buttonLine, { backgroundColor: '#FFFFFF' }]) as any} />
         </View>
       </View>
       
       {/* Color dots */}
       <View style={styles.colorDots}>
-        <View style={[styles.dot, { backgroundColor: previewTheme.primary }]} />
-        <View style={[styles.dot, { backgroundColor: previewTheme.success }]} />
-        <View style={[styles.dot, { backgroundColor: previewTheme.danger }]} />
-        <View style={[styles.dot, { backgroundColor: previewTheme.warning }]} />
+        <View style={StyleSheet.flatten([styles.dot, { backgroundColor: previewTheme.primary }]) as any} />
+        <View style={StyleSheet.flatten([styles.dot, { backgroundColor: previewTheme.success }]) as any} />
+        <View style={StyleSheet.flatten([styles.dot, { backgroundColor: previewTheme.danger }]) as any} />
+        <View style={StyleSheet.flatten([styles.dot, { backgroundColor: previewTheme.warning }]) as any} />
       </View>
     </View>
   );

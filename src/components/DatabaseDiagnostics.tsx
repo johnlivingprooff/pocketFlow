@@ -115,24 +115,24 @@ export function DatabaseDiagnostics() {
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+    <ScrollView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
       {/* Health Score Section */}
-      <View style={[styles.section, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+      <View style={StyleSheet.flatten([styles.section, { backgroundColor: colors.card }]) as any}>
+        <Text style={StyleSheet.flatten([styles.sectionTitle, { color: colors.textPrimary }]) as any}>
           Database Health
         </Text>
         
         {healthScore !== null ? (
           <View style={styles.healthScoreContainer}>
             <View
-              style={[
+              style={StyleSheet.flatten([
                 styles.healthScoreBadge,
                 { backgroundColor: getHealthColor(healthScore) },
-              ]}
+              ]) as any}
             >
               <Text style={styles.healthScoreText}>{healthScore}</Text>
             </View>
-            <Text style={[styles.healthScoreLabel, { color: colors.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.healthScoreLabel, { color: colors.textSecondary }]) as any}>
               {healthScore === 100
                 ? 'Perfect Health'
                 : healthScore >= 90
@@ -147,15 +147,15 @@ export function DatabaseDiagnostics() {
         )}
 
         {lastCheck && (
-          <Text style={[styles.lastCheckText, { color: colors.textSecondary }]}>
+          <Text style={StyleSheet.flatten([styles.lastCheckText, { color: colors.textSecondary }]) as any}>
             Last checked: {lastCheck.toLocaleTimeString()}
           </Text>
         )}
       </View>
 
       {/* Operations Metrics */}
-      <View style={[styles.section, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+      <View style={StyleSheet.flatten([styles.section, { backgroundColor: colors.card }]) as any}>
+        <Text style={StyleSheet.flatten([styles.sectionTitle, { color: colors.textPrimary }]) as any}>
           Operation Metrics
         </Text>
         
@@ -181,8 +181,8 @@ export function DatabaseDiagnostics() {
 
       {/* Integrity Issues */}
       {issues.length > 0 && (
-        <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+        <View style={StyleSheet.flatten([styles.section, { backgroundColor: colors.card }]) as any}>
+          <Text style={StyleSheet.flatten([styles.sectionTitle, { color: colors.textPrimary }]) as any}>
             Integrity Issues ({issues.length})
           </Text>
           
@@ -190,25 +190,25 @@ export function DatabaseDiagnostics() {
             <View key={index} style={styles.issueItem}>
               <View style={styles.issueHeader}>
                 <View
-                  style={[
+                  style={StyleSheet.flatten([
                     styles.severityBadge,
                     { backgroundColor: getSeverityColor(issue.severity) },
-                  ]}
+                  ]) as any}
                 >
                   <Text style={styles.severityText}>
                     {issue.severity.toUpperCase()}
                   </Text>
                 </View>
-                <Text style={[styles.issueType, { color: colors.textSecondary }]}>
+                <Text style={StyleSheet.flatten([styles.issueType, { color: colors.textSecondary }]) as any}>
                   {issue.issueType}
                 </Text>
               </View>
               
-              <Text style={[styles.issueDescription, { color: colors.textPrimary }]}>
+              <Text style={StyleSheet.flatten([styles.issueDescription, { color: colors.textPrimary }]) as any}>
                 {issue.description}
               </Text>
               
-              <Text style={[styles.issueRecommendation, { color: colors.textSecondary }]}>
+              <Text style={StyleSheet.flatten([styles.issueRecommendation, { color: colors.textSecondary }]) as any}>
                 → {issue.recommendation}
               </Text>
             </View>
@@ -219,7 +219,7 @@ export function DatabaseDiagnostics() {
       {/* Action Buttons */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: colors.primary }]}
+          style={StyleSheet.flatten([styles.button, { backgroundColor: colors.primary }]) as any}
           onPress={runIntegrityCheck}
           disabled={checking}
         >
@@ -233,7 +233,7 @@ export function DatabaseDiagnostics() {
         {issues.length > 0 && (
           <>
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.accent }]}
+              style={StyleSheet.flatten([styles.button, { backgroundColor: colors.accent }]) as any}
               onPress={() => runRepair(true)}
               disabled={repairing}
             >
@@ -241,7 +241,7 @@ export function DatabaseDiagnostics() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: '#F44336' }]}
+              style={StyleSheet.flatten([styles.button, { backgroundColor: '#F44336' }]) as any}
               onPress={() => {
                 // Confirm and run repair
                 console.log('Confirm Repair: This will modify your database. A backup will be created automatically.');
@@ -259,10 +259,10 @@ export function DatabaseDiagnostics() {
         )}
 
         <TouchableOpacity
-          style={[styles.button, styles.secondaryButton, { borderColor: colors.primary }]}
+          style={StyleSheet.flatten([styles.button, styles.secondaryButton, { borderColor: colors.primary }]) as any}
           onPress={loadDiagnostics}
         >
-          <Text style={[styles.buttonText, { color: colors.primary }]}>
+          <Text style={StyleSheet.flatten([styles.buttonText, { color: colors.primary }]) as any}>
             Refresh Metrics
           </Text>
         </TouchableOpacity>
@@ -285,22 +285,22 @@ function MetricItem({ label, value, success, errors, duplicates, colors }: Metri
   
   return (
     <View style={styles.metricItem}>
-      <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
+      <Text style={StyleSheet.flatten([styles.metricLabel, { color: colors.textSecondary }]) as any}>
         {label}
       </Text>
-      <Text style={[styles.metricValue, { color: colors.textPrimary }]}>
+      <Text style={StyleSheet.flatten([styles.metricValue, { color: colors.textPrimary }]) as any}>
         {value}
       </Text>
-      <Text style={[styles.metricDetails, { color: colors.textSecondary }]}>
+      <Text style={StyleSheet.flatten([styles.metricDetails, { color: colors.textSecondary }]) as any}>
         ✓ {success} success
       </Text>
       {errors > 0 && (
-        <Text style={[styles.metricDetails, { color: '#F44336' }]}>
+        <Text style={StyleSheet.flatten([styles.metricDetails, { color: '#F44336' }]) as any}>
           ✗ {errors} errors ({errorRate}%)
         </Text>
       )}
       {duplicates && duplicates > 0 && (
-        <Text style={[styles.metricDetails, { color: '#FFC107' }]}>
+        <Text style={StyleSheet.flatten([styles.metricDetails, { color: '#FFC107' }]) as any}>
           ⚠ {duplicates} duplicates
         </Text>
       )}

@@ -348,8 +348,8 @@ export default function DriveBackupScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
       {Platform.OS === 'web' ? (
         <ScrollView contentContainerStyle={styles.contentContainer}>
-          <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
-            <Text style={[styles.cardTitle, { color: t.textPrimary }]}>Google Drive backup</Text>
+          <View style={StyleSheet.flatten([styles.card, { backgroundColor: t.card, borderColor: t.border }]) as any}>
+            <Text style={StyleSheet.flatten([styles.cardTitle, { color: t.textPrimary }]) as any}>Google Drive backup</Text>
             <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 8 }}>
               Drive backup is currently available on iOS and Android only.
             </Text>
@@ -360,23 +360,23 @@ export default function DriveBackupScreen() {
           <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
             {/* Header */}
             <View style={styles.header}>
-              <Text style={[styles.headerTitle, { color: t.textPrimary }]}>Drive Backup</Text>
-              <Text style={[styles.headerSubtitle, { color: t.textSecondary }]}>
+              <Text style={StyleSheet.flatten([styles.headerTitle, { color: t.textPrimary }]) as any}>Drive Backup</Text>
+              <Text style={StyleSheet.flatten([styles.headerSubtitle, { color: t.textSecondary }]) as any}>
                 Encrypted secondary backups in your Google Drive
               </Text>
             </View>
 
             {/* Linked account card */}
-            <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
+            <View style={StyleSheet.flatten([styles.card, { backgroundColor: t.card, borderColor: t.border }]) as any}>
               <View style={styles.cardRow}>
-                <View style={[styles.iconCircle, { backgroundColor: `${t.primary}15` }]}>
+                <View style={StyleSheet.flatten([styles.iconCircle, { backgroundColor: `${t.primary}15` }]) as any}>
                   <DriveIcon size={26} color={t.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.cardTitle, { color: t.textPrimary }]}>
+                  <Text style={StyleSheet.flatten([styles.cardTitle, { color: t.textPrimary }]) as any}>
                     {driveAccount ? driveAccount.name : 'Not linked'}
                   </Text>
-                  <Text style={[styles.cardSubtitle, { color: t.textSecondary }]}>
+                  <Text style={StyleSheet.flatten([styles.cardSubtitle, { color: t.textSecondary }]) as any}>
                     {driveAccount ? driveAccount.email : 'Back up your data to your own Google Drive'}
                   </Text>
                 </View>
@@ -391,26 +391,26 @@ export default function DriveBackupScreen() {
                   activeOpacity={TAP_OPACITY}
                   onPress={handleLink}
                   disabled={linking}
-                  style={[styles.primaryButton, { backgroundColor: t.primary }]}
+                  style={StyleSheet.flatten([styles.primaryButton, { backgroundColor: t.primary }]) as any}
                 >
                   {linking ? (
                     <ActivityIndicator color="#FFF" />
                   ) : (
-                    <Text style={[styles.primaryButtonText, { color: '#FFF' }]}>Link Google Account</Text>
+                    <Text style={StyleSheet.flatten([styles.primaryButtonText, { color: '#FFF' }]) as any}>Link Google Account</Text>
                   )}
                 </TouchableOpacity>
               )}
             </View>
 
             {/* Passphrase card */}
-            <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
+            <View style={StyleSheet.flatten([styles.card, { backgroundColor: t.card, borderColor: t.border }]) as any}>
               <View style={styles.cardRow}>
-                <View style={[styles.iconCircle, { backgroundColor: `${t.primary}15` }]}>
+                <View style={StyleSheet.flatten([styles.iconCircle, { backgroundColor: `${t.primary}15` }]) as any}>
                   <Text style={{ fontSize: 20, color: t.primary }}>🔒</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.cardTitle, { color: t.textPrimary }]}>Backup passphrase</Text>
-                  <Text style={[styles.cardSubtitle, { color: t.textSecondary }]}>
+                  <Text style={StyleSheet.flatten([styles.cardTitle, { color: t.textPrimary }]) as any}>Backup passphrase</Text>
+                  <Text style={StyleSheet.flatten([styles.cardSubtitle, { color: t.textSecondary }]) as any}>
                     {passphraseSet
                       ? 'Encryption active — backups are encrypted before upload'
                       : 'Required before the first upload'}
@@ -440,11 +440,11 @@ export default function DriveBackupScreen() {
             </View>
 
             {/* Sync controls */}
-            <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
+            <View style={StyleSheet.flatten([styles.card, { backgroundColor: t.card, borderColor: t.border }]) as any}>
               <View style={styles.cardRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.cardTitle, { color: t.textPrimary }]}>Automatic upload</Text>
-                  <Text style={[styles.cardSubtitle, { color: t.textSecondary }]}>
+                  <Text style={StyleSheet.flatten([styles.cardTitle, { color: t.textPrimary }]) as any}>Automatic upload</Text>
+                  <Text style={StyleSheet.flatten([styles.cardSubtitle, { color: t.textSecondary }]) as any}>
                     Uploads new monthly auto-backups to Drive
                   </Text>
                 </View>
@@ -462,7 +462,7 @@ export default function DriveBackupScreen() {
                   onPress={handleUploadNow}
                   disabled={uploading || !driveAccount}
                   onLayout={(e) => setUploadBtnWidth(e.nativeEvent.layout.width)}
-                  style={[
+                  style={StyleSheet.flatten([
                     styles.primaryButton,
                     {
                       backgroundColor: 'transparent',
@@ -472,58 +472,58 @@ export default function DriveBackupScreen() {
                       overflow: 'hidden',
                       paddingVertical: uploading ? 0 : 13,
                     },
-                  ]}
+                  ]) as any}
                 >
                   {uploading ? (
                     <View style={styles.uploadProgressWrap}>
-                      <View style={[styles.uploadProgressTrack, { backgroundColor: `${t.primary}26` }]} />
+                      <View style={StyleSheet.flatten([styles.uploadProgressTrack, { backgroundColor: `${t.primary}26` }]) as any} />
                       {uploadBtnWidth > 0 && (
                         <View
-                          style={[
+                          style={StyleSheet.flatten([
                             styles.uploadProgressClip,
                             { width: Math.round((uploadBtnWidth * Math.min(100, Math.max(0, uploadPercent))) / 100) },
-                          ]}
+                          ]) as any}
                         >
-                          <View style={[styles.uploadProgressSolid, { backgroundColor: t.primary, width: uploadBtnWidth }]} />
-                          <Text style={[styles.uploadProgressLabel, { color: '#FFFFFF', width: uploadBtnWidth }]}>
+                          <View style={StyleSheet.flatten([styles.uploadProgressSolid, { backgroundColor: t.primary, width: uploadBtnWidth }]) as any} />
+                          <Text style={StyleSheet.flatten([styles.uploadProgressLabel, { color: '#FFFFFF', width: uploadBtnWidth }]) as any}>
                             {uploadStage === 'uploading'
                               ? `Uploading backup ${Math.round(uploadPercent)}%`
                               : `Creating backup ${Math.round(uploadPercent)}%`}
                           </Text>
                         </View>
                       )}
-                      <Text style={[styles.uploadProgressLabel, { color: t.primary }]}>
+                      <Text style={StyleSheet.flatten([styles.uploadProgressLabel, { color: t.primary }]) as any}>
                         {uploadStage === 'uploading'
                           ? `Uploading backup ${Math.round(uploadPercent)}%`
                           : `Creating backup ${Math.round(uploadPercent)}%`}
                       </Text>
                     </View>
                   ) : (
-                    <Text style={[styles.primaryButtonText, { color: !driveAccount ? t.textTertiary : t.primary }]}>
+                    <Text style={StyleSheet.flatten([styles.primaryButtonText, { color: !driveAccount ? t.textTertiary : t.primary }]) as any}>
                       Upload backup now
                     </Text>
                   )}
                 </TouchableOpacity>
               </View>
               {driveLastSyncAt !== null && (
-                <Text style={[styles.cardSubtitle, { color: t.textSecondary, marginTop: 10 }]}>{lastSyncLabel}</Text>
+                <Text style={StyleSheet.flatten([styles.cardSubtitle, { color: t.textSecondary, marginTop: 10 }]) as any}>{lastSyncLabel}</Text>
               )}
             </View>
 
             {/* Remote backups */}
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>REMOTE BACKUPS</Text>
+              <Text style={StyleSheet.flatten([styles.sectionTitle, { color: t.textSecondary }]) as any}>REMOTE BACKUPS</Text>
               <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={refreshBackupList} disabled={loadingList}>
                 <Text style={{ color: t.primary, fontSize: 13, fontWeight: '700' }}>{loadingList ? 'Syncing…' : 'Refresh'}</Text>
               </TouchableOpacity>
             </View>
 
             {loadingList && backups.length === 0 ? (
-              <View style={[styles.emptyCard, { backgroundColor: t.card, borderColor: t.border }]}>
+              <View style={StyleSheet.flatten([styles.emptyCard, { backgroundColor: t.card, borderColor: t.border }]) as any}>
                 <ActivityIndicator color={t.primary} />
               </View>
             ) : backups.length === 0 ? (
-              <View style={[styles.emptyCard, { backgroundColor: t.card, borderColor: t.border }]}>
+              <View style={StyleSheet.flatten([styles.emptyCard, { backgroundColor: t.card, borderColor: t.border }]) as any}>
                 <BackupIcon size={28} color={t.textTertiary} />
                 <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 10, textAlign: 'center' }}>
                   {driveAccount
@@ -535,13 +535,13 @@ export default function DriveBackupScreen() {
               backups.map((file) => (
                 <View
                   key={file.id}
-                  style={[styles.backupItem, { backgroundColor: t.card, borderColor: t.border }]}
+                  style={StyleSheet.flatten([styles.backupItem, { backgroundColor: t.card, borderColor: t.border }]) as any}
                 >
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.backupName, { color: t.textPrimary }]} numberOfLines={1}>
+                    <Text style={StyleSheet.flatten([styles.backupName, { color: t.textPrimary }]) as any} numberOfLines={1}>
                       {formatDate(file.createdTime) || file.name}
                     </Text>
-                    <Text style={[styles.backupMeta, { color: t.textSecondary }]}>
+                    <Text style={StyleSheet.flatten([styles.backupMeta, { color: t.textSecondary }]) as any}>
                       {file.name}
                       {formatBytes(file.size) ? ` · ${formatBytes(file.size)}` : ''}
                     </Text>
@@ -550,7 +550,7 @@ export default function DriveBackupScreen() {
                     <TouchableOpacity
                       activeOpacity={TAP_OPACITY}
                       onPress={() => handleRestore(file)}
-                      style={[styles.smallButton, { borderColor: t.primary }]}
+                      style={StyleSheet.flatten([styles.smallButton, { borderColor: t.primary }]) as any}
                     >
                       <Text style={{ color: t.primary, fontSize: 13, fontWeight: '700' }}>Restore</Text>
                     </TouchableOpacity>
@@ -558,7 +558,7 @@ export default function DriveBackupScreen() {
                       activeOpacity={TAP_OPACITY}
                       onPress={() => handleDelete(file)}
                       disabled={deletingId === file.id}
-                      style={[styles.smallButton, { borderColor: t.danger }]}
+                      style={StyleSheet.flatten([styles.smallButton, { borderColor: t.danger }]) as any}
                     >
                       {deletingId === file.id ? (
                         <ActivityIndicator size="small" color={t.danger} />
@@ -587,10 +587,10 @@ export default function DriveBackupScreen() {
       {/* Passphrase modal */}
       <Modal visible={showPassphraseModal} transparent animationType="fade" onRequestClose={() => setShowPassphraseModal(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: t.card, borderColor: t.border }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: t.border }]}>
-              <Text style={[styles.modalTitle, { color: t.textPrimary }]}>{passphraseModalTitle}</Text>
-              <Text style={[styles.modalSubtitle, { color: t.textSecondary }]}>{passphraseModalSubtitle}</Text>
+          <View style={StyleSheet.flatten([styles.modalContainer, { backgroundColor: t.card, borderColor: t.border }]) as any}>
+            <View style={StyleSheet.flatten([styles.modalHeader, { borderBottomColor: t.border }]) as any}>
+              <Text style={StyleSheet.flatten([styles.modalTitle, { color: t.textPrimary }]) as any}>{passphraseModalTitle}</Text>
+              <Text style={StyleSheet.flatten([styles.modalSubtitle, { color: t.textSecondary }]) as any}>{passphraseModalSubtitle}</Text>
             </View>
             <View style={{ padding: 16, gap: 12 }}>
               <TextInput
@@ -601,7 +601,7 @@ export default function DriveBackupScreen() {
                 secureTextEntry
                 autoCapitalize="none"
                 autoCorrect={false}
-                style={[styles.input, { backgroundColor: t.background, borderColor: t.border, color: t.textPrimary }]}
+                style={StyleSheet.flatten([styles.input, { backgroundColor: t.background, borderColor: t.border, color: t.textPrimary }]) as any}
               />
               <TextInput
                 value={passphraseConfirm}
@@ -611,18 +611,18 @@ export default function DriveBackupScreen() {
                 secureTextEntry
                 autoCapitalize="none"
                 autoCorrect={false}
-                style={[styles.input, { backgroundColor: t.background, borderColor: t.border, color: t.textPrimary }]}
+                style={StyleSheet.flatten([styles.input, { backgroundColor: t.background, borderColor: t.border, color: t.textPrimary }]) as any}
               />
             </View>
             <View style={styles.modalFooter}>
               <TouchableOpacity
                 activeOpacity={TAP_OPACITY}
                 onPress={() => setShowPassphraseModal(false)}
-                style={[styles.modalButton, { borderColor: t.border }]}
+                style={StyleSheet.flatten([styles.modalButton, { borderColor: t.border }]) as any}
               >
                 <Text style={{ color: t.textSecondary, fontWeight: '700' }}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleSavePassphrase} style={[styles.modalButton, { backgroundColor: t.primary }]}>
+              <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={handleSavePassphrase} style={StyleSheet.flatten([styles.modalButton, { backgroundColor: t.primary }]) as any}>
                 <Text style={{ color: '#FFF', fontWeight: '700' }}>Save passphrase</Text>
               </TouchableOpacity>
             </View>
@@ -633,10 +633,10 @@ export default function DriveBackupScreen() {
       {/* Restore passphrase modal */}
       <Modal visible={restoringFile !== null} transparent animationType="fade" onRequestClose={() => setRestoringFile(null)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: t.card, borderColor: t.border }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: t.border }]}>
-              <Text style={[styles.modalTitle, { color: t.textPrimary }]}>Backup passphrase</Text>
-              <Text style={[styles.modalSubtitle, { color: t.textSecondary }]}>
+          <View style={StyleSheet.flatten([styles.modalContainer, { backgroundColor: t.card, borderColor: t.border }]) as any}>
+            <View style={StyleSheet.flatten([styles.modalHeader, { borderBottomColor: t.border }]) as any}>
+              <Text style={StyleSheet.flatten([styles.modalTitle, { color: t.textPrimary }]) as any}>Backup passphrase</Text>
+              <Text style={StyleSheet.flatten([styles.modalSubtitle, { color: t.textSecondary }]) as any}>
                 Enter the passphrase that protects this backup to restore it.
               </Text>
             </View>
@@ -649,7 +649,7 @@ export default function DriveBackupScreen() {
                 secureTextEntry
                 autoCapitalize="none"
                 autoCorrect={false}
-                style={[styles.input, { backgroundColor: t.background, borderColor: t.border, color: t.textPrimary }]}
+                style={StyleSheet.flatten([styles.input, { backgroundColor: t.background, borderColor: t.border, color: t.textPrimary }]) as any}
                 onSubmitEditing={confirmRestore}
               />
             </View>
@@ -657,11 +657,11 @@ export default function DriveBackupScreen() {
               <TouchableOpacity
                 activeOpacity={TAP_OPACITY}
                 onPress={() => setRestoringFile(null)}
-                style={[styles.modalButton, { borderColor: t.border }]}
+                style={StyleSheet.flatten([styles.modalButton, { borderColor: t.border }]) as any}
               >
                 <Text style={{ color: t.textSecondary, fontWeight: '700' }}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={confirmRestore} style={[styles.modalButton, { backgroundColor: t.primary }]}>
+              <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={confirmRestore} style={StyleSheet.flatten([styles.modalButton, { backgroundColor: t.primary }]) as any}>
                 <Text style={{ color: '#FFF', fontWeight: '700' }}>Restore</Text>
               </TouchableOpacity>
             </View>

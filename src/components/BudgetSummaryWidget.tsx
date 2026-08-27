@@ -36,8 +36,8 @@ export function BudgetSummaryWidget({ budgets, isLoading = false }: BudgetSummar
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: t.card, borderColor: t.border }]}> 
-        <Text style={[styles.title, { color: t.textPrimary }]}>Budgets</Text>
+      <View style={StyleSheet.flatten([styles.container, { backgroundColor: t.card, borderColor: t.border }]) as any}> 
+        <Text style={StyleSheet.flatten([styles.title, { color: t.textPrimary }]) as any}>Budgets</Text>
         <Text style={{ color: t.textSecondary, marginTop: 8 }}>Loading budgets...</Text>
       </View>
     );
@@ -47,9 +47,9 @@ export function BudgetSummaryWidget({ budgets, isLoading = false }: BudgetSummar
     return (
       <TouchableOpacity
         onPress={() => router.push('/budget')}
-        style={[styles.container, { backgroundColor: t.card, borderColor: t.border }]}
+        style={StyleSheet.flatten([styles.container, { backgroundColor: t.card, borderColor: t.border }]) as any}
       >
-        <Text style={[styles.title, { color: t.textPrimary }]}>Budgets</Text>
+        <Text style={StyleSheet.flatten([styles.title, { color: t.textPrimary }]) as any}>Budgets</Text>
         <Text style={{ color: t.textSecondary, marginTop: 8 }}>No active budgets. Tap to set one up.</Text>
       </TouchableOpacity>
     );
@@ -61,24 +61,24 @@ export function BudgetSummaryWidget({ budgets, isLoading = false }: BudgetSummar
   return (
     <TouchableOpacity
       onPress={() => router.push('/budget')}
-      style={[styles.container, { backgroundColor: t.card, borderColor: t.border }]}
+      style={StyleSheet.flatten([styles.container, { backgroundColor: t.card, borderColor: t.border }]) as any}
     >
       <View style={styles.header}>
-        <Text style={[styles.title, { color: t.textPrimary }]}>Budgets</Text>
-        <Text style={[styles.link, { color: t.accent }]}>Open</Text>
+        <Text style={StyleSheet.flatten([styles.title, { color: t.textPrimary }]) as any}>Budgets</Text>
+        <Text style={StyleSheet.flatten([styles.link, { color: t.accent }]) as any}>Open</Text>
       </View>
 
-      <Text style={[styles.amount, { color: t.textPrimary }]}> 
+      <Text style={StyleSheet.flatten([styles.amount, { color: t.textPrimary }]) as any}> 
         {formatCurrency(summary.totalSpent, defaultCurrency)} / {formatCurrency(summary.totalBudget, defaultCurrency)}
       </Text>
 
-      <View style={[styles.progressTrack, { backgroundColor: t.background }]}> 
-        <View style={[styles.progressFill, { width: `${progress * 100}%`, backgroundColor: progressColor }]} />
+      <View style={StyleSheet.flatten([styles.progressTrack, { backgroundColor: t.background }]) as any}> 
+        <View style={StyleSheet.flatten([styles.progressFill, { width: `${progress * 100}%`, backgroundColor: progressColor }]) as any} />
       </View>
 
       <View style={styles.metaRow}>
-        <Text style={[styles.metaText, { color: t.textSecondary }]}>{summary.activeCount} active</Text>
-        <Text style={[styles.metaText, { color: summary.overBudget > 0 ? t.danger : summary.nearLimit > 0 ? t.warning : t.success }]}>
+        <Text style={StyleSheet.flatten([styles.metaText, { color: t.textSecondary }]) as any}>{summary.activeCount} active</Text>
+        <Text style={StyleSheet.flatten([styles.metaText, { color: summary.overBudget > 0 ? t.danger : summary.nearLimit > 0 ? t.warning : t.success }]) as any}>
           {summary.overBudget > 0 ? `${summary.overBudget} over limit` : summary.nearLimit > 0 ? `${summary.nearLimit} near limit` : 'On track'}
         </Text>
       </View>

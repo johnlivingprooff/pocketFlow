@@ -52,23 +52,27 @@ function ConfettiPiece({ color, delay }: ConfettiPieceProps) {
 
   return (
     <Animated.View
-      style={[
-        styles.piece,
-        {
-          width: size,
-          height: size * 0.6,
-          backgroundColor: color,
-          transform: [
-            { translateX: position.x },
-            { translateY: position.y },
-            { rotate: rotation.interpolate({
-              inputRange: [-360, 360],
-              outputRange: ['-360deg', '360deg']
-            })},
-          ],
-          opacity,
-        },
-      ]}
+      style={
+        StyleSheet.flatten([
+          styles.piece,
+          {
+            width: size,
+            height: size * 0.6,
+            backgroundColor: color,
+            transform: [
+              { translateX: position.x },
+              { translateY: position.y },
+              {
+                rotate: rotation.interpolate({
+                  inputRange: [-360, 360],
+                  outputRange: ['-360deg', '360deg'],
+                }),
+              },
+            ],
+            opacity,
+          },
+        ]) as any
+      }
     />
   );
 }
@@ -116,7 +120,7 @@ export function ConfettiCelebration({ visible, onComplete }: ConfettiCelebration
   }));
 
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim }]} pointerEvents="none">
+    <Animated.View style={StyleSheet.flatten([styles.container, { opacity: fadeAnim }]) as any} pointerEvents="none">
       {pieces.map(piece => (
         <ConfettiPiece key={piece.id} color={piece.color} delay={piece.delay} />
       ))}

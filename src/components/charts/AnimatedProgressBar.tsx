@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -67,14 +67,14 @@ export default function AnimatedProgressBar({
         }}
       >
         <Animated.View
-          style={[
+          style={StyleSheet.flatten([
             {
               height: '100%',
               backgroundColor: color,
               borderRadius: height / 2,
             },
             animatedStyle,
-          ]}
+          ]) as any}
         />
       </View>
     </View>

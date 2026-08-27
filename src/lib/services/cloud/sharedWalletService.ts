@@ -80,3 +80,30 @@ export async function syncWalletTransactions(
     body: JSON.stringify({ transactions }),
   });
 }
+
+export type SharedTransactionRow = SharedWalletSyncTransaction & {
+  id: string;
+  createdBy: string;
+  createdByEmail: string;
+};
+
+export async function listSharedWalletTransactions(
+  walletId: string,
+  opts: { limit?: number; offset?: number; since?: string } = {}
+): Promise<{ transactions: SharedTransactionRow[]; total: number }> {
+  const params = new URLSearchParams();
+  if (opts.limit != null) params.set('limit', String(opts.limit));
+  if (opts.offset != null) params.set('offset', String(opts.offset));
+  if (opts.since) params.set('since', opts.since);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  return cloudRequest<{ transactions: SharedTransactionRow[]; total: number }>(
+    `/wallets/${walletId}/transactions${qs}`,
+    { method: 'GET' }
+  );
+}
+
+export async function deleteSharedWalletTransaction(walletId: string, externalId: string): Promise<void> {
+  await cloudRequest<void>(`/wallets/${walletId}/transactions/${encodeURIComponent(externalId)}`, {
+    method: 'DELETE',
+  });
+}

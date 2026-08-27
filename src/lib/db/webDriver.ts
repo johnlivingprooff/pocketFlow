@@ -10,28 +10,46 @@ import { log, error as logError, warn } from '@/utils/logger';
 const SQL_JS_URL = 'https://sql.js.org/dist/sql-wasm.js';
 const locateFile = (file: string) => `${SQL_JS_URL.replace('sql-wasm.js', '')}${file}`;
 
-// Load sql.js as an ES module via dynamic import to avoid bundling and import.meta errors
-let SQL: any = null;
-const sqlInitPromise = (async () => {
-  // If already present globally (unlikely on web), reuse it
-  if ((window as any).initSqlJs) {
-    return (window as any).initSqlJs({ locateFile });
+// Load sql.js via classic script tag to avoid Metro needing to understand import.meta / dynamic import.
+// This works in any non-module bundle and avoids the "Cannot use import.meta outside a module" error
+// caused by zustand/metro bundles leaking import.meta.
+function loadSqlJsViaScript(): Promise<any> {
+  if (typeof window === 'undefined') {
+    return Promise.reject(new Error('sql.js can only be loaded in browser'));
   }
-
-  try {
-    // Use dynamic runtime import so Metro/Expo does not try to bundle sql.js (prevents import.meta errors)
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
-    const module = await (new Function('u', 'return import(u);'))(SQL_JS_URL);
-    const initSqlJs = (module as any).default ?? (module as any).initSqlJs;
-    if (!initSqlJs) {
-      throw new Error('sql.js module did not expose initSqlJs');
+  const w = window as any;
+  if (w.initSqlJs) {
+    return Promise.resolve(w.initSqlJs({ locateFile }));
+  }
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${SQL_JS_URL}"]`) as HTMLScriptElement | null;
+    if (existing) {
+      existing.addEventListener('load', () => {
+        if (w.initSqlJs) resolve(w.initSqlJs({ locateFile }));
+        else reject(new Error('initSqlJs not found after script load'));
+      });
+      existing.addEventListener('error', () => reject(new Error('Failed to load sql.js script')));
+      return;
     }
-    return initSqlJs({ locateFile });
-  } catch (err) {
-    logError('[WebDB] Failed to load sql.js module', err as Record<string, any>);
+    const script = document.createElement('script');
+    script.src = SQL_JS_URL;
+    script.async = true;
+    script.onload = () => {
+      if (w.initSqlJs) resolve(w.initSqlJs({ locateFile }));
+      else reject(new Error('initSqlJs not found after script load'));
+    };
+    script.onerror = () => reject(new Error('Failed to load sql.js script'));
+    document.head.appendChild(script);
+  });
+}
+
+let SQL: any = null;
+const sqlInitPromise = loadSqlJsViaScript()
+  .then((factory: any) => factory)
+  .catch((err: unknown) => {
+    logError('[WebDB] Failed to load sql.js via script tag', err as Record<string, any>);
     throw err;
-  }
-})();
+  });
 
 // IndexedDB constants
 const DB_NAME = 'pocketflow_web';

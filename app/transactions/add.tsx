@@ -22,6 +22,8 @@ import { Wallet } from '../../src/types/wallet';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
 import { QuickCategoryChips } from '../../src/components/QuickCategoryChips';
 import { error as logError } from '../../src/utils/logger';
+import { AppOnlyBlock, WebAuthWall } from '../../src/components/web/AppOnlyBlock';
+import { isSharedWallet } from '../../src/lib/platform/webGuards';
 
 export default function AddTransactionScreen() {
   const router = useRouter();
@@ -30,7 +32,12 @@ export default function AddTransactionScreen() {
   const systemColorScheme = useColorScheme();
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const t = theme(effectiveMode);
-  const { wallets, balances } = useWallets();
+  const rawWallets = useWallets();
+  const walletsAll = rawWallets.wallets;
+  const balances = rawWallets.balances;
+  const wallets = Platform.OS === 'web' ? walletsAll.filter(isSharedWallet) : walletsAll;
+  const isWeb = Platform.OS === 'web';
+  const { cloudSessionState } = useSettings();
   const { id, walletId: paramWalletId, type: paramType, category: paramCategory, amount: paramAmount } = useLocalSearchParams();
 
   // Check if we're in edit mode
@@ -521,6 +528,29 @@ export default function AddTransactionScreen() {
             recurrence_frequency: isRecurring ? recurrenceFrequency : undefined,
             recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate.toISOString() : undefined
           });
+
+          // If wallet is shared, also sync to cloud so web + other members see it.
+          try {
+            const w = wallets.find((x) => x.id === walletId) as any;
+            const cloudWalletId: string | null | undefined = w?.cloud_wallet_id;
+            if (cloudWalletId && cloudSessionState === 'authenticated') {
+              const { syncWalletTransactions } = await import('../../src/lib/services/cloud/sharedWalletService');
+              const externalId = `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+              await syncWalletTransactions(cloudWalletId, [
+                {
+                  externalId,
+                  type: type as 'income' | 'expense',
+                  amount: Math.abs(numericAmount),
+                  category: category || null,
+                  date: date.toISOString(),
+                  notes: notes || null,
+                  updatedAt: new Date().toISOString(),
+                },
+              ]);
+            }
+          } catch {
+            // sync is best-effort; local transaction already persisted
+          }
         }
 
         // Save smart defaults for next transaction
@@ -638,6 +668,32 @@ export default function AddTransactionScreen() {
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: t.textSecondary }}>Loading transaction...</Text>
         </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (isWeb && cloudSessionState !== 'authenticated') {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 20, gap: 16 }}>
+          <WebAuthWall onPress={() => router.push('/profile' as never)} />
+          <AppOnlyBlock title="Why an account?" message="On the web, every shared wallet is tied to your cloud account. Sign in to add transactions to shared wallets. Personal wallets stay on your phone." />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (isWeb && wallets.length === 0) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 20, gap: 16 }}>
+          <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800' }}>No shared wallets</Text>
+          <Text style={{ color: t.textSecondary, fontSize: 13 }}>Create a shared wallet first (Wallets → New Shared Wallet). You need a cloud account to own a shared wallet.</Text>
+          <TouchableOpacity onPress={() => router.push('/settings/shared-wallets' as never)} style={{ backgroundColor: t.primary, borderRadius: 10, paddingVertical: 12, alignItems: 'center' }}>
+            <Text style={{ color: '#fff', fontWeight: '700' }}>Go to shared wallets</Text>
+          </TouchableOpacity>
+          <AppOnlyBlock />
+        </ScrollView>
       </SafeAreaView>
     );
   }

@@ -15,10 +15,11 @@ const BANK_ACCOUNT_TYPES = ['Checking', 'Savings', 'Current', 'Other'];
 const MOBILE_MONEY_PROVIDERS = ['AirtelMoney', 'Mpesa', 'Mpamba', 'Other'];
 
 export default function CreateWallet() {
-  const { themeMode, defaultCurrency } = useSettings();
+  const { themeMode, defaultCurrency, cloudSessionState } = useSettings();
   const systemColorScheme = useColorScheme();
   const t = theme(themeMode, systemColorScheme || 'light');
   const router = useRouter();
+  const isWeb = Platform.OS === 'web';
   const [name, setName] = useState('');
   const [currency, setCurrency] = useState(defaultCurrency);
   const [initial, setInitial] = useState('0');
@@ -112,6 +113,78 @@ export default function CreateWallet() {
       setIsSaving(false);
     }
   };
+
+  if (isWeb) {
+    if (cloudSessionState !== 'authenticated') {
+      return (
+        <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top', 'bottom']}>
+          <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 20, gap: 16 }}>
+            <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>Create Wallet</Text>
+            <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 16 }}>
+              <Text style={{ color: t.textPrimary, fontWeight: '700', fontSize: 16, marginBottom: 6 }}>Account required on the web</Text>
+              <Text style={{ color: t.textSecondary, fontSize: 13, lineHeight: 18, marginBottom: 12 }}>Creating a shared wallet on the web requires a cloud account. Sign in from Profile, then create a shared wallet – it will be instantly visible to invited members.</Text>
+              <TouchableOpacity onPress={() => router.push('/profile' as never)} style={{ backgroundColor: t.primary, borderRadius: 10, paddingVertical: 12, alignItems: 'center' }}>
+                <Text style={{ color: '#fff', fontWeight: '700' }}>Go to Profile</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 16 }}>
+              <Text style={{ color: t.textPrimary, fontWeight: '700' }}>Need a personal wallet?</Text>
+              <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Personal wallets are intentionally app-only. Use the mobile app to create them.</Text>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      );
+    }
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top', 'bottom']}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 20, paddingBottom: 32, gap: 12 }}>
+          <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>Create Shared Wallet (Web)</Text>
+          <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 14 }}>
+            <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '700', marginBottom: 6 }}>ACCOUNT</Text>
+            <Text style={{ color: t.textPrimary, fontWeight: '700' }}>On the web you can only create shared wallets.</Text>
+            <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4, lineHeight: 18 }}>The wallet will be created in the cloud and you become its owner. You can invite members via link and add transactions – they will sync to all members.</Text>
+          </View>
+          <Text style={{ color: t.textSecondary, fontWeight: '600', marginTop: 8 }}>Wallet Name</Text>
+          <TextInput value={name} onChangeText={setName} placeholder="e.g. Household Budget" placeholderTextColor={t.textTertiary} style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, color: t.textPrimary, padding: 12, borderRadius: 12, fontSize: 16 }} />
+          <Text style={{ color: t.textSecondary, fontWeight: '600' }}>Currency</Text>
+          <TouchableOpacity onPress={() => setShowCurrencyPicker(true)} style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, padding: 12, borderRadius: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={{ color: t.textPrimary, fontSize: 16 }}>{currency}</Text><Text style={{ color: t.textSecondary }}>▼</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={async () => {
+              if (!name.trim()) return;
+              setIsSaving(true);
+              try {
+                const { enableWalletSharing } = await import('../../src/lib/services/cloud/sharedWalletService');
+                const { createWallet: createLocalWallet } = await import('../../src/lib/db/wallets');
+                const { updateWallet } = await import('../../src/lib/db/wallets');
+                const shared = await enableWalletSharing({ name: name.trim() });
+                // Mirror shared wallet locally for web IndexedDB so it appears in lists
+                await createLocalWallet({ name: name.trim(), currency, initial_balance: parseFloat(initial || '0'), type, description: description.trim(), exchange_rate: parseFloat(exchangeRate || '1.0'), overdraft_limit: parseFloat(overdraftLimit || '0'), color: undefined } as any);
+                // Fetch the just-created local row and link it
+                const all = await (await import('../../src/lib/db/wallets')).getWallets();
+                const created = all.find((w: any) => w.name === name.trim() && !w.cloud_wallet_id);
+                if (created?.id) {
+                  await updateWallet(created.id, { cloud_wallet_id: shared.id, is_shared: 1, share_id: shared.shareId, shared_role: shared.role, sync_status: shared.syncStatus } as any);
+                }
+                router.replace('/settings/shared-wallets' as never);
+              } catch {
+                setAlertConfig({ visible: true, title: 'Error', message: 'Could not create shared wallet. Check your connection and try again.', buttons: [{ text: 'OK' }] });
+              } finally {
+                setIsSaving(false);
+              }
+            }}
+            disabled={isSaving || !name.trim()}
+            style={{ backgroundColor: !name.trim() || isSaving ? t.border : t.primary, padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 8, opacity: !name.trim() || isSaving ? 0.6 : 1 }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '800' }}>{isSaving ? 'Creating…' : 'Create Shared Wallet'}</Text>
+          </TouchableOpacity>
+          <Text style={{ color: t.textSecondary, fontSize: 11, marginTop: 6, textAlign: 'center' }}>Personal wallets → install the app</Text>
+        </ScrollView>
+        <ThemedAlert visible={alertConfig.visible} title={alertConfig.title} message={alertConfig.message} buttons={alertConfig.buttons} onDismiss={() => setAlertConfig({ ...alertConfig, visible: false })} themeMode={themeMode} systemColorScheme={systemColorScheme || 'light'} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top', 'bottom']}>

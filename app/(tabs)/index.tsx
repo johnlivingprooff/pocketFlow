@@ -12,6 +12,9 @@ import { EyeIcon, EyeOffIcon } from '../../src/assets/icons/EyeOffIcon';
 import { QuickAddWidget } from '../../src/components/QuickAddWidget';
 import TrendLineChart from '../../src/components/charts/TrendLineChart';
 import { getDailyIncomeExpense } from '../../src/lib/db/transactions';
+import { Platform } from 'react-native';
+import { webSharedWalletsOnlyFilter } from '../../src/lib/platform/webGuards';
+import { AppOnlyBlock, WebAuthWall } from '../../src/components/web/AppOnlyBlock';
 
 function getGreeting(now: Date = new Date()): string {
   const hour = now.getHours();
@@ -46,12 +49,20 @@ export default function Home() {
     setHideBalances,
     lastUsedWalletId,
     lastUsedCategory,
+    cloudSessionState,
   } = useSettings();
   const systemColorScheme = useColorScheme();
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const t = theme(effectiveMode);
   const { wallets, balances } = useWallets();
   const { transactions } = useTransactions(0, 8);
+  const isWeb = Platform.OS === 'web';
+  const sharedWallets = webSharedWalletsOnlyFilter(wallets);
+  const sharedIds = new Set(sharedWallets.map((w) => w.id));
+  const sharedBalancesTotal = sharedWallets.reduce((sum, w) => {
+    const bal = w.id ? (balances[w.id] ?? 0) : 0;
+    return sum + bal * (w.exchange_rate ?? 1);
+  }, 0);
 
   const displayName = (userInfo?.name && userInfo.name.trim().length > 0) ? userInfo.name : 'pFlowr';
   const greeting = getGreeting();
@@ -90,6 +101,69 @@ export default function Home() {
       loadTrendData();
     }, [loadTrendData])
   );
+
+  if (isWeb) {
+    return (
+      <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 36, gap: 16 }}>
+          <View style={{ marginBottom: 4, paddingTop: 20 }}>
+            <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>{greeting}, {displayName}.</Text>
+            <Text style={{ color: t.textSecondary, fontSize: 14, marginTop: 4 }}>
+              Web access is limited to shared wallets. Personal finance tools stay on the app.
+            </Text>
+          </View>
+
+          {cloudSessionState !== 'authenticated' ? (
+            <WebAuthWall onPress={() => router.push('/profile' as never)} />
+          ) : (
+            <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 16 }}>
+              <Text style={{ color: t.textSecondary, fontSize: 11, fontWeight: '700' }}>SHARED WALLETS TOTAL</Text>
+              <Text style={{ color: t.textPrimary, fontSize: 26, fontWeight: '900', marginTop: 6 }}>
+                {hideBalances ? '******' : formatCurrency(sharedBalancesTotal, defaultCurrency)}
+              </Text>
+              <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 6 }}>{sharedWallets.length} shared wallet{sharedWallets.length !== 1 ? 's' : ''}</Text>
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+                <TouchableOpacity onPress={() => router.push('/settings/shared-wallets' as never)} style={{ flex: 1, backgroundColor: t.primary, borderRadius: 10, paddingVertical: 12, alignItems: 'center' }}>
+                  <Text style={{ color: '#fff', fontWeight: '700' }}>Manage shared wallets</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push('/(tabs)/wallets' as never)} style={{ flex: 1, backgroundColor: t.background, borderWidth: 1, borderColor: t.border, borderRadius: 10, paddingVertical: 12, alignItems: 'center' }}>
+                  <Text style={{ color: t.textPrimary, fontWeight: '700' }}>View wallets</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity onPress={() => router.push({ pathname: '/transactions/add' as never, params: { type: 'expense' } })} style={{ flex: 1, backgroundColor: t.danger, borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}>
+              <Text style={{ color: '#fff', fontWeight: '700' }}>Add expense</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push({ pathname: '/transactions/add' as never, params: { type: 'income' } })} style={{ flex: 1, backgroundColor: t.success, borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}>
+              <Text style={{ color: '#fff', fontWeight: '700' }}>Add income</Text>
+            </TouchableOpacity>
+          </View>
+
+          {sharedWallets.length === 0 ? (
+            <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 16 }}>
+              <Text style={{ color: t.textPrimary, fontWeight: '700' }}>No shared wallets yet</Text>
+              <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 4 }}>Create one from Wallets → New Shared Wallet (requires account).</Text>
+            </View>
+          ) : (
+            sharedWallets.slice(0, 3).map((w) => (
+              <TouchableOpacity key={w.id} onPress={() => router.push(`/wallets/${w.id}` as never)} style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 14 }}>
+                <Text style={{ color: t.textPrimary, fontWeight: '700' }}>{w.name}</Text>
+                <Text style={{ color: t.textSecondary, fontSize: 12, marginTop: 2 }}>{formatCurrency(balances[w.id!] ?? 0, w.currency)}</Text>
+              </TouchableOpacity>
+            ))
+          )}
+
+          <AppOnlyBlock
+            title="Analytics, budgets & personal wallets are app-only"
+            message="The web intentionally only syncs shared wallets. For full insights, receipt scanning, SMS auto-log, budgets, goals and offline personal wallets, use the Android/iOS app."
+          />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>

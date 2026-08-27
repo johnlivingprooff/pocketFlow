@@ -51,7 +51,7 @@ export default function FinancialHealthRing({
   const strokeDashoffset = circumference - (progress * circumference);
 
   return (
-    <View style={[styles.container, { backgroundColor, borderColor: primaryColor + '20' }]}>
+    <View style={StyleSheet.flatten([styles.container, { backgroundColor, borderColor: primaryColor + '20' }]) as any}>
       <View style={styles.content}>
         <View style={styles.chartWrapper}>
           <Svg width={size} height={size}>
@@ -86,35 +86,35 @@ export default function FinancialHealthRing({
           </Svg>
 
           <View style={styles.scoreTextWrapper}>
-            <Text style={[styles.scoreText, { color: colors[0] }]}>{healthScore.score}</Text>
-            <Text style={[styles.scoreLabel, { color: textColor }]}>SCORE</Text>
+            <Text style={StyleSheet.flatten([styles.scoreText, { color: colors[0] }]) as any}>{healthScore.score}</Text>
+            <Text style={StyleSheet.flatten([styles.scoreLabel, { color: textColor }]) as any}>SCORE</Text>
           </View>
         </View>
 
         <View style={styles.infoWrapper}>
           <View>
-            <Text style={[styles.ratingText, { color: colors[0] }]}>{healthScore.rating.toUpperCase()}</Text>
-            <Text style={[styles.subtitle, { color: textColor }]}>Financial IQ</Text>
+            <Text style={StyleSheet.flatten([styles.ratingText, { color: colors[0] }]) as any}>{healthScore.rating.toUpperCase()}</Text>
+            <Text style={StyleSheet.flatten([styles.subtitle, { color: textColor }]) as any}>Financial IQ</Text>
           </View>
 
           <View style={styles.divider} />
 
           <View style={styles.factorsGrid}>
             <View style={styles.factorItem}>
-              <Text style={[styles.factorValue, { color: textColor }]}>{healthScore.factors.savingsRate}/30</Text>
-              <Text style={[styles.factorLabel, { color: textColor }]}>Savings</Text>
+              <Text style={StyleSheet.flatten([styles.factorValue, { color: textColor }]) as any}>{healthScore.factors.savingsRate}/30</Text>
+              <Text style={StyleSheet.flatten([styles.factorLabel, { color: textColor }]) as any}>Savings</Text>
             </View>
             <View style={styles.factorItem}>
-              <Text style={[styles.factorValue, { color: textColor }]}>{healthScore.factors.budgetAdherence}/25</Text>
-              <Text style={[styles.factorLabel, { color: textColor }]}>Budget</Text>
+              <Text style={StyleSheet.flatten([styles.factorValue, { color: textColor }]) as any}>{healthScore.factors.budgetAdherence}/25</Text>
+              <Text style={StyleSheet.flatten([styles.factorLabel, { color: textColor }]) as any}>Budget</Text>
             </View>
             <View style={styles.factorItem}>
-              <Text style={[styles.factorValue, { color: textColor }]}>{healthScore.factors.spendingConsistency}/25</Text>
-              <Text style={[styles.factorLabel, { color: textColor }]}>Habits</Text>
+              <Text style={StyleSheet.flatten([styles.factorValue, { color: textColor }]) as any}>{healthScore.factors.spendingConsistency}/25</Text>
+              <Text style={StyleSheet.flatten([styles.factorLabel, { color: textColor }]) as any}>Habits</Text>
             </View>
             <View style={styles.factorItem}>
-              <Text style={[styles.factorValue, { color: textColor }]}>{healthScore.factors.incomeStability}/20</Text>
-              <Text style={[styles.factorLabel, { color: textColor }]}>Stability</Text>
+              <Text style={StyleSheet.flatten([styles.factorValue, { color: textColor }]) as any}>{healthScore.factors.incomeStability}/20</Text>
+              <Text style={StyleSheet.flatten([styles.factorLabel, { color: textColor }]) as any}>Stability</Text>
             </View>
           </View>
         </View>

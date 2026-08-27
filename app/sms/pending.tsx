@@ -193,15 +193,15 @@ export default function PendingSmsScreen() {
     const color = providerColor(item.provider, t);
     const isIncome = item.type === 'income';
     return (
-      <View style={[styles.entryCard, { backgroundColor: t.card, borderColor: t.border }]}>
+      <View style={StyleSheet.flatten([styles.entryCard, { backgroundColor: t.card, borderColor: t.border }]) as any}>
         <View style={styles.entryHeader}>
           <View
-            style={[
+            style={StyleSheet.flatten([
               styles.directionBadge,
               {
                 backgroundColor: isIncome ? `${t.success}18` : `${t.danger}18`,
               },
-            ]}
+            ]) as any}
           >
             <Text style={{ color: isIncome ? t.success : t.danger, fontSize: 18, fontWeight: '800' }}>
               {isIncome ? '+' : '−'}
@@ -209,38 +209,38 @@ export default function PendingSmsScreen() {
           </View>
           <View style={styles.entryHeaderText}>
             <View style={styles.entryTitleRow}>
-              <Text style={[styles.entryAmount, { color: isIncome ? t.success : t.danger }]}>
+              <Text style={StyleSheet.flatten([styles.entryAmount, { color: isIncome ? t.success : t.danger }]) as any}>
                 {formatCurrency(item.amount ?? 0, selectedWallet?.currency ?? defaultCurrency)}
               </Text>
               {item.provider && (
-                <View style={[styles.providerBadge, { backgroundColor: `${color}18`, borderColor: `${color}44` }]}>
-                  <Text style={[styles.providerBadgeText, { color }]}>{PROVIDER_LABELS[item.provider]}</Text>
+                <View style={StyleSheet.flatten([styles.providerBadge, { backgroundColor: `${color}18`, borderColor: `${color}44` }]) as any}>
+                  <Text style={StyleSheet.flatten([styles.providerBadgeText, { color }]) as any}>{PROVIDER_LABELS[item.provider]}</Text>
                 </View>
               )}
             </View>
-            <Text style={[styles.entryMeta, { color: t.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.entryMeta, { color: t.textSecondary }]) as any}>
               {item.reference ? `Ref ${item.reference} · ` : ''}
               {item.occurred_at ?? formatDetectedAt(item.detected_at)}
             </Text>
           </View>
         </View>
 
-        <Text style={[styles.entryBody, { color: t.textSecondary }]} numberOfLines={3}>
+        <Text style={StyleSheet.flatten([styles.entryBody, { color: t.textSecondary }]) as any} numberOfLines={3}>
           {item.body}
         </Text>
 
         <View style={styles.entryActions}>
           <TouchableOpacity
             onPress={() => void openConfirm(item)}
-            style={[styles.confirmButton, { backgroundColor: t.primary }]}
+            style={StyleSheet.flatten([styles.confirmButton, { backgroundColor: t.primary }]) as any}
           >
             <Text style={styles.confirmButtonText}>Confirm</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => handleIgnore(item)}
-            style={[styles.ignoreButton, { borderColor: t.border }]}
+            style={StyleSheet.flatten([styles.ignoreButton, { borderColor: t.border }]) as any}
           >
-            <Text style={[styles.ignoreButtonText, { color: t.textSecondary }]}>Ignore</Text>
+            <Text style={StyleSheet.flatten([styles.ignoreButtonText, { color: t.textSecondary }]) as any}>Ignore</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -248,15 +248,15 @@ export default function PendingSmsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top']}>
+    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: t.background }]) as any} edges={['left', 'right', 'top']}>
       {loading && pending.length === 0 ? (
         <View style={styles.centerState}>
           <Text style={{ color: t.textSecondary }}>Loading...</Text>
         </View>
       ) : pending.length === 0 ? (
         <View style={styles.centerState}>
-          <Text style={[styles.emptyTitle, { color: t.textPrimary }]}>Nothing to review</Text>
-          <Text style={[styles.emptySubtitle, { color: t.textSecondary }]}>
+          <Text style={StyleSheet.flatten([styles.emptyTitle, { color: t.textPrimary }]) as any}>Nothing to review</Text>
+          <Text style={StyleSheet.flatten([styles.emptySubtitle, { color: t.textSecondary }]) as any}>
             Transaction SMS detected by pocketFlow will appear here for confirmation.
           </Text>
         </View>
@@ -273,13 +273,13 @@ export default function PendingSmsScreen() {
       {draft && (
         <Modal visible transparent animationType="slide" onRequestClose={() => setDraft(null)}>
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContainer, { backgroundColor: t.card, borderColor: t.border }]}>
-              <Text style={[styles.modalTitle, { color: t.textPrimary }]}>Confirm Entry</Text>
-              <Text style={[styles.modalSubtitle, { color: t.textSecondary }]} numberOfLines={2}>
+            <View style={StyleSheet.flatten([styles.modalContainer, { backgroundColor: t.card, borderColor: t.border }]) as any}>
+              <Text style={StyleSheet.flatten([styles.modalTitle, { color: t.textPrimary }]) as any}>Confirm Entry</Text>
+              <Text style={StyleSheet.flatten([styles.modalSubtitle, { color: t.textSecondary }]) as any} numberOfLines={2}>
                 {draft.pending.body}
               </Text>
 
-              <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Wallet</Text>
+              <Text style={StyleSheet.flatten([styles.fieldLabel, { color: t.textSecondary }]) as any}>Wallet</Text>
               <View style={styles.chipRow}>
                 {wallets.length === 0 ? (
                   <Text style={{ color: t.danger, fontSize: 12 }}>
@@ -292,11 +292,11 @@ export default function PendingSmsScreen() {
                       <TouchableOpacity
                         key={wallet.id}
                         onPress={() => setDraft({ ...draft, walletId: wallet.id ?? null })}
-                        style={[
+                        style={StyleSheet.flatten([
                           styles.chip,
                           { borderColor: selected ? t.primary : t.border },
                           selected && { backgroundColor: `${t.primary}14` },
-                        ]}
+                        ]) as any}
                       >
                         <Text style={{ color: selected ? t.primary : t.textPrimary, fontWeight: selected ? '700' : '500' }}>
                           {wallet.name}
@@ -307,7 +307,7 @@ export default function PendingSmsScreen() {
                 )}
               </View>
 
-              <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Type</Text>
+              <Text style={StyleSheet.flatten([styles.fieldLabel, { color: t.textSecondary }]) as any}>Type</Text>
               <View style={styles.chipRow}>
                 {(['income', 'expense'] as const).map((type) => {
                   const selected = draft.type === type;
@@ -320,11 +320,11 @@ export default function PendingSmsScreen() {
                           .then(setCategories)
                           .catch(() => setCategories([]));
                       }}
-                      style={[
+                      style={StyleSheet.flatten([
                         styles.chip,
                         { borderColor: selected ? t.primary : t.border },
                         selected && { backgroundColor: `${t.primary}14` },
-                      ]}
+                      ]) as any}
                     >
                       <Text style={{ color: selected ? t.primary : t.textPrimary, fontWeight: selected ? '700' : '500' }}>
                         {type === 'income' ? 'Income' : 'Expense'}
@@ -336,59 +336,59 @@ export default function PendingSmsScreen() {
 
               <View style={styles.fieldRow}>
                 <View style={styles.fieldHalf}>
-                  <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Amount</Text>
+                  <Text style={StyleSheet.flatten([styles.fieldLabel, { color: t.textSecondary }]) as any}>Amount</Text>
                   <TextInput
                     value={draft.amount}
                     onChangeText={(amount) => setDraft({ ...draft, amount })}
                     keyboardType="decimal-pad"
                     placeholder="0.00"
                     placeholderTextColor={t.textTertiary}
-                    style={[styles.textInput, { backgroundColor: t.background, borderColor: t.border, color: t.textPrimary }]}
+                    style={StyleSheet.flatten([styles.textInput, { backgroundColor: t.background, borderColor: t.border, color: t.textPrimary }]) as any}
                   />
                 </View>
                 <View style={styles.fieldHalf}>
-                  <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Date (YYYY-MM-DD)</Text>
+                  <Text style={StyleSheet.flatten([styles.fieldLabel, { color: t.textSecondary }]) as any}>Date (YYYY-MM-DD)</Text>
                   <TextInput
                     value={draft.date}
                     onChangeText={(date) => setDraft({ ...draft, date })}
                     placeholder="2026-08-11"
                     placeholderTextColor={t.textTertiary}
                     autoCapitalize="none"
-                    style={[styles.textInput, { backgroundColor: t.background, borderColor: t.border, color: t.textPrimary }]}
+                    style={StyleSheet.flatten([styles.textInput, { backgroundColor: t.background, borderColor: t.border, color: t.textPrimary }]) as any}
                   />
                 </View>
               </View>
 
-              <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Category</Text>
+              <Text style={StyleSheet.flatten([styles.fieldLabel, { color: t.textSecondary }]) as any}>Category</Text>
               <TouchableOpacity
                 onPress={() => setShowCategoryPicker(true)}
-                style={[styles.textInput, { backgroundColor: t.background, borderColor: t.border, justifyContent: 'center' }]}
+                style={StyleSheet.flatten([styles.textInput, { backgroundColor: t.background, borderColor: t.border, justifyContent: 'center' }]) as any}
               >
                 <Text style={{ color: draft.category ? t.textPrimary : t.textTertiary }}>
                   {draft.category ?? 'Uncategorized'}
                 </Text>
               </TouchableOpacity>
 
-              <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Notes (optional)</Text>
+              <Text style={StyleSheet.flatten([styles.fieldLabel, { color: t.textSecondary }]) as any}>Notes (optional)</Text>
               <TextInput
                 value={draft.notes}
                 onChangeText={(notes) => setDraft({ ...draft, notes })}
                 placeholder="e.g. Groceries at Shoprite"
                 placeholderTextColor={t.textTertiary}
-                style={[styles.textInput, { backgroundColor: t.background, borderColor: t.border, color: t.textPrimary }]}
+                style={StyleSheet.flatten([styles.textInput, { backgroundColor: t.background, borderColor: t.border, color: t.textPrimary }]) as any}
               />
 
               <View style={styles.modalActions}>
                 <TouchableOpacity
                   onPress={() => setDraft(null)}
-                  style={[styles.cancelButton, { borderColor: t.border }]}
+                  style={StyleSheet.flatten([styles.cancelButton, { borderColor: t.border }]) as any}
                   disabled={busy}
                 >
                   <Text style={{ color: t.textSecondary, fontWeight: '600' }}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => void handleConfirm()}
-                  style={[styles.saveButton, { backgroundColor: busy ? t.border : t.primary }]}
+                  style={StyleSheet.flatten([styles.saveButton, { backgroundColor: busy ? t.border : t.primary }]) as any}
                   disabled={busy}
                 >
                   <Text style={styles.saveButtonText}>{busy ? 'Saving...' : 'Confirm'}</Text>
@@ -402,8 +402,8 @@ export default function PendingSmsScreen() {
       {showCategoryPicker && draft && (
         <Modal visible transparent animationType="fade" onRequestClose={() => setShowCategoryPicker(false)}>
           <View style={styles.modalOverlay}>
-            <View style={[styles.categoryModal, { backgroundColor: t.card, borderColor: t.border }]}>
-              <Text style={[styles.modalTitle, { color: t.textPrimary }]}>Select Category</Text>
+            <View style={StyleSheet.flatten([styles.categoryModal, { backgroundColor: t.card, borderColor: t.border }]) as any}>
+              <Text style={StyleSheet.flatten([styles.modalTitle, { color: t.textPrimary }]) as any}>Select Category</Text>
               <FlatList
                 data={categories}
                 keyExtractor={(item) => String(item.id)}
@@ -413,7 +413,7 @@ export default function PendingSmsScreen() {
                       setDraft({ ...draft, category: item.name });
                       setShowCategoryPicker(false);
                     }}
-                    style={[styles.categoryItem, { borderBottomColor: t.border }]}
+                    style={StyleSheet.flatten([styles.categoryItem, { borderBottomColor: t.border }]) as any}
                   >
                     <Text style={{ color: t.textPrimary, fontWeight: '600' }}>{item.name}</Text>
                   </TouchableOpacity>
@@ -424,7 +424,7 @@ export default function PendingSmsScreen() {
                   setDraft({ ...draft, category: null });
                   setShowCategoryPicker(false);
                 }}
-                style={[styles.cancelButton, { borderTopWidth: 1, borderTopColor: t.border }]}
+                style={StyleSheet.flatten([styles.cancelButton, { borderTopWidth: 1, borderTopColor: t.border }]) as any}
               >
                 <Text style={{ color: t.textSecondary, fontWeight: '600' }}>No category</Text>
               </TouchableOpacity>

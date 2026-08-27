@@ -341,33 +341,33 @@ export default function ReminderSettingsScreen() {
   const saveButtonLabel = saving ? 'Saving...' : hasUnsavedChanges ? 'Save Changes' : 'No Changes';
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['left', 'right', 'top']}>
-      <ScrollView contentContainerStyle={[styles.content, compact && styles.contentCompact]}>
-        <View style={[styles.card, compact && styles.cardCompact, { backgroundColor: t.card, borderColor: t.border }]}> 
+    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: t.background }]) as any} edges={['left', 'right', 'top']}>
+      <ScrollView contentContainerStyle={StyleSheet.flatten([styles.content, compact && styles.contentCompact]) as any}>
+        <View style={StyleSheet.flatten([styles.card, compact && styles.cardCompact, { backgroundColor: t.card, borderColor: t.border }]) as any}> 
           <View
-            style={[
+            style={StyleSheet.flatten([
               styles.statusHero,
               {
                 backgroundColor: reminderStatusBg,
                 borderColor: `${reminderStatusColor}44`,
               },
-            ]}
+            ]) as any}
           >
             <View style={styles.statusHeroRow}>
-              <Text style={[styles.statusHeroTitle, compact && styles.statusHeroTitleCompact, { color: t.textPrimary }]}>Reminder Status</Text>
-              <View style={[styles.statusBadge, { backgroundColor: `${reminderStatusColor}18`, borderColor: `${reminderStatusColor}40` }]}>
-                <Text style={[styles.statusBadgeText, { color: reminderStatusColor }]}>{reminderStatusLabel}</Text>
+              <Text style={StyleSheet.flatten([styles.statusHeroTitle, compact && styles.statusHeroTitleCompact, { color: t.textPrimary }]) as any}>Reminder Status</Text>
+              <View style={StyleSheet.flatten([styles.statusBadge, { backgroundColor: `${reminderStatusColor}18`, borderColor: `${reminderStatusColor}40` }]) as any}>
+                <Text style={StyleSheet.flatten([styles.statusBadgeText, { color: reminderStatusColor }]) as any}>{reminderStatusLabel}</Text>
               </View>
             </View>
-            <Text style={[styles.statusHeroMessage, compact && styles.statusHeroMessageCompact, { color: t.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.statusHeroMessage, compact && styles.statusHeroMessageCompact, { color: t.textSecondary }]) as any}>
               {reminderStatusMessage}
             </Text>
           </View>
 
           <View style={styles.rowBetween}>
             <View style={styles.rowText}>
-              <Text style={[styles.label, compact && styles.labelCompact, { color: t.textPrimary }]}>Enable reminders</Text>
-              <Text style={[styles.subLabel, compact && styles.subLabelCompact, { color: t.textSecondary }]}> 
+              <Text style={StyleSheet.flatten([styles.label, compact && styles.labelCompact, { color: t.textPrimary }]) as any}>Enable reminders</Text>
+              <Text style={StyleSheet.flatten([styles.subLabel, compact && styles.subLabelCompact, { color: t.textSecondary }]) as any}> 
                 At most one reminder per local day, never less than 12 hours apart.
               </Text>
             </View>
@@ -375,9 +375,9 @@ export default function ReminderSettingsScreen() {
           </View>
 
           <View style={styles.metaRow}>
-            <Text style={[styles.metaLabel, { color: t.textSecondary }]}>Permission</Text>
+            <Text style={StyleSheet.flatten([styles.metaLabel, { color: t.textSecondary }]) as any}>Permission</Text>
             <Text
-              style={[
+              style={StyleSheet.flatten([
                 styles.metaValue,
                 {
                   color:
@@ -387,7 +387,7 @@ export default function ReminderSettingsScreen() {
                         ? t.warning
                         : t.danger,
                 },
-              ]}
+              ]) as any}
             >
               {permissionStatus === 'granted'
                 ? 'Allowed'
@@ -399,22 +399,22 @@ export default function ReminderSettingsScreen() {
 
           {permissionStatus !== 'granted' && (
             <View
-              style={[
+              style={StyleSheet.flatten([
                 styles.permissionCallout,
                 {
                   backgroundColor: canAskAgain ? `${t.warning}12` : `${t.danger}12`,
                   borderColor: canAskAgain ? `${t.warning}40` : `${t.danger}40`,
                 },
-              ]}
+              ]) as any}
             >
-              <Text style={[styles.permissionCalloutText, { color: t.textPrimary }]}>
+              <Text style={StyleSheet.flatten([styles.permissionCalloutText, { color: t.textPrimary }]) as any}>
                 {canAskAgain
                   ? 'Turn on notifications to re-enable reminders.'
                   : 'Notifications are blocked at system level. Open settings to enable reminders again.'}
               </Text>
               <Pressable
                 onPress={canAskAgain ? () => void handleToggleEnabled(true) : () => void openNotificationSettings(true)}
-                style={[styles.permissionCalloutButton, compact && styles.permissionCalloutButtonCompact, { backgroundColor: t.primary }]}
+                style={StyleSheet.flatten([styles.permissionCalloutButton, compact && styles.permissionCalloutButtonCompact, { backgroundColor: t.primary }]) as any}
               >
                 <Text style={styles.permissionCalloutButtonText}>
                   {canAskAgain ? 'Allow Notifications' : 'Open Settings'}
@@ -423,41 +423,41 @@ export default function ReminderSettingsScreen() {
             </View>
           )}
 
-          <Pressable onPress={handleRefreshPermission} style={[styles.secondaryButton, { borderColor: t.border }]}> 
-            <Text style={[styles.secondaryButtonText, { color: t.textPrimary }]}>Refresh Permission</Text>
+          <Pressable onPress={handleRefreshPermission} style={StyleSheet.flatten([styles.secondaryButton, { borderColor: t.border }]) as any}> 
+            <Text style={StyleSheet.flatten([styles.secondaryButtonText, { color: t.textPrimary }]) as any}>Refresh Permission</Text>
           </Pressable>
         </View>
 
         {enabled && (
           <>
-            <View style={[styles.card, compact && styles.cardCompact, { backgroundColor: t.card, borderColor: t.border }]}>
-              <Text style={[styles.label, { color: t.textPrimary }]}>Preferred reminder time</Text>
+            <View style={StyleSheet.flatten([styles.card, compact && styles.cardCompact, { backgroundColor: t.card, borderColor: t.border }]) as any}>
+              <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>Preferred reminder time</Text>
               <Pressable
                 onPress={() => setPickerTarget('preferred')}
-                style={[styles.timeButton, { backgroundColor: t.background, borderColor: t.border }]}
+                style={StyleSheet.flatten([styles.timeButton, { backgroundColor: t.background, borderColor: t.border }]) as any}
               >
-                <Text style={[styles.timeText, { color: t.textPrimary }]}>{preferredTimeLocal}</Text>
+                <Text style={StyleSheet.flatten([styles.timeText, { color: t.textPrimary }]) as any}>{preferredTimeLocal}</Text>
               </Pressable>
             </View>
 
-            <View style={[styles.card, compact && styles.cardCompact, { backgroundColor: t.card, borderColor: t.border }]}>
+            <View style={StyleSheet.flatten([styles.card, compact && styles.cardCompact, { backgroundColor: t.card, borderColor: t.border }]) as any}>
               <View style={styles.rowBetween}>
-                <Text style={[styles.label, { color: t.textPrimary }]}>Quiet hours</Text>
+                <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>Quiet hours</Text>
                 <Switch value={useQuietHours} onValueChange={setUseQuietHours} />
               </View>
               {useQuietHours && (
                 <View style={styles.quietRow}>
                   <Pressable
                     onPress={() => setPickerTarget('quietStart')}
-                    style={[styles.timeButton, styles.quietButton, { backgroundColor: t.background, borderColor: t.border }]}
+                    style={StyleSheet.flatten([styles.timeButton, styles.quietButton, { backgroundColor: t.background, borderColor: t.border }]) as any}
                   >
-                    <Text style={[styles.timeText, { color: t.textPrimary }]}>Start {quietHoursStart}</Text>
+                    <Text style={StyleSheet.flatten([styles.timeText, { color: t.textPrimary }]) as any}>Start {quietHoursStart}</Text>
                   </Pressable>
                   <Pressable
                     onPress={() => setPickerTarget('quietEnd')}
-                    style={[styles.timeButton, styles.quietButton, { backgroundColor: t.background, borderColor: t.border }]}
+                    style={StyleSheet.flatten([styles.timeButton, styles.quietButton, { backgroundColor: t.background, borderColor: t.border }]) as any}
                   >
-                    <Text style={[styles.timeText, { color: t.textPrimary }]}>End {quietHoursEnd}</Text>
+                    <Text style={StyleSheet.flatten([styles.timeText, { color: t.textPrimary }]) as any}>End {quietHoursEnd}</Text>
                   </Pressable>
                 </View>
               )}
@@ -465,25 +465,25 @@ export default function ReminderSettingsScreen() {
           </>
         )}
 
-        <View style={[styles.card, compact && styles.cardCompact, { backgroundColor: t.card, borderColor: t.border }]}> 
-          <Text style={[styles.metaLabel, { color: t.textSecondary }]}>Last delivered (UTC)</Text>
-          <Text style={[styles.metaValue, { color: t.textPrimary }]}>{formatUtc(reminderLastDeliveredAtUtc)}</Text>
-          <Text style={[styles.metaLabel, { color: t.textSecondary, marginTop: 10 }]}>Next scheduled</Text>
-          <Text style={[styles.metaValue, { color: t.textPrimary }]}>{formatUtc(reminderNextScheduledAtUtc)}</Text>
+        <View style={StyleSheet.flatten([styles.card, compact && styles.cardCompact, { backgroundColor: t.card, borderColor: t.border }]) as any}> 
+          <Text style={StyleSheet.flatten([styles.metaLabel, { color: t.textSecondary }]) as any}>Last delivered (UTC)</Text>
+          <Text style={StyleSheet.flatten([styles.metaValue, { color: t.textPrimary }]) as any}>{formatUtc(reminderLastDeliveredAtUtc)}</Text>
+          <Text style={StyleSheet.flatten([styles.metaLabel, { color: t.textSecondary, marginTop: 10 }]) as any}>Next scheduled</Text>
+          <Text style={StyleSheet.flatten([styles.metaValue, { color: t.textPrimary }]) as any}>{formatUtc(reminderNextScheduledAtUtc)}</Text>
         </View>
 
         <View style={styles.actions}>
           {hasUnsavedChanges && (
-            <Text style={[styles.pendingChangesText, { color: t.textSecondary }]}>You have unsaved reminder changes.</Text>
+            <Text style={StyleSheet.flatten([styles.pendingChangesText, { color: t.textSecondary }]) as any}>You have unsaved reminder changes.</Text>
           )}
           <Pressable
-            style={[
+            style={StyleSheet.flatten([
               styles.primaryButton,
               {
                 backgroundColor: hasUnsavedChanges ? t.primary : t.border,
                 opacity: saving ? 0.65 : 1,
               },
-            ]}
+            ]) as any}
             onPress={handleSave}
             disabled={saveDisabled}
           >
@@ -491,10 +491,10 @@ export default function ReminderSettingsScreen() {
           </Pressable>
 
           <Pressable
-            style={[styles.secondaryButton, { borderColor: t.border, backgroundColor: t.card }]}
+            style={StyleSheet.flatten([styles.secondaryButton, { borderColor: t.border, backgroundColor: t.card }]) as any}
             onPress={handleTestNotification}
           >
-            <Text style={[styles.secondaryButtonText, { color: t.textPrimary }]}>Send Test Notification</Text>
+            <Text style={StyleSheet.flatten([styles.secondaryButtonText, { color: t.textPrimary }]) as any}>Send Test Notification</Text>
           </Pressable>
         </View>
       </ScrollView>

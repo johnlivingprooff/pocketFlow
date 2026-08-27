@@ -85,9 +85,9 @@ export default function GoalDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading...</Text>
+          <Text style={StyleSheet.flatten([styles.loadingText, { color: colors.textSecondary }]) as any}>Loading...</Text>
         </View>
       </SafeAreaView>
     );
@@ -95,9 +95,9 @@ export default function GoalDetailScreen() {
 
   if (!goal) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Goal not found</Text>
+          <Text style={StyleSheet.flatten([styles.loadingText, { color: colors.textSecondary }]) as any}>Goal not found</Text>
         </View>
       </SafeAreaView>
     );
@@ -106,94 +106,94 @@ export default function GoalDetailScreen() {
   const statusColor = goal.onTrack ? colors.success : colors.primary;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Header Card */}
-        <View style={[styles.headerCard, { backgroundColor: colors.card }]}>
-          <Text style={[styles.goalName, { color: colors.textPrimary }]}>
+        <View style={StyleSheet.flatten([styles.headerCard, { backgroundColor: colors.card }]) as any}>
+          <Text style={StyleSheet.flatten([styles.goalName, { color: colors.textPrimary }]) as any}>
             {goal.name}
           </Text>
-          <Text style={[styles.targetAmount, { color: colors.textSecondary }]}>
+          <Text style={StyleSheet.flatten([styles.targetAmount, { color: colors.textSecondary }]) as any}>
             Target: {formatCurrency(goal.targetAmount, defaultCurrency)}
           </Text>
         </View>
 
         {/* Progress Section */}
-        <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Progress</Text>
+        <View style={StyleSheet.flatten([styles.section, { backgroundColor: colors.card }]) as any}>
+          <Text style={StyleSheet.flatten([styles.sectionTitle, { color: colors.textPrimary }]) as any}>Progress</Text>
 
           <View style={styles.progressContainer}>
             <View
-              style={[
+              style={StyleSheet.flatten([
                 styles.progressBar,
                 {
                   width: `${Math.min(goal.progressPercentage || 0, 100)}%`,
                   backgroundColor: statusColor,
                 },
-              ]}
+              ]) as any}
             />
           </View>
 
           <View style={styles.progressStats}>
             <View style={styles.statItem}>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Saved</Text>
-              <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+              <Text style={StyleSheet.flatten([styles.statLabel, { color: colors.textSecondary }]) as any}>Saved</Text>
+              <Text style={StyleSheet.flatten([styles.statValue, { color: colors.textPrimary }]) as any}>
                 {formatCurrency(goal.currentProgress, defaultCurrency)}
               </Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Target</Text>
-              <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+              <Text style={StyleSheet.flatten([styles.statLabel, { color: colors.textSecondary }]) as any}>Target</Text>
+              <Text style={StyleSheet.flatten([styles.statValue, { color: colors.textPrimary }]) as any}>
                 {formatCurrency(goal.targetAmount, defaultCurrency)}
               </Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Remaining</Text>
-              <Text style={[styles.statValue, { color: statusColor }]}>
+              <Text style={StyleSheet.flatten([styles.statLabel, { color: colors.textSecondary }]) as any}>Remaining</Text>
+              <Text style={StyleSheet.flatten([styles.statValue, { color: statusColor }]) as any}>
                 {formatCurrency(Math.max(0, goal.targetAmount - goal.currentProgress), defaultCurrency)}
               </Text>
             </View>
           </View>
 
-          <View style={[styles.percentageContainer, { backgroundColor: colors.background }]}>
-            <Text style={[styles.percentageText, { color: colors.textSecondary }]}>
+          <View style={StyleSheet.flatten([styles.percentageContainer, { backgroundColor: colors.background }]) as any}>
+            <Text style={StyleSheet.flatten([styles.percentageText, { color: colors.textSecondary }]) as any}>
               {goal.progressPercentage?.toFixed(1) || '0'}% complete
             </Text>
           </View>
         </View>
 
         {/* Details Section */}
-        <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Details</Text>
+        <View style={StyleSheet.flatten([styles.section, { backgroundColor: colors.card }]) as any}>
+          <Text style={StyleSheet.flatten([styles.sectionTitle, { color: colors.textPrimary }]) as any}>Details</Text>
 
           <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.detailLabel, { color: colors.textSecondary }]) as any}>
               Target Date
             </Text>
-            <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.detailValue, { color: colors.textPrimary }]) as any}>
               {new Date(goal.targetDate).toLocaleDateString()}
             </Text>
           </View>
 
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View style={StyleSheet.flatten([styles.divider, { backgroundColor: colors.border }]) as any} />
 
           <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.detailLabel, { color: colors.textSecondary }]) as any}>
               Monthly Required
             </Text>
-            <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.detailValue, { color: colors.textPrimary }]) as any}>
               {formatCurrency(goal.monthlyRequired, defaultCurrency)}
             </Text>
           </View>
 
           {goal.daysRemaining !== undefined && goal.daysRemaining > 0 && (
             <>
-              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              <View style={StyleSheet.flatten([styles.divider, { backgroundColor: colors.border }]) as any} />
               <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+                <Text style={StyleSheet.flatten([styles.detailLabel, { color: colors.textSecondary }]) as any}>
                   Days Remaining
                 </Text>
-                <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
+                <Text style={StyleSheet.flatten([styles.detailValue, { color: colors.textPrimary }]) as any}>
                   {goal.daysRemaining} day{goal.daysRemaining !== 1 ? 's' : ''}
                 </Text>
               </View>
@@ -202,10 +202,10 @@ export default function GoalDetailScreen() {
 
           {goal.notes && (
             <>
-              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              <View style={StyleSheet.flatten([styles.divider, { backgroundColor: colors.border }]) as any} />
               <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Notes</Text>
-                <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
+                <Text style={StyleSheet.flatten([styles.detailLabel, { color: colors.textSecondary }]) as any}>Notes</Text>
+                <Text style={StyleSheet.flatten([styles.detailValue, { color: colors.textPrimary }]) as any}>
                   {goal.notes}
                 </Text>
               </View>
@@ -214,24 +214,24 @@ export default function GoalDetailScreen() {
         </View>
 
         {/* Status Section */}
-        <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Status</Text>
+        <View style={StyleSheet.flatten([styles.section, { backgroundColor: colors.card }]) as any}>
+          <Text style={StyleSheet.flatten([styles.sectionTitle, { color: colors.textPrimary }]) as any}>Status</Text>
 
           <View
-            style={[
+            style={StyleSheet.flatten([
               styles.statusBadge,
               {
                 backgroundColor: `${statusColor}20`,
                 borderColor: statusColor,
               },
-            ]}
+            ]) as any}
           >
-            <Text style={[styles.statusText, { color: statusColor }]}>
+            <Text style={StyleSheet.flatten([styles.statusText, { color: statusColor }]) as any}>
               {goal.onTrack ? '✅ On Track' : '⚠️  Behind Schedule'}
             </Text>
           </View>
 
-          <Text style={[styles.statusDescription, { color: colors.textSecondary }]}>
+          <Text style={StyleSheet.flatten([styles.statusDescription, { color: colors.textSecondary }]) as any}>
             {goal.onTrack
               ? `Keep saving ${formatCurrency(goal.monthlyRequired, defaultCurrency)} monthly to reach your goal on time.`
               : `You need to save ${formatCurrency(goal.monthlyRequired, defaultCurrency)} monthly to catch up.`}
@@ -242,24 +242,24 @@ export default function GoalDetailScreen() {
         <View style={styles.actionsContainer}>
           <Pressable
             onPress={handleEdit}
-            style={[
+            style={StyleSheet.flatten([
               styles.actionButton,
               { backgroundColor: colors.primary },
-            ]}
+            ]) as any}
           >
-            <Text style={[styles.actionButtonText, { color: colors.background }]}>
+            <Text style={StyleSheet.flatten([styles.actionButtonText, { color: colors.background }]) as any}>
               Edit Goal
             </Text>
           </Pressable>
 
           <Pressable
             onPress={handleDelete}
-            style={[
+            style={StyleSheet.flatten([
               styles.actionButton,
               { backgroundColor: colors.danger },
-            ]}
+            ]) as any}
           >
-            <Text style={[styles.actionButtonText, { color: colors.background }]}>
+            <Text style={StyleSheet.flatten([styles.actionButtonText, { color: colors.background }]) as any}>
               Delete Goal
             </Text>
           </Pressable>

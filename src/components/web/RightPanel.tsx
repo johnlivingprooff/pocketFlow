@@ -115,13 +115,13 @@ export function RightPanel({
 
   return (
     <View
-      style={[
+      style={StyleSheet.flatten([
         styles.panel,
         {
           backgroundColor: t.card,
           borderLeftColor: t.border,
         },
-      ]}
+      ]) as any}
     >
       {/* Close Button (mobile only - top right) */}
       <View style={styles.panelHeader}>
@@ -141,10 +141,10 @@ export function RightPanel({
         <View style={styles.section}>
           <View style={styles.userProfile}>
             <View
-              style={[
+              style={StyleSheet.flatten([
                 styles.avatar,
                 { backgroundColor: t.primary },
-              ]}
+              ]) as any}
             >
               {userInfo?.profileImage ? (
                 <Image
@@ -159,18 +159,18 @@ export function RightPanel({
             </View>
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text
-                style={[
+                style={StyleSheet.flatten([
                   styles.userName,
                   { color: t.textPrimary },
-                ]}
+                ]) as any}
               >
                 {userInfo?.name || 'User'}
               </Text>
               <Text
-                style={[
+                style={StyleSheet.flatten([
                   styles.userSubtitle,
                   { color: t.textSecondary },
-                ]}
+                ]) as any}
               >
                 {defaultCurrency}
               </Text>
@@ -180,26 +180,26 @@ export function RightPanel({
 
         {/* Theme Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>
+          <Text style={StyleSheet.flatten([styles.sectionTitle, { color: t.textSecondary }]) as any}>
             APPEARANCE
           </Text>
           <TouchableOpacity
             onPress={() => setShowThemeMenu(!showThemeMenu)}
-            style={[
+            style={StyleSheet.flatten([
               styles.menuItem,
               { backgroundColor: t.background },
-            ]}
+            ]) as any}
           >
-            <Text style={[styles.menuLabel, { color: t.textPrimary }]}>
+            <Text style={StyleSheet.flatten([styles.menuLabel, { color: t.textPrimary }]) as any}>
               Theme
             </Text>
-            <Text style={[styles.menuValue, { color: t.textSecondary }]}>
+            <Text style={StyleSheet.flatten([styles.menuValue, { color: t.textSecondary }]) as any}>
               {themeOptions.find((o) => o.value === themeMode)?.label}
             </Text>
           </TouchableOpacity>
 
           {showThemeMenu && (
-            <View style={[styles.submenu, { backgroundColor: t.background }]}>
+            <View style={StyleSheet.flatten([styles.submenu, { backgroundColor: t.background }]) as any}>
               {themeOptions.map((option) => (
                 <TouchableOpacity
                   key={option.value}
@@ -207,15 +207,15 @@ export function RightPanel({
                     setThemeMode(option.value);
                     setShowThemeMenu(false);
                   }}
-                  style={[
+                  style={StyleSheet.flatten([
                     styles.submenuItem,
                     themeMode === option.value && {
                       backgroundColor: t.primary + '20',
                     },
-                  ]}
+                  ]) as any}
                 >
                   <Text
-                    style={[
+                    style={StyleSheet.flatten([
                       styles.submenuLabel,
                       {
                         color:
@@ -223,7 +223,7 @@ export function RightPanel({
                             ? t.primary
                             : t.textPrimary,
                       },
-                    ]}
+                    ]) as any}
                   >
                     {option.label}
                   </Text>
@@ -235,25 +235,25 @@ export function RightPanel({
 
         {/* Storage Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>
+          <Text style={StyleSheet.flatten([styles.sectionTitle, { color: t.textSecondary }]) as any}>
             STORAGE
           </Text>
 
-          <View style={[styles.storageMode, { backgroundColor: t.background }]}>
+          <View style={StyleSheet.flatten([styles.storageMode, { backgroundColor: t.background }]) as any}>
             <View>
               <Text
-                style={[
+                style={StyleSheet.flatten([
                   styles.storageLabel,
                   { color: t.textPrimary },
-                ]}
+                ]) as any}
               >
                 Storage Mode
               </Text>
               <Text
-                style={[
+                style={StyleSheet.flatten([
                   styles.storageValue,
                   { color: t.textSecondary },
-                ]}
+                ]) as any}
               >
                 {storageMode === 'browser'
                   ? 'Browser (IndexedDB)'
@@ -270,17 +270,17 @@ export function RightPanel({
 
           {isExporting ? (
             <View
-              style={[
+              style={StyleSheet.flatten([
                 styles.actionButton,
                 { backgroundColor: t.background, opacity: 0.6 },
-              ]}
+              ]) as any}
             >
               <ActivityIndicator color={t.primary} />
               <Text
-                style={[
+                style={StyleSheet.flatten([
                   styles.actionButtonLabel,
                   { color: t.textSecondary },
-                ]}
+                ]) as any}
               >
                 Processing...
               </Text>
@@ -289,24 +289,24 @@ export function RightPanel({
             <>
               <TouchableOpacity
                 onPress={handleExportDatabase}
-                style={[
+                style={StyleSheet.flatten([
                   styles.actionButton,
                   { backgroundColor: t.primary + '20' },
-                ]}
+                ]) as any}
               >
-                <Text style={[styles.actionButtonLabel, { color: t.primary }]}>
+                <Text style={StyleSheet.flatten([styles.actionButtonLabel, { color: t.primary }]) as any}>
                   ⬇️ Export Database
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={handleImportDatabase}
-                style={[
+                style={StyleSheet.flatten([
                   styles.actionButton,
                   { backgroundColor: t.primary + '20' },
-                ]}
+                ]) as any}
               >
-                <Text style={[styles.actionButtonLabel, { color: t.primary }]}>
+                <Text style={StyleSheet.flatten([styles.actionButtonLabel, { color: t.primary }]) as any}>
                   ⬆️ Import Database
                 </Text>
               </TouchableOpacity>
@@ -318,16 +318,16 @@ export function RightPanel({
         <View style={styles.section}>
           <Link href="/settings" asChild>
             <TouchableOpacity
-              style={[
+              style={StyleSheet.flatten([
                 styles.menuItem,
                 { backgroundColor: t.background },
-              ]}
+              ]) as any}
             >
               <Text
-                style={[
+                style={StyleSheet.flatten([
                   styles.menuLabel,
                   { color: t.primary, fontWeight: '600' },
-                ]}
+                ]) as any}
               >
                 ⚙️ Full Settings
               </Text>

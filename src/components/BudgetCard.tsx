@@ -37,48 +37,48 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({ budget }) => {
   }
 
   return (
-    <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
+    <View style={StyleSheet.flatten([styles.card, { backgroundColor: t.card, borderColor: t.border }]) as any}>
       {/* Header with name and status */}
       <View style={styles.header}>
-        <Text style={[styles.budgetName, { color: t.textPrimary }]}>
+        <Text style={StyleSheet.flatten([styles.budgetName, { color: t.textPrimary }]) as any}>
           {budget.name}
         </Text>
-        <View style={[styles.statusBadge, { backgroundColor: statusBgColor }]}>
-          <Text style={[styles.statusText, { color: progressColor }]}>{statusText}</Text>
+        <View style={StyleSheet.flatten([styles.statusBadge, { backgroundColor: statusBgColor }]) as any}>
+          <Text style={StyleSheet.flatten([styles.statusText, { color: progressColor }]) as any}>{statusText}</Text>
         </View>
       </View>
 
       {/* Progress Bar */}
-      <View style={[styles.progressBarContainer, { backgroundColor: t.background, borderColor: t.border }]}>
+      <View style={StyleSheet.flatten([styles.progressBarContainer, { backgroundColor: t.background, borderColor: t.border }]) as any}>
         <View
-          style={[
+          style={StyleSheet.flatten([
             styles.progressBarFill,
             {
               width: `${percentage}%`,
               backgroundColor: progressColor,
             },
-          ]}
+          ]) as any}
         />
       </View>
 
       {/* Spent and Remaining Info */}
       <View style={styles.infoRow}>
         <View style={styles.infoItem}>
-          <Text style={[styles.infoLabel, { color: t.textSecondary }]}>Spent</Text>
-          <Text style={[styles.infoValue, { color: percentage >= 100 ? t.danger : t.textPrimary }]}>
+          <Text style={StyleSheet.flatten([styles.infoLabel, { color: t.textSecondary }]) as any}>Spent</Text>
+          <Text style={StyleSheet.flatten([styles.infoValue, { color: percentage >= 100 ? t.danger : t.textPrimary }]) as any}>
             {formatCurrency(budget.currentSpending, defaultCurrency)}
           </Text>
         </View>
 
         <View style={styles.percentageItem}>
-          <Text style={[styles.percentageText, { color: progressColor }]}>
+          <Text style={StyleSheet.flatten([styles.percentageText, { color: progressColor }]) as any}>
             {percentage.toFixed(0)}%
           </Text>
         </View>
 
-        <View style={[styles.infoItem, { alignItems: 'flex-end' }]}>
-          <Text style={[styles.infoLabel, { color: t.textSecondary }]}>Remaining</Text>
-          <Text style={[styles.infoValue, { color: remaining > 0 ? t.success : t.danger }]}>
+        <View style={StyleSheet.flatten([styles.infoItem, { alignItems: 'flex-end' }]) as any}>
+          <Text style={StyleSheet.flatten([styles.infoLabel, { color: t.textSecondary }]) as any}>Remaining</Text>
+          <Text style={StyleSheet.flatten([styles.infoValue, { color: remaining > 0 ? t.success : t.danger }]) as any}>
             {formatCurrency(remaining, defaultCurrency)}
           </Text>
         </View>
@@ -86,11 +86,11 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({ budget }) => {
 
       {/* Footer with limit and details link */}
       <View style={styles.footer}>
-        <Text style={[styles.limitText, { color: t.textSecondary }]}>
+        <Text style={StyleSheet.flatten([styles.limitText, { color: t.textSecondary }]) as any}>
           Limit: {formatCurrency(budget.limitAmount, defaultCurrency)}
         </Text>
         <TouchableOpacity onPress={() => router.push(`/budgets/${budget.id}`)}>
-          <Text style={[styles.detailsLink, { color: t.primary }]}>Details ›</Text>
+          <Text style={StyleSheet.flatten([styles.detailsLink, { color: t.primary }]) as any}>Details ›</Text>
         </TouchableOpacity>
       </View>
     </View>
