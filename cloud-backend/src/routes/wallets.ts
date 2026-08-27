@@ -282,6 +282,61 @@ router.delete('/:walletId/members/:memberUserId', requireWalletOwner, async (req
   }
 });
 
+router.get('/:walletId/transactions', requireWalletMember, async (req: Request, res: Response) => {
+  const walletId = req.params.walletId;
+  const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
+  const offset = Math.max(Number(req.query.offset) || 0, 0);
+  const since = typeof req.query.since === 'string' ? req.query.since : null;
+
+  try {
+    const params: unknown[] = [walletId];
+    let sinceClause = '';
+    if (since) {
+      params.push(since);
+      sinceClause = `AND st.updated_at > $${params.length}::TIMESTAMPTZ`;
+    }
+    params.push(limit, offset);
+    const limitIdx = params.length - 1;
+    const offsetIdx = params.length;
+
+    const result = await db.query(
+      `SELECT st.id,
+              st.external_id AS "externalId",
+              st.type,
+              st.amount,
+              st.category,
+              st.date::TEXT AS date,
+              st.notes,
+              st.updated_at::TEXT AS "updatedAt",
+              st.created_by AS "createdBy",
+              u.email AS "createdByEmail"
+       FROM shared_transactions st
+       JOIN users u ON u.id = st.created_by
+       WHERE st.wallet_id = $1
+         ${sinceClause}
+       ORDER BY st.date DESC, st.created_at DESC
+       LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+      params
+    );
+
+    const totalResult = await db.query<{ count: string }>(
+      `SELECT COUNT(*)::TEXT AS count
+       FROM shared_transactions
+       WHERE wallet_id = $1 ${since ? 'AND updated_at > $2::TIMESTAMPTZ' : ''}`,
+      since ? [walletId, since] : [walletId]
+    );
+
+    res.json({
+      transactions: result.rows,
+      total: Number(totalResult.rows[0]?.count || 0),
+      limit,
+      offset,
+    });
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch shared transactions' });
+  }
+});
+
 router.post('/:walletId/transactions/sync', requireWalletMember, async (req: Request, res: Response) => {
   const walletId = req.params.walletId;
   const createdBy = req.authUser?.id;
@@ -338,6 +393,26 @@ router.post('/:walletId/transactions/sync', requireWalletMember, async (req: Req
     res.status(500).json({ error: 'Failed to sync transactions' });
   } finally {
     client.release();
+  }
+});
+
+router.delete('/:walletId/transactions/:externalId', requireWalletMember, async (req: Request, res: Response) => {
+  const walletId = req.params.walletId;
+  const externalId = req.params.externalId;
+
+  try {
+    const result = await db.query(
+      `DELETE FROM shared_transactions
+       WHERE wallet_id = $1 AND external_id = $2`,
+      [walletId, externalId]
+    );
+    if (result.rowCount === 0) {
+      res.status(404).json({ error: 'Transaction not found' });
+      return;
+    }
+    res.status(204).send();
+  } catch {
+    res.status(500).json({ error: 'Failed to delete shared transaction' });
   }
 });
 
