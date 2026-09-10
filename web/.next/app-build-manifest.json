@@ -16,13 +16,13 @@
       "static/chunks/448-764a0311ac16abc8.js",
       "static/chunks/app/layout-3529ed99592b84b8.js"
     ],
-    "/page": [
+    "/invite/[token]/page": [
       "static/chunks/webpack-c81f7fd28659d64f.js",
       "static/chunks/fd9d1056-9f91b5e418130764.js",
       "static/chunks/117-9bcfe95f89d4b2e1.js",
       "static/chunks/main-app-31626447c6624f61.js",
       "static/chunks/448-764a0311ac16abc8.js",
-      "static/chunks/app/page-21fe4767a8788d7b.js"
+      "static/chunks/app/invite/[token]/page-61bed0514897eea6.js"
     ],
     "/login/page": [
       "static/chunks/webpack-c81f7fd28659d64f.js",
@@ -32,6 +32,14 @@
       "static/chunks/448-764a0311ac16abc8.js",
       "static/chunks/app/login/page-17cb7e7a24a6656d.js"
     ],
+    "/page": [
+      "static/chunks/webpack-c81f7fd28659d64f.js",
+      "static/chunks/fd9d1056-9f91b5e418130764.js",
+      "static/chunks/117-9bcfe95f89d4b2e1.js",
+      "static/chunks/main-app-31626447c6624f61.js",
+      "static/chunks/448-764a0311ac16abc8.js",
+      "static/chunks/app/page-21fe4767a8788d7b.js"
+    ],
     "/wallets/[id]/page": [
       "static/chunks/webpack-c81f7fd28659d64f.js",
       "static/chunks/fd9d1056-9f91b5e418130764.js",
@@ -39,14 +47,6 @@
       "static/chunks/main-app-31626447c6624f61.js",
       "static/chunks/448-764a0311ac16abc8.js",
       "static/chunks/app/wallets/[id]/page-98006b698b7130a9.js"
-    ],
-    "/invite/[token]/page": [
-      "static/chunks/webpack-c81f7fd28659d64f.js",
-      "static/chunks/fd9d1056-9f91b5e418130764.js",
-      "static/chunks/117-9bcfe95f89d4b2e1.js",
-      "static/chunks/main-app-31626447c6624f61.js",
-      "static/chunks/448-764a0311ac16abc8.js",
-      "static/chunks/app/invite/[token]/page-61bed0514897eea6.js"
     ]
   }
 }

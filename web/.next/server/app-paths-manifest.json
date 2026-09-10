@@ -1,7 +1,10 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
-  "/page": "app/page.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/apple-icon.png/route": "app/apple-icon.png/route.js",
+  "/icon.png/route": "app/icon.png/route.js",
+  "/invite/[token]/page": "app/invite/[token]/page.js",
   "/login/page": "app/login/page.js",
-  "/wallets/[id]/page": "app/wallets/[id]/page.js",
-  "/invite/[token]/page": "app/invite/[token]/page.js"
+  "/page": "app/page.js",
+  "/wallets/[id]/page": "app/wallets/[id]/page.js"
 }
