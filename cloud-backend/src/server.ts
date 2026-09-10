@@ -133,9 +133,13 @@ app.use(notFoundHandler);
 // Global error handler
 app.use(errorHandler);
 
-app.listen(config.PORT, () => {
-  console.log(`[cloud-backend] v1.0.0 listening on port ${config.PORT} in ${config.NODE_ENV} mode | CORS_ORIGIN=${JSON.stringify(config.CORS_ORIGIN)} WEB_APP_URL=${JSON.stringify((config as any).WEB_APP_URL)}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(config.PORT, () => {
+    console.log(`[cloud-backend] v1.0.0 listening on port ${config.PORT} in ${config.NODE_ENV} mode | CORS_ORIGIN=${JSON.stringify(config.CORS_ORIGIN)} WEB_APP_URL=${JSON.stringify((config as any).WEB_APP_URL)}`);
+  });
+}
+
+export default app;
 
 function escapeHtml(value: string): string {
   return value
