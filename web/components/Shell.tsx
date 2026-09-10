@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { HomeIcon, WalletIcon, UsersIcon, LogOutIcon, PlusIcon, SearchIcon } from './icons';
+import { HomeIcon, UsersIcon, LogOutIcon, SearchIcon } from './icons';
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -53,15 +53,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
               >
                 <HomeIcon className="h-4 w-4" /> Dashboard
               </Link>
-              <Link
-                href="/#wallets"
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${isActive('/wallets') ? 'bg-ink-900 text-white' : 'text-ink-700 hover:bg-white/70'}`}
-              >
-                <WalletIcon className="h-4 w-4" /> Wallets
-              </Link>
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/70 px-4 py-2 text-sm font-semibold text-ink-600">
-                <UsersIcon className="h-4 w-4" /> Shared only
-              </span>
             </nav>
           </div>
           <div className="flex items-center gap-2">
@@ -92,19 +83,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 <Link href="/" className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold ${pathname === '/' ? 'bg-ink-900 text-white' : 'text-ink-700 hover:bg-white/60'}`}>
                   <HomeIcon className="h-[18px] w-[18px]" /> Overview
                 </Link>
-                <Link href="#wallets" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-ink-700 hover:bg-white/60">
-                  <WalletIcon className="h-[18px] w-[18px]" /> Shared wallets
-                </Link>
                 <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-ink-600 opacity-60">
                   <UsersIcon className="h-[18px] w-[18px]" /> Members <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">App only</span>
                 </div>
-              </div>
-              <div className="mt-4 rounded-2xl bg-gradient-to-br from-teal-700 to-teal-600 p-4 text-white">
-                <div className="text-sm font-extrabold">Create shared wallet</div>
-                <div className="mt-1 text-xs leading-5 text-white/80">Requires account. Owner can invite members via link.</div>
-                <Link href="/#new-wallet" className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-teal-700">
-                  <PlusIcon className="h-3.5 w-3.5" /> New wallet
-                </Link>
               </div>
             </div>
             <div className="glass rounded-[20px] p-4">
@@ -131,7 +112,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-ink-600">
                 <SearchIcon className="h-4 w-4" /> Tip
               </div>
-              <p className="mt-2 text-sm leading-6 text-ink-700">On the web you can create a shared wallet, invite members, and add income/expense. Everything syncs via the cloud.</p>
+              <p className="mt-2 text-sm leading-6 text-ink-700">Wallets are created in the app. On the web, invite members and add income/expense — everything syncs via the cloud.</p>
             </div>
           </div>
         </aside>
