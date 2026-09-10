@@ -15,4 +15,8 @@ export interface Transaction {
   recurrence_frequency?: RecurrenceFrequency;
   recurrence_end_date?: string; // ISO string
   parent_transaction_id?: number; // Links generated instances to the recurring template
+  // Cloud sync (for shared wallets)
+  cloud_external_id?: string | null;
+  cloud_updated_at?: string | null;
+  sync_status?: 'pending' | 'synced' | 'error' | null;
 }

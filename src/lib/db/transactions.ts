@@ -6,6 +6,7 @@ import { log } from '../../utils/logger';
 import { enqueueWrite } from './writeQueue';
 import { refreshDerivedFinanceStateForWallets } from './derivedState';
 import { scheduleProfileSync } from '../services/cloud/profileSyncScheduler';
+import { Platform } from 'react-native';
 
 async function refreshDerivedState(walletIds: readonly number[]): Promise<void> {
   try {
@@ -15,7 +16,41 @@ async function refreshDerivedState(walletIds: readonly number[]): Promise<void> 
   }
 }
 
+function generateExternalId(): string {
+  // Use crypto if available, else fallback to random
+  try {
+    const maybeCrypto: any = (global as any).crypto;
+    if (maybeCrypto?.randomUUID) return `local_${maybeCrypto.randomUUID()}`;
+  } catch {}
+  return `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+async function getSyncInfoForWallet(walletId: number): Promise<{ isShared: boolean; cloudWalletId: string | null }> {
+  try {
+    const rows = await getWallet(walletId);
+    const w: any = rows[0];
+    if (!w) return { isShared: false, cloudWalletId: null };
+    const isShared = Number(w.is_shared) === 1 || w.is_shared === true;
+    return { isShared, cloudWalletId: w.cloud_wallet_id ?? null };
+  } catch {
+    return { isShared: false, cloudWalletId: null };
+  }
+}
+
+function scheduleSharedSync(walletId: number): void {
+  if (Platform.OS === 'web') return;
+  // Dynamic import to avoid circular deps (transactions <-> syncService)
+  void import('../services/cloud/syncService')
+    .then((m) => m.scheduleSharedSync(walletId))
+    .catch(() => {});
+}
+
 export async function addTransaction(t: Transaction) {
+  const syncInfo = await getSyncInfoForWallet(t.wallet_id);
+  const nowIso = new Date().toISOString();
+  const externalId = syncInfo.isShared ? (t.cloud_external_id ?? generateExternalId()) : null;
+  const cloudUpdatedAt = syncInfo.isShared ? (t.cloud_updated_at ?? nowIso) : null;
+  const syncStatus = syncInfo.isShared ? 'pending' : 'synced';
   const params = [
     t.wallet_id,
     t.type,
@@ -28,6 +63,9 @@ export async function addTransaction(t: Transaction) {
     t.recurrence_frequency ?? null,
     t.recurrence_end_date ?? null,
     t.parent_transaction_id ?? null,
+    externalId,
+    cloudUpdatedAt,
+    syncStatus,
   ];
   // Ensure database write completes before invalidating caches
   const startTime = Date.now();
@@ -36,8 +74,8 @@ export async function addTransaction(t: Transaction) {
   await enqueueWrite(async () => {
     await execRun(
       `INSERT INTO transactions 
-       (wallet_id, type, amount, category, date, notes, receipt_path, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+       (wallet_id, type, amount, category, date, notes, receipt_path, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id, cloud_external_id, cloud_updated_at, sync_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       params
     );
   }, 'addTransaction');
@@ -58,6 +96,7 @@ export async function addTransaction(t: Transaction) {
   );
 
   scheduleProfileSync();
+  if (syncInfo.isShared) scheduleSharedSync(t.wallet_id);
 }
 
 /**
@@ -68,17 +107,47 @@ export async function addTransaction(t: Transaction) {
 export async function addTransactionsBatch(transactions: Transaction[]): Promise<void> {
   if (transactions.length === 0) return;
 
+  // Precompute sync info per wallet to generate externalIds for shared wallets
+  const distinctIds = Array.from(new Set(transactions.map((t) => t.wallet_id)));
+  const syncMap = new Map<number, { isShared: boolean; cloudWalletId: string | null }>();
+  await Promise.all(
+    distinctIds.map(async (id) => {
+      syncMap.set(id, await getSyncInfoForWallet(id));
+    })
+  );
+  const nowIso = new Date().toISOString();
+
   // RELEASE-BUILD FIX: Wrap batch transaction in write queue to prevent concurrent writes
   return enqueueWrite(async () => {
     const database = await getDbAsync();
 
     await database.transaction(async (tx: any) => {
       for (const t of transactions) {
+        const syncInfo = syncMap.get(t.wallet_id);
+        const isShared = syncInfo?.isShared ?? false;
+        const externalId = isShared ? (t.cloud_external_id ?? generateExternalId()) : null;
+        const cloudUpdatedAt = isShared ? (t.cloud_updated_at ?? nowIso) : null;
+        const syncStatus = isShared ? 'pending' : 'synced';
         await tx.executeAsync(
           `INSERT INTO transactions 
-           (wallet_id, type, amount, category, date, notes, receipt_path, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-          [t.wallet_id, t.type, t.amount, t.category ?? null, t.date, t.notes ?? null, t.receipt_path ?? null, t.is_recurring ? 1 : 0, t.recurrence_frequency ?? null, t.recurrence_end_date ?? null, t.parent_transaction_id ?? null]
+           (wallet_id, type, amount, category, date, notes, receipt_path, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id, cloud_external_id, cloud_updated_at, sync_status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+          [
+            t.wallet_id,
+            t.type,
+            t.amount,
+            t.category ?? null,
+            t.date,
+            t.notes ?? null,
+            t.receipt_path ?? null,
+            t.is_recurring ? 1 : 0,
+            t.recurrence_frequency ?? null,
+            t.recurrence_end_date ?? null,
+            t.parent_transaction_id ?? null,
+            externalId,
+            cloudUpdatedAt,
+            syncStatus,
+          ]
         );
       }
     });
@@ -92,6 +161,10 @@ export async function addTransactionsBatch(transactions: Transaction[]): Promise
     );
 
     scheduleProfileSync();
+    for (const wid of affectedWallets) {
+      const info = syncMap.get(wid);
+      if (info?.isShared) scheduleSharedSync(wid);
+    }
   }, `batch_transactions_${transactions.length}`);
 }
 
@@ -155,7 +228,9 @@ export async function transferBetweenWallets(
 }
 
 export async function updateTransaction(id: number, t: Partial<Transaction>) {
-  const existingTransaction = await getById(id);
+  const existingTransaction: any = await getById(id);
+  const targetWalletId = (t.wallet_id ?? existingTransaction?.wallet_id) as number | undefined;
+  const syncInfo = targetWalletId ? await getSyncInfoForWallet(targetWalletId) : { isShared: false, cloudWalletId: null };
   const fields: string[] = [];
   const params: any[] = [];
   const set = (k: string, v: any) => {
@@ -169,6 +244,15 @@ export async function updateTransaction(id: number, t: Partial<Transaction>) {
   if (t.date !== undefined) set('date', t.date);
   if (t.notes !== undefined) set('notes', t.notes);
   if (t.receipt_path !== undefined) set('receipt_path', t.receipt_path);
+  if (syncInfo.isShared) {
+    set('cloud_updated_at', new Date().toISOString());
+    set('sync_status', 'pending');
+    if (!existingTransaction?.cloud_external_id && !t.cloud_external_id) {
+      set('cloud_external_id', generateExternalId());
+    } else if (t.cloud_external_id) {
+      set('cloud_external_id', t.cloud_external_id);
+    }
+  }
   params.push(id);
   // Ensure database write completes before invalidating caches
   const startTime = Date.now();
@@ -198,12 +282,25 @@ export async function updateTransaction(id: number, t: Partial<Transaction>) {
   );
 
   scheduleProfileSync();
+  if (syncInfo.isShared && targetWalletId) scheduleSharedSync(targetWalletId);
 }
 
 export async function deleteTransaction(id: number) {
   // Get transaction wallet_id before deleting
-  const transaction = await getById(id);
-  const walletId = transaction?.wallet_id;
+  const transaction: any = await getById(id);
+  const walletId = transaction?.wallet_id as number | undefined;
+  let syncInfo: { isShared: boolean; cloudWalletId: string | null } | null = null;
+  if (walletId) {
+    syncInfo = await getSyncInfoForWallet(walletId);
+    if (syncInfo.isShared && transaction?.cloud_external_id && syncInfo.cloudWalletId) {
+      try {
+        const { deleteSharedWalletTransaction } = await import('../services/cloud/sharedWalletService');
+        await deleteSharedWalletTransaction(syncInfo.cloudWalletId, transaction.cloud_external_id);
+      } catch (e) {
+        console.warn('[Sync] Failed to delete remote transaction (best-effort)', e);
+      }
+    }
+  }
 
   // Ensure database write completes before invalidating caches
   const startTime = Date.now();
@@ -225,6 +322,7 @@ export async function deleteTransaction(id: number) {
   }
 
   scheduleProfileSync();
+  if (syncInfo?.isShared && walletId) scheduleSharedSync(walletId);
 }
 
 export async function getTransactions(page = 0, pageSize = 20) {

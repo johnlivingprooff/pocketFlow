@@ -82,6 +82,8 @@ app.get('/invite/:token', (req: Request, res: Response) => {
 
   const normalizedScheme = config.APP_DEEP_LINK_SCHEME.replace('://', '').replace(':', '');
   const deepLink = `${normalizedScheme}://invite/${encodeURIComponent(token)}`;
+  const webAppBase = (config as any).WEB_APP_URL ? String((config as any).WEB_APP_URL).trim().replace(/\/$/, '') : '';
+  const webInviteLink = webAppBase ? `${webAppBase}/invite/${encodeURIComponent(token)}` : null;
   res
     .status(200)
     .set('Content-Type', 'text/html; charset=utf-8')
@@ -90,6 +92,7 @@ app.get('/invite/:token', (req: Request, res: Response) => {
       renderInviteFallbackPage({
         token,
         deepLink,
+        webInviteLink,
         androidPlayStoreUrl: config.ANDROID_PLAY_STORE_URL,
         iosAppStoreUrl: config.IOS_APP_STORE_URL,
       })
@@ -314,13 +317,19 @@ function renderRootLandingPage(): string {
 function renderInviteFallbackPage(params: {
   token: string;
   deepLink: string;
+  webInviteLink?: string | null;
   androidPlayStoreUrl?: string;
   iosAppStoreUrl?: string;
 }): string {
   const escapedToken = escapeHtml(params.token);
   const escapedDeepLink = escapeHtml(params.deepLink);
+  const escapedWebInviteLink = params.webInviteLink ? escapeHtml(params.webInviteLink) : '';
   const escapedAndroidStoreUrl = escapeHtml(params.androidPlayStoreUrl || '');
   const escapedIosStoreUrl = escapeHtml(params.iosAppStoreUrl || '');
+
+  const webButton = escapedWebInviteLink
+    ? `<a class="button web" href="${escapedWebInviteLink}">Open on the web</a>`
+    : '';
 
   const storeButtons = [
     escapedAndroidStoreUrl
@@ -416,6 +425,31 @@ function renderInviteFallbackPage(params: {
         color: var(--text);
         border-color: var(--border);
       }
+      .button.web {
+        background: #ffffff;
+        color: var(--accent);
+        border-color: var(--accent);
+      }
+      .divider {
+        height: 1px;
+        background: var(--border);
+        margin: 18px 0 14px;
+      }
+      .webCard {
+        background: var(--accent-2);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px;
+        margin-top: 12px;
+      }
+      .webCard h2 {
+        margin: 0 0 6px;
+        font-size: 15px;
+        color: var(--text);
+      }
+      .webCard p {
+        font-size: 13px;
+      }
       .hint {
         margin-top: 14px;
         font-size: 13px;
@@ -439,8 +473,18 @@ function renderInviteFallbackPage(params: {
         <a class="button primary" href="${escapedDeepLink}">Open in pocketFlow</a>
         ${storeButtons}
       </div>
+      ${escapedWebInviteLink ? `
+      <div class="divider"></div>
+      <div class="webCard">
+        <h2>Prefer the web?</h2>
+        <p>Shared wallets work in the browser too — no install needed. Sign in and open this invite on the web.</p>
+        <div class="actions">
+          <a class="button web" href="${escapedWebInviteLink}">Open on the web</a>
+        </div>
+      </div>
+      ` : ''}
       <p class="hint">
-        If nothing happens, tap <strong>Open in pocketFlow</strong>. Keep this page open until the app finishes loading.
+        If nothing happens, tap <strong>Open in pocketFlow</strong> or <strong>Open on the web</strong>. Keep this page open until the app finishes loading.
       </p>
     </main>
 

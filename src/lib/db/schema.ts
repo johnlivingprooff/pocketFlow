@@ -148,6 +148,9 @@ function ensureTransactionsTable(database: SchemaDatabase): void {
     addColumnIfMissing(database, columns, 'recurrence_frequency', 'ALTER TABLE transactions ADD COLUMN recurrence_frequency TEXT;');
     addColumnIfMissing(database, columns, 'recurrence_end_date', 'ALTER TABLE transactions ADD COLUMN recurrence_end_date TEXT;');
     addColumnIfMissing(database, columns, 'parent_transaction_id', 'ALTER TABLE transactions ADD COLUMN parent_transaction_id INTEGER;');
+    addColumnIfMissing(database, columns, 'cloud_external_id', 'ALTER TABLE transactions ADD COLUMN cloud_external_id TEXT;');
+    addColumnIfMissing(database, columns, 'cloud_updated_at', 'ALTER TABLE transactions ADD COLUMN cloud_updated_at TEXT;');
+    addColumnIfMissing(database, columns, 'sync_status', "ALTER TABLE transactions ADD COLUMN sync_status TEXT DEFAULT 'pending';");
   } catch (error) {
     const typedError = error as { code?: string; message?: string };
     console.error('[DB] CRITICAL: Transaction migration failed:', typedError);
@@ -170,6 +173,21 @@ function ensureTransactionsTable(database: SchemaDatabase): void {
       WHERE parent_transaction_id IS NOT NULL;
     `);
   });
+
+  bestEffort(() => {
+    database.execute('CREATE INDEX IF NOT EXISTS idx_transactions_cloud_external_id ON transactions(cloud_external_id);');
+    database.execute('CREATE INDEX IF NOT EXISTS idx_transactions_sync_status ON transactions(sync_status);');
+  });
+}
+
+function ensureCloudSyncMetaTable(database: SchemaDatabase): void {
+  database.execute(
+    `CREATE TABLE IF NOT EXISTS cloud_sync_meta (
+      wallet_id INTEGER PRIMARY KEY,
+      last_sync_at TEXT,
+      FOREIGN KEY(wallet_id) REFERENCES wallets(id) ON DELETE CASCADE
+    );`
+  );
 }
 
 function ensurePendingSmsTable(database: SchemaDatabase): void {
@@ -662,6 +680,7 @@ export async function ensureSchema(database: SchemaDatabase, schemaVersion: numb
   ensureWalletsTable(database);
   await normalizeWalletDisplayOrder(database);
   ensureTransactionsTable(database);
+  ensureCloudSyncMetaTable(database);
   ensureCategoriesTable(database);
   await migratePresetCategoryIcons(database);
   ensureGoalsTable(database);

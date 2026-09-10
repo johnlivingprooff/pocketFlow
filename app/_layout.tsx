@@ -31,6 +31,7 @@ export default function RootLayout() {
     lastAuthTime,
     lastBackupAt,
     imagePickingStartTime,
+    cloudSessionState,
     setLastAuthTime,
     setLastBackupAt,
     setImagePickingStartTime,
@@ -60,6 +61,14 @@ export default function RootLayout() {
         // best effort
       });
   }, []);
+
+  // Full sync for shared wallets (app ↔ cloud ↔ web)
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    if (cloudSessionState !== 'authenticated') return;
+    if (!dbReady) return;
+    void import('../src/lib/services/cloud/syncService').then((m) => m.syncAllSharedWallets().catch(() => {}));
+  }, [cloudSessionState, dbReady]);
 
   useEffect(() => {
     (async () => {
@@ -139,6 +148,10 @@ export default function RootLayout() {
         await runReminderRuntimeGateCheck();
         await runSmsRuntimeGateCheck();
         await maybeRunAutoBackup();
+        // Sync shared wallets on foreground (pull web changes)
+        if (useSettings.getState().cloudSessionState === 'authenticated') {
+          void import('../src/lib/services/cloud/syncService').then((m) => m.syncAllSharedWallets().catch(() => {}));
+        }
       }
 
       if (biometricEnabled && biometricSetupComplete) {
