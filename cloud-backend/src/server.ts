@@ -31,15 +31,31 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// CORS with configured origin
+// CORS with configured origin — trim + allow Vercel previews (*.vercel.app) when a vercel.app is allow-listed
 const corsOptions: cors.CorsOptions = {
-  origin: config.CORS_ORIGIN === '*' ? true : config.CORS_ORIGIN.split(','),
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const raw = config.CORS_ORIGIN?.trim() ?? '*';
+    if (raw === '*' || raw === '') return callback(null, true);
+    const allowed = raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (allowed.includes(origin)) return callback(null, true);
+    // Allow any Vercel preview of an allowed vercel.app project (e.g. pocket-flow-web-*.vercel.app)
+    const isVercelPreview = origin.endsWith('.vercel.app');
+    if (isVercelPreview && allowed.some((a) => a.includes('.vercel.app'))) return callback(null, true);
+    // Allow localhost for dev
+    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) return callback(null, true);
+    return callback(null, false);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
 };
 
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // Request ID tracking
 app.use(requestIdMiddleware);
@@ -118,7 +134,7 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 app.listen(config.PORT, () => {
-  console.log(`[cloud-backend] v1.0.0 listening on port ${config.PORT} in ${config.NODE_ENV} mode`);
+  console.log(`[cloud-backend] v1.0.0 listening on port ${config.PORT} in ${config.NODE_ENV} mode | CORS_ORIGIN=${JSON.stringify(config.CORS_ORIGIN)} WEB_APP_URL=${JSON.stringify((config as any).WEB_APP_URL)}`);
 });
 
 function escapeHtml(value: string): string {
