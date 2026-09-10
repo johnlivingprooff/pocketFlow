@@ -1,7 +1,5 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
-  "/login/page": "app/login/page.js",
-  "/invite/[token]/page": "app/invite/[token]/page.js",
+  "/page": "app/page.js",
   "/wallets/[id]/page": "app/wallets/[id]/page.js",
-  "/page": "app/page.js"
+  "/login/page": "app/login/page.js"
 }
