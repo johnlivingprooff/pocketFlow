@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { getWallet, listTx, syncTx, deleteTx, listMembers, createInvite } from '../../../lib/api';
+import { getWallet, listTx, syncTx, deleteTx, listMembers, createInvite, listSharedWallets } from '../../../lib/api';
 import { WalletIcon, UsersIcon, LinkIcon, TrashIcon, PlusIcon } from '../../../components/icons';
 
 function uid() {
@@ -13,24 +13,32 @@ export default function WalletDetail() {
   const params = useParams() as { id: string };
   const id = params.id;
   const [wallet, setWallet] = useState<any>(null);
+  const [allWallets, setAllWallets] = useState<any[]>([]);
   const [tx, setTx] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [invite, setInvite] = useState<string | null>(null);
 
-  // form
-  const [type, setType] = useState<'income' | 'expense'>('expense');
+  // form — now supports income / expense / transfer + date
+  const [type, setType] = useState<'income' | 'expense' | 'transfer'>('expense');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [notes, setNotes] = useState('');
+  const [dateStr, setDateStr] = useState(() => new Date().toISOString().slice(0, 16));
+  const [toWalletId, setToWalletId] = useState<string>('');
 
   const load = async () => {
     try {
-      const [w, t, m] = await Promise.all([getWallet(id), listTx(id, 50, 0), listMembers(id)]);
+      const [w, t, m, all] = await Promise.all([getWallet(id), listTx(id, 50, 0), listMembers(id), listSharedWallets().catch(() => [])]);
       setWallet(w);
       setTx(t.transactions);
       setMembers(m.members);
+      setAllWallets(all as any[]);
+      if (!toWalletId && (all as any[]).length > 1) {
+        const other = (all as any[]).find((x: any) => x.id !== id);
+        if (other) setToWalletId(other.id);
+      }
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -40,22 +48,70 @@ export default function WalletDetail() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const toIsoDate = () => {
+    try {
+      // dateStr is "YYYY-MM-DDTHH:mm" local → convert to ISO
+      return new Date(dateStr).toISOString();
+    } catch {
+      return new Date().toISOString();
+    }
+  };
 
   const handleAdd = async () => {
     const n = Number(amount);
     if (!n || n <= 0) return;
-    const externalId = uid();
-    const payload = {
-      externalId,
-      type,
-      amount: Math.abs(n),
-      category: category || null,
-      date: new Date().toISOString(),
-      notes: notes || null,
-      updatedAt: new Date().toISOString(),
-    };
-    await syncTx(id, [payload]);
+    const isoDate = toIsoDate();
+    const nowIso = new Date().toISOString();
+
+    if (type === 'transfer') {
+      if (!toWalletId) {
+        setError('Select a destination wallet for transfer');
+        return;
+      }
+      if (toWalletId === id) {
+        setError('Choose a different wallet to transfer to');
+        return;
+      }
+      const dest = allWallets.find((w: any) => w.id === toWalletId);
+      const destName = dest?.name ?? 'wallet';
+      const srcName = wallet?.name ?? 'wallet';
+      // Create paired transfer: expense from source, income to destination
+      const srcPayload = {
+        externalId: uid(),
+        type: 'expense' as const,
+        amount: Math.abs(n),
+        category: 'Transfer',
+        date: isoDate,
+        notes: notes ? `Transfer to ${destName}: ${notes}` : `Transfer to ${destName}`,
+        updatedAt: nowIso,
+      };
+      const dstPayload = {
+        externalId: uid(),
+        type: 'income' as const,
+        amount: Math.abs(n),
+        category: 'Transfer',
+        date: isoDate,
+        notes: notes ? `Transfer from ${srcName}: ${notes}` : `Transfer from ${srcName}`,
+        updatedAt: nowIso,
+      };
+      await syncTx(id, [srcPayload]);
+      await syncTx(toWalletId, [dstPayload]);
+    } else {
+      const externalId = uid();
+      const payload = {
+        externalId,
+        type,
+        amount: Math.abs(n),
+        category: category || null,
+        date: isoDate,
+        notes: notes || null,
+        updatedAt: nowIso,
+      };
+      await syncTx(id, [payload]);
+    }
     setAmount('');
     setCategory('');
     setNotes('');
@@ -79,6 +135,8 @@ export default function WalletDetail() {
 
   const income = tx.filter((t) => t.type === 'income').reduce((a, t) => a + Number(t.amount), 0);
   const expense = tx.filter((t) => t.type === 'expense').reduce((a, t) => a + Number(t.amount), 0);
+
+  const otherWallets = allWallets.filter((w: any) => w.id !== id);
 
   return (
     <div className="space-y-6">
@@ -131,14 +189,73 @@ export default function WalletDetail() {
             <button onClick={() => setType('income')} className={`rounded-full px-4 py-2 text-sm font-bold ${type === 'income' ? 'bg-ink-900 text-white' : 'bg-white text-ink-700'}`}>
               Income
             </button>
+            <button onClick={() => setType('transfer')} className={`rounded-full px-4 py-2 text-sm font-bold ${type === 'transfer' ? 'bg-ink-900 text-white' : 'bg-white text-ink-700'}`}>
+              Transfer
+            </button>
           </div>
+
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount" type="number" className="rounded-2xl border border-white/60 bg-white/80 px-4 py-3 text-sm font-medium focus:border-teal-600 focus:outline-none" />
-            <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Category (e.g. Food)" className="rounded-2xl border border-white/60 bg-white/80 px-4 py-3 text-sm font-medium focus:border-teal-600 focus:outline-none" />
+            <input
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="Amount"
+              type="number"
+              className="rounded-2xl border border-white/60 bg-white/80 px-4 py-3 text-sm font-medium focus:border-teal-600 focus:outline-none"
+            />
+            {type !== 'transfer' ? (
+              <input
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                placeholder="Category (e.g. Food)"
+                className="rounded-2xl border border-white/60 bg-white/80 px-4 py-3 text-sm font-medium focus:border-teal-600 focus:outline-none"
+              />
+            ) : (
+              <select
+                value={toWalletId}
+                onChange={(e) => setToWalletId(e.target.value)}
+                className="rounded-2xl border border-white/60 bg-white/80 px-4 py-3 text-sm font-medium focus:border-teal-600 focus:outline-none"
+              >
+                <option value="">Select destination</option>
+                {otherWallets.map((w: any) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
-          <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (optional)" className="mt-3 w-full rounded-2xl border border-white/60 bg-white/80 px-4 py-3 text-sm font-medium focus:border-teal-600 focus:outline-none" />
-          <button onClick={handleAdd} className="mt-4 inline-flex items-center gap-2 rounded-full bg-teal-700 px-5 py-3 text-sm font-bold text-white shadow">
-            <PlusIcon className="h-4 w-4" /> Add to shared wallet
+
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="text-xs font-bold uppercase tracking-widest text-ink-600">Date & time</label>
+              <input
+                type="datetime-local"
+                value={dateStr}
+                onChange={(e) => setDateStr(e.target.value)}
+                className="mt-1 w-full rounded-2xl border border-white/60 bg-white/80 px-4 py-3 text-sm font-medium focus:border-teal-600 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold uppercase tracking-widest text-ink-600">Notes</label>
+              <input
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Notes (optional)"
+                className="mt-1 w-full rounded-2xl border border-white/60 bg-white/80 px-4 py-3 text-sm font-medium focus:border-teal-600 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {type === 'transfer' && otherWallets.length === 0 && (
+            <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">Need at least 2 shared wallets for a transfer.</div>
+          )}
+
+          <button
+            onClick={handleAdd}
+            disabled={type === 'transfer' && !toWalletId}
+            className="mt-4 inline-flex items-center gap-2 rounded-full bg-teal-700 px-5 py-3 text-sm font-bold text-white shadow disabled:opacity-50"
+          >
+            <PlusIcon className="h-4 w-4" /> {type === 'transfer' ? 'Transfer' : 'Add to shared wallet'}
           </button>
         </div>
 
@@ -171,13 +288,13 @@ export default function WalletDetail() {
                 <div>
                   <div className="text-sm font-bold text-ink-900">{t.category || 'Uncategorized'} • {t.type}</div>
                   <div className="text-xs font-medium text-ink-600">
-                    {new Date(t.date).toLocaleDateString()} • {t.createdByEmail}
+                    {new Date(t.date).toLocaleString()} • {t.createdByEmail}
                   </div>
                   {t.notes && <div className="text-xs text-ink-600">{t.notes}</div>}
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className={`text-sm font-black ${t.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {t.type === 'income' ? '+' : '-'}
+                  <div className={`text-sm font-black ${t.type === 'income' ? 'text-emerald-600' : t.type === 'expense' ? 'text-red-600' : 'text-ink-700'}`}>
+                    {t.type === 'income' ? '+' : t.type === 'expense' ? '-' : '⇄ '}
                     {Number(t.amount).toLocaleString()}
                   </div>
                   <button onClick={() => handleDelete(t.externalId)} className="grid h-8 w-8 place-items-center rounded-full bg-white text-ink-700 hover:bg-red-50 hover:text-red-600">
