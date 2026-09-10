@@ -515,7 +515,7 @@ export default function AddTransactionScreen() {
             recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate.toISOString() : undefined
           });
         } else {
-          // Add new transaction
+          // Add new transaction — cloud sync is handled by src/lib/db/transactions.ts → syncService (pending → push)
           await addTransaction({
             wallet_id: walletId,
             type: type as 'income' | 'expense',
@@ -528,29 +528,6 @@ export default function AddTransactionScreen() {
             recurrence_frequency: isRecurring ? recurrenceFrequency : undefined,
             recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate.toISOString() : undefined
           });
-
-          // If wallet is shared, also sync to cloud so web + other members see it.
-          try {
-            const w = wallets.find((x) => x.id === walletId) as any;
-            const cloudWalletId: string | null | undefined = w?.cloud_wallet_id;
-            if (cloudWalletId && cloudSessionState === 'authenticated') {
-              const { syncWalletTransactions } = await import('../../src/lib/services/cloud/sharedWalletService');
-              const externalId = `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-              await syncWalletTransactions(cloudWalletId, [
-                {
-                  externalId,
-                  type: type as 'income' | 'expense',
-                  amount: Math.abs(numericAmount),
-                  category: category || null,
-                  date: date.toISOString(),
-                  notes: notes || null,
-                  updatedAt: new Date().toISOString(),
-                },
-              ]);
-            }
-          } catch {
-            // sync is best-effort; local transaction already persisted
-          }
         }
 
         // Save smart defaults for next transaction
