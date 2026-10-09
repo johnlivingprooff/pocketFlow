@@ -167,7 +167,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -175,7 +175,7 @@ export default function ProfilePage() {
       >
         <ScrollView
           style={{ flex: 1, backgroundColor: t.background }}
-          contentContainerStyle={{ padding: 16, paddingTop: 20, paddingBottom: 40 }}
+          contentContainerStyle={{ padding: 16, paddingTop: 3, paddingBottom: 40 }}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         >

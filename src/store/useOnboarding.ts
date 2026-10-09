@@ -2,9 +2,49 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type OnboardingStep = 'welcome' | 'profile' | 'wallet';
+/**
+ * The primary flow is welcome -> profile -> wallet -> app.
+ * The optional tutorial screens (reminders, category, budget, goal,
+ * transaction, transfer, analytics) are reachable through onboarding/index
+ * and dev tools. `wallet` and `analytics` are terminal steps: completing
+ * either one finishes setup. Keeping the graph explicit prevents an unknown
+ * step string from accidentally marking onboarding complete.
+ */
+export type OnboardingStep =
+  | 'welcome'
+  | 'profile'
+  | 'reminders'
+  | 'wallet'
+  | 'category'
+  | 'budget'
+  | 'goal'
+  | 'transaction'
+  | 'transfer'
+  | 'analytics';
 
-export const ONBOARDING_STEPS: OnboardingStep[] = ['welcome', 'profile', 'wallet'];
+const NEXT_STEP: Partial<Record<OnboardingStep, OnboardingStep>> = {
+  welcome: 'profile',
+  profile: 'wallet',
+  reminders: 'wallet',
+  category: 'budget',
+  budget: 'goal',
+  goal: 'analytics',
+  transaction: 'transfer',
+  transfer: 'analytics',
+};
+
+export const ONBOARDING_STEPS: OnboardingStep[] = [
+  'welcome',
+  'profile',
+  'reminders',
+  'wallet',
+  'category',
+  'budget',
+  'goal',
+  'transaction',
+  'transfer',
+  'analytics',
+];
 
 interface OnboardingState {
   currentStep: OnboardingStep;
@@ -12,18 +52,17 @@ interface OnboardingState {
   skippedSteps: OnboardingStep[];
   hasCompletedOnboarding: boolean;
   isOnboardingComplete: boolean;
+  createdWalletId: number | null;
   completeStep: (step: OnboardingStep) => void;
   skipStep: (step: OnboardingStep) => void;
   setCurrentStep: (step: OnboardingStep) => void;
+  setCreatedWalletId: (id: number | null) => void;
   markOnboardingComplete: () => void;
   resetOnboarding: () => void;
 }
 
-const getNextStep = (step: OnboardingStep): OnboardingStep | null => {
-  const currentIndex = ONBOARDING_STEPS.indexOf(step);
-  if (currentIndex === -1) return null;
-  return ONBOARDING_STEPS[currentIndex + 1] || null;
-};
+const getNextStep = (step: OnboardingStep): OnboardingStep | null =>
+  NEXT_STEP[step] ?? null;
 
 const initialState = {
   currentStep: 'welcome' as OnboardingStep,
@@ -31,6 +70,7 @@ const initialState = {
   skippedSteps: [] as OnboardingStep[],
   hasCompletedOnboarding: false,
   isOnboardingComplete: false,
+  createdWalletId: null as number | null,
 };
 
 export const useOnboarding = create<OnboardingState>()(
@@ -44,7 +84,7 @@ export const useOnboarding = create<OnboardingState>()(
         if (!nextStep) {
           set({
             completedSteps: completed,
-            currentStep: 'wallet',
+            currentStep: step,
             hasCompletedOnboarding: true,
             isOnboardingComplete: true,
           });
@@ -63,7 +103,7 @@ export const useOnboarding = create<OnboardingState>()(
         if (!nextStep) {
           set({
             skippedSteps: skipped,
-            currentStep: 'wallet',
+            currentStep: step,
             hasCompletedOnboarding: true,
             isOnboardingComplete: true,
           });
@@ -76,10 +116,11 @@ export const useOnboarding = create<OnboardingState>()(
         });
       },
       setCurrentStep: (step) => set({ currentStep: step }),
+      setCreatedWalletId: (createdWalletId) => set({ createdWalletId }),
       markOnboardingComplete: () =>
         set({
           currentStep: 'wallet',
-          completedSteps: ['welcome', 'profile', 'wallet'],
+          completedSteps: [...ONBOARDING_STEPS],
           skippedSteps: [],
           hasCompletedOnboarding: true,
           isOnboardingComplete: true,

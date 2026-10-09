@@ -64,7 +64,7 @@
     ],
     "extra": {
       "router": {},
-      "enableLogging": true,
+      "enableLogging": false,
       "cloudApiBaseUrl": "https://cloud.pf.eiteone.org",
       "googleDrive": {
         "iosClientId": "",

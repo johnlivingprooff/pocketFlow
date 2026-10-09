@@ -8,6 +8,7 @@ import { theme, shadows } from '../../src/theme/theme';
 import { getWallet, getWalletBalance, deleteWallet, updateWallet } from '../../src/lib/db/wallets';
 import { filterTransactions, getWalletIncomeExpense, getWalletTransferAmounts } from '../../src/lib/db/transactions';
 import { useAlert } from '../../src/lib/hooks/useAlert';
+import { formatCurrency } from '../../src/utils/formatCurrency';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
 import { Transaction } from '../../src/types/transaction';
 import { Wallet } from '../../src/types/wallet';
@@ -105,6 +106,7 @@ export default function WalletDetail() {
 
   // Data State
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const transactionsRef = useRef<Transaction[]>([]);
   const [income, setIncome] = useState(0);
   const [expenses, setExpenses] = useState(0);
   const [transferIn, setTransferIn] = useState(0);
@@ -119,7 +121,7 @@ export default function WalletDetail() {
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const { alertConfig, showConfirmAlert, showSuccessAlert, dismissAlert } = useAlert();
+  const { alertConfig, showConfirmAlert, showSuccessAlert, showErrorAlert, dismissAlert } = useAlert();
 
   const getDateRange = useCallback((period: TimePeriod) => {
     if (period === 'all') return { startDate: undefined, endDate: undefined };
@@ -311,14 +313,18 @@ export default function WalletDetail() {
     });
   };
 
+  useEffect(() => {
+    transactionsRef.current = transactions;
+  }, [transactions]);
+
   useFocusEffect(
     useCallback(() => {
-      // Refresh balance and summary on focus, but maintain list position ideally
-      // For simplicity, we just reload the summary and wallet details
+      // Refresh balance and summary on focus without resetting an already
+      // paginated list. Reading the ref avoids capturing the initial empty
+      // state in a `[]` dependency effect.
       loadWalletDetails();
       loadSummary();
-      // If list is empty (first load), trigger load
-      if (transactions.length === 0) {
+      if (transactionsRef.current.length === 0) {
         loadTransactions(0, false);
       }
     }, [])
@@ -403,11 +409,11 @@ export default function WalletDetail() {
         <View style={{ borderTopWidth: 1, borderTopColor: t.border, paddingTop: 16, marginTop: 8 }}>
           <Text style={{ color: t.textSecondary, fontSize: 14, marginBottom: 4 }}>Current Balance</Text>
           <Text style={{ color: t.textPrimary, fontSize: 32, fontWeight: '800' }}>
-            {balance.toLocaleString()} {currency}
+            {formatCurrency(balance, currency)}
           </Text>
           {wallet && wallet.overdraft_limit ? (
             <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>
-              Available: {(balance + wallet.overdraft_limit).toLocaleString()} {currency} (overdraft limit: {wallet.overdraft_limit.toLocaleString()} {currency})
+              Available: {formatCurrency(balance + wallet.overdraft_limit, currency)} (overdraft limit: {formatCurrency(wallet.overdraft_limit, currency)})
             </Text>
           ) : null}
 
@@ -493,14 +499,14 @@ export default function WalletDetail() {
         <View style={{ flex: 1, backgroundColor: t.card, padding: 12, borderRadius: 12, borderLeftWidth: 4, borderLeftColor: t.success, ...shadows.sm }}>
           <Text style={{ color: t.textSecondary, fontSize: 11, marginBottom: 4 }}>Income</Text>
           <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>
-            {income.toLocaleString()}
+            {formatCurrency(income, currency)}
           </Text>
         </View>
 
         <View style={{ flex: 1, backgroundColor: t.card, padding: 12, borderRadius: 12, borderLeftWidth: 4, borderLeftColor: t.danger, ...shadows.sm }}>
           <Text style={{ color: t.textSecondary, fontSize: 11, marginBottom: 4 }}>Expenses</Text>
           <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>
-            {expenses.toLocaleString()}
+            {formatCurrency(expenses, currency)}
           </Text>
         </View>
 
@@ -508,10 +514,10 @@ export default function WalletDetail() {
           <Text style={{ color: t.textSecondary, fontSize: 11, marginBottom: 4 }}>Transfer</Text>
           <View style={{ gap: 2 }}>
             <Text style={{ color: t.success, fontSize: 14, fontWeight: '800' }} numberOfLines={1}>
-              In: {transferIn.toLocaleString()}
+              In: {formatCurrency(transferIn, currency)}
             </Text>
             <Text style={{ color: t.danger, fontSize: 14, fontWeight: '800' }} numberOfLines={1}>
-              Out: {transferOut.toLocaleString()}
+              Out: {formatCurrency(transferOut, currency)}
             </Text>
           </View>
         </View>
@@ -533,7 +539,7 @@ export default function WalletDetail() {
       <TransactionItem
         item={item}
         currency={currency}
-        mode={(themeMode === 'system' ? systemColorScheme || 'light' : (themeMode === 'dark-teal' ? 'dark' : themeMode)) as 'light' | 'dark'}
+        mode={(themeMode === 'system' ? systemColorScheme || 'light' : themeMode) as 'light' | 'dark'}
       />
     </TouchableOpacity>
   );
@@ -558,7 +564,7 @@ export default function WalletDetail() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right']}>
       <FlatList
         data={transactions}
         renderItem={renderItem}
@@ -579,7 +585,7 @@ export default function WalletDetail() {
         message={alertConfig.message}
         buttons={alertConfig.buttons}
         onDismiss={dismissAlert}
-        themeMode={(effectiveMode === 'dark-teal' ? 'dark' : effectiveMode) as 'light' | 'dark'}
+        themeMode={effectiveMode as 'light' | 'dark'}
         systemColorScheme={systemColorScheme || 'light'}
       />
     </SafeAreaView>

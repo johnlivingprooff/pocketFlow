@@ -198,13 +198,13 @@ export default function EditTransaction() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right']}>
       <KeyboardAvoidingView 
         style={{ flex: 1, backgroundColor: t.background }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 20 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 3 }}>
         {/* Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800' }}>Edit Transaction</Text>

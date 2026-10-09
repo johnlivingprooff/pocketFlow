@@ -19,11 +19,12 @@ export function BudgetSummaryWidget({ budgets, isLoading = false }: BudgetSummar
   const summary = useMemo(() => {
     if (budgets.length === 0) return null;
 
-    const active = budgets.filter((b) => b.period_status === 'active');
+    const today = new Date().toISOString().slice(0, 10);
+    const active = budgets.filter((b) => b.endDate >= today);
     const overBudget = active.filter((b) => b.isOverBudget).length;
     const nearLimit = active.filter((b) => !b.isOverBudget && b.percentageUsed >= 80).length;
-    const totalSpent = active.reduce((sum, b) => sum + b.spent, 0);
-    const totalBudget = active.reduce((sum, b) => sum + b.amount, 0);
+    const totalSpent = active.reduce((sum, b) => sum + b.currentSpending, 0);
+    const totalBudget = active.reduce((sum, b) => sum + b.limitAmount, 0);
 
     return {
       activeCount: active.length,

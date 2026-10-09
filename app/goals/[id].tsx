@@ -12,6 +12,7 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSettings } from '@/store/useStore';
 import { theme } from '@/theme/theme';
 import { formatCurrency } from '@/utils/formatCurrency';
+import { formatShortDate } from '@/utils/date';
 import { error as logError } from '@/utils/logger';
 import { getGoalWithMetrics, deleteGoal } from '@/lib/db/goals';
 import { useAlert } from '@/lib/hooks/useAlert';
@@ -85,7 +86,7 @@ export default function GoalDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
+      <SafeAreaView edges={['left', 'right', 'bottom']} style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
         <View style={styles.loadingContainer}>
           <Text style={StyleSheet.flatten([styles.loadingText, { color: colors.textSecondary }]) as any}>Loading...</Text>
         </View>
@@ -95,7 +96,7 @@ export default function GoalDetailScreen() {
 
   if (!goal) {
     return (
-      <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
+      <SafeAreaView edges={['left', 'right', 'bottom']} style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
         <View style={styles.loadingContainer}>
           <Text style={StyleSheet.flatten([styles.loadingText, { color: colors.textSecondary }]) as any}>Goal not found</Text>
         </View>
@@ -106,7 +107,7 @@ export default function GoalDetailScreen() {
   const statusColor = goal.onTrack ? colors.success : colors.primary;
 
   return (
-    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
+    <SafeAreaView edges={['left', 'right', 'bottom']} style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Header Card */}
         <View style={StyleSheet.flatten([styles.headerCard, { backgroundColor: colors.card }]) as any}>
@@ -171,7 +172,7 @@ export default function GoalDetailScreen() {
               Target Date
             </Text>
             <Text style={StyleSheet.flatten([styles.detailValue, { color: colors.textPrimary }]) as any}>
-              {new Date(goal.targetDate).toLocaleDateString()}
+              {formatShortDate(goal.targetDate)}
             </Text>
           </View>
 
@@ -186,7 +187,7 @@ export default function GoalDetailScreen() {
             </Text>
           </View>
 
-          {goal.daysRemaining !== undefined && goal.daysRemaining > 0 && (
+          {goal.daysRemaining !== undefined && goal.daysRemaining >= 0 && (
             <>
               <View style={StyleSheet.flatten([styles.divider, { backgroundColor: colors.border }]) as any} />
               <View style={styles.detailRow}>
@@ -287,7 +288,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
-    paddingTop: 20,
+    paddingTop: 3,
   },
   loadingContainer: {
     flex: 1,

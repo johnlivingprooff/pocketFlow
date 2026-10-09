@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { useSettings } from '@/store/useStore';
 import { theme } from '@/theme/theme';
 import { formatCurrency } from '@/utils/formatCurrency';
+import { parseLocalDate } from '@/utils/date';
 import { error as logError } from '@/utils/logger';
 import { createBudget } from '@/lib/db/budgets';
 import { getCategories } from '@/lib/db/categories';
@@ -44,7 +45,7 @@ const formatISODate = (date: Date) => {
 
 const formatDisplayDate = (dateStr: string) => {
   if (!dateStr) return 'Select date';
-  const parsed = new Date(dateStr);
+  const parsed = parseLocalDate(dateStr);
   if (Number.isNaN(parsed.getTime())) return 'Select date';
   const parts = dateFormatter.formatToParts(parsed);
   const month = parts.find((p) => p.type === 'month')?.value ?? '';
@@ -200,7 +201,7 @@ export default function CreateBudgetScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
+      <SafeAreaView edges={['left', 'right', 'bottom']} style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
         <View style={styles.loadingContainer}>
           <Text style={StyleSheet.flatten([styles.loadingText, { color: colors.textSecondary }]) as any}>Loading...</Text>
         </View>
@@ -209,7 +210,7 @@ export default function CreateBudgetScreen() {
   }
 
   return (
-    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
+    <SafeAreaView edges={['left', 'right', 'bottom']} style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -638,7 +639,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
-    paddingTop: 20,
+    paddingTop: 3,
   },
   loadingContainer: {
     flex: 1,

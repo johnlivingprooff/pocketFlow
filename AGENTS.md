@@ -24,7 +24,7 @@ npx tsc --noEmit
 ### Testing
 ```bash
 # Run a specific test
-npx jest tests/transaction-persistence.test.ts
+npm test -- tests/sms-parser.test.ts
 # Run all tests
 npx jest
 # Watch mode
@@ -32,7 +32,7 @@ npx jest --watch
 # Test with coverage
 npx jest --coverage
 ```
-**Note:** Tests use Jest. The test database is stored in `pocketflow-test.db`.
+**Note:** Tests use Jest (`jest-expo` preset). Two legacy suites that exercise removed SQLite/test APIs are currently excluded via `testPathIgnorePatterns`; `tests/tsconfig.json` typechecks the active suites. The old test database path was `pocketflow-test.db`.
 ---
 ## Code Style Guidelines
 ### TypeScript Configuration
@@ -70,15 +70,18 @@ npx jest --coverage
 - Keep component-local state for UI-only concerns
 ### Database (SQLite) - CRITICAL RULES
 1. **Write Queue is MANDATORY** for ALL writes (INSERT/UPDATE/DELETE)
-2. Use `enqueueWrite()` or `execRun()` for database modifications
+2. `execRun()` executes a statement directly — it does **not** enqueue. Wrap every write in `enqueueWrite()` (or use a repository function that already does).
 3. Read operations can use `exec()` directly
 **Correct pattern:**
 ```typescript
 import { execRun } from '@/lib/db';
-await execRun(
-  'INSERT INTO transactions (wallet_id, amount, type) VALUES (?, ?, ?)',
-  [walletId, amount, type]
-);
+import { enqueueWrite } from '@/lib/db/writeQueue';
+await enqueueWrite(async () => {
+  await execRun(
+    'INSERT INTO transactions (wallet_id, amount, type) VALUES (?, ?, ?)',
+    [walletId, amount, type]
+  );
+}, 'insertTransaction');
 ```
 **WRONG (causes SQLITE_BUSY errors):**
 ```typescript
@@ -151,15 +154,15 @@ Available in `src/lib/db/transactions.ts`:
 ### Notification System
 **✅ REMINDER NOTIFICATION SYSTEM IMPLEMENTED**
 - `expo-notifications` dependency configured (`^0.32.16`)
-- Daily expense logging reminders with customizable time
-- Quiet hours support (do-not-disturb periods)
+- Daily expense logging reminders with customizable time (no quiet-hours gating – fires daily at the chosen time)
 - Permission handling with graceful degradation
 - Android notification channel configured in app.json
 - iOS provisional authorization support
 - Deep linking from notifications to transaction add screen
 - Reminder settings stored in `useSettings` store:
   - `remindersEnabled`, `reminderPreferredTimeLocal`
-  - `reminderQuietHoursStart/End`, `reminderPermissionStatus`
+  - `reminderPermissionStatus`
+  - (`reminderQuietHoursStart/End` retained in store/cloud schema for backward compat but always cleared – quiet hours retired)
 - Service: `src/lib/services/reminderNotificationService.ts`
 - Eligibility logic: `src/lib/services/reminderEligibility.ts`
 ---
@@ -177,7 +180,7 @@ This repository includes rules from `.github/copilot-instructions.md`. Key highl
 3. Review `docs/PROJECT_SUMMARY.md` for feature details
 4. Examine existing components for patterns (start with `app/(tabs)/index.tsx`)
 ## Testing Tips
-- Run single tests with: `npx jest tests/transaction-persistence.test.ts`
+- Run single tests with: `npm test -- tests/sms-parser.test.ts`
 - Test database path: `pocketflow-test.db`
 - Verify `enqueueWrite()` usage for all write operations
 - Check notification bar padding on every screen

@@ -3,6 +3,7 @@ import {
   AppState,
   AppStateStatus,
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,15 +23,13 @@ import { ThemedAlert } from '@/components/ThemedAlert';
 import {
   canAskForReminderPermissionAgain,
   cancelReminder,
-  getReminderDiagnostics,
   requestReminderPermission,
   scheduleReminderTestNotification,
   setRemindersEnabledAndReschedule,
   syncReminderPermissionStatus,
-  type ReminderDiagnostics,
 } from '@/lib/services/reminderNotificationService';
 
-type PickerTarget = 'preferred' | 'quietStart' | 'quietEnd' | null;
+type PickerTarget = 'preferred' | null;
 
 function timeLocalToDate(value: string): Date {
   const [hoursText, minutesText] = value.split(':');
@@ -47,22 +46,11 @@ function dateToTimeLocal(date: Date): string {
   return `${hours}:${minutes}`;
 }
 
-function formatUtc(isoUtc: string | null): string {
-  if (!isoUtc) return 'Not scheduled';
-  const parsed = new Date(isoUtc);
-  if (Number.isNaN(parsed.getTime())) return 'Not scheduled';
-  return parsed.toLocaleString();
-}
-
 export default function ReminderSettingsScreen() {
   const {
     themeMode,
     remindersEnabled,
     reminderPreferredTimeLocal,
-    reminderQuietHoursStart,
-    reminderQuietHoursEnd,
-    reminderLastDeliveredAtUtc,
-    reminderNextScheduledAtUtc,
     reminderPermissionStatus,
     setReminderPreferredTimeLocal,
     setReminderQuietHours,
@@ -75,28 +63,17 @@ export default function ReminderSettingsScreen() {
 
   const [enabled, setEnabled] = useState(remindersEnabled);
   const [preferredTimeLocal, setPreferredTimeLocal] = useState(reminderPreferredTimeLocal);
-  const [useQuietHours, setUseQuietHours] = useState(Boolean(reminderQuietHoursStart && reminderQuietHoursEnd));
-  const [quietHoursStart, setQuietHoursStart] = useState(reminderQuietHoursStart || '21:00');
-  const [quietHoursEnd, setQuietHoursEnd] = useState(reminderQuietHoursEnd || '07:00');
   const [pickerTarget, setPickerTarget] = useState<PickerTarget>(null);
   const [saving, setSaving] = useState(false);
   const [permissionStatus, setPermissionStatus] = useState(reminderPermissionStatus);
   const [canAskAgain, setCanAskAgain] = useState<boolean>(true);
   const [awaitingSettingsReturn, setAwaitingSettingsReturn] = useState(false);
   const [autoEnableAfterSettings, setAutoEnableAfterSettings] = useState(false);
-  const [diagnostics, setDiagnostics] = useState<ReminderDiagnostics | null>(null);
-  const [diagnosticsRefreshing, setDiagnosticsRefreshing] = useState(false);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
-  const persistedQuietEnabled = Boolean(reminderQuietHoursStart && reminderQuietHoursEnd);
-  const persistedQuietStart = reminderQuietHoursStart || '21:00';
-  const persistedQuietEnd = reminderQuietHoursEnd || '07:00';
   const hasUnsavedChanges =
     enabled !== remindersEnabled ||
-    preferredTimeLocal !== reminderPreferredTimeLocal ||
-    useQuietHours !== persistedQuietEnabled ||
-    (useQuietHours &&
-      (quietHoursStart !== persistedQuietStart || quietHoursEnd !== persistedQuietEnd));
+    preferredTimeLocal !== reminderPreferredTimeLocal;
 
   const reminderStatus = enabled
     ? permissionStatus === 'granted'
@@ -111,7 +88,7 @@ export default function ReminderSettingsScreen() {
         : 'Off';
   const reminderStatusMessage =
     reminderStatus === 'active'
-      ? 'Daily reminder is ready and will follow your schedule rules.'
+      ? 'Your daily reminder will fire each day at your chosen time.'
       : reminderStatus === 'needs_permission'
         ? 'Reminders are on, but notifications need access before delivery can happen.'
         : 'Reminders are currently turned off.';
@@ -134,19 +111,6 @@ export default function ReminderSettingsScreen() {
     setPermissionStatus(nextStatus);
     setCanAskAgain(nextCanAskAgain);
     return { nextStatus, nextCanAskAgain };
-  };
-
-  const refreshDiagnostics = async () => {
-    setDiagnosticsRefreshing(true);
-    try {
-      const next = await getReminderDiagnostics();
-      setDiagnostics(next);
-      return next;
-    } catch {
-      return null;
-    } finally {
-      setDiagnosticsRefreshing(false);
-    }
   };
 
   const openNotificationSettings = async (autoEnableOnReturn: boolean = false) => {
@@ -183,7 +147,6 @@ export default function ReminderSettingsScreen() {
     const syncFromSystem = async (fromAppResume: boolean) => {
       const { nextStatus } = await refreshPermissionMeta();
       if (!mounted) return;
-      void refreshDiagnostics().catch(() => {});
 
       if (awaitingSettingsReturn && fromAppResume) {
         if (nextStatus === 'granted') {
@@ -284,11 +247,9 @@ export default function ReminderSettingsScreen() {
     setSaving(true);
     try {
       setReminderPreferredTimeLocal(preferredTimeLocal);
-      if (enabled && useQuietHours) {
-        setReminderQuietHours(quietHoursStart, quietHoursEnd);
-      } else {
-        setReminderQuietHours(null, null);
-      }
+      // Quiet hours are retired – always clear so a stale window can never
+      // suppress the daily reminder.
+      setReminderQuietHours(null, null);
 
       try {
         await setRemindersEnabledAndReschedule(enabled);
@@ -297,18 +258,14 @@ export default function ReminderSettingsScreen() {
           scheduleError instanceof Error ? scheduleError.message : String(scheduleError);
         showErrorAlert(
           'Schedule Failed',
-          `Could not schedule the daily reminder (${message}). ` +
-            'On Android, allow Exact alarms / disable battery optimization for pocketFlow, then try again. ' +
-            'Your test notification can still work because it bypasses the alarm system.'
+          `Could not schedule the daily reminder (${message}). Check that notifications are allowed for pocketFlow, then try again.`
         );
-        await refreshDiagnostics().catch(() => {});
         return;
       }
       const { nextStatus: nextPermissionStatus } = await refreshPermissionMeta();
 
       if (!enabled) {
         await cancelReminder();
-        await refreshDiagnostics().catch(() => {});
         showSuccessAlert('Saved', 'Reminders disabled.');
         return;
       }
@@ -319,29 +276,10 @@ export default function ReminderSettingsScreen() {
           'Notification permission is required to schedule reminders. Enable notifications for pocketFlow in system settings and try again.',
           true
         );
-        await refreshDiagnostics().catch(() => {});
         return;
       }
 
-      const diag = await refreshDiagnostics().catch(() => null);
-      if (diag && enabled && !diag.scheduledExists) {
-        showErrorAlert(
-          'Not Scheduled',
-          'The system did not retain the reminder. On Android, allow "Alarms & reminders" for pocketFlow and turn off battery optimization, then tap Save again.'
-        );
-        return;
-      }
-      if (diag && diag.scheduledHour !== null && diag.scheduledMinute !== null) {
-        const pad = (v: number) => `${v}`.padStart(2, '0');
-        showSuccessAlert(
-          'Saved',
-          `Reminder set for ${pad(diag.scheduledHour)}:${pad(diag.scheduledMinute)} daily. ` +
-            'If it never fires, check battery optimization / exact-alarm permission – test alerts bypass those, daily alarms do not.'
-        );
-        return;
-      }
-
-      showSuccessAlert('Saved', 'Reminder schedule updated.');
+      showSuccessAlert('Saved', `Reminder set for ${preferredTimeLocal} daily.`);
     } finally {
       setSaving(false);
     }
@@ -369,30 +307,17 @@ export default function ReminderSettingsScreen() {
   };
 
   const onTimePicked = (_event: unknown, selectedDate?: Date) => {
-    setPickerTarget(null);
-    if (!selectedDate) {
-      return;
-    }
-
-    const next = dateToTimeLocal(selectedDate);
-    if (pickerTarget === 'preferred') {
-      setPreferredTimeLocal(next);
-      return;
-    }
-    if (pickerTarget === 'quietStart') {
-      setQuietHoursStart(next);
-      return;
-    }
-    if (pickerTarget === 'quietEnd') {
-      setQuietHoursEnd(next);
-    }
+    if (!selectedDate) return;
+    setPreferredTimeLocal(dateToTimeLocal(selectedDate));
+    // The iOS spinner emits changes continuously; keep it open until Done.
+    if (Platform.OS !== 'ios') setPickerTarget(null);
   };
 
   const saveDisabled = saving || !hasUnsavedChanges;
   const saveButtonLabel = saving ? 'Saving...' : hasUnsavedChanges ? 'Save Changes' : 'No Changes';
 
   return (
-    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: t.background }]) as any} edges={['left', 'right', 'top']}>
+    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: t.background }]) as any} edges={['left', 'right']}>
       <ScrollView contentContainerStyle={StyleSheet.flatten([styles.content, compact && styles.contentCompact]) as any}>
         <View style={StyleSheet.flatten([styles.card, compact && styles.cardCompact, { backgroundColor: t.card, borderColor: t.border }]) as any}> 
           <View
@@ -419,7 +344,7 @@ export default function ReminderSettingsScreen() {
             <View style={styles.rowText}>
               <Text style={StyleSheet.flatten([styles.label, compact && styles.labelCompact, { color: t.textPrimary }]) as any}>Enable reminders</Text>
               <Text style={StyleSheet.flatten([styles.subLabel, compact && styles.subLabelCompact, { color: t.textSecondary }]) as any}> 
-                At most one reminder per local day, never less than 12 hours apart.
+                One reminder each day at your chosen time.
               </Text>
             </View>
             <Switch value={enabled} onValueChange={handleToggleEnabled} />
@@ -480,76 +405,21 @@ export default function ReminderSettingsScreen() {
         </View>
 
         {enabled && (
-          <>
-            <View style={StyleSheet.flatten([styles.card, compact && styles.cardCompact, { backgroundColor: t.card, borderColor: t.border }]) as any}>
-              <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>Preferred reminder time</Text>
-              <Pressable
-                onPress={() => setPickerTarget('preferred')}
-                style={StyleSheet.flatten([styles.timeButton, { backgroundColor: t.background, borderColor: t.border }]) as any}
-              >
-                <Text style={StyleSheet.flatten([styles.timeText, { color: t.textPrimary }]) as any}>{preferredTimeLocal}</Text>
-              </Pressable>
-            </View>
-
-            <View style={StyleSheet.flatten([styles.card, compact && styles.cardCompact, { backgroundColor: t.card, borderColor: t.border }]) as any}>
-              <View style={styles.rowBetween}>
-                <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>Quiet hours</Text>
-                <Switch value={useQuietHours} onValueChange={setUseQuietHours} />
-              </View>
-              {useQuietHours && (
-                <View style={styles.quietRow}>
-                  <Pressable
-                    onPress={() => setPickerTarget('quietStart')}
-                    style={StyleSheet.flatten([styles.timeButton, styles.quietButton, { backgroundColor: t.background, borderColor: t.border }]) as any}
-                  >
-                    <Text style={StyleSheet.flatten([styles.timeText, { color: t.textPrimary }]) as any}>Start {quietHoursStart}</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => setPickerTarget('quietEnd')}
-                    style={StyleSheet.flatten([styles.timeButton, styles.quietButton, { backgroundColor: t.background, borderColor: t.border }]) as any}
-                  >
-                    <Text style={StyleSheet.flatten([styles.timeText, { color: t.textPrimary }]) as any}>End {quietHoursEnd}</Text>
-                  </Pressable>
-                </View>
-              )}
-            </View>
-          </>
+          <View style={StyleSheet.flatten([styles.card, compact && styles.cardCompact, { backgroundColor: t.card, borderColor: t.border }]) as any}>
+            <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>Preferred reminder time</Text>
+            <Pressable
+              onPress={() => setPickerTarget('preferred')}
+              style={StyleSheet.flatten([styles.timeButton, { backgroundColor: t.background, borderColor: t.border }]) as any}
+            >
+              <Text style={StyleSheet.flatten([styles.timeText, { color: t.textPrimary }]) as any}>{preferredTimeLocal}</Text>
+            </Pressable>
+          </View>
         )}
 
-        <View style={StyleSheet.flatten([styles.card, compact && styles.cardCompact, { backgroundColor: t.card, borderColor: t.border }]) as any}>
-          <Text style={StyleSheet.flatten([styles.metaLabel, { color: t.textSecondary }]) as any}>Last delivered (UTC)</Text>
-          <Text style={StyleSheet.flatten([styles.metaValue, { color: t.textPrimary }]) as any}>{formatUtc(reminderLastDeliveredAtUtc)}</Text>
-          <Text style={StyleSheet.flatten([styles.metaLabel, { color: t.textSecondary, marginTop: 10 }]) as any}>Next scheduled</Text>
-          <Text style={StyleSheet.flatten([styles.metaValue, { color: t.textPrimary }]) as any}>{formatUtc(reminderNextScheduledAtUtc)}</Text>
-          {diagnostics && (
-            <Text style={StyleSheet.flatten([styles.subLabel, compact && styles.subLabelCompact, { color: t.textSecondary, marginTop: 8 }]) as any}>
-              {diagnostics.verdict === 'ok' &&
-                diagnostics.scheduledHour !== null &&
-                diagnostics.scheduledMinute !== null
-                ? `Verified with OS: daily at ${`${diagnostics.scheduledHour}`.padStart(2, '0')}:${`${diagnostics.scheduledMinute}`.padStart(2, '0')}.`
-                : diagnostics.verdict === 'disabled'
-                  ? 'Reminders are off – nothing is scheduled with the OS.'
-                  : diagnostics.verdict === 'no_permission'
-                    ? 'Permission missing – nothing is scheduled with the OS.'
-                    : diagnostics.verdict === 'time_mismatch'
-                      ? 'OS alarm time differs from your preferred time – tap Save Changes to resync.'
-                      : 'No alarm found with the OS – tap Save Changes to schedule.'}
-            </Text>
-          )}
-          <Pressable
-            onPress={() => void refreshDiagnostics()}
-            style={StyleSheet.flatten([styles.secondaryButton, { borderColor: t.border, marginTop: 8 }]) as any}
-          >
-            <Text style={StyleSheet.flatten([styles.secondaryButtonText, { color: t.textPrimary }]) as any}>
-              {diagnosticsRefreshing ? 'Checking…' : 'Check OS Schedule'}
-            </Text>
-          </Pressable>
-          <Text style={StyleSheet.flatten([styles.subLabel, compact && styles.subLabelCompact, { color: t.textSecondary }]) as any}>
-            Test alerts fire immediately and bypass the alarm system. Daily reminders need Exact alarms + no battery restriction – if daily never fires on Android, allow “Alarms & reminders” and disable battery optimization for pocketFlow.
-          </Text>
-        </View>
-
         <View style={styles.actions}>
+          <Text style={StyleSheet.flatten([styles.subLabel, compact && styles.subLabelCompact, { color: t.textSecondary }]) as any}>
+            The test sends immediately. The daily reminder fires each day at your chosen time.
+          </Text>
           {hasUnsavedChanges && (
             <Text style={StyleSheet.flatten([styles.pendingChangesText, { color: t.textSecondary }]) as any}>You have unsaved reminder changes.</Text>
           )}
@@ -577,18 +447,24 @@ export default function ReminderSettingsScreen() {
       </ScrollView>
 
       {pickerTarget && (
-        <DateTimePicker
-          value={
-            pickerTarget === 'preferred'
-              ? timeLocalToDate(preferredTimeLocal)
-              : pickerTarget === 'quietStart'
-              ? timeLocalToDate(quietHoursStart)
-              : timeLocalToDate(quietHoursEnd)
-          }
-          mode="time"
-          display="spinner"
-          onChange={onTimePicked}
-        />
+        <View style={{ backgroundColor: t.card, padding: 16 }}>
+          <DateTimePicker
+            value={timeLocalToDate(preferredTimeLocal)}
+            mode="time"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={onTimePicked}
+          />
+          {Platform.OS === 'ios' && (
+            <Pressable
+              onPress={() => setPickerTarget(null)}
+              accessibilityRole="button"
+              accessibilityLabel="Done choosing time"
+              style={{ alignSelf: 'flex-end', paddingVertical: 10, paddingHorizontal: 16 }}
+            >
+              <Text style={{ color: t.primary, fontWeight: '700' }}>Done</Text>
+            </Pressable>
+          )}
+        </View>
       )}
 
       <ThemedAlert
@@ -610,7 +486,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingTop: 20,
+    paddingTop: 3,
     gap: 12,
     paddingBottom: 40,
   },
@@ -728,13 +604,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
-  },
-  quietRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  quietButton: {
-    flex: 1,
   },
   timeButton: {
     borderWidth: 1,

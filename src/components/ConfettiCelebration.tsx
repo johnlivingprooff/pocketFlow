@@ -25,7 +25,7 @@ function ConfettiPiece({ color, delay }: ConfettiPieceProps) {
       Animated.parallel([
         Animated.timing(position, {
           toValue: {
-            x: position.x.__getValue() + (Math.random() - 0.5) * 200,
+            x: (position.x as unknown as { __getValue(): number }).__getValue() + (Math.random() - 0.5) * 200,
             y: SCREEN_HEIGHT + 50
           },
           duration,

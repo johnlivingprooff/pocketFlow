@@ -1,17 +1,17 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, TextInput, Pressable, useColorScheme } from 'react-native';
+import { View, Text, TextInput, Pressable, useColorScheme, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '../../src/store/useStore';
 import { theme } from '../../src/theme/theme';
 import { useOnboarding } from '../../src/store/useOnboarding';
 import { OnboardingHeader } from '../../src/components/OnboardingHeader';
-import { addWallet } from '../../src/lib/db/wallets';
+import { createWallet } from '../../src/lib/db/wallets';
 
 export default function WalletOnboardingScreen() {
   const router = useRouter();
   const { themeMode, defaultCurrency } = useSettings();
-  const { completeStep } = useOnboarding();
+  const { completeStep, setCreatedWalletId } = useOnboarding();
   const systemColorScheme = useColorScheme();
   const t = theme(themeMode, systemColorScheme || 'light');
 
@@ -35,20 +35,29 @@ export default function WalletOnboardingScreen() {
     setIsSaving(true);
 
     try {
-      await addWallet({
+      const newWalletId = await createWallet({
         name: walletName.trim() || 'Cash',
         currency: defaultCurrency,
-        type: walletType,
+        type: walletType === 'Bank' ? 'Bank Account' : walletType,
         color: selectedColor,
-        initial_balance: Number(openingBalance || '0'),
-      } as any);
+        initial_balance: Number(openingBalance || '0') || 0,
+      });
+      setCreatedWalletId(newWalletId ?? null);
     } catch (error) {
       console.error('Failed to create onboarding wallet:', error);
-    } finally {
-      completeStep('wallet');
-      router.replace('/(tabs)');
       setIsSaving(false);
+      Alert.alert(
+        'Could not create wallet',
+        'Your wallet was not saved. Please check the details and try again.',
+        [{ text: 'OK' }]
+      );
+      return;
     }
+
+    // Only finish onboarding after the wallet actually exists.
+    setIsSaving(false);
+    completeStep('wallet');
+    router.replace('/(tabs)');
   };
 
   return (

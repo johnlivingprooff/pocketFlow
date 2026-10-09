@@ -55,15 +55,19 @@ export function CalendarModal({
     yearsPerPage,
   };
 
-  // Reset view when modal opens
+  // Reset view when the modal opens. Depend on primitives, not the Date
+  // instance: callers pass `new Date(...)` inline, which would otherwise reset
+  // the user's month/year navigation on every parent re-render.
+  const selectedYear = selectedDate.getFullYear();
+  const selectedMonth = selectedDate.getMonth();
   useEffect(() => {
     if (visible) {
       setMode('day');
-      setViewYear(selectedDate.getFullYear());
-      setViewMonth(selectedDate.getMonth());
-      setYearRangeStart(Math.floor(selectedDate.getFullYear() / 12) * 12);
+      setViewYear(selectedYear);
+      setViewMonth(selectedMonth);
+      setYearRangeStart(Math.floor(selectedYear / 12) * 12);
     }
-  }, [visible, selectedDate]);
+  }, [visible, selectedYear, selectedMonth]);
 
   // Navigation handlers
   const handlePrevious = () => {

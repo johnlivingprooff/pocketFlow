@@ -8,6 +8,7 @@ import { useSettings } from '@/store/useStore';
 import { theme } from '@/theme/theme';
 import { error as logError } from '@/utils/logger';
 import { formatCurrency } from '@/utils/formatCurrency';
+import { formatShortDate } from '@/utils/date';
 import { getBudgets, getBudgetWithMetrics, deleteBudget } from '@/lib/db/budgets';
 import { getGoals, getGoalWithMetrics, deleteGoal } from '@/lib/db/goals';
 import type { BudgetWithMetrics } from '@/types/goal';
@@ -274,7 +275,7 @@ export default function BudgetGoalsScreen() {
             </Text>
             <Text style={StyleSheet.flatten([styles.categorySubtext, { color: colors.textSecondary }]) as any}>
               {item.periodType === 'custom'
-                ? `${new Date(item.startDate).toLocaleDateString()} - ${new Date(item.endDate).toLocaleDateString()}`
+                ? `${formatShortDate(item.startDate)} - ${formatShortDate(item.endDate)}`
                 : item.periodType === 'weekly'
                   ? 'Weekly'
                   : 'Monthly'}
@@ -327,7 +328,7 @@ export default function BudgetGoalsScreen() {
             <Text style={StyleSheet.flatten([styles.limitText, { color: colors.textSecondary }]) as any}>
               Limit: {formatCurrency(item.limitAmount, defaultCurrency)}
             </Text>
-            {item.daysRemaining !== undefined && item.daysRemaining > 0 && (
+            {item.daysRemaining !== undefined && item.daysRemaining >= 0 && (
               <Text style={StyleSheet.flatten([styles.daysText, { color: colors.textSecondary }]) as any}>
                 {item.daysRemaining} day{item.daysRemaining !== 1 ? 's' : ''} left •
                 Avg: {formatCurrency(item.averageDailySpend, defaultCurrency)}/day
@@ -428,7 +429,7 @@ export default function BudgetGoalsScreen() {
         {/* Footer with deadline and details */}
         <View style={StyleSheet.flatten([styles.cardFooter, { borderTopColor: colors.border }]) as any}>
           <View style={{ flex: 1 }}>
-            {item.daysRemaining && item.daysRemaining > 0 && (
+            {item.daysRemaining !== undefined && item.daysRemaining >= 0 && (
               <Text style={StyleSheet.flatten([styles.daysText, { color: colors.textSecondary }]) as any}>
                 {item.daysRemaining} day{item.daysRemaining !== 1 ? 's' : ''} until deadline
               </Text>

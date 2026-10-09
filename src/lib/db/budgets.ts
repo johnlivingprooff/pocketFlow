@@ -246,7 +246,9 @@ export async function createBudget(budget: BudgetInput): Promise<Budget> {
         now,
       ]
     );
-    createdBudgetId = typeof result?.lastInsertRowId === 'number' ? result.lastInsertRowId : undefined;
+    const rawId = (result as { insertId?: unknown; lastInsertRowId?: unknown } | undefined)?.insertId
+      ?? (result as { lastInsertRowId?: unknown } | undefined)?.lastInsertRowId;
+    createdBudgetId = typeof rawId === 'number' ? rawId : undefined;
   }, 'createBudget');
 
   if (createdBudgetId != null) {

@@ -47,8 +47,8 @@ export default function ReceiptScan() {
   };
 
   return (
-    <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 20 }}>
+    <SafeAreaView edges={['left', 'right']} style={{ flex: 1, backgroundColor: t.background }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 3 }}>
         <TouchableOpacity onPress={pickOrCapture} style={{ backgroundColor: t.accent, padding: 12, borderRadius: 10 }}>
           <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '700' }}>Capture Receipt</Text>
         </TouchableOpacity>

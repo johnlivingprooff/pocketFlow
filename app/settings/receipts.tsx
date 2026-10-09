@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { theme } from '../../src/theme/theme';
 import { useSettings } from '../../src/store/useStore';
-import { exec } from '../../src/lib/db';
+import { exec, execRun } from '../../src/lib/db';
+import { enqueueWrite } from '../../src/lib/db/writeQueue';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useAlert } from '../../src/lib/hooks/useAlert';
 import { ThemedAlert } from '../../src/components/ThemedAlert';
@@ -68,10 +69,12 @@ export default function ReceiptsGalleryScreen() {
           }
 
           // Clear receipt_path from transaction
-          await exec(
-            `UPDATE transactions SET receipt_path = NULL WHERE id = ?`,
-            [receipt.id]
-          );
+          await enqueueWrite(async () => {
+            await execRun(
+              `UPDATE transactions SET receipt_path = NULL WHERE id = ?`,
+              [receipt.id]
+            );
+          }, 'deleteReceipt');
 
           setReceipts(receipts.filter(r => r.id !== receipt.id));
           setShowPreview(false);

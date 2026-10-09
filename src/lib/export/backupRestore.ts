@@ -137,8 +137,13 @@ export async function listBackups(): Promise<{ filename: string; uri: string; da
  * Restores data from a backup file
  * FIXED: Wrapped in enqueueWrite to serialize with other database writes,
  * and in database transaction for atomicity
+ * @param backupUri - Local file URI of the backup JSON
+ * @param onProgress - Optional 0..1 progress callback across the DB restore phases
  */
-export async function restoreFromBackup(backupUri: string): Promise<{ success: boolean; error?: string }> {
+export async function restoreFromBackup(
+  backupUri: string,
+  onProgress?: (fraction: number) => void
+): Promise<{ success: boolean; error?: string }> {
   try {
     const content = await FileSystem.readAsStringAsync(backupUri, {
       encoding: FileSystem.EncodingType.UTF8,
@@ -148,6 +153,19 @@ export async function restoreFromBackup(backupUri: string): Promise<{ success: b
     if (!backupData.data || !backupData.data.wallets || !backupData.data.transactions) {
       throw new Error('Invalid backup file format');
     }
+
+    const categories = backupData.data.categories ?? [];
+    const wallets = backupData.data.wallets;
+    const goals = backupData.data.goals ?? [];
+    const budgets = backupData.data.budgets ?? [];
+    const transactions = backupData.data.transactions;
+    const totalUnits =
+      1 + categories.length + wallets.length + goals.length + budgets.length + transactions.length;
+    let doneUnits = 0;
+    const tick = (n = 1) => {
+      doneUnits += n;
+      onProgress?.(totalUnits > 0 ? Math.min(1, doneUnits / totalUnits) : 1);
+    };
 
     // ✅ FIX: Wrap entire restore in enqueueWrite to serialize with other writes
     // This prevents conflicts if user happens to add/edit data during restore
@@ -164,29 +182,32 @@ export async function restoreFromBackup(backupUri: string): Promise<{ success: b
         
         // Reset autoincrement counters
         await tx.executeAsync('DELETE FROM sqlite_sequence WHERE name IN ("transactions", "wallets", "categories", "budgets", "goals");');
+        tick();
 
         // Restore categories
-        if (backupData.data.categories && backupData.data.categories.length > 0) {
-          for (const cat of backupData.data.categories) {
+        if (categories.length > 0) {
+          for (const cat of categories) {
             await tx.executeAsync(
               `INSERT INTO categories (id, name, type, icon, color, is_preset, created_at) 
                VALUES (?, ?, ?, ?, ?, ?, ?)`,
               [cat.id, cat.name, cat.type, cat.icon || null, cat.color || null, cat.is_preset ?? 0, cat.created_at || new Date().toISOString()]
             );
           }
+          tick(categories.length);
         }
 
         // Restore wallets
-        for (const wallet of backupData.data.wallets) {
+        for (const wallet of wallets) {
           await tx.executeAsync(
             `INSERT INTO wallets (id, name, currency, initial_balance, type, description, color, is_primary, display_order, exchange_rate, created_at) 
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [wallet.id, wallet.name, wallet.currency, wallet.initial_balance ?? 0, wallet.type || null, wallet.description || null, wallet.color || null, wallet.is_primary ?? 0, wallet.display_order ?? 0, wallet.exchange_rate ?? 1.0, wallet.created_at || new Date().toISOString()]
           );
         }
+        tick(wallets.length);
 
-        if (backupData.data.goals && backupData.data.goals.length > 0) {
-          for (const goal of backupData.data.goals) {
+        if (goals.length > 0) {
+          for (const goal of goals) {
             await tx.executeAsync(
               `INSERT INTO goals (
                 id, name, target_amount, current_progress, start_date, target_date, notes,
@@ -206,10 +227,11 @@ export async function restoreFromBackup(backupUri: string): Promise<{ success: b
               ]
             );
           }
+          tick(goals.length);
         }
 
-        if (backupData.data.budgets && backupData.data.budgets.length > 0) {
-          for (const budget of backupData.data.budgets) {
+        if (budgets.length > 0) {
+          for (const budget of budgets) {
             await tx.executeAsync(
               `INSERT INTO budgets (
                 id, name, category_ids, subcategory_ids, limit_amount, current_spending,
@@ -236,16 +258,27 @@ export async function restoreFromBackup(backupUri: string): Promise<{ success: b
               ]
             );
           }
+          tick(budgets.length);
         }
 
-        // Restore transactions
-        for (const txn of backupData.data.transactions) {
+        // Restore transactions (report every 25 rows so large backups
+        // update progress in realtime without spamming re-renders)
+        let rowsSinceTick = 0;
+        for (const txn of transactions) {
           await tx.executeAsync(
             `INSERT INTO transactions (id, wallet_id, type, amount, category, date, notes, receipt_path, is_recurring, recurrence_frequency, recurrence_end_date, parent_transaction_id, created_at) 
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [txn.id, txn.wallet_id, txn.type, txn.amount, txn.category || null, txn.date, txn.notes || null, txn.receipt_path || null, txn.is_recurring ?? 0, txn.recurrence_frequency || null, txn.recurrence_end_date || null, txn.parent_transaction_id || null, txn.created_at || new Date().toISOString()]
           );
+          rowsSinceTick += 1;
+          if (rowsSinceTick >= 25) {
+            tick(rowsSinceTick);
+            rowsSinceTick = 0;
+          }
         }
+        if (rowsSinceTick > 0) tick(rowsSinceTick);
+        // Ensure we land exactly on 1 even for an empty transaction list.
+        onProgress?.(1);
       });
 
       // ✅ Invalidate caches only after successful restore

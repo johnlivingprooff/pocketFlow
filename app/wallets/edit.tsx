@@ -98,6 +98,19 @@ export default function EditWallet() {
     }
 
     if (isSaving) return;
+
+    const rate = Number(exchangeRate || '1.0');
+    const overdraft = Number(overdraftLimit || '0');
+    if (!Number.isFinite(rate) || !Number.isFinite(overdraft)) {
+      setAlertConfig({
+        visible: true,
+        title: 'Validation Error',
+        message: 'Enter valid numbers for exchange rate and overdraft limit.',
+        buttons: [{ text: 'OK' }]
+      });
+      return;
+    }
+
     setIsSaving(true);
 
     try {
@@ -105,8 +118,8 @@ export default function EditWallet() {
         name: name.trim(),
         type,
         currency,
-        exchange_rate: parseFloat(exchangeRate || '1.0'),
-        overdraft_limit: parseFloat(overdraftLimit || '0'),
+        exchange_rate: rate,
+        overdraft_limit: overdraft,
         description: description.trim(),
         color: color || null,
         is_primary: isPrimary,

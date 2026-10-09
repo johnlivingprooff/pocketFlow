@@ -12,7 +12,8 @@
     "postinstall": "patch-package",
     "bump-version": "node scripts/bump-version.js",
     "release:copy": "powershell -ExecutionPolicy Bypass -File ./scripts/copy-release.ps1",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "jest"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -55,14 +56,23 @@
   },
   "devDependencies": {
     "@types/crypto-js": "^4.2.2",
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.1.10",
     "babel-plugin-transform-import-meta": "^3.0.0",
+    "jest": "^30.5.2",
+    "jest-expo": "~54.0.0",
     "patch-package": "^8.0.1",
     "typescript": "~5.9.2"
   },
   "jest": {
+    "preset": "jest-expo",
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/src/$1"
-    }
+    },
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/tests/release/",
+      "/tests/transaction-persistence.test.ts"
+    ]
   }
 }

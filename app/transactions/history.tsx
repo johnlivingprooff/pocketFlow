@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '../../src/store/useStore';
 import { theme, shadows, ThemeMode } from '../../src/theme/theme';
 import { useWallets } from '../../src/lib/hooks/useWallets';
-import { Link, useLocalSearchParams } from 'expo-router';
+import { Link, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { formatShortDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { getCategories, Category } from '../../src/lib/db/categories';
@@ -159,9 +159,12 @@ export default function HistoryScreen() {
     }
   }, [page, isLoadingMore, hasMore, startDate, endDate, filterCategory, debouncedSearchQuery]);
 
-  useEffect(() => {
-    void loadInitialData();
-  }, [loadInitialData]);
+  // Reload on focus so edits/deletes made on the detail screen are reflected.
+  useFocusEffect(
+    useCallback(() => {
+      void loadInitialData();
+    }, [loadInitialData])
+  );
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -237,13 +240,13 @@ export default function HistoryScreen() {
   const activeFilterCount = [filterCategory, debouncedSearchQuery].filter(Boolean).length;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right']}>
       <SectionList
         style={{ flex: 1, backgroundColor: t.background }}
         sections={sections}
         keyExtractor={(item) => String(item.id)}
         stickySectionHeadersEnabled={false}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 36 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 3, paddingBottom: 36 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={t.primary} colors={[t.primary]} />}
         ListHeaderComponent={
           <>

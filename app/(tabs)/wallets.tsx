@@ -43,7 +43,9 @@ export default function WalletsList() {
 
   const handleTransfer = async (fromWalletId: number, toWalletId: number, amount: number, notes?: string) => {
     await transferBetweenWallets(fromWalletId, toWalletId, amount, notes);
-    // The useWallets hook will automatically refresh via useFocusEffect when modal closes
+    // A modal close is not a navigation/focus change, so refresh explicitly.
+    invalidateWalletCaches();
+    await refresh();
   };
 
   // Filter wallets based on search query
@@ -158,8 +160,27 @@ export default function WalletsList() {
             <Text style={{ color: t.textPrimary, fontSize: 16, fontWeight: '600' }}>No wallets found</Text>
             <Text style={{ color: t.textSecondary, fontSize: 13, marginTop: 4 }}>Try a different search term</Text>
           </View>
-        ) : null}
-        
+        ) : (
+          <View style={{
+            backgroundColor: t.card,
+            borderRadius: 12,
+            padding: 28,
+            alignItems: 'center',
+            marginBottom: 16,
+          }}>
+            <Text style={{ fontSize: 36, marginBottom: 10 }}>👛</Text>
+            <Text style={{ color: t.textPrimary, fontSize: 17, fontWeight: '700' }}>No wallets yet</Text>
+            <Text style={{ color: t.textSecondary, fontSize: 13, textAlign: 'center', marginTop: 6, marginBottom: 14 }}>
+              Create a wallet to start tracking your money.
+            </Text>
+            <Link href="/wallets/create" asChild>
+              <TouchableOpacity style={{ backgroundColor: t.primary, paddingVertical: 12, paddingHorizontal: 22, borderRadius: 10 }}>
+                <Text style={{ color: t.background, fontWeight: '700' }}>Create wallet</Text>
+              </TouchableOpacity>
+            </Link>
+          </View>
+        )}
+
         {/* Action Buttons Row */}
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 8, marginBottom: 12 }}>
           {/* Transfer Button — hidden on web unless at least 2 shared wallets */}

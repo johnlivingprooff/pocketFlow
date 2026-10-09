@@ -11,6 +11,7 @@
 import { enqueueWrite } from './writeQueue';
 import { exec, execRun } from './index';
 import type { PendingSmsStatus, PendingSmsTransaction, SmsProvider } from '@/types/smsTransaction';
+import { normalizeTransactionDate } from '../../utils/date';
 
 const TABLE = 'pending_sms_transactions';
 
@@ -149,9 +150,14 @@ export async function confirmPendingSms(
     const pending = await getPendingSmsById(id);
     if (!pending) return null;
 
-    const amount = input.amount ?? pending.amount ?? 0;
     const type = input.type ?? pending.type ?? 'expense';
-    const date = input.date ?? pending.occurred_at ?? new Date().toISOString();
+    const rawAmount = Math.abs(input.amount ?? pending.amount ?? 0);
+    // The app stores expenses as negative amounts; analytics use ABS(). An
+    // un-signed SMS expense previously increased the wallet balance.
+    const amount = type === 'expense' ? -rawAmount : rawAmount;
+    const date = normalizeTransactionDate(
+      input.date ?? pending.occurred_at ?? new Date().toISOString()
+    );
     const notes =
       input.notes ??
       [pending.reference && `Ref ${pending.reference}`, `Via SMS (${pending.provider ?? 'unknown'})`]

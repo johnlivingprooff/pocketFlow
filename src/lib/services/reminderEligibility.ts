@@ -1,3 +1,7 @@
+// NOTE: quiet hours are retired – the daily reminder fires at the chosen
+// time with the same always-show handling as the test notification.
+// isInsideQuietHours is kept (unused) for backward compat with stored
+// profiles; do not add new callers.
 export const DEFAULT_REMINDER_TITLE = 'Quick check-in';
 export const DEFAULT_REMINDER_BODY = "Log today's spending.";
 

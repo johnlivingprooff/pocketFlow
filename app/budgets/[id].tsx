@@ -97,7 +97,7 @@ export default function BudgetDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
+      <SafeAreaView edges={['left', 'right', 'bottom']} style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
         <View style={styles.loadingContainer}>
           <Text style={StyleSheet.flatten([styles.loadingText, { color: colors.textSecondary }]) as any}>Loading...</Text>
         </View>
@@ -107,7 +107,7 @@ export default function BudgetDetailScreen() {
 
   if (!budget) {
     return (
-      <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
+      <SafeAreaView edges={['left', 'right', 'bottom']} style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
         <View style={styles.loadingContainer}>
           <Text style={StyleSheet.flatten([styles.loadingText, { color: colors.textSecondary }]) as any}>Budget not found</Text>
         </View>
@@ -122,7 +122,7 @@ export default function BudgetDetailScreen() {
     : colors.success;
 
   return (
-    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
+    <SafeAreaView edges={['left', 'right', 'bottom']} style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Header Card */}
         <View style={StyleSheet.flatten([styles.headerCard, { backgroundColor: colors.card }]) as any}>
@@ -217,7 +217,7 @@ export default function BudgetDetailScreen() {
             </Text>
           </View>
 
-          {budget.daysRemaining !== undefined && budget.daysRemaining > 0 && (
+          {budget.daysRemaining !== undefined && budget.daysRemaining >= 0 && (
             <>
               <View style={StyleSheet.flatten([styles.divider, { backgroundColor: colors.border }]) as any} />
               <View style={styles.detailRow}>
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
-    paddingTop: 20,
+    paddingTop: 3,
   },
   loadingContainer: {
     flex: 1,

@@ -3,6 +3,7 @@ import { exec, execRun, getDbAsync } from '@/lib/db';
 import { useSettings } from '@/store/useStore';
 import { error as logError, log } from '@/utils/logger';
 import { invalidateTransactionCaches } from '@/lib/cache/queryCache';
+import { enqueueWrite } from '@/lib/db/writeQueue';
 import { refreshDerivedFinanceStateForWallets } from '@/lib/db/derivedState';
 import {
   listSharedWalletTransactions,
@@ -59,11 +60,13 @@ async function getLastSyncAt(walletId: number): Promise<string | null> {
 
 async function setLastSyncAt(walletId: number, iso: string): Promise<void> {
   try {
-    await execRun(
-      `INSERT INTO cloud_sync_meta (wallet_id, last_sync_at) VALUES (?, ?)
-       ON CONFLICT(wallet_id) DO UPDATE SET last_sync_at = excluded.last_sync_at;`,
-      [walletId, iso]
-    );
+    await enqueueWrite(async () => {
+      await execRun(
+        `INSERT INTO cloud_sync_meta (wallet_id, last_sync_at) VALUES (?, ?)
+         ON CONFLICT(wallet_id) DO UPDATE SET last_sync_at = excluded.last_sync_at;`,
+        [walletId, iso]
+      );
+    }, 'syncSetLastSyncAt');
   } catch {}
 }
 
@@ -76,21 +79,23 @@ async function pushPending(walletId: number, cloudWalletId: string): Promise<num
   );
   if (pending.length === 0) return 0;
 
-  // Ensure every pending has an externalId
+  // Ensure every pending has an externalId (serialized with all other writes)
   const now = new Date().toISOString();
-  for (const row of pending) {
-    if (!row.cloud_external_id) {
-      const newId = `local_${Date.now()}_${Math.random().toString(36).slice(2, 6)}_${row.id}`;
-      await execRun('UPDATE transactions SET cloud_external_id = ?, cloud_updated_at = ?, sync_status = ? WHERE id = ?;', [
-        newId,
-        now,
-        'pending',
-        row.id,
-      ]);
-      row.cloud_external_id = newId;
-      row.cloud_updated_at = now;
+  await enqueueWrite(async () => {
+    for (const row of pending) {
+      if (!row.cloud_external_id) {
+        const newId = `local_${Date.now()}_${Math.random().toString(36).slice(2, 6)}_${row.id}`;
+        await execRun('UPDATE transactions SET cloud_external_id = ?, cloud_updated_at = ?, sync_status = ? WHERE id = ?;', [
+          newId,
+          now,
+          'pending',
+          row.id,
+        ]);
+        row.cloud_external_id = newId;
+        row.cloud_updated_at = now;
+      }
     }
-  }
+  }, 'syncAssignExternalIds');
 
   // Re-fetch to get updated externalIds
   const toPush: any[] = await exec(
@@ -114,10 +119,12 @@ async function pushPending(walletId: number, cloudWalletId: string): Promise<num
 
   // Mark as synced
   const ids = toPush.map((r) => r.externalId);
-  // Update each by externalId
-  for (const ext of ids) {
-    await execRun(`UPDATE transactions SET sync_status = 'synced', cloud_updated_at = ? WHERE cloud_external_id = ?;`, [now, ext]);
-  }
+  // Update each by externalId (single queued batch)
+  await enqueueWrite(async () => {
+    for (const ext of ids) {
+      await execRun(`UPDATE transactions SET sync_status = 'synced', cloud_updated_at = ? WHERE cloud_external_id = ?;`, [now, ext]);
+    }
+  }, 'syncMarkSynced');
   return payload.length;
 }
 
@@ -136,43 +143,47 @@ async function pullRemote(walletId: number, cloudWalletId: string): Promise<numb
     const remote: SharedTransactionRow[] = res.transactions ?? [];
     if (remote.length === 0) break;
 
-    for (const r of remote) {
-      const localRows: any[] = await exec('SELECT id, cloud_updated_at FROM transactions WHERE cloud_external_id = ?;', [r.externalId]);
-      const existing = localRows[0];
-      const isNewer = !existing || !existing.cloud_updated_at || r.updatedAt > existing.cloud_updated_at;
+    // Apply a whole page of pulled changes as one queued batch so concurrent
+    // app writes cannot interleave with (or lock out) sync writes.
+    await enqueueWrite(async () => {
+      for (const r of remote) {
+        const localRows: any[] = await exec('SELECT id, cloud_updated_at FROM transactions WHERE cloud_external_id = ?;', [r.externalId]);
+        const existing = localRows[0];
+        const isNewer = !existing || !existing.cloud_updated_at || r.updatedAt > existing.cloud_updated_at;
 
-      if (!existing) {
-        // Insert
-        const amount = r.type === 'expense' ? -Math.abs(Number(r.amount)) : Math.abs(Number(r.amount));
-        await execRun(
-          `INSERT INTO transactions (wallet_id, type, amount, category, date, notes, cloud_external_id, cloud_updated_at, sync_status, is_recurring)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-          [
-            walletId,
-            r.type,
-            amount,
-            r.category,
-            r.date,
-            r.notes,
-            r.externalId,
-            r.updatedAt,
-            'synced',
-            0,
-          ]
-        );
-        // Note: is_recurring default 0, other fields null
-        totalPulled++;
-      } else if (isNewer) {
-        const amount = r.type === 'expense' ? -Math.abs(Number(r.amount)) : Math.abs(Number(r.amount));
-        await execRun(
-          `UPDATE transactions SET type = ?, amount = ?, category = ?, date = ?, notes = ?, cloud_updated_at = ?, sync_status = 'synced' WHERE cloud_external_id = ?;`,
-          [r.type, amount, r.category, r.date, r.notes, r.updatedAt, r.externalId]
-        );
-        totalPulled++;
+        if (!existing) {
+          // Insert
+          const amount = r.type === 'expense' ? -Math.abs(Number(r.amount)) : Math.abs(Number(r.amount));
+          await execRun(
+            `INSERT INTO transactions (wallet_id, type, amount, category, date, notes, cloud_external_id, cloud_updated_at, sync_status, is_recurring)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+            [
+              walletId,
+              r.type,
+              amount,
+              r.category,
+              r.date,
+              r.notes,
+              r.externalId,
+              r.updatedAt,
+              'synced',
+              0,
+            ]
+          );
+          // Note: is_recurring default 0, other fields null
+          totalPulled++;
+        } else if (isNewer) {
+          const amount = r.type === 'expense' ? -Math.abs(Number(r.amount)) : Math.abs(Number(r.amount));
+          await execRun(
+            `UPDATE transactions SET type = ?, amount = ?, category = ?, date = ?, notes = ?, cloud_updated_at = ?, sync_status = 'synced' WHERE cloud_external_id = ?;`,
+            [r.type, amount, r.category, r.date, r.notes, r.updatedAt, r.externalId]
+          );
+          totalPulled++;
+        }
+
+        if (!maxUpdatedAt || r.updatedAt > maxUpdatedAt) maxUpdatedAt = r.updatedAt;
       }
-
-      if (!maxUpdatedAt || r.updatedAt > maxUpdatedAt) maxUpdatedAt = r.updatedAt;
-    }
+    }, 'syncPullPage');
 
     if (remote.length < PULL_LIMIT) break;
     offset += PULL_LIMIT;

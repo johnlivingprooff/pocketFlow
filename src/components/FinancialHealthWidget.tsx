@@ -83,7 +83,7 @@ export const HomeSummaryWidget = React.memo(function HomeSummaryWidgetComponent(
 
     const options = [
         { label: 'Overview', id: 'overview' as const },
-        ...data.map(item => ({ label: item.name, id: item.id }))
+        ...data.filter(item => item.id !== undefined).map(item => ({ label: item.name, id: item.id as number }))
     ];
 
     const currentLabel = selectedId === 'overview' ? 'Overview' : data.find(i => i.id === selectedId)?.name || 'Overview';

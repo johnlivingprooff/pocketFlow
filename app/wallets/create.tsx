@@ -61,17 +61,31 @@ export default function CreateWallet() {
     }
 
     if (isSaving) return; // Prevent double submission
+
+    const initialBalance = Number(initial || '0');
+    const rate = Number(exchangeRate || '1.0');
+    const overdraft = Number(overdraftLimit || '0');
+    if (!Number.isFinite(initialBalance) || !Number.isFinite(rate) || !Number.isFinite(overdraft)) {
+      setAlertConfig({
+        visible: true,
+        title: 'Validation Error',
+        message: 'Enter valid numbers for balance, exchange rate and overdraft limit.',
+        buttons: [{ text: 'OK' }]
+      });
+      return;
+    }
+
     setIsSaving(true);
 
     try {
       const walletData: any = {
         name: name.trim(), 
         currency, 
-        initial_balance: parseFloat(initial || '0'), 
+        initial_balance: initialBalance,
         type, 
         description: description.trim(),
-        exchange_rate: parseFloat(exchangeRate || '1.0'),
-        overdraft_limit: parseFloat(overdraftLimit || '0'),
+        exchange_rate: rate,
+        overdraft_limit: overdraft,
       };
 
       // Add conditional fields based on wallet type
@@ -117,8 +131,8 @@ export default function CreateWallet() {
   if (isWeb) {
     if (cloudSessionState !== 'authenticated') {
       return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top', 'bottom']}>
-          <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 20, gap: 16 }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'bottom']}>
+          <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 3, gap: 16 }}>
             <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>Create Wallet</Text>
             <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 16 }}>
               <Text style={{ color: t.textPrimary, fontWeight: '700', fontSize: 16, marginBottom: 6 }}>Account required on the web</Text>
@@ -136,8 +150,8 @@ export default function CreateWallet() {
       );
     }
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top', 'bottom']}>
-        <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 20, paddingBottom: 32, gap: 12 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'bottom']}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 3, paddingBottom: 32, gap: 12 }}>
           <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>Create Shared Wallet (Web)</Text>
           <View style={{ backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 14 }}>
             <Text style={{ color: t.textSecondary, fontSize: 12, fontWeight: '700', marginBottom: 6 }}>ACCOUNT</Text>
@@ -187,13 +201,13 @@ export default function CreateWallet() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top', 'bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'bottom']}>
       <KeyboardAvoidingView 
         style={{ flex: 1, backgroundColor: t.background }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 20, paddingBottom: 140 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 3, paddingBottom: 140 }}>
         <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 24 }}>Create Wallet</Text>
 
       <Text style={{ color: t.textSecondary, fontSize: 14, fontWeight: '600', marginBottom: 6 }}>Wallet Name</Text>

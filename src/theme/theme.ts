@@ -30,6 +30,10 @@ export const colors = {
   positiveGreen: '#10B981',
   negativeRed: '#EF4444',
   mutedGrey: '#8A9799',
+
+  // Original brand palette, still referenced by older screens
+  deepGold: '#84670B',
+  neutralBeige: '#B3B09E',
 };
 
 export type ThemeMode = 'light' | 'dark' | 'system';

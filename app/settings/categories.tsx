@@ -72,7 +72,6 @@ export default function CategoriesScreen() {
 
   const loadCategories = async () => {
     try {
-      setLoading(false);
       const allCategories = await getCategories();
       setCategories(allCategories);
     } catch (error) {

@@ -25,7 +25,7 @@ import {
   setRemindersEnabledAndReschedule,
 } from '@/lib/services/reminderNotificationService';
 
-type PickerTarget = 'preferred' | 'quietStart' | 'quietEnd' | null;
+type PickerTarget = 'preferred' | null;
 
 function dateToTimeLocal(date: Date): string {
   const hours = `${date.getHours()}`.padStart(2, '0');
@@ -49,8 +49,6 @@ export default function OnboardingRemindersScreen() {
     themeMode,
     remindersEnabled,
     reminderPreferredTimeLocal,
-    reminderQuietHoursStart,
-    reminderQuietHoursEnd,
     setReminderPreferredTimeLocal,
     setReminderQuietHours,
   } = useSettings();
@@ -66,15 +64,6 @@ export default function OnboardingRemindersScreen() {
   );
   const [preferredTimeLocal, setPreferredTimeLocal] = useState<string>(
     reminderPreferredTimeLocal ?? '20:00'
-  );
-  const [useQuietHours, setUseQuietHours] = useState<boolean>(
-    Boolean(reminderQuietHoursStart ?? reminderQuietHoursEnd)
-  );
-  const [quietHoursStart, setQuietHoursStart] = useState<string>(
-    reminderQuietHoursStart ?? '21:00'
-  );
-  const [quietHoursEnd, setQuietHoursEnd] = useState<string>(
-    reminderQuietHoursEnd ?? '07:00'
   );
   const [pickerTarget, setPickerTarget] = useState<PickerTarget>(null);
 
@@ -151,11 +140,8 @@ export default function OnboardingRemindersScreen() {
   const handleContinue = async () => {
     setReminderPreferredTimeLocal(preferredTimeLocal);
 
-    if (enabled && useQuietHours) {
-      setReminderQuietHours(quietHoursStart, quietHoursEnd);
-    } else {
-      setReminderQuietHours(null, null);
-    }
+    // Quiet hours are retired – always clear.
+    setReminderQuietHours(null, null);
 
     await setRemindersEnabledAndReschedule(enabled);
 
@@ -179,18 +165,7 @@ export default function OnboardingRemindersScreen() {
       return;
     }
 
-    const next = dateToTimeLocal(selected);
-    if (pickerTarget === 'preferred') {
-      setPreferredTimeLocal(next);
-      return;
-    }
-    if (pickerTarget === 'quietStart') {
-      setQuietHoursStart(next);
-      return;
-    }
-    if (pickerTarget === 'quietEnd') {
-      setQuietHoursEnd(next);
-    }
+    setPreferredTimeLocal(dateToTimeLocal(selected));
   };
 
   return (
@@ -202,7 +177,7 @@ export default function OnboardingRemindersScreen() {
           <Text style={styles.emoji}>🔔</Text>
           <Text style={StyleSheet.flatten([styles.title, { color: t.textPrimary }]) as any}>Reminders</Text>
           <Text style={StyleSheet.flatten([styles.subtitle, { color: t.textSecondary }]) as any}>
-            We&apos;ll remind you once per day, and never more often than every 12 hours.
+            We&apos;ll remind you once per day at your chosen time.
           </Text>
         </View>
 
@@ -220,41 +195,15 @@ export default function OnboardingRemindersScreen() {
           </View>
 
           {enabled && (
-            <>
-              <View style={StyleSheet.flatten([styles.card, { backgroundColor: t.card, borderColor: t.border }]) as any}>
-                <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>Preferred reminder time</Text>
-                <Pressable
-                  onPress={() => setPickerTarget('preferred')}
-                  style={StyleSheet.flatten([styles.timeButton, { backgroundColor: t.background, borderColor: t.border }]) as any}
-                >
-                  <Text style={StyleSheet.flatten([styles.timeText, { color: t.textPrimary }]) as any}>{preferredTimeLocal}</Text>
-                </Pressable>
-              </View>
-
-              <View style={StyleSheet.flatten([styles.card, { backgroundColor: t.card, borderColor: t.border }]) as any}>
-                <View style={styles.rowBetween}>
-                  <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>Use quiet hours</Text>
-                  <Switch value={useQuietHours} onValueChange={setUseQuietHours} />
-                </View>
-
-                {useQuietHours && (
-                  <View style={styles.quietRow}>
-                    <Pressable
-                      onPress={() => setPickerTarget('quietStart')}
-                      style={StyleSheet.flatten([styles.timeButton, styles.quietButton, { backgroundColor: t.background, borderColor: t.border }]) as any}
-                    >
-                      <Text style={StyleSheet.flatten([styles.timeText, { color: t.textPrimary }]) as any}>Start {quietHoursStart}</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => setPickerTarget('quietEnd')}
-                      style={StyleSheet.flatten([styles.timeButton, styles.quietButton, { backgroundColor: t.background, borderColor: t.border }]) as any}
-                    >
-                      <Text style={StyleSheet.flatten([styles.timeText, { color: t.textPrimary }]) as any}>End {quietHoursEnd}</Text>
-                    </Pressable>
-                  </View>
-                )}
-              </View>
-            </>
+            <View style={StyleSheet.flatten([styles.card, { backgroundColor: t.card, borderColor: t.border }]) as any}>
+              <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>Preferred reminder time</Text>
+              <Pressable
+                onPress={() => setPickerTarget('preferred')}
+                style={StyleSheet.flatten([styles.timeButton, { backgroundColor: t.background, borderColor: t.border }]) as any}
+              >
+                <Text style={StyleSheet.flatten([styles.timeText, { color: t.textPrimary }]) as any}>{preferredTimeLocal}</Text>
+              </Pressable>
+            </View>
           )}
         </View>
 
@@ -262,7 +211,7 @@ export default function OnboardingRemindersScreen() {
           title="Reminders"
           items={[
             'Uses local notifications and works offline.',
-            'Follows strict daily + spacing gates to avoid notification fatigue.',
+            'Fires once a day at your chosen time.',
           ]}
         />
 
@@ -278,13 +227,7 @@ export default function OnboardingRemindersScreen() {
 
       {pickerTarget && (
         <DateTimePicker
-          value={
-            pickerTarget === 'preferred'
-              ? timeLocalToDate(preferredTimeLocal)
-              : pickerTarget === 'quietStart'
-              ? timeLocalToDate(quietHoursStart)
-              : timeLocalToDate(quietHoursEnd)
-          }
+          value={timeLocalToDate(preferredTimeLocal)}
           mode="time"
           display="spinner"
           onChange={onTimePicked}
@@ -348,13 +291,6 @@ const styles = StyleSheet.create({
   helperText: {
     fontSize: 12,
     lineHeight: 18,
-  },
-  quietRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  quietButton: {
-    flex: 1,
   },
   timeButton: {
     borderWidth: 1,

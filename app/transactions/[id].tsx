@@ -22,7 +22,7 @@ export default function TransactionDetail() {
   const { wallets } = useWallets();
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [loading, setLoading] = useState(true);
-  const { alertConfig, showConfirmAlert, showErrorAlert, dismissAlert } = useAlert();
+  const { alertConfig, showConfirmAlert, showSuccessAlert, showErrorAlert, dismissAlert } = useAlert();
 
   // Get wallet exchange rate
   const wallet = wallets.find(w => w.id === transaction?.wallet_id);
@@ -31,15 +31,17 @@ export default function TransactionDetail() {
   const convertedAmount = transaction ? Math.abs(transaction.amount * exchangeRate) : 0;
 
   const loadTransaction = useCallback(async () => {
-    if (Platform.OS !== 'web' && id) {
-      try {
+    try {
+      if (Platform.OS !== 'web' && id) {
         const txn = await getById(Number(id));
         setTransaction(txn);
-      } catch (error) {
-        showErrorAlert('Error', 'Failed to load transaction');
-      } finally {
-        setLoading(false);
       }
+    } catch (error) {
+      showErrorAlert('Error', 'Failed to load transaction');
+    } finally {
+      // Web has no local transaction store; clear loading so the screen shows
+      // the "not found" state instead of spinning forever.
+      setLoading(false);
     }
   }, [id]);
 
@@ -81,9 +83,9 @@ export default function TransactionDetail() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right']}>
       <ScrollView style={{ flex: 1, backgroundColor: t.background }}>
-      <View style={{ padding: 16, paddingTop: 20 }}>
+      <View style={{ padding: 16, paddingTop: 3 }}>
         {/* Category Icon */}
         <View style={{ alignItems: 'center', marginBottom: 32 }}>
           <View style={{

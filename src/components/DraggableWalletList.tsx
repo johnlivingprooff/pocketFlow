@@ -22,7 +22,9 @@ import Animated, {
   withSpring,
   runOnJS,
 } from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { ImpactFeedbackStyle } from 'expo-haptics';
 import { Link } from 'expo-router';
 import { Wallet } from '../types/wallet';
 import { WalletCard } from './WalletCard';
@@ -65,7 +67,7 @@ export function DraggableWalletList({
   const positions = useSharedValue<number[]>(wallets.map((w) => w.id!));
 
   // Map of id -> translateY (populated by children on mount)
-  const translateYMap = useRef<Record<number, Animated.SharedValue<number>>>({});
+  const translateYMap = useRef<Record<number, SharedValue<number>>>({});
 
   // ScrollView reference + scroll position
   const scrollRef = useRef<ScrollView | null>(null);
@@ -86,7 +88,7 @@ export function DraggableWalletList({
   }, [wallets]);
 
   // Register/unregister functions passed to items
-  const registerTranslate = useCallback((id: number, shared: Animated.SharedValue<number>) => {
+  const registerTranslate = useCallback((id: number, shared: SharedValue<number>) => {
     translateYMap.current[id] = shared;
   }, []);
 
@@ -201,8 +203,8 @@ interface ItemProps {
   balance: number;
   themeMode: 'light' | 'dark';
   index: number;
-  positions: Animated.SharedValue<number[]>;
-  registerTranslate: (id: number, v: Animated.SharedValue<number>) => void;
+  positions: SharedValue<number[]>;
+  registerTranslate: (id: number, v: SharedValue<number>) => void;
   unregisterTranslate: (id: number) => void;
   showLink: boolean;
   onDragEnd: (from: number, to: number) => void;
@@ -245,7 +247,7 @@ function DraggableItem({
       isDragging.value = true;
       dragStartIndex.value = positions.value.indexOf(id);
       // small immediate feedback
-      runOnJS(Haptics.impactAsync)('light');
+      runOnJS(Haptics.impactAsync)(ImpactFeedbackStyle.Light);
     });
 
   // Pan gesture: works only once handleLong has set isDragging (we use Simultaneous so both can combine)
@@ -265,7 +267,7 @@ function DraggableItem({
       // Auto-scroll when near top or bottom of container (call parent via runOnJS)
       if (e.absoluteY < AUTO_SCROLL_THRESHOLD) {
         runOnJS(runAutoScroll)('up');
-      } else if (e.absoluteY > e.containerHeight - AUTO_SCROLL_THRESHOLD) {
+      } else if (e.absoluteY > positions.value.length * ITEM_HEIGHT - AUTO_SCROLL_THRESHOLD) {
         runOnJS(runAutoScroll)('down');
       }
 
@@ -298,7 +300,7 @@ function DraggableItem({
       translateY.value = withSpring(finalY, SPRING_PRESET);
 
       runOnJS(onDragEnd)(dragStartIndex.value, finalIndex);
-      runOnJS(Haptics.impactAsync)('medium');
+      runOnJS(Haptics.impactAsync)(ImpactFeedbackStyle.Medium);
     })
     .onFinalize(() => {
       isDragging.value = false;

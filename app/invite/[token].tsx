@@ -30,8 +30,8 @@ export default function InviteAcceptScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
-      <View style={{ flex: 1, padding: 16, paddingTop: 20, justifyContent: 'center' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right']}>
+      <View style={{ flex: 1, padding: 16, paddingTop: 3, justifyContent: 'center' }}>
         <View style={{ backgroundColor: t.card, borderColor: t.border, borderWidth: 1, borderRadius: 12, padding: 16 }}>
           <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800', marginBottom: 8 }}>Wallet Invitation</Text>
           {cloudSessionState !== 'authenticated' ? (

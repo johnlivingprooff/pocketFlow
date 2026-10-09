@@ -10,6 +10,7 @@ import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { CURRENCIES } from '../../src/constants/currencies';
 import { checkBiometricAvailability, authenticateWithBiometrics } from '../../src/lib/services/biometricService';
 import { createBackup, listBackups, restoreFromBackup } from '../../src/lib/export/backupRestore';
+import { invalidateTransactionCaches, invalidateWalletCaches } from '../../src/lib/cache/queryCache';
 import { exportTransactionsToCSV } from '../../src/lib/export/csvExport';
 import { listTransactionCsvExports, restoreFromTransactionCsv } from '../../src/lib/export/csvRestore';
 import { BackupIcon } from '../../src/assets/icons/BackupIcon';
@@ -235,6 +236,8 @@ export default function SettingsScreen() {
         try {
           const result = await restoreFromBackup(uri);
           if (result.success) {
+            invalidateTransactionCaches();
+            invalidateWalletCaches();
             setShowBackupModal(false);
             showSuccessAlert('Success', 'Data restored successfully');
           } else {
@@ -259,6 +262,8 @@ export default function SettingsScreen() {
         try {
           const result = await restoreFromTransactionCsv(uri);
           if (result.success) {
+            invalidateTransactionCaches();
+            invalidateWalletCaches();
             setShowCsvRestoreModal(false);
             showSuccessAlert(
               'Success',
@@ -633,7 +638,7 @@ export default function SettingsScreen() {
             <View style={StyleSheet.flatten([styles.modalHeader, { borderBottomColor: t.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]) as any}>
               <Text style={StyleSheet.flatten([styles.modalTitle, { color: t.textPrimary }]) as any}>CSV Exports</Text>
               <TouchableOpacity activeOpacity={TAP_OPACITY} onPress={() => setShowCsvRestoreModal(false)}>
-                <Text style={{ fontSize: 24, color: t.textSecondary }}>Ã—</Text>
+                <Text style={{ fontSize: 24, color: t.textSecondary }}>×</Text>
               </TouchableOpacity>
             </View>
             {csvExports.length === 0 ? (

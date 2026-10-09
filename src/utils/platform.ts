@@ -15,13 +15,15 @@ export function detectJSEngine(): 'hermes' | 'jsc' | 'v8' | 'unknown' {
     return 'hermes';
   }
   
+  const runtime = globalThis as Record<string, unknown>;
+
   // JavaScriptCore detection (iOS)
-  if (typeof nativePerformanceNow !== 'undefined' || typeof global.nativePerformanceNow !== 'undefined') {
+  if (typeof runtime.nativePerformanceNow === 'function') {
     return 'jsc';
   }
-  
+
   // V8 detection (Chrome, Node)
-  if (typeof global.gc === 'function' || typeof (global as any).v8debug !== 'undefined') {
+  if (typeof runtime.gc === 'function' || runtime.v8debug !== undefined) {
     return 'v8';
   }
   

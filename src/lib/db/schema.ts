@@ -699,9 +699,17 @@ export async function ensureSchema(database: SchemaDatabase, schemaVersion: numb
 
 export async function clearCoreTables(database: SchemaDatabase): Promise<void> {
   await database.transaction(async (tx) => {
+    // Delete children first so foreign keys (now enabled) cannot block, and
+    // clear every table so derived goals/budgets don't point at deleted data.
+    await tx.executeAsync('DELETE FROM pending_sms_transactions;');
+    await tx.executeAsync('DELETE FROM cloud_sync_meta;');
     await tx.executeAsync('DELETE FROM transactions;');
+    await tx.executeAsync('DELETE FROM goals;');
+    await tx.executeAsync('DELETE FROM budgets;');
     await tx.executeAsync('DELETE FROM wallets;');
     await tx.executeAsync('DELETE FROM categories;');
-    await tx.executeAsync('DELETE FROM sqlite_sequence WHERE name IN ("transactions", "wallets", "categories");');
+    await tx.executeAsync(
+      `DELETE FROM sqlite_sequence WHERE name IN ('transactions', 'wallets', 'categories', 'goals', 'budgets', 'pending_sms_transactions');`
+    );
   });
 }

@@ -46,7 +46,9 @@ export async function createGoal(goal: GoalInput): Promise<Goal> {
         now,
       ]
     );
-    createdGoalId = typeof result?.lastInsertRowId === 'number' ? result.lastInsertRowId : undefined;
+    const rawId = (result as { insertId?: unknown; lastInsertRowId?: unknown } | undefined)?.insertId
+      ?? (result as { lastInsertRowId?: unknown } | undefined)?.lastInsertRowId;
+    createdGoalId = typeof rawId === 'number' ? rawId : undefined;
   }, 'createGoal');
 
   if (createdGoalId != null) {

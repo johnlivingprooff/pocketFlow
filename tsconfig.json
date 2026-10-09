@@ -12,5 +12,13 @@
     "src/global.d.ts",
     "**/*.ts",
     "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "web",
+    "webpage",
+    "cloud-backend",
+    "tests",
+    "dist"
   ]
 }

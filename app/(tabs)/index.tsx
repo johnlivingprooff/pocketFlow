@@ -195,6 +195,8 @@ export default function Home() {
             </View>
             <TouchableOpacity
               onPress={() => setHideBalances(!hideBalances)}
+              accessibilityRole="button"
+              accessibilityLabel={hideBalances ? 'Show balances' : 'Hide balances'}
               style={{ padding: 8, borderRadius: 10, backgroundColor: t.background, borderWidth: 1, borderColor: t.border }}
             >
               {hideBalances ? <EyeIcon size={18} color={t.textSecondary} /> : <EyeOffIcon size={18} color={t.textSecondary} />}
@@ -204,12 +206,16 @@ export default function Home() {
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
             <TouchableOpacity
               onPress={() => router.push({ pathname: '/transactions/add', params: { type: 'expense' } })}
+              accessibilityRole="button"
+              accessibilityLabel="Add expense"
               style={{ flex: 1, backgroundColor: t.danger, borderRadius: 14, paddingVertical: 14, alignItems: 'center', shadowColor: t.danger, shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 2 }}
             >
               <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>Add expense</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => router.push({ pathname: '/transactions/add', params: { type: 'income' } })}
+              accessibilityRole="button"
+              accessibilityLabel="Add income"
               style={{ flex: 1, backgroundColor: t.success, borderRadius: 14, paddingVertical: 14, alignItems: 'center', shadowColor: t.success, shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 2 }}
             >
               <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>Add income</Text>
@@ -219,12 +225,16 @@ export default function Home() {
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
             <TouchableOpacity
               onPress={() => router.push({ pathname: '/transactions/add', params: { type: 'transfer' } })}
+              accessibilityRole="button"
+              accessibilityLabel="Transfer money"
               style={{ flex: 1, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}
             >
               <Text style={{ color: t.textPrimary, fontSize: 13, fontWeight: '700' }}>Transfer</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => router.push('/transactions/history')}
+              accessibilityRole="button"
+              accessibilityLabel="View transaction history"
               style={{ flex: 1, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}
             >
               <Text style={{ color: t.textPrimary, fontSize: 13, fontWeight: '700' }}>History</Text>

@@ -658,7 +658,7 @@ export default function AddTransactionScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right']}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: t.textSecondary }}>Loading transaction...</Text>
         </View>
@@ -668,8 +668,8 @@ export default function AddTransactionScreen() {
 
   if (isWeb && cloudSessionState !== 'authenticated') {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
-        <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 20, gap: 16 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right']}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 3, gap: 16 }}>
           <WebAuthWall onPress={() => router.push('/profile' as never)} />
           <AppOnlyBlock title="Why an account?" message="On the web, every shared wallet is tied to your cloud account. Sign in to add transactions to shared wallets. Personal wallets stay on your phone." />
         </ScrollView>
@@ -679,8 +679,8 @@ export default function AddTransactionScreen() {
 
   if (isWeb && wallets.length === 0) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
-        <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 20, gap: 16 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right']}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 3, gap: 16 }}>
           <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800' }}>No shared wallets</Text>
           <Text style={{ color: t.textSecondary, fontSize: 13 }}>Create a shared wallet first (Wallets → New Shared Wallet). You need a cloud account to own a shared wallet.</Text>
           <TouchableOpacity onPress={() => router.push('/settings/shared-wallets' as never)} style={{ backgroundColor: t.primary, borderRadius: 10, paddingVertical: 12, alignItems: 'center' }}>
@@ -693,7 +693,7 @@ export default function AddTransactionScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right']}>
       <KeyboardAvoidingView
         style={{ flex: 1, backgroundColor: t.background }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -705,7 +705,7 @@ export default function AddTransactionScreen() {
             contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 0, paddingBottom: 140 }}
             keyboardShouldPersistTaps="handled"
           >
-            <View style={{ marginBottom: 16, paddingTop: 20 }}>
+            <View style={{ marginBottom: 12, paddingTop: 3 }}>
               <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800' }}>
                 {isEditMode ? 'Edit entry' : 'Quick entry'}
               </Text>
@@ -1166,18 +1166,29 @@ function TimeInput({ date, onChange, colors }: { date: Date; onChange: (d: Date)
       </TouchableOpacity>
 
       {showPicker && (
-        <DateTimePicker
-          value={date}
-          mode="time"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          is24Hour={true}
-          onChange={(e, selectedDate) => {
-            setShowPicker(Platform.OS === 'ios');
-            if (selectedDate) {
-              onChange(selectedDate);
-            }
-          }}
-        />
+        <View>
+          <DateTimePicker
+            value={date}
+            mode="time"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            is24Hour={true}
+            onChange={(_e, selectedDate) => {
+              if (selectedDate) onChange(selectedDate);
+              // iOS spinner keeps firing while scrolling; close on Done instead.
+              if (Platform.OS !== 'ios') setShowPicker(false);
+            }}
+          />
+          {Platform.OS === 'ios' && (
+            <TouchableOpacity
+              onPress={() => setShowPicker(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Done choosing time"
+              style={{ alignSelf: 'flex-end', paddingVertical: 10, paddingHorizontal: 16 }}
+            >
+              <Text style={{ color: colors.primary, fontWeight: '700' }}>Done</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       )}
     </View>
   );

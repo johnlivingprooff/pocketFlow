@@ -39,7 +39,10 @@ export async function createCategory(category: Category): Promise<number> {
     log(`[DB] Category created in ${writeTime}ms, name: ${category.name}, type: ${category.type}, timestamp: ${new Date().toISOString()}`);
     
     scheduleProfileSync();
-    return result.lastInsertRowId;
+    const rawId = (result as { insertId?: unknown; lastInsertRowId?: unknown } | undefined)?.insertId
+      ?? (result as { lastInsertRowId?: unknown } | undefined)?.lastInsertRowId;
+    if (typeof rawId !== 'number') throw new Error('Category insert did not return an id');
+    return rawId;
   } catch (err: any) {
     const writeTime = Date.now() - startTime;
     logError(`[DB] Failed to create category after ${writeTime}ms:`, err);

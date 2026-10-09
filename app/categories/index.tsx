@@ -18,7 +18,7 @@ const SkeletonLoader = () => {
   const t = theme(themeMode, systemColorScheme || 'light');
 
   return (
-    <View style={{ padding: 16, paddingTop: 20 }}>
+    <View style={{ padding: 16, paddingTop: 3 }}>
       {/* Header Skeleton */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <View style={{ height: 24, width: 120, backgroundColor: t.card, borderRadius: 4, opacity: 0.5 }} />
@@ -301,7 +301,7 @@ export default function CategoriesPage() {
   );
 
   return (
-    <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
+    <SafeAreaView edges={['left', 'right']} style={{ flex: 1, backgroundColor: t.background }}>
       <View style={{ flex: 1, backgroundColor: t.background }}>
         {loading ? (
         <SkeletonLoader />

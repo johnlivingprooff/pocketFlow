@@ -15,6 +15,7 @@ jest.mock('expo-notifications', () => ({
   getPermissionsAsync: jest.fn(async () => ({ granted: true, canAskAgain: true })),
   requestPermissionsAsync: jest.fn(async () => ({ granted: true, canAskAgain: true })),
   cancelScheduledNotificationAsync: jest.fn(async () => {}),
+  cancelAllScheduledNotificationsAsync: jest.fn(async () => {}),
   scheduleNotificationAsync: jest.fn(async () => 'daily-expense-reminder'),
   getAllScheduledNotificationsAsync: jest.fn(async () => []),
   getNextTriggerDateAsync: jest.fn(async () => Date.now() + 3600_000),
@@ -102,6 +103,33 @@ test('scheduleReminder throws (instead of fake success) when OS drops the alarm'
   mocked.getAllScheduledNotificationsAsync.mockResolvedValueOnce([]);
   await expect(scheduleReminder('20:00')).rejects.toThrow(/did not retain/);
   expect(useSettings.getState().reminderNextScheduledAtUtc).toBeNull();
+  // Recovery path also retries once before giving up.
+  expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
+});
+
+test('scheduleReminder recovers by wiping and rescheduling when the first verify misses', async () => {
+  mocked.getAllScheduledNotificationsAsync
+    .mockResolvedValueOnce([]) // first verify: retained nowhere (stale alarm state)
+    .mockResolvedValueOnce([
+      { identifier: 'daily-expense-reminder', trigger: { type: 'daily', hour: 20, minute: 0 } },
+    ]); // post-recovery verify: present
+  await scheduleReminder('20:00');
+  expect(mocked.cancelAllScheduledNotificationsAsync).toHaveBeenCalledTimes(1);
+  expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
+  expect(useSettings.getState().reminderNextScheduledAtUtc).not.toBeNull();
+});
+
+test('scheduleReminder recovers when the native schedule call throws a JSONObject error', async () => {
+  mocked.scheduleNotificationAsync.mockRejectedValueOnce(
+    new Error('Failed to schedule the notification. org.json.JSONObject')
+  );
+  mocked.getAllScheduledNotificationsAsync.mockResolvedValueOnce([
+    { identifier: 'daily-expense-reminder', trigger: { type: 'daily', hour: 20, minute: 0 } },
+  ]);
+  await scheduleReminder('20:00');
+  expect(mocked.cancelAllScheduledNotificationsAsync).toHaveBeenCalledTimes(1);
+  expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
+  expect(useSettings.getState().reminderNextScheduledAtUtc).not.toBeNull();
 });
 
 test('runtime gate check reschedules when scheduled time drifted from preference', async () => {

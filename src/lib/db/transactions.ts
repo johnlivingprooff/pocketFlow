@@ -244,6 +244,11 @@ export async function updateTransaction(id: number, t: Partial<Transaction>) {
   if (t.date !== undefined) set('date', t.date);
   if (t.notes !== undefined) set('notes', t.notes);
   if (t.receipt_path !== undefined) set('receipt_path', t.receipt_path);
+  if (t.is_recurring !== undefined) set('is_recurring', t.is_recurring ? 1 : 0);
+  if (t.recurrence_frequency !== undefined) set('recurrence_frequency', t.recurrence_frequency);
+  if (t.recurrence_end_date !== undefined) set('recurrence_end_date', t.recurrence_end_date);
+  if (t.parent_transaction_id !== undefined) set('parent_transaction_id', t.parent_transaction_id);
+  if (fields.length === 0) return;
   if (syncInfo.isShared) {
     set('cloud_updated_at', new Date().toISOString());
     set('sync_status', 'pending');
@@ -449,7 +454,7 @@ export async function filterTransactions(options: {
 
 export async function analyticsTotalsByMonth(year: number, month: number) {
   const start = new Date(year, month - 1, 1).toISOString();
-  const end = new Date(year, month, 0, 23, 59, 59).toISOString();
+  const end = new Date(year, month, 0, 23, 59, 59, 999).toISOString();
   // Single scan with conditional aggregation (was 2 sequential SUM scans
   // over the same date range). Identical results.
   const rows = await exec<{ income: number; expense: number }>(
@@ -467,7 +472,7 @@ export async function analyticsTotalsByMonth(year: number, month: number) {
 
 export async function analyticsCategoryBreakdown(year: number, month: number) {
   const start = new Date(year, month - 1, 1).toISOString();
-  const end = new Date(year, month, 0, 23, 59, 59).toISOString();
+  const end = new Date(year, month, 0, 23, 59, 59, 999).toISOString();
   return exec<{ category: string; total: number }>(
     `SELECT t.category, COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
      FROM transactions t
@@ -505,7 +510,7 @@ export async function monthSpend() {
 
   return await analyticsCache.cached(cacheKey, async () => {
     const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
     const result = await exec<{ total: number }>(
       `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
        FROM transactions t 
@@ -523,7 +528,7 @@ export async function todaySpend() {
 
   return await analyticsCache.cached(cacheKey, async () => {
     const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).toISOString();
+    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).toISOString();
     const result = await exec<{ total: number }>(
       `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
        FROM transactions t 
@@ -647,7 +652,7 @@ export async function categoryBreakdown() {
 
   return await analyticsCache.cached(cacheKey, async () => {
     const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
     return exec<{ category: string; total: number }>(
       `SELECT t.category, COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
        FROM transactions t
@@ -706,8 +711,8 @@ export async function incomeVsExpenseAnalysis(period: 'current' | 'last' = 'curr
     ? new Date(now.getFullYear(), now.getMonth() - 1, 1)
     : new Date(now.getFullYear(), now.getMonth(), 1);
   const endDate = period === 'last'
-    ? new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
-    : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    ? new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
+    : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
   const start = startDate.toISOString();
   const end = endDate.toISOString();
 
@@ -798,7 +803,7 @@ export async function getMonthProgress() {
 export async function getTopSpendingDay() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
 
   const result = await exec<{ date: string; total: number }>(
     `SELECT t.date, COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
@@ -817,7 +822,7 @@ export async function getTopSpendingDay() {
 export async function getTransactionCounts() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
 
   // Single GROUP BY scan (was 2 sequential COUNT queries)
   const rows = await exec<{ type: string; count: number }>(
@@ -838,7 +843,7 @@ export async function getTransactionCounts() {
 export async function getAveragePurchaseSize() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
 
   const result = await exec<{ avg: number; count: number }>(
     `SELECT COALESCE(AVG(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as avg, COUNT(*) as count 
@@ -903,7 +908,7 @@ export async function getDailySpendingForMonth() {
 
   // Use a single SQL query with GROUP BY to get all daily totals at once
   const monthStart = new Date(year, month, 1, 0, 0, 0).toISOString();
-  const monthEnd = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
+  const monthEnd = new Date(year, month + 1, 0, 23, 59, 59, 999).toISOString();
 
   const result = await exec<{ date: string; total: number }>(
     `SELECT 
@@ -949,7 +954,7 @@ export async function getMonthlyComparison(period: '7days' | '30days' | '3months
     const months: Array<{ start: string; end: string }> = [];
     for (let i = 2; i >= 0; i--) {
       const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1).toISOString();
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59).toISOString();
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999).toISOString();
       months.push({ start: monthStart, end: monthEnd });
     }
 
@@ -989,7 +994,7 @@ export async function getMonthlyComparison(period: '7days' | '30days' | '3months
     const months: Array<{ start: string; end: string }> = [];
     for (let i = 5; i >= 0; i--) {
       const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1).toISOString();
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59).toISOString();
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999).toISOString();
       months.push({ start: monthStart, end: monthEnd });
     }
 
@@ -1024,10 +1029,10 @@ export async function getMonthlyComparison(period: '7days' | '30days' | '3months
 
   // Default 30 days (current behavior)
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+  const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
 
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
-  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).toISOString();
+  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999).toISOString();
 
   const params = [
     thisMonthStart, thisMonthEnd,  // For this month income
@@ -1077,7 +1082,7 @@ export async function getMonthlyComparison(period: '7days' | '30days' | '3months
 export async function getCategorySpendingForPieChart() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
 
   const result = await exec<{ category: string; total: number }>(
     `SELECT t.category, COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 

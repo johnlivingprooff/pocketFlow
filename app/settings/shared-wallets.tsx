@@ -46,9 +46,9 @@ export default function SharedWalletsHubScreen() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right']}>
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingTop: 20, gap: 12 }}
+        contentContainerStyle={{ padding: 16, paddingTop: 3, gap: 12 }}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={t.primary} />}
       >
         {cloudSessionState !== 'authenticated' ? (

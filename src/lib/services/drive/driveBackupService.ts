@@ -52,6 +52,9 @@ export interface DriveUploadResult {
 export type DriveBackupProgressStage = 'creating' | 'uploading';
 export type DriveBackupProgressCallback = (stage: DriveBackupProgressStage, percent: number) => void;
 
+export type DriveRestoreProgressStage = 'downloading' | 'decrypting' | 'restoring';
+export type DriveRestoreProgressCallback = (stage: DriveRestoreProgressStage, percent: number) => void;
+
 async function driveRequest<T>(
   path: string,
   init: RequestInit = {}
@@ -227,10 +230,12 @@ export async function listDriveBackups(): Promise<DriveRemoteFile[]> {
 /**
  * Downloads a remote backup file to a local cache directory.
  * Returns the local file URI.
+ * @param onProgress - Optional 0..1 download progress callback (realtime bytes)
  */
 export async function downloadDriveBackupFile(
   fileId: string,
-  fileName: string
+  fileName: string,
+  onProgress?: (fraction: number) => void
 ): Promise<string> {
   if (Platform.OS === 'web') {
     throw new DriveBackupError('drive_unsupported_platform', 'Drive downloads are not supported on web.');
@@ -239,11 +244,22 @@ export async function downloadDriveBackupFile(
   const dir = `${FileSystem.cacheDirectory}drive_downloads/`;
   await FileSystem.makeDirectoryAsync(dir, { intermediates: true }).catch(() => undefined);
   const destUri = `${dir}${fileName}`;
-  const res = await FileSystem.downloadAsync(`${DRIVE_API_BASE}/files/${fileId}?alt=media`, destUri, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (res.status < 200 || res.status >= 300) {
-    throw new DriveBackupError(`drive_http_${res.status}`, `Download failed with HTTP ${res.status}`);
+  const download = FileSystem.createDownloadResumable(
+    `${DRIVE_API_BASE}/files/${fileId}?alt=media`,
+    destUri,
+    { headers: { Authorization: `Bearer ${token}` } },
+    (progress) => {
+      const expected = progress.totalBytesExpectedToWrite ?? 0;
+      if (expected > 0) {
+        onProgress?.(
+          Math.min(1, Math.max(0, progress.totalBytesWritten / expected))
+        );
+      }
+    }
+  );
+  const res = await download.downloadAsync();
+  if (!res || res.status < 200 || res.status >= 300) {
+    throw new DriveBackupError(`drive_http_${res?.status ?? 0}`, `Download failed with HTTP ${res?.status ?? 'unknown'}`);
   }
   return res.uri;
 }
@@ -361,13 +377,21 @@ export async function uploadEncryptedPayloadToDrive(
 /**
  * Downloads + decrypts + restores a remote backup. Requires the passphrase
  * (prompted from the user; needed on a fresh device where SecureStore is empty).
+ * @param onProgress - Optional realtime progress: downloading 0→40,
+ * decrypting 40→55, restoring 55→100.
  */
 export async function restoreFromDriveBackup(
   fileId: string,
   fileName: string,
-  passphrase: string
+  passphrase: string,
+  onProgress?: DriveRestoreProgressCallback
 ): Promise<{ success: boolean; error?: string }> {
-  const localUri = await downloadDriveBackupFile(fileId, fileName);
+  onProgress?.('downloading', 0);
+  const localUri = await downloadDriveBackupFile(fileId, fileName, (fraction) =>
+    onProgress?.('downloading', Math.round(fraction * 40))
+  );
+  onProgress?.('downloading', 40);
+  onProgress?.('decrypting', 45);
   const content = await FileSystem.readAsStringAsync(localUri, {
     encoding: FileSystem.EncodingType.UTF8,
   });
@@ -377,7 +401,12 @@ export async function restoreFromDriveBackup(
   await FileSystem.writeAsStringAsync(restoreUri, JSON.stringify(backupData), {
     encoding: FileSystem.EncodingType.UTF8,
   });
-  return restoreFromBackup(restoreUri);
+  onProgress?.('decrypting', 55);
+  const result = await restoreFromBackup(restoreUri, (fraction) =>
+    onProgress?.('restoring', 55 + Math.round(fraction * 45))
+  );
+  if (result.success) onProgress?.('restoring', 100);
+  return result;
 }
 
 /**

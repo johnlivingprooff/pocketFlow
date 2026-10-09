@@ -124,8 +124,8 @@ export default function SmsMonitoringSettingsScreen() {
       if (active) {
         await refreshPendingCount();
       } else {
+        // Turning the feature off must not trigger a permission prompt.
         setPendingCount(null);
-        await handleRequestPermission();
       }
     } catch (err: unknown) {
       logError('[SmsSettings] Toggle failed', { error: err });
@@ -236,7 +236,7 @@ export default function SmsMonitoringSettingsScreen() {
         : `${t.border}`;
 
   return (
-    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: t.background }]) as any} edges={['left', 'right', 'top']}>
+    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: t.background }]) as any} edges={['left', 'right']}>
       <ScrollView contentContainerStyle={StyleSheet.flatten([styles.content, compact && styles.contentCompact]) as any}>
         <View style={StyleSheet.flatten([styles.card, { backgroundColor: t.card, borderColor: t.border }]) as any}>
           <View
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingTop: 20,
+    paddingTop: 3,
     gap: 12,
     paddingBottom: 40,
   },

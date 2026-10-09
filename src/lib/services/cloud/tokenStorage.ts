@@ -28,6 +28,32 @@ async function deleteWebItem(key: string): Promise<void> {
   localStorage.removeItem(key);
 }
 
+// Passwords must not be persisted across browser sessions in localStorage.
+// sessionStorage survives reloads but is cleared when the tab closes.
+async function setSessionItem(key: string, value: string): Promise<void> {
+  if (typeof sessionStorage === 'undefined') return;
+  sessionStorage.setItem(key, value);
+}
+
+async function getSessionItem(key: string): Promise<string | null> {
+  if (typeof sessionStorage === 'undefined') return null;
+  const current = sessionStorage.getItem(key);
+  if (current) return current;
+  // Migrate any value written by older builds and stop persisting it.
+  if (typeof localStorage === 'undefined') return null;
+  const legacy = localStorage.getItem(key);
+  if (legacy) {
+    localStorage.removeItem(key);
+    sessionStorage.setItem(key, legacy);
+  }
+  return legacy;
+}
+
+async function deleteSessionItem(key: string): Promise<void> {
+  if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(key);
+  await deleteWebItem(key);
+}
+
 export async function storeCloudTokens(tokens: StoredCloudTokens): Promise<void> {
   memoryAccessToken = tokens.accessToken;
   memoryRefreshToken = tokens.refreshToken;
@@ -96,7 +122,7 @@ export interface StoredCredentials {
 
 export async function storeCredentials(credentials: StoredCredentials): Promise<void> {
   if (Platform.OS === 'web') {
-    await setWebItem(CREDENTIALS_KEY, JSON.stringify(credentials));
+    await setSessionItem(CREDENTIALS_KEY, JSON.stringify(credentials));
     return;
   }
   await SecureStore.setItemAsync(CREDENTIALS_KEY, JSON.stringify(credentials));
@@ -104,7 +130,7 @@ export async function storeCredentials(credentials: StoredCredentials): Promise<
 
 export async function getCredentials(): Promise<StoredCredentials | null> {
   if (Platform.OS === 'web') {
-    const raw = await getWebItem(CREDENTIALS_KEY);
+    const raw = await getSessionItem(CREDENTIALS_KEY);
     if (!raw) return null;
     try { return JSON.parse(raw); } catch { return null; }
   }
@@ -115,7 +141,7 @@ export async function getCredentials(): Promise<StoredCredentials | null> {
 
 export async function clearCredentials(): Promise<void> {
   if (Platform.OS === 'web') {
-    await deleteWebItem(CREDENTIALS_KEY);
+    await deleteSessionItem(CREDENTIALS_KEY);
     return;
   }
   await SecureStore.deleteItemAsync(CREDENTIALS_KEY);

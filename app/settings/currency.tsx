@@ -10,7 +10,7 @@ export default function CurrencySettings() {
   const [value, setValue] = useState(defaultCurrency);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -18,7 +18,7 @@ export default function CurrencySettings() {
       >
         <ScrollView
           style={{ flex: 1, backgroundColor: t.background }}
-          contentContainerStyle={{ padding: 16, paddingTop: 20 }}
+          contentContainerStyle={{ padding: 16, paddingTop: 3 }}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         >

@@ -16,6 +16,7 @@ import { useRouter } from "expo-router";
 import { useSettings } from "@/store/useStore";
 import { theme } from "@/theme/theme";
 import { error as logError } from "@/utils/logger";
+import { parseLocalDate } from "@/utils/date";
 import { createGoal } from "@/lib/db/goals";
 import { getWallets } from "@/lib/db/wallets";
 import { useAlert } from "@/lib/hooks/useAlert";
@@ -37,7 +38,7 @@ const formatISODate = (date: Date) => {
 
 const formatDisplayDate = (dateStr: string) => {
   if (!dateStr) return "Select date";
-  const parsed = new Date(dateStr);
+  const parsed = parseLocalDate(dateStr);
   if (Number.isNaN(parsed.getTime())) return "Select date";
   const parts = dateFormatter.formatToParts(parsed);
   const month = parts.find((p) => p.type === "month")?.value ?? "";
@@ -164,7 +165,7 @@ export default function CreateGoalScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
+      <SafeAreaView edges={['left', 'right', 'bottom']} style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
         <View style={styles.loadingContainer}>
           <Text style={StyleSheet.flatten([styles.loadingText, { color: colors.textSecondary }]) as any}>Loading...</Text>
         </View>
@@ -173,7 +174,7 @@ export default function CreateGoalScreen() {
   }
 
   return (
-    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
+    <SafeAreaView edges={['left', 'right', 'bottom']} style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
@@ -428,7 +429,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
-    paddingTop: 20,
+    paddingTop: 3,
   },
   loadingContainer: {
     flex: 1,

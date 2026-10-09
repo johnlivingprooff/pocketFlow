@@ -40,12 +40,20 @@ import {
   MAX_REMOTE_BACKUPS,
   DriveRemoteFile,
   DriveBackupProgressStage,
+  DriveRestoreProgressStage,
 } from '@/lib/services/drive/driveBackupService';
 import { isDriveConfigured, driveSetupHint } from '@/lib/services/drive/driveConfig';
 import { HelpLink } from '@/components/HelpLink';
+import { invalidateTransactionCaches, invalidateWalletCaches } from '@/lib/cache/queryCache';
 import { log } from '@/utils/logger';
 
 const TAP_OPACITY = 0.7;
+
+const RESTORE_STAGE_LABELS: Record<DriveRestoreProgressStage, string> = {
+  downloading: 'Downloading backup',
+  decrypting: 'Decrypting backup',
+  restoring: 'Restoring data',
+};
 
 function formatBytes(size: number | null): string {
   if (!size || size <= 0) return '';
@@ -85,6 +93,10 @@ export default function DriveBackupScreen() {
   const uploadTargetRef = useRef(0);
   const uploadProgressRef = useRef(0);
   const [restoringFile, setRestoringFile] = useState<DriveRemoteFile | null>(null);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreStage, setRestoreStage] = useState<DriveRestoreProgressStage | null>(null);
+  const [restorePercent, setRestorePercent] = useState(0);
+  const [restoreFileName, setRestoreFileName] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [backups, setBackups] = useState<DriveRemoteFile[]>([]);
   const [loadingList, setLoadingList] = useState(false);
@@ -289,6 +301,11 @@ export default function DriveBackupScreen() {
     setRestorePassphraseInput('');
   };
 
+  const handleRestoreProgress = useCallback((stage: DriveRestoreProgressStage, percent: number) => {
+    setRestoreStage(stage);
+    setRestorePercent(Math.min(100, Math.max(0, Math.round(percent))));
+  }, []);
+
   const confirmRestore = async () => {
     if (!restoringFile) return;
     if (restorePassphraseInput.length === 0) {
@@ -302,15 +319,31 @@ export default function DriveBackupScreen() {
       'Restore backup',
       'This will replace ALL current data on this device with the selected backup. Continue?',
       async () => {
+        setRestoring(true);
+        setRestoreStage('downloading');
+        setRestorePercent(0);
+        setRestoreFileName(file.name);
         try {
-          const result = await restoreFromDriveBackup(file.id, file.name, restorePassphraseInput);
+          const result = await restoreFromDriveBackup(
+            file.id,
+            file.name,
+            restorePassphraseInput,
+            handleRestoreProgress
+          );
           if (result.success) {
+            invalidateTransactionCaches();
+            invalidateWalletCaches();
             showSuccessAlert('Restored', 'Data restored from Google Drive.');
           } else {
             showErrorAlert('Restore failed', result.error || 'Could not restore backup.');
           }
         } catch (e) {
           showErrorAlert('Restore failed', describeDriveError(e));
+        } finally {
+          setRestoring(false);
+          setRestoreStage(null);
+          setRestorePercent(0);
+          setRestoreFileName('');
         }
       }
     );
@@ -345,7 +378,7 @@ export default function DriveBackupScreen() {
     : 'No uploads yet';
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right', 'top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.background }} edges={['left', 'right']}>
       {Platform.OS === 'web' ? (
         <ScrollView contentContainerStyle={styles.contentContainer}>
           <View style={StyleSheet.flatten([styles.card, { backgroundColor: t.card, borderColor: t.border }]) as any}>
@@ -669,6 +702,43 @@ export default function DriveBackupScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* Restore progress modal (non-dismissable – restore replaces all data) */}
+      <Modal visible={restoring} transparent animationType="fade" onRequestClose={() => {}}>
+        <View style={styles.modalOverlay}>
+          <View style={StyleSheet.flatten([styles.modalContainer, { backgroundColor: t.card, borderColor: t.border }]) as any}>
+            <View style={StyleSheet.flatten([styles.modalHeader, { borderBottomColor: t.border }]) as any}>
+              <Text style={StyleSheet.flatten([styles.modalTitle, { color: t.textPrimary }]) as any}>Restoring backup</Text>
+              <Text
+                style={StyleSheet.flatten([styles.modalSubtitle, { color: t.textSecondary }]) as any}
+                numberOfLines={1}
+              >
+                {restoreFileName}
+              </Text>
+            </View>
+            <View
+              style={{ padding: 20, gap: 12 }}
+              accessibilityRole="progressbar"
+              accessibilityValue={{ min: 0, max: 100, now: Math.round(restorePercent) }}
+              accessibilityLabel={`${restoreStage ? RESTORE_STAGE_LABELS[restoreStage] : 'Restoring'} ${Math.round(restorePercent)} percent`}
+            >
+              <Text style={{ color: t.textPrimary, fontSize: 14, fontWeight: '700' }}>
+                {restoreStage ? `${RESTORE_STAGE_LABELS[restoreStage]}…` : 'Starting…'}
+              </Text>
+              <View style={StyleSheet.flatten([styles.restoreProgressTrack, { backgroundColor: `${t.primary}26` }]) as any}>
+                <View style={{ flex: Math.max(0, Math.min(100, restorePercent)), backgroundColor: t.primary }} />
+                <View style={{ flex: Math.max(0, 100 - Math.min(100, restorePercent)) }} />
+              </View>
+              <Text style={{ color: t.textSecondary, fontSize: 13, fontWeight: '700', textAlign: 'right' }}>
+                {Math.round(restorePercent)}%
+              </Text>
+              <Text style={{ color: t.textSecondary, fontSize: 12 }}>
+                Keep the app open until the restore completes.
+              </Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <ThemedAlert
         visible={alertConfig.visible}
         title={alertConfig.title}
@@ -686,7 +756,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: 20,
     paddingBottom: 40,
-    paddingTop: 20,
+    paddingTop: 3,
     gap: 14,
   },
   header: {
@@ -840,6 +910,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     padding: 20,
+  },
+  restoreProgressTrack: {
+    flexDirection: 'row',
+    height: 10,
+    borderRadius: 5,
+    overflow: 'hidden',
   },
   modalContainer: {
     borderRadius: 20,

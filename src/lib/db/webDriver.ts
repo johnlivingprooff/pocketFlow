@@ -59,9 +59,15 @@ const DB_KEY = 'pocketflow';
 /**
  * Interface matching NitroSQLiteConnection for cross-platform compatibility
  */
+interface WebQueryResult {
+  rows: { _array: any[] };
+  insertId?: number;
+  rowsAffected?: number;
+}
+
 interface WebDatabaseConnection {
-  executeAsync(sql: string, params?: any[]): Promise<{ rows: { _array: any[] } }>;
-  execute(sql: string, params?: any[]): { rows: { _array: any[] } };
+  executeAsync(sql: string, params?: any[]): Promise<WebQueryResult>;
+  execute(sql: string, params?: any[]): WebQueryResult;
   close(): void;
   transaction(callback: (tx: any) => Promise<void>): Promise<void>;
 }
@@ -225,7 +231,7 @@ class WebDatabaseImpl implements WebDatabaseConnection {
   async executeAsync(
     sql: string,
     params: any[] = []
-  ): Promise<{ rows: { _array: any[] } }> {
+  ): Promise<WebQueryResult> {
     if (!this.isInitialized) await this.initialize();
     if (!this.sqlDb) throw new Error('Database not initialized');
 
@@ -243,11 +249,23 @@ class WebDatabaseImpl implements WebDatabaseConnection {
       const isWrite = /^\s*(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|PRAGMA)\s/i.test(
         sql
       );
+      let insertId: number | undefined;
+      let rowsAffected = 0;
       if (isWrite) {
+        rowsAffected = this.sqlDb.getRowsModified();
+        if (/^\s*INSERT\s/i.test(sql)) {
+          try {
+            const idRows = this.sqlDb.exec('SELECT last_insert_rowid() AS id;');
+            const id = idRows[0]?.values?.[0]?.[0];
+            if (typeof id === 'number') insertId = id;
+          } catch {
+            // Some statements (e.g. DDL) have no row id.
+          }
+        }
         await this.saveToIndexedDB();
       }
 
-      return { rows: { _array: rows } };
+      return { rows: { _array: rows }, insertId, rowsAffected };
     } catch (err: any) {
       logError('[WebDB] Query execution failed:', { sql, params, error: err });
       throw err;
@@ -257,7 +275,7 @@ class WebDatabaseImpl implements WebDatabaseConnection {
   execute(
     sql: string,
     params: any[] = []
-  ): { rows: { _array: any[] } } {
+  ): WebQueryResult {
     if (!this.isInitialized) {
       throw new Error('Database not initialized. Use executeAsync first.');
     }
@@ -277,11 +295,23 @@ class WebDatabaseImpl implements WebDatabaseConnection {
       const isWrite = /^\s*(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|PRAGMA)\s/i.test(
         sql
       );
+      let insertId: number | undefined;
+      let rowsAffected = 0;
       if (isWrite) {
+        rowsAffected = this.sqlDb.getRowsModified();
+        if (/^\s*INSERT\s/i.test(sql)) {
+          try {
+            const idRows = this.sqlDb.exec('SELECT last_insert_rowid() AS id;');
+            const id = idRows[0]?.values?.[0]?.[0];
+            if (typeof id === 'number') insertId = id;
+          } catch {
+            // Some statements (e.g. DDL) have no row id.
+          }
+        }
         // Note: This is blocking; in production, consider using executeAsync for writes
         const data = this.sqlDb.export();
         const idbRequest = indexedDB.open(DB_NAME, 1);
-        
+
         idbRequest.onsuccess = () => {
           const db = idbRequest.result;
           const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -291,7 +321,7 @@ class WebDatabaseImpl implements WebDatabaseConnection {
         };
       }
 
-      return { rows: { _array: rows } };
+      return { rows: { _array: rows }, insertId, rowsAffected };
     } catch (err: any) {
       logError('[WebDB] Query execution failed:', { sql, params, error: err });
       throw err;

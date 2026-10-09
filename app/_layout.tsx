@@ -43,6 +43,10 @@ export default function RootLayout() {
   const segments = useSegments();
   const systemColorScheme = useColorScheme();
   const [dbReady, setDbReady] = useState(false);
+  const [dbError, setDbError] = useState<string | null>(null);
+  const [initAttempt, setInitAttempt] = useState(0);
+  const [storesHydrated, setStoresHydrated] = useState(false);
+  const [cloudHydrated, setCloudHydrated] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const backupInProgressRef = useRef(false);
@@ -52,53 +56,119 @@ export default function RootLayout() {
     return theme(effectiveMode);
   }, [themeMode, systemColorScheme]);
 
+  // Wait for both persisted stores before making auth/onboarding decisions.
+  // Reading them on the first render would use defaults (biometric off,
+  // onboarding incomplete) and can flash the app open before the lock appears.
   useEffect(() => {
+    let mounted = true;
+    const checkHydration = () => {
+      if (
+        mounted &&
+        useSettings.persist.hasHydrated() &&
+        useOnboarding.persist.hasHydrated()
+      ) {
+        setStoresHydrated(true);
+      }
+    };
+    checkHydration();
+    const unsubSettings = useSettings.persist.onFinishHydration(checkHydration);
+    const unsubOnboarding = useOnboarding.persist.onFinishHydration(checkHydration);
+    return () => {
+      mounted = false;
+      unsubSettings();
+      unsubOnboarding();
+    };
+  }, []);
+
+  // Cloud session/profile work must not race table creation or persisted
+  // settings rehydration.
+  useEffect(() => {
+    if (!storesHydrated || !dbReady) return;
+    let mounted = true;
     hydrateCloudSession()
-      .then(() => restoreProfileIfFreshInstall())
+      .then(() => (mounted ? restoreProfileIfFreshInstall() : undefined))
       // Ensure the profile row exists for already-logged-in users
       // (the push is auth-gated and a no-op when not signed in)
-      .then(() => pushProfileToCloud())
+      .then(() => (mounted ? pushProfileToCloud() : undefined))
       .catch(() => {
         // best effort
+      })
+      .finally(() => {
+        if (mounted) setCloudHydrated(true);
       });
-  }, []);
+    return () => {
+      mounted = false;
+    };
+  }, [storesHydrated, dbReady]);
 
   // Full sync for shared wallets (app ↔ cloud ↔ web)
   useEffect(() => {
     if (Platform.OS === 'web') return;
+    if (!storesHydrated || !cloudHydrated) return;
     if (cloudSessionState !== 'authenticated') return;
     if (!dbReady) return;
     void import('../src/lib/services/cloud/syncService').then((m) => m.syncAllSharedWallets().catch(() => {}));
-  }, [cloudSessionState, dbReady]);
+  }, [cloudSessionState, dbReady, storesHydrated, cloudHydrated]);
 
   useEffect(() => {
+    let mounted = true;
     (async () => {
       try {
+        setDbError(null);
         await initDb();
         await ensureTables();
-        if (Platform.OS !== 'web') {
-          await processRecurringTransactions();
-          await new Promise(resolve => setTimeout(resolve, 500));
-          await syncReminderPermissionStatus();
-          await runReminderRuntimeGateCheck();
-          await runSmsRuntimeGateCheck();
-          log('[App] Initialization complete (native)');
-          await maybeRunAutoBackup();
-        } else {
-          log('[App] Initialization complete (web – shared wallets only)');
-        }
+        if (!mounted) return;
+        log(Platform.OS === 'web'
+          ? '[App] Initialization complete (web – shared wallets only)'
+          : '[App] Database initialized');
+        // Never fail open: if the DB is broken, show a recoverable error
+        // instead of rendering screens against an uninitialized database.
         setDbReady(true);
       } catch (err: unknown) {
+        if (!mounted) return;
         console.error('Failed to initialize database:', err);
-        setDbReady(true);
+        setDbError(err instanceof Error ? err.message : String(err));
       }
     })();
-  }, []);
+    return () => {
+      mounted = false;
+    };
+  }, [initAttempt]);
+
+  // Native-only post-init work waits for both the DB and persisted settings.
+  // In particular, the reminder self-heal must not cancel a valid alarm because
+  // remindersEnabled was still its default `false` during rehydration.
+  useEffect(() => {
+    if (Platform.OS === 'web' || !storesHydrated || !dbReady) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await processRecurringTransactions();
+        if (cancelled) return;
+        await syncReminderPermissionStatus();
+        if (cancelled) return;
+        await runReminderRuntimeGateCheck();
+        if (cancelled) return;
+        await runSmsRuntimeGateCheck();
+        if (cancelled) return;
+        log('[App] Initialization complete (native)');
+        await maybeRunAutoBackup();
+      } catch (err) {
+        console.error('[App] Native initialization error:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [storesHydrated, dbReady]);
 
   useEffect(() => {
     // Check if biometric auth is needed on mount
-    if (biometricEnabled && biometricSetupComplete && dbReady) {
-      if (shouldRequireAuth(lastAuthTime)) {
+    if (!storesHydrated || !dbReady) return;
+    if (biometricEnabled && biometricSetupComplete) {
+      // Read the persisted value at decision time rather than adding it to
+      // the deps: backgrounding clears it and would re-trigger this prompt.
+      if (shouldRequireAuth(useSettings.getState().lastAuthTime)) {
         performBiometricAuth();
       } else {
         setIsAuthenticated(true);
@@ -106,11 +176,11 @@ export default function RootLayout() {
     } else {
       setIsAuthenticated(true);
     }
-  }, [biometricEnabled, biometricSetupComplete, dbReady]);
+  }, [biometricEnabled, biometricSetupComplete, storesHydrated, dbReady]);
 
   // Handle onboarding redirection
   useEffect(() => {
-    if (!dbReady || !isAuthenticated) return;
+    if (!dbReady || !isAuthenticated || !storesHydrated) return;
 
     const inOnboarding = segments[0] === 'onboarding';
     const onboardingComplete = isOnboardingComplete || hasCompletedOnboarding || completedSteps.includes('wallet');
@@ -120,13 +190,13 @@ export default function RootLayout() {
     } else if (onboardingComplete && inOnboarding) {
       router.replace('/(tabs)');
     }
-  }, [isOnboardingComplete, hasCompletedOnboarding, completedSteps, segments, dbReady, isAuthenticated]);
+  }, [isOnboardingComplete, hasCompletedOnboarding, completedSteps, segments, dbReady, isAuthenticated, storesHydrated]);
 
   useEffect(() => {
     // Handle app state changes (background/foreground)
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription.remove();
-  }, [biometricEnabled, biometricSetupComplete, lastAuthTime]);
+  }, [biometricEnabled, biometricSetupComplete, lastAuthTime, storesHydrated, dbReady]);
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
@@ -148,6 +218,7 @@ export default function RootLayout() {
   }, [router]);
 
   const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+    if (!storesHydrated || !dbReady) return;
     if (nextAppState === 'active') {
       if (Platform.OS !== 'web') {
         const { invalidateTransactionCaches } = await import('../src/lib/cache/queryCache');
@@ -170,6 +241,14 @@ export default function RootLayout() {
         }
       }
     } else if (nextAppState === 'background' || nextAppState === 'inactive') {
+      if (Platform.OS !== 'web') {
+        try {
+          const { flushWriteQueue } = await import('../src/lib/db/writeQueue');
+          await flushWriteQueue();
+        } catch (e) {
+          console.warn('[App] Failed to flush write queue on background:', e);
+        }
+      }
       setLastAuthTime(null);
       setIsAuthenticated(false);
     }
@@ -255,6 +334,27 @@ export default function RootLayout() {
       }
     }
   };
+
+  if (dbError) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.background, padding: 32 }}>
+        <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '700', marginBottom: 12, textAlign: 'center' }}>
+          We couldn&apos;t open your data
+        </Text>
+        <Text style={{ color: t.textSecondary, fontSize: 14, textAlign: 'center', marginBottom: 24 }} numberOfLines={4}>
+          {dbError}
+        </Text>
+        <TouchableOpacity
+          onPress={() => setInitAttempt((attempt) => attempt + 1)}
+          accessibilityRole="button"
+          accessibilityLabel="Retry opening the database"
+          style={{ backgroundColor: t.primary, paddingVertical: 14, paddingHorizontal: 28, borderRadius: 12 }}
+        >
+          <Text style={{ color: t.background, fontWeight: '700' }}>Try again</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   if (!dbReady) {
     return (
@@ -546,7 +646,7 @@ export default function RootLayout() {
 
       {/* Show biometric auth overlay if not authenticated */}
       {!isAuthenticated && biometricEnabled && biometricSetupComplete && (
-        <View style={StyleSheet.flatten([StyleSheet.absoluteFill, { backgroundColor: t.background, justifyContent: 'center', alignItems: 'center', padding: 32, zIndex: 1000 }]) as any}>
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: t.background, justifyContent: 'center', alignItems: 'center', padding: 32, zIndex: 1000 }]}>
           {/* App Logo */}
           <Image
             source={require('../assets/logo.png')}

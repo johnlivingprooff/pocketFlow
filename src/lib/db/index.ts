@@ -5,6 +5,7 @@ import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 import { log, error as logError, warn } from '@/utils/logger';
 import { clearCoreTables, ensureSchema } from './schema';
+import { enqueueWrite } from './writeQueue';
 
 let dbPromise: Promise<NitroSQLiteConnection | any> | null = null;
 
@@ -50,6 +51,9 @@ async function openDb(): Promise<NitroSQLiteConnection> {
       log('[DB] WAL mode enabled successfully');
       db.execute('PRAGMA busy_timeout = 5000;'); // 5 seconds
       db.execute('PRAGMA synchronous = NORMAL;');
+      // SQLite defaults foreign_keys to OFF; enable it so declared cascades
+      // actually protect against orphaned records.
+      db.execute('PRAGMA foreign_keys = ON;');
       log('[DB] Database connection opened successfully with WAL mode enabled');
     } catch (pragmaError: any) {
       logError('[DB] Failed to configure database PRAGMAs:', pragmaError);
@@ -109,6 +113,10 @@ export async function exec<T = any>(sql: string, params: any[] = []): Promise<T[
 }
 
 
+/**
+ * Execute a single write statement. This does NOT enqueue — wrap writes in
+ * enqueueWrite() (or use a repository function that already does).
+ */
 export async function execRun(sql: string, params: any[] = []): Promise<any> {
   try {
     const database = await getDbAsync();
@@ -127,5 +135,5 @@ export async function ensureTables() {
 
 export async function clearDatabase() {
   const database = await getDbAsync();
-  await clearCoreTables(database);
+  await enqueueWrite(() => clearCoreTables(database), 'clearDatabase');
 }

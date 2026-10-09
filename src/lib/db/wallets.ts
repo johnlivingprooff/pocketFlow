@@ -1,6 +1,6 @@
 import { exec, execRun, getDbAsync } from './index';
 import { Wallet } from '../../types/wallet';
-import { invalidateWalletCaches } from '../cache/queryCache';
+import { invalidateWalletCaches, invalidateTransactionCaches } from '../cache/queryCache';
 import { error as logError, log, generateOperationId, metrics, warn } from '../../utils/logger';
 import { detectJSEngine, toSafeInteger, isSafeInteger } from '../../utils/platform';
 import { enqueueWrite } from './writeQueue';
@@ -65,7 +65,7 @@ function isDuplicateReorder(orderUpdates: Array<{ id: number; display_order: num
   return false;
 }
 
-export async function createWallet(w: Wallet) {
+export async function createWallet(w: Wallet): Promise<number | undefined> {
   const operationId = generateOperationId();
   const startTime = Date.now();
   
@@ -107,12 +107,15 @@ export async function createWallet(w: Wallet) {
       w.overdraft_limit ?? 0,
     ];
     
+    let createdWalletId: number | undefined;
     await enqueueWrite(async () => {
-      await execRun(
+      const result = await execRun(
         `INSERT INTO wallets (name, currency, initial_balance, type, color, description, created_at, is_primary, exchange_rate, display_order, overdraft_limit)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
         params
       );
+      const rawId = (result as { insertId?: unknown } | undefined)?.insertId;
+      if (typeof rawId === 'number') createdWalletId = rawId;
     }, 'createWallet');
     
     const writeTime = Date.now() - startTime;
@@ -125,10 +128,11 @@ export async function createWallet(w: Wallet) {
     }, operationId);
     
     metrics.increment('db.wallet.create.success');
-    
+
     // Invalidate wallet caches after creation
     invalidateWalletCaches();
     scheduleProfileSync();
+    return createdWalletId;
   } catch (err: any) {
     const writeTime = Date.now() - startTime;
     logError('[DB] Failed to create wallet', { 
@@ -169,6 +173,7 @@ export async function updateWallet(id: number, w: Partial<Wallet>) {
   if ((w as any).share_id !== undefined) set('share_id', (w as any).share_id);
   if ((w as any).shared_role !== undefined) set('shared_role', (w as any).shared_role);
   if ((w as any).sync_status !== undefined) set('sync_status', (w as any).sync_status);
+  if (fields.length === 0) return;
   params.push(id);
   await enqueueWrite(async () => {
     await execRun(`UPDATE wallets SET ${fields.join(', ')} WHERE id = ?;`, params);
@@ -179,13 +184,42 @@ export async function updateWallet(id: number, w: Partial<Wallet>) {
   scheduleProfileSync();
 }
 
+async function unlinkWalletFromPlans(walletId: number): Promise<void> {
+  for (const table of ['goals', 'budgets'] as const) {
+    const rows = await exec<{ id: number; linked_wallet_ids: string }>(
+      `SELECT id, linked_wallet_ids FROM ${table};`
+    );
+    for (const row of rows) {
+      let ids: unknown;
+      try {
+        ids = JSON.parse(row.linked_wallet_ids || '[]');
+      } catch {
+        continue;
+      }
+      if (!Array.isArray(ids) || !ids.includes(walletId)) continue;
+      const remaining = ids.filter((value) => value !== walletId);
+      await execRun(
+        `UPDATE ${table} SET linked_wallet_ids = ? WHERE id = ?;`,
+        [JSON.stringify(remaining), row.id]
+      );
+    }
+  }
+}
+
 export async function deleteWallet(id: number) {
   await enqueueWrite(async () => {
+    // transactions.wallet_id has no FK constraint, so remove dependent rows
+    // explicitly in the same serialized write to avoid orphans that would
+    // keep skewing balances and analytics.
+    await execRun('DELETE FROM transactions WHERE wallet_id = ?;', [id]);
+    await execRun('DELETE FROM cloud_sync_meta WHERE wallet_id = ?;', [id]);
+    await unlinkWalletFromPlans(id);
     await execRun('DELETE FROM wallets WHERE id = ?;', [id]);
   }, 'deleteWallet');
-  
+
   // Invalidate wallet caches after deletion
   invalidateWalletCaches();
+  invalidateTransactionCaches();
   scheduleProfileSync();
 }
 

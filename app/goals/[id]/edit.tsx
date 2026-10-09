@@ -177,7 +177,7 @@ export default function EditGoalScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
+      <SafeAreaView edges={['left', 'right', 'bottom']} style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
         <View style={styles.loadingContainer}>
           <Text style={StyleSheet.flatten([styles.loadingText, { color: colors.textSecondary }]) as any}>Loading...</Text>
         </View>
@@ -186,7 +186,7 @@ export default function EditGoalScreen() {
   }
 
   return (
-    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
+    <SafeAreaView edges={['left', 'right', 'bottom']} style={StyleSheet.flatten([styles.container, { backgroundColor: colors.background }]) as any}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
-    paddingTop: 20,
+    paddingTop: 3,
   },
   loadingContainer: {
     flex: 1,

@@ -11,13 +11,13 @@ import { OnboardingHeader } from '../../src/components/OnboardingHeader';
 export default function AnalyticsTutorialScreen() {
   const { themeMode } = useSettings();
   const systemColorScheme = useColorScheme();
-  const { completeOnboarding, setCurrentStep } = useOnboarding();
+  const { markOnboardingComplete, setCurrentStep } = useOnboarding();
   const router = useRouter();
   const t = theme(themeMode, systemColorScheme || 'light');
   const [showTransferTips, setShowTransferTips] = useState(false);
 
   const handleFinish = () => {
-    completeOnboarding();
+    markOnboardingComplete();
     router.replace('/(tabs)');
   };
 

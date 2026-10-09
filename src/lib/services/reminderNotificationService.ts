@@ -5,7 +5,6 @@ import { SchedulableTriggerInputTypes } from 'expo-notifications';
 import { log, warn, error as logError } from '@/utils/logger';
 import { useSettings, ReminderPermissionStatus } from '@/store/useStore';
 import {
-  isInsideQuietHours,
   DEFAULT_REMINDER_BODY,
   DEFAULT_REMINDER_TITLE,
 } from './reminderEligibility';
@@ -16,27 +15,20 @@ export const REMINDER_NOTIFICATION_KIND = 'expense_log_reminder';
 export const REMINDER_DEEP_LINK = '/transactions/add?type=expense';
 
 // Set up the foreground handler once at module load (not inside a function).
-// Test notifications (isTest: true) always show so users can verify the
-// channel/permission path. Real reminders respect the enabled flag and
-// quiet hours. NOTE: this handler only affects foreground presentation –
+// Test notifications and real reminders are treated identically: if reminders
+// are on, always show banner/list/sound — no quiet-hours suppression or other
+// gates. NOTE: this handler only affects foreground presentation –
 // background/killed notifications are shown by the OS regardless.
+// NOTE: trigger:null (used by the test path) fires immediately and cannot
+// produce a future daily fire with the app closed, so the daily reminder
+// must keep its DAILY trigger. Channel, content and presentation are shared
+// with the test path via buildReminderContent() below.
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     try {
       const data = (notification?.request?.content?.data ?? {}) as Record<string, unknown>;
-      if (data?.isTest === true) {
-        return {
-          shouldShowBanner: true,
-          shouldShowList: true,
-          shouldPlaySound: true,
-          shouldSetBadge: false,
-        };
-      }
-      const { reminderQuietHoursStart, reminderQuietHoursEnd, remindersEnabled } =
-        useSettings.getState();
-      const show =
-        remindersEnabled &&
-        !isInsideQuietHours(new Date(), reminderQuietHoursStart, reminderQuietHoursEnd);
+      const { remindersEnabled } = useSettings.getState();
+      const show = data?.isTest === true || remindersEnabled;
       return {
         shouldShowBanner: show,
         shouldShowList: show,
@@ -175,33 +167,48 @@ export async function scheduleReminder(preferredTimeLocal: string): Promise<void
     return;
   }
   const { hour, minute } = parsePreferredTime(preferredTimeLocal);
-  const trigger = buildDailyTrigger(hour, minute);
 
   try {
-    await ensureChannel();
-    // Cancel any existing reminder before scheduling a new one.
-    await Notifications.cancelScheduledNotificationAsync(REMINDER_NOTIFICATION_ID).catch(() => {});
-
-    await Notifications.scheduleNotificationAsync({
-      identifier: REMINDER_NOTIFICATION_ID,
-      content: buildReminderContent(false),
-      trigger,
-    });
-
-    // Verify the OS actually accepted it – scheduleNotificationAsync can
-    // resolve while the alarm is silently dropped (Doze / OEM killers /
-    // exact-alarm denial). If verification fails we throw so the settings
-    // UI can show a real error instead of a fake "Saved".
-    const pending = await Notifications.getAllScheduledNotificationsAsync();
-    const ours = pending.find((n) => n.identifier === REMINDER_NOTIFICATION_ID);
-    if (!ours) {
-      throw new Error(
-        'System did not retain the scheduled reminder. Check battery optimization / exact-alarm permission.'
-      );
+    // First attempt: cancel-by-id, schedule, verify.
+    try {
+      await attemptSchedule(hour, minute);
+      if (await verifyScheduled()) {
+        await finishScheduleSuccess(hour, minute);
+        return;
+      }
+      warn('[Reminder] Scheduled but OS did not retain it, attempting recovery');
+    } catch (firstErr) {
+      // Most commonly seen on physical Android devices as a native
+      // "org.json.JSONObject" failure from expo-notifications: either our
+      // payload tripped native serialization, or (more likely when it
+      // "worked before") a corrupt previously-persisted alarm breaks the
+      // schedule/verify calls. Fall through to recovery below.
+      warn('[Reminder] Initial schedule attempt failed, attempting recovery', {
+        error: firstErr instanceof Error ? firstErr.message : String(firstErr),
+      });
     }
 
-    const nextUtc = await persistNextScheduledAt(hour, minute, trigger);
-    log('[Reminder] Daily reminder scheduled', { hour, minute, nextUtc });
+    // Recovery: wipe all persisted alarms (this app only ever persists this
+    // one daily reminder – test notifications are immediate and transient)
+    // to clear any corrupt entry, then schedule once more from a clean slate.
+    await Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
+    try {
+      await attemptSchedule(hour, minute);
+    } catch (retryErr) {
+      throw withStage('schedule-call', retryErr);
+    }
+    let retained = false;
+    try {
+      retained = await verifyScheduled();
+    } catch (verifyErr) {
+      throw withStage('verify-read', verifyErr);
+    }
+    if (!retained) {
+      throw new Error(
+        'verify-read: system did not retain the scheduled reminder. Allow notifications for pocketFlow and try again.'
+      );
+    }
+    await finishScheduleSuccess(hour, minute);
   } catch (err) {
     useSettings.getState().setReminderNextScheduledAtUtc(null);
     logError('[Reminder] Failed to schedule daily reminder', {
@@ -212,6 +219,51 @@ export async function scheduleReminder(preferredTimeLocal: string): Promise<void
     });
     throw err instanceof Error ? err : new Error(String(err));
   }
+}
+
+/**
+ * Strip anything that is not JSON-representable (undefined, NaN, functions)
+ * before handing the payload to the native module. Android builds the
+ * request via `new JSONObject(map)`, which throws on such values and
+ * surfaces as an `org.json.JSONObject` scheduling failure.
+ */
+function toJsonSafe<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+/** Prefix an error with the schedule stage that produced it (schedule-call vs verify-read). */
+function withStage(stage: 'schedule-call' | 'verify-read', err: unknown): Error {
+  const message = err instanceof Error ? err.message : String(err);
+  if (message.startsWith(`${stage}:`)) return err as Error;
+  return new Error(`${stage}: ${message}`);
+}
+
+async function attemptSchedule(hour: number, minute: number): Promise<void> {
+  const trigger = toJsonSafe(buildDailyTrigger(hour, minute));
+  await ensureChannel();
+  // Cancel any existing reminder before scheduling a new one.
+  await Notifications.cancelScheduledNotificationAsync(REMINDER_NOTIFICATION_ID).catch(() => {});
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: REMINDER_NOTIFICATION_ID,
+    content: toJsonSafe(buildReminderContent(false)),
+    trigger,
+  });
+}
+
+/**
+ * Verify the OS actually accepted the alarm – scheduleNotificationAsync can
+ * resolve while the alarm is silently dropped (Doze / OEM killers /
+ * exact-alarm denial). Returns false instead of a fake "Saved".
+ */
+async function verifyScheduled(): Promise<boolean> {
+  const pending = await Notifications.getAllScheduledNotificationsAsync();
+  return pending.some((n) => n.identifier === REMINDER_NOTIFICATION_ID);
+}
+
+async function finishScheduleSuccess(hour: number, minute: number): Promise<void> {
+  const nextUtc = await persistNextScheduledAt(hour, minute, buildDailyTrigger(hour, minute));
+  log('[Reminder] Daily reminder scheduled', { hour, minute, nextUtc });
 }
 
 export async function cancelReminder(): Promise<void> {
@@ -352,9 +404,9 @@ export async function scheduleReminderTestNotification(): Promise<void> {
 
   await Notifications.scheduleNotificationAsync({
     content: buildReminderContent(true),
-    trigger: null, // immediate – bypasses AlarmManager, which is why tests
-    // can succeed while daily alarms are blocked (exact-alarm denial,
-    // battery optimization, OEM task killers).
+    trigger: null, // immediate – only fires now while the app runs, which is
+    // why the daily reminder (which must fire at a future time, possibly
+    // with the app closed) keeps its DAILY trigger instead.
   });
 
   log('[Reminder] Test notification sent');

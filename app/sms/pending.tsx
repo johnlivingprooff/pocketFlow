@@ -19,6 +19,7 @@ import { useSettings } from '@/store/useStore';
 import { ThemedAlert } from '@/components/ThemedAlert';
 import { useAlert } from '@/lib/hooks/useAlert';
 import { formatCurrency } from '@/utils/formatCurrency';
+import { yyyyMmDd } from '@/utils/date';
 import { getWallets } from '@/lib/db/wallets';
 import { getParentCategories } from '@/lib/db/categories';
 import type { Category } from '@/lib/db/categories';
@@ -109,16 +110,17 @@ export default function PendingSmsScreen() {
   }, []);
 
   const openConfirm = async (entry: PendingSmsTransaction) => {
-    if (wallets.length === 0) {
-      const list = await getWallets();
-      setWallets(list);
+    let available = wallets;
+    if (available.length === 0) {
+      available = await getWallets();
+      setWallets(available);
     }
     setDraft({
       pending: entry,
-      walletId: entry.suggested_wallet_id ?? wallets[0]?.id ?? null,
+      walletId: entry.suggested_wallet_id ?? available[0]?.id ?? null,
       type: entry.type ?? 'expense',
       amount: entry.amount != null ? String(entry.amount) : '',
-      date: entry.occurred_at ?? new Date().toISOString().slice(0, 10),
+      date: entry.occurred_at ?? yyyyMmDd(),
       category: null,
       notes: '',
     });
@@ -248,7 +250,7 @@ export default function PendingSmsScreen() {
   };
 
   return (
-    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: t.background }]) as any} edges={['left', 'right', 'top']}>
+    <SafeAreaView style={StyleSheet.flatten([styles.container, { backgroundColor: t.background }]) as any} edges={['left', 'right']}>
       {loading && pending.length === 0 ? (
         <View style={styles.centerState}>
           <Text style={{ color: t.textSecondary }}>Loading...</Text>
@@ -452,7 +454,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-    paddingTop: 20,
+    paddingTop: 3,
     paddingBottom: 40,
   },
   centerState: {

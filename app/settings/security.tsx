@@ -3,6 +3,8 @@ import { View, Text, ScrollView, Switch, TouchableOpacity, useColorScheme } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useSettings } from '../../src/store/useStore';
+import { useOnboarding } from '../../src/store/useOnboarding';
+import { invalidateTransactionCaches, invalidateWalletCaches } from '../../src/lib/cache/queryCache';
 import { theme, shadows } from '../../src/theme/theme';
 import { checkBiometricAvailability, authenticateWithBiometrics } from '../../src/lib/services/biometricService';
 import { clearDatabase } from '../../src/lib/db';
@@ -20,6 +22,7 @@ export default function SecuritySettings() {
     setLastAuthTime,
     resetSettings,
   } = useSettings();
+  const { resetOnboarding } = useOnboarding();
   const systemColorScheme = useColorScheme();
   const effectiveMode = themeMode === 'system' ? (systemColorScheme || 'light') : themeMode;
   const t = theme(effectiveMode);
@@ -75,11 +78,14 @@ export default function SecuritySettings() {
   const handleClearAllData = () => {
     showConfirmAlert(
       'Clear All Data',
-      'This will permanently delete all your wallets, transactions, and categories. This action cannot be undone.',
+      'This permanently deletes all wallets, transactions, categories, budgets, goals and pending SMS entries on this device. This cannot be undone.',
       async () => {
         try {
           await clearDatabase();
+          invalidateTransactionCaches();
+          invalidateWalletCaches();
           resetSettings();
+          resetOnboarding();
           // Close the app using native modules to restart fresh
           setTimeout(() => {
             try {
@@ -113,8 +119,8 @@ export default function SecuritySettings() {
   };
 
   return (
-    <SafeAreaView edges={['left', 'right', 'top']} style={{ flex: 1, backgroundColor: t.background }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 20 }}>
+    <SafeAreaView edges={['left', 'right']} style={{ flex: 1, backgroundColor: t.background }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 3 }}>
         {/* Header */}
         <Text style={{ color: t.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 24 }}>
           Privacy Lock

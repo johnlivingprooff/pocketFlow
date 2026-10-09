@@ -73,7 +73,7 @@ export default function CategoryManageScreen() {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedParent, setSelectedParent] = useState<Category | null>(null);
   const [isCreatingSubcategory, setIsCreatingSubcategory] = useState(false);
-  const { alertConfig, showErrorAlert, showConfirmAlert, dismissAlert } = useAlert();
+  const { alertConfig, showSuccessAlert, showErrorAlert, showConfirmAlert, dismissAlert } = useAlert();
 
   const [formData, setFormData] = useState({
     name: '',

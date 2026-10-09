@@ -39,6 +39,30 @@ async function deleteWebItem(key: string): Promise<void> {
   localStorage.removeItem(`pocketflow_${key}`);
 }
 
+// A backup passphrase must not survive a browser restart in localStorage.
+async function setSessionItem(key: string, value: string): Promise<void> {
+  if (typeof sessionStorage === 'undefined') return;
+  sessionStorage.setItem(`pocketflow_${key}`, value);
+}
+
+async function getSessionItem(key: string): Promise<string | null> {
+  if (typeof sessionStorage === 'undefined') return null;
+  const current = sessionStorage.getItem(`pocketflow_${key}`);
+  if (current) return current;
+  if (typeof localStorage === 'undefined') return null;
+  const legacy = localStorage.getItem(`pocketflow_${key}`);
+  if (legacy) {
+    localStorage.removeItem(`pocketflow_${key}`);
+    sessionStorage.setItem(`pocketflow_${key}`, legacy);
+  }
+  return legacy;
+}
+
+async function deleteSessionItem(key: string): Promise<void> {
+  if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(`pocketflow_${key}`);
+  await deleteWebItem(key);
+}
+
 export async function storeDriveTokens(tokens: DriveTokens): Promise<void> {
   memoryTokens = tokens;
   const profileJson = tokens.profile ? JSON.stringify(tokens.profile) : '';
@@ -127,13 +151,13 @@ export async function clearDriveBackupFolderId(): Promise<void> {
 }
 
 export async function getDrivePassphrase(): Promise<string | null> {
-  if (Platform.OS === 'web') return getWebItem(PASSPHRASE_KEY);
+  if (Platform.OS === 'web') return getSessionItem(PASSPHRASE_KEY);
   return SecureStore.getItemAsync(PASSPHRASE_KEY);
 }
 
 export async function setDrivePassphrase(passphrase: string): Promise<void> {
   if (Platform.OS === 'web') {
-    await setWebItem(PASSPHRASE_KEY, passphrase);
+    await setSessionItem(PASSPHRASE_KEY, passphrase);
     return;
   }
   await SecureStore.setItemAsync(PASSPHRASE_KEY, passphrase);
@@ -141,7 +165,7 @@ export async function setDrivePassphrase(passphrase: string): Promise<void> {
 
 export async function clearDrivePassphrase(): Promise<void> {
   if (Platform.OS === 'web') {
-    await deleteWebItem(PASSPHRASE_KEY);
+    await deleteSessionItem(PASSPHRASE_KEY);
     return;
   }
   await SecureStore.deleteItemAsync(PASSPHRASE_KEY);
