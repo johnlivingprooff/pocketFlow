@@ -34,7 +34,14 @@ export const colors = {
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
-export const theme = (mode: ThemeMode, systemColorScheme?: string) => {
+export type AppTheme = ReturnType<typeof buildTheme>;
+
+// Memoized: theme() previously allocated a new object literal on every render,
+// invalidating memo comparisons downstream. Cache per effective mode so
+// repeated calls return a stable reference with identical values.
+const themeCache = new Map<string, AppTheme>();
+
+function buildTheme(mode: ThemeMode, systemColorScheme?: string) {
   const effectiveMode = mode === 'system' ? (systemColorScheme || 'light') : mode;
   const isDark = effectiveMode === 'dark';
 
@@ -66,6 +73,18 @@ export const theme = (mode: ThemeMode, systemColorScheme?: string) => {
     income: colors.success,
     expense: colors.danger,
   };
+}
+
+export const theme = (mode: ThemeMode, systemColorScheme?: string): AppTheme => {
+  const key = mode === 'system' ? `system:${systemColorScheme || 'light'}` : mode;
+  let cached = themeCache.get(key);
+  if (!cached) {
+    cached = buildTheme(mode, systemColorScheme);
+    // Only two effective themes exist; cache stays tiny by design.
+    if (themeCache.size > 4) themeCache.clear();
+    themeCache.set(key, cached);
+  }
+  return cached;
 };
 
 export const shadows = {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView } from 'react-native';
 
 interface CategoryDrillDownProps {
@@ -19,7 +19,7 @@ interface CategoryDrillDownProps {
   formatDate: (date: string) => string;
 }
 
-export default function CategoryDrillDown({
+export default memo(function CategoryDrillDown({
   visible,
   category,
   transactions,
@@ -31,9 +31,14 @@ export default function CategoryDrillDown({
   formatCurrency,
   formatDate,
 }: CategoryDrillDownProps) {
-  if (!category) return null;
+  // Memoize total (was reduce on every render, incl. parent re-renders
+  // while modal hidden). Hooks must run before early return.
+  const totalAmount = useMemo(
+    () => transactions.reduce((sum, t) => sum + t.amount, 0),
+    [transactions]
+  );
 
-  const totalAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
+  if (!category) return null;
 
   return (
     <Modal
@@ -118,4 +123,4 @@ export default function CategoryDrillDown({
       </View>
     </Modal>
   );
-}
+});

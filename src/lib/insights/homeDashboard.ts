@@ -38,67 +38,76 @@ function buildChartData(
   const now = new Date();
   now.setHours(0, 0, 0, 0);
 
-  const sumIncome = (items: Transaction[]) =>
-    items
-      .filter((transaction) => transaction.type === 'income' && transaction.category !== 'Transfer')
-      .reduce(
-        (sum, transaction) => sum + transaction.amount * (walletExchangeRate[transaction.wallet_id] ?? 1.0),
-        0
-      );
-
-  const sumExpense = (items: Transaction[]) =>
-    items
-      .filter((transaction) => transaction.type === 'expense' && transaction.category !== 'Transfer')
-      .reduce(
-        (sum, transaction) =>
-          sum + Math.abs(transaction.amount * (walletExchangeRate[transaction.wallet_id] ?? 1.0)),
-        0
-      );
-
   if (chartRange === '7d') {
-    return Array.from({ length: 7 }, (_, index) => {
+    // Single pass: previously 7 full scans × (filter + reduce) with a
+    // `new Date()` per transaction per bucket (7×R parses). Now parse once
+    // and compare against precomputed day boundaries. Identical buckets.
+    const buckets: Array<{ date: string; expense: number; income: number }> = [];
+    const dayStarts: number[] = [];
+    const dayEnds: number[] = [];
+    for (let index = 0; index < 7; index++) {
       const dayOffset = 6 - index;
       const dayStart = new Date(now);
       dayStart.setDate(now.getDate() - dayOffset);
       const dayEnd = new Date(dayStart);
       dayEnd.setDate(dayStart.getDate() + 1);
-
-      const dayTransactions = transactions.filter((transaction) => {
-        const transactionDate = new Date(transaction.date);
-        return transactionDate >= dayStart && transactionDate < dayEnd;
-      });
-
-      return {
-        date: dayStart.toISOString(),
-        expense: sumExpense(dayTransactions),
-        income: sumIncome(dayTransactions),
-      };
-    });
+      dayStarts.push(dayStart.getTime());
+      dayEnds.push(dayEnd.getTime());
+      buckets.push({ date: dayStart.toISOString(), expense: 0, income: 0 });
+    }
+    for (const transaction of transactions) {
+      if (transaction.category === 'Transfer') continue;
+      if (transaction.type !== 'income' && transaction.type !== 'expense') continue;
+      const ts = new Date(transaction.date).getTime();
+      if (!Number.isFinite(ts)) continue;
+      for (let i = 0; i < 7; i++) {
+        if (ts >= dayStarts[i] && ts < dayEnds[i]) {
+          const rate = walletExchangeRate[transaction.wallet_id] ?? 1.0;
+          if (transaction.type === 'income') buckets[i].income += transaction.amount * rate;
+          else buckets[i].expense += Math.abs(transaction.amount * rate);
+          break;
+        }
+      }
+    }
+    return buckets;
   }
 
   const months = chartRange === '3m' ? 3 : 6;
   const firstOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  return Array.from({ length: months }, (_, index) => {
+  // Single pass over transactions (was months × full scans with new Date per
+  // transaction per bucket). Precompute month start timestamps once.
+  const monthStarts: number[] = [];
+  const buckets: Array<{ date: string; expense: number; income: number }> = [];
+  for (let index = 0; index < months; index++) {
     const monthOffset = months - 1 - index;
     const monthStart = new Date(
       firstOfCurrentMonth.getFullYear(),
       firstOfCurrentMonth.getMonth() - monthOffset,
       1
     );
-    const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
-
-    const monthTransactions = transactions.filter((transaction) => {
-      const transactionDate = new Date(transaction.date);
-      return transactionDate >= monthStart && transactionDate < monthEnd;
-    });
-
-    return {
-      date: monthStart.toISOString(),
-      expense: sumExpense(monthTransactions),
-      income: sumIncome(monthTransactions),
-    };
-  });
+    monthStarts.push(monthStart.getTime());
+    buckets.push({ date: monthStart.toISOString(), expense: 0, income: 0 });
+  }
+  const firstMonth = monthStarts[0];
+  const firstMonthDate = new Date(firstMonth);
+  const firstMonthIndex = firstMonthDate.getFullYear() * 12 + firstMonthDate.getMonth();
+  for (const transaction of transactions) {
+    if (transaction.category === 'Transfer') continue;
+    const d = new Date(transaction.date);
+    const ts = d.getTime();
+    if (!Number.isFinite(ts) || ts < firstMonth) continue;
+    // Month index from calendar arithmetic (matches original monthStart/monthEnd compare)
+    const monthDiff = d.getFullYear() * 12 + d.getMonth() - firstMonthIndex;
+    if (monthDiff < 0 || monthDiff >= months) continue;
+    const rate = walletExchangeRate[transaction.wallet_id] ?? 1.0;
+    if (transaction.type === 'income') {
+      buckets[monthDiff].income += transaction.amount * rate;
+    } else if (transaction.type === 'expense') {
+      buckets[monthDiff].expense += Math.abs(transaction.amount * rate);
+    }
+  }
+  return buckets;
 }
 
 function resolvePeriodWindow(

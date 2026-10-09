@@ -22,10 +22,12 @@ import { ThemedAlert } from '@/components/ThemedAlert';
 import {
   canAskForReminderPermissionAgain,
   cancelReminder,
+  getReminderDiagnostics,
   requestReminderPermission,
   scheduleReminderTestNotification,
   setRemindersEnabledAndReschedule,
   syncReminderPermissionStatus,
+  type ReminderDiagnostics,
 } from '@/lib/services/reminderNotificationService';
 
 type PickerTarget = 'preferred' | 'quietStart' | 'quietEnd' | null;
@@ -82,6 +84,8 @@ export default function ReminderSettingsScreen() {
   const [canAskAgain, setCanAskAgain] = useState<boolean>(true);
   const [awaitingSettingsReturn, setAwaitingSettingsReturn] = useState(false);
   const [autoEnableAfterSettings, setAutoEnableAfterSettings] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<ReminderDiagnostics | null>(null);
+  const [diagnosticsRefreshing, setDiagnosticsRefreshing] = useState(false);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
   const persistedQuietEnabled = Boolean(reminderQuietHoursStart && reminderQuietHoursEnd);
@@ -132,6 +136,19 @@ export default function ReminderSettingsScreen() {
     return { nextStatus, nextCanAskAgain };
   };
 
+  const refreshDiagnostics = async () => {
+    setDiagnosticsRefreshing(true);
+    try {
+      const next = await getReminderDiagnostics();
+      setDiagnostics(next);
+      return next;
+    } catch {
+      return null;
+    } finally {
+      setDiagnosticsRefreshing(false);
+    }
+  };
+
   const openNotificationSettings = async (autoEnableOnReturn: boolean = false) => {
     setAwaitingSettingsReturn(true);
     setAutoEnableAfterSettings(autoEnableOnReturn);
@@ -166,6 +183,7 @@ export default function ReminderSettingsScreen() {
     const syncFromSystem = async (fromAppResume: boolean) => {
       const { nextStatus } = await refreshPermissionMeta();
       if (!mounted) return;
+      void refreshDiagnostics().catch(() => {});
 
       if (awaitingSettingsReturn && fromAppResume) {
         if (nextStatus === 'granted') {
@@ -272,11 +290,25 @@ export default function ReminderSettingsScreen() {
         setReminderQuietHours(null, null);
       }
 
-      await setRemindersEnabledAndReschedule(enabled);
+      try {
+        await setRemindersEnabledAndReschedule(enabled);
+      } catch (scheduleError) {
+        const message =
+          scheduleError instanceof Error ? scheduleError.message : String(scheduleError);
+        showErrorAlert(
+          'Schedule Failed',
+          `Could not schedule the daily reminder (${message}). ` +
+            'On Android, allow Exact alarms / disable battery optimization for pocketFlow, then try again. ' +
+            'Your test notification can still work because it bypasses the alarm system.'
+        );
+        await refreshDiagnostics().catch(() => {});
+        return;
+      }
       const { nextStatus: nextPermissionStatus } = await refreshPermissionMeta();
 
       if (!enabled) {
         await cancelReminder();
+        await refreshDiagnostics().catch(() => {});
         showSuccessAlert('Saved', 'Reminders disabled.');
         return;
       }
@@ -286,6 +318,25 @@ export default function ReminderSettingsScreen() {
         promptEnableNotifications(
           'Notification permission is required to schedule reminders. Enable notifications for pocketFlow in system settings and try again.',
           true
+        );
+        await refreshDiagnostics().catch(() => {});
+        return;
+      }
+
+      const diag = await refreshDiagnostics().catch(() => null);
+      if (diag && enabled && !diag.scheduledExists) {
+        showErrorAlert(
+          'Not Scheduled',
+          'The system did not retain the reminder. On Android, allow "Alarms & reminders" for pocketFlow and turn off battery optimization, then tap Save again.'
+        );
+        return;
+      }
+      if (diag && diag.scheduledHour !== null && diag.scheduledMinute !== null) {
+        const pad = (v: number) => `${v}`.padStart(2, '0');
+        showSuccessAlert(
+          'Saved',
+          `Reminder set for ${pad(diag.scheduledHour)}:${pad(diag.scheduledMinute)} daily. ` +
+            'If it never fires, check battery optimization / exact-alarm permission – test alerts bypass those, daily alarms do not.'
         );
         return;
       }
@@ -465,11 +516,37 @@ export default function ReminderSettingsScreen() {
           </>
         )}
 
-        <View style={StyleSheet.flatten([styles.card, compact && styles.cardCompact, { backgroundColor: t.card, borderColor: t.border }]) as any}> 
+        <View style={StyleSheet.flatten([styles.card, compact && styles.cardCompact, { backgroundColor: t.card, borderColor: t.border }]) as any}>
           <Text style={StyleSheet.flatten([styles.metaLabel, { color: t.textSecondary }]) as any}>Last delivered (UTC)</Text>
           <Text style={StyleSheet.flatten([styles.metaValue, { color: t.textPrimary }]) as any}>{formatUtc(reminderLastDeliveredAtUtc)}</Text>
           <Text style={StyleSheet.flatten([styles.metaLabel, { color: t.textSecondary, marginTop: 10 }]) as any}>Next scheduled</Text>
           <Text style={StyleSheet.flatten([styles.metaValue, { color: t.textPrimary }]) as any}>{formatUtc(reminderNextScheduledAtUtc)}</Text>
+          {diagnostics && (
+            <Text style={StyleSheet.flatten([styles.subLabel, compact && styles.subLabelCompact, { color: t.textSecondary, marginTop: 8 }]) as any}>
+              {diagnostics.verdict === 'ok' &&
+                diagnostics.scheduledHour !== null &&
+                diagnostics.scheduledMinute !== null
+                ? `Verified with OS: daily at ${`${diagnostics.scheduledHour}`.padStart(2, '0')}:${`${diagnostics.scheduledMinute}`.padStart(2, '0')}.`
+                : diagnostics.verdict === 'disabled'
+                  ? 'Reminders are off – nothing is scheduled with the OS.'
+                  : diagnostics.verdict === 'no_permission'
+                    ? 'Permission missing – nothing is scheduled with the OS.'
+                    : diagnostics.verdict === 'time_mismatch'
+                      ? 'OS alarm time differs from your preferred time – tap Save Changes to resync.'
+                      : 'No alarm found with the OS – tap Save Changes to schedule.'}
+            </Text>
+          )}
+          <Pressable
+            onPress={() => void refreshDiagnostics()}
+            style={StyleSheet.flatten([styles.secondaryButton, { borderColor: t.border, marginTop: 8 }]) as any}
+          >
+            <Text style={StyleSheet.flatten([styles.secondaryButtonText, { color: t.textPrimary }]) as any}>
+              {diagnosticsRefreshing ? 'Checking…' : 'Check OS Schedule'}
+            </Text>
+          </Pressable>
+          <Text style={StyleSheet.flatten([styles.subLabel, compact && styles.subLabelCompact, { color: t.textSecondary }]) as any}>
+            Test alerts fire immediately and bypass the alarm system. Daily reminders need Exact alarms + no battery restriction – if daily never fires on Android, allow “Alarms & reminders” and disable battery optimization for pocketFlow.
+          </Text>
         </View>
 
         <View style={styles.actions}>

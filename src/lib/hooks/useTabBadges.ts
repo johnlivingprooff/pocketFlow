@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { AppState } from 'react-native';
 import { getBudgets } from '../db/budgets';
 import { getGoals } from '../db/goals';
 
@@ -18,25 +19,34 @@ export function useTabBadges(): TabBadgeCounts {
   });
 
   useEffect(() => {
+    let mounted = true;
     const loadBadgeCounts = async () => {
+      // Skip while backgrounded (was polling full budget+goal scans every
+      // 30s even when hidden). Same visible behavior, no bg work.
+      if (AppState.currentState !== 'active') return;
       try {
-        // Check budgets for warnings
-        const budgets = await getBudgets();
-        const overBudgetCount = budgets.filter(b => {
+        // Parallel fetch (was sequential). Single-pass counts below
+        // replace filter().length allocations. Identical thresholds.
+        const [budgets, goals] = await Promise.all([getBudgets(), getGoals()]);
+        let overBudgetCount = 0;
+        for (const b of budgets) {
           const percentage = (b.currentSpending / b.limitAmount) * 100;
-          return percentage >= 85; // Warning threshold
-        }).length;
-
-        // Check goals for milestones
-        const goals = await getGoals();
-        const goalMilestones = goals.filter(g => {
+          if (percentage >= 85) overBudgetCount++;
+        }
+        let goalMilestones = 0;
+        for (const g of goals) {
           const percentage = (g.currentProgress / g.targetAmount) * 100;
-          return percentage >= 100 || (percentage >= 75 && percentage < 100);
-        }).length;
+          if (percentage >= 100 || (percentage >= 75 && percentage < 100)) {
+            goalMilestones++;
+          }
+        }
 
-        setBadgeCounts({
-          analytics: overBudgetCount + goalMilestones,
-          settings: 0, // Could be used for update notifications
+        if (!mounted) return;
+        setBadgeCounts((prev) => {
+          const next = { analytics: overBudgetCount + goalMilestones, settings: 0 };
+          // Avoid re-render when counts unchanged
+          if (prev.analytics === next.analytics && prev.settings === next.settings) return prev;
+          return next;
         });
       } catch (error) {
         console.error('Failed to load tab badge counts:', error);
@@ -47,7 +57,10 @@ export function useTabBadges(): TabBadgeCounts {
     
     // Refresh every 30 seconds
     const interval = setInterval(loadBadgeCounts, 30000);
-    return () => clearInterval(interval);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   return badgeCounts;

@@ -369,6 +369,31 @@ export async function getWalletsOrderedByRecentActivity(): Promise<number[]> {
   return rows.map(r => r.wallet_id);
 }
 
+/**
+ * Get most recent distinct categories ordered by last usage (desc)
+ * Used for QuickCategoryChips – reflects actually logged categories, max 10
+ */
+export async function getRecentCategories(limit: number = 10, type?: 'income' | 'expense'): Promise<string[]> {
+  const where: string[] = ['category IS NOT NULL', "TRIM(category) != ''", "category != 'Transfer'"];
+  const params: any[] = [];
+  if (type) {
+    where.push('type = ?');
+    params.push(type);
+  }
+  const whereClause = where.join(' AND ');
+  params.push(limit);
+  const rows = await exec<{ category: string }>(
+    `SELECT category, MAX(date) as last_date
+     FROM transactions
+     WHERE ${whereClause}
+     GROUP BY category
+     ORDER BY last_date DESC
+     LIMIT ?;`,
+    params
+  );
+  return rows.map(r => r.category);
+}
+
 export async function filterTransactions(options: {
   startDate?: string;
   endDate?: string;
@@ -425,21 +450,19 @@ export async function filterTransactions(options: {
 export async function analyticsTotalsByMonth(year: number, month: number) {
   const start = new Date(year, month - 1, 1).toISOString();
   const end = new Date(year, month, 0, 23, 59, 59).toISOString();
-  const income = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(t.amount * COALESCE(w.exchange_rate, 1.0)),0) as total 
-     FROM transactions t 
+  // Single scan with conditional aggregation (was 2 sequential SUM scans
+  // over the same date range). Identical results.
+  const rows = await exec<{ income: number; expense: number }>(
+    `SELECT
+       COALESCE(SUM(CASE WHEN t.type = 'income' THEN t.amount * COALESCE(w.exchange_rate, 1.0) ELSE 0 END),0) as income,
+       COALESCE(SUM(CASE WHEN t.type = 'expense' THEN ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) ELSE 0 END),0) as expense
+     FROM transactions t
      LEFT JOIN wallets w ON t.wallet_id = w.id
-     WHERE t.type = 'income' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
+     WHERE t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer')
+       AND t.type IN ('income','expense');`,
     [start, end]
   );
-  const expense = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
-     FROM transactions t 
-     LEFT JOIN wallets w ON t.wallet_id = w.id
-     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
-    [start, end]
-  );
-  return { income: income[0]?.total ?? 0, expense: expense[0]?.total ?? 0 };
+  return { income: rows[0]?.income ?? 0, expense: rows[0]?.expense ?? 0 };
 }
 
 export async function analyticsCategoryBreakdown(year: number, month: number) {
@@ -459,19 +482,18 @@ export async function totalAvailableAcrossWallets() {
   const cacheKey = generateCacheKey('totalAvailableAcrossWallets');
 
   return await analyticsCache.cached(cacheKey, async () => {
-    // Optimized single-query approach using JOINs and aggregation
-    // This replaces the N+1 query pattern with a single efficient query
+    // JOIN + GROUP BY (was 2 correlated subqueries per wallet row).
+    // Identical math: initial + income + expense (negative) per wallet,
+    // converted by exchange rate, summed.
     const result = await exec<{ total: number }>(
-      `SELECT 
-         COALESCE(
-           SUM(
-             (w.initial_balance + 
-              COALESCE((SELECT SUM(amount) FROM transactions WHERE wallet_id = w.id AND type = 'income'), 0) + 
-              COALESCE((SELECT SUM(amount) FROM transactions WHERE wallet_id = w.id AND type = 'expense'), 0)
-             ) * COALESCE(w.exchange_rate, 1.0)
-           ), 0
-         ) as total
-       FROM wallets w;`
+      `SELECT COALESCE(SUM((w.initial_balance + COALESCE(t.txn_sum, 0)) * COALESCE(w.exchange_rate, 1.0)), 0) as total
+       FROM wallets w
+       LEFT JOIN (
+         SELECT wallet_id, SUM(amount) as txn_sum
+         FROM transactions
+         WHERE type IN ('income','expense')
+         GROUP BY wallet_id
+       ) t ON t.wallet_id = w.id;`
     );
     return result[0]?.total ?? 0;
   });
@@ -523,23 +545,20 @@ export async function getIncomeExpenseForPeriod(startDate: Date, endDate: Date) 
   const start = startDate.toISOString();
   const end = endDate.toISOString();
 
-  const income = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(t.amount * COALESCE(w.exchange_rate, 1.0)),0) as total 
-     FROM transactions t 
+  // Single scan (was 2 sequential queries). Identical results.
+  const rows = await exec<{ income: number; expense: number }>(
+    `SELECT
+       COALESCE(SUM(CASE WHEN t.type = 'income' THEN t.amount * COALESCE(w.exchange_rate, 1.0) ELSE 0 END),0) as income,
+       COALESCE(SUM(CASE WHEN t.type = 'expense' THEN ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) ELSE 0 END),0) as expense
+     FROM transactions t
      LEFT JOIN wallets w ON t.wallet_id = w.id
-     WHERE t.type = 'income' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
-    [start, end]
-  );
-  const expense = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
-     FROM transactions t 
-     LEFT JOIN wallets w ON t.wallet_id = w.id
-     WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
+     WHERE t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer')
+       AND t.type IN ('income','expense');`,
     [start, end]
   );
 
-  const incomeTotal = income[0]?.total ?? 0;
-  const expenseTotal = expense[0]?.total ?? 0;
+  const incomeTotal = rows[0]?.income ?? 0;
+  const expenseTotal = rows[0]?.expense ?? 0;
 
   return {
     income: incomeTotal,
@@ -569,19 +588,22 @@ export async function getWalletIncomeExpense(walletId: number, startDate?: Date,
 
   const whereClause = where.join(' AND ');
 
-  const income = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'income' AND ${whereClause};`,
+  // Single GROUP BY scan (was income+expense sequential queries)
+  const rows = await exec<{ type: string; total: number }>(
+    `SELECT type, COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE ABS(amount) END), 0) as total FROM transactions WHERE ${whereClause} AND type IN ('income','expense') GROUP BY type;`,
     params
   );
 
-  const expense = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(ABS(amount)), 0) as total FROM transactions WHERE type = 'expense' AND ${whereClause};`,
-    params
-  );
+  let incomeTotal = 0;
+  let expenseTotal = 0;
+  for (const row of rows) {
+    if (row.type === 'income') incomeTotal = row.total ?? 0;
+    else if (row.type === 'expense') expenseTotal = row.total ?? 0;
+  }
 
   return {
-    income: income[0]?.total ?? 0,
-    expense: expense[0]?.total ?? 0
+    income: incomeTotal,
+    expense: expenseTotal
   };
 }
 
@@ -600,19 +622,22 @@ export async function getWalletTransferAmounts(walletId: number, startDate?: Dat
 
   const whereClause = where.join(' AND ');
 
-  const incoming = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'income' AND ${whereClause};`,
+  // Single GROUP BY scan (was incoming+outgoing sequential queries)
+  const rows = await exec<{ type: string; total: number }>(
+    `SELECT type, COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE ABS(amount) END), 0) as total FROM transactions WHERE ${whereClause} AND type IN ('income','expense') GROUP BY type;`,
     params
   );
 
-  const outgoing = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(ABS(amount)), 0) as total FROM transactions WHERE type = 'expense' AND ${whereClause};`,
-    params
-  );
+  let incomingTotal = 0;
+  let outgoingTotal = 0;
+  for (const row of rows) {
+    if (row.type === 'income') incomingTotal = row.total ?? 0;
+    else if (row.type === 'expense') outgoingTotal = row.total ?? 0;
+  }
 
   return {
-    incoming: incoming[0]?.total ?? 0,
-    outgoing: outgoing[0]?.total ?? 0,
+    incoming: incomingTotal,
+    outgoing: outgoingTotal,
   };
 }
 
@@ -686,25 +711,20 @@ export async function incomeVsExpenseAnalysis(period: 'current' | 'last' = 'curr
   const start = startDate.toISOString();
   const end = endDate.toISOString();
 
-  const [income, expense] = await Promise.all([
-    exec<{ total: number }>(
-      `SELECT COALESCE(SUM(t.amount * COALESCE(w.exchange_rate, 1.0)),0) as total 
-       FROM transactions t 
-       LEFT JOIN wallets w ON t.wallet_id = w.id
-       WHERE t.type = 'income' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
-      [start, end]
-    ),
-    exec<{ total: number }>(
-      `SELECT COALESCE(SUM(ABS(t.amount * COALESCE(w.exchange_rate, 1.0))),0) as total 
-       FROM transactions t 
-       LEFT JOIN wallets w ON t.wallet_id = w.id
-       WHERE t.type = 'expense' AND t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer');`,
-      [start, end]
-    ),
-  ]);
+  // Single scan (was 2 parallel queries over same range)
+  const rows = await exec<{ income: number; expense: number }>(
+    `SELECT
+       COALESCE(SUM(CASE WHEN t.type = 'income' THEN t.amount * COALESCE(w.exchange_rate, 1.0) ELSE 0 END),0) as income,
+       COALESCE(SUM(CASE WHEN t.type = 'expense' THEN ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) ELSE 0 END),0) as expense
+     FROM transactions t
+     LEFT JOIN wallets w ON t.wallet_id = w.id
+     WHERE t.date BETWEEN ? AND ? AND (t.category IS NULL OR t.category <> 'Transfer')
+       AND t.type IN ('income','expense');`,
+    [start, end]
+  );
 
-  const incomeTotal = income[0]?.total ?? 0;
-  const expenseTotal = expense[0]?.total ?? 0;
+  const incomeTotal = rows[0]?.income ?? 0;
+  const expenseTotal = rows[0]?.expense ?? 0;
   const netSavings = incomeTotal - expenseTotal;
   const savingsRate = incomeTotal > 0 ? (netSavings / incomeTotal) * 100 : 0;
 
@@ -718,30 +738,31 @@ export async function getSpendingStreak() {
 
   if (transactions.length === 0) return { currentStreak: 0, longestStreak: 0, lastSpendDate: null };
 
-  // Helper to normalize date and calculate day difference
-  const getDaysDiff = (date1: Date, date2: Date): number => {
-    const d1 = new Date(date1);
-    const d2 = new Date(date2);
-    d1.setHours(0, 0, 0, 0);
-    d2.setHours(0, 0, 0, 0);
-    return Math.floor((d1.getTime() - d2.getTime()) / MS_PER_DAY);
+  // Single pass: normalize each date ONCE to day-number (was 2 `new Date` +
+  // 2 `setHours` per comparison × 2 loops). Identical streak logic.
+  const toDayNumber = (value: Date | string): number => {
+    const d = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+    d.setHours(0, 0, 0, 0);
+    return Math.floor(d.getTime() / MS_PER_DAY);
   };
+
+  const dayNumbers = new Array<number>(transactions.length);
+  for (let i = 0; i < transactions.length; i++) {
+    dayNumbers[i] = toDayNumber(transactions[i].date);
+  }
 
   let currentStreak = 0;
   let longestStreak = 0;
   let tempStreak = 1;
-  const today = new Date();
+  const todayDay = toDayNumber(new Date());
 
   // Check if there was spending today or yesterday for current streak
-  const lastSpend = new Date(transactions[0].date);
-  const daysSinceLastSpend = getDaysDiff(today, lastSpend);
+  const daysSinceLastSpend = todayDay - dayNumbers[0];
 
   if (daysSinceLastSpend <= 1) {
     currentStreak = 1;
-    for (let i = 0; i < transactions.length - 1; i++) {
-      const current = new Date(transactions[i].date);
-      const next = new Date(transactions[i + 1].date);
-      const diff = getDaysDiff(current, next);
+    for (let i = 0; i < dayNumbers.length - 1; i++) {
+      const diff = dayNumbers[i] - dayNumbers[i + 1];
       if (diff === 1) {
         currentStreak++;
       } else {
@@ -750,14 +771,12 @@ export async function getSpendingStreak() {
     }
   }
 
-  // Calculate longest streak
-  for (let i = 0; i < transactions.length - 1; i++) {
-    const current = new Date(transactions[i].date);
-    const next = new Date(transactions[i + 1].date);
-    const diff = getDaysDiff(current, next);
+  // Calculate longest streak (single loop over precomputed days)
+  for (let i = 0; i < dayNumbers.length - 1; i++) {
+    const diff = dayNumbers[i] - dayNumbers[i + 1];
     if (diff === 1) {
       tempStreak++;
-      longestStreak = Math.max(longestStreak, tempStreak);
+      if (tempStreak > longestStreak) longestStreak = tempStreak;
     } else {
       tempStreak = 1;
     }
@@ -800,16 +819,20 @@ export async function getTransactionCounts() {
   const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
 
-  const income = await exec<{ count: number }>(
-    `SELECT COUNT(*) as count FROM transactions WHERE type = 'income' AND date BETWEEN ? AND ? AND (category IS NULL OR category <> 'Transfer');`,
-    [start, end]
-  );
-  const expense = await exec<{ count: number }>(
-    `SELECT COUNT(*) as count FROM transactions WHERE type = 'expense' AND date BETWEEN ? AND ? AND (category IS NULL OR category <> 'Transfer');`,
+  // Single GROUP BY scan (was 2 sequential COUNT queries)
+  const rows = await exec<{ type: string; count: number }>(
+    `SELECT type, COUNT(*) as count FROM transactions WHERE date BETWEEN ? AND ? AND (category IS NULL OR category <> 'Transfer') AND type IN ('income','expense') GROUP BY type;`,
     [start, end]
   );
 
-  return { incomeCount: income[0]?.count ?? 0, expenseCount: expense[0]?.count ?? 0, total: (income[0]?.count ?? 0) + (expense[0]?.count ?? 0) };
+  let incomeCount = 0;
+  let expenseCount = 0;
+  for (const row of rows) {
+    if (row.type === 'income') incomeCount = row.count ?? 0;
+    else if (row.type === 'expense') expenseCount = row.count ?? 0;
+  }
+
+  return { incomeCount, expenseCount, total: incomeCount + expenseCount };
 }
 
 export async function getAveragePurchaseSize() {
@@ -930,20 +953,25 @@ export async function getMonthlyComparison(period: '7days' | '30days' | '3months
       months.push({ start: monthStart, end: monthEnd });
     }
 
+    // Parameterized (was string-interpolated dates → no plan cache).
+    // month_index is a positional constant, safe to inline.
+    const params3: unknown[] = [];
+    const parts3 = months.map((m, i) => {
+      params3.push(m.start, m.end);
+      return `SELECT ${i} as month_index,
+         COALESCE(SUM(CASE WHEN t.type = 'income' THEN t.amount * COALESCE(w.exchange_rate, 1.0) ELSE 0 END), 0) as income,
+         COALESCE(SUM(CASE WHEN t.type = 'expense' THEN ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) ELSE 0 END), 0) as expense
+         FROM transactions t
+         LEFT JOIN wallets w ON t.wallet_id = w.id
+         WHERE (t.category IS NULL OR t.category <> 'Transfer') AND t.date BETWEEN ? AND ?`;
+    });
     const result = await exec<{
       month_index: number;
       income: number;
       expense: number
     }>(
-      months.map((_, i) =>
-        `SELECT ${i} as month_index, 
-         COALESCE(SUM(CASE WHEN t.type = 'income' THEN t.amount * COALESCE(w.exchange_rate, 1.0) ELSE 0 END), 0) as income,
-         COALESCE(SUM(CASE WHEN t.type = 'expense' THEN ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) ELSE 0 END), 0) as expense
-         FROM transactions t
-         LEFT JOIN wallets w ON t.wallet_id = w.id
-         WHERE (t.category IS NULL OR t.category <> 'Transfer') AND t.date BETWEEN '${months[i].start}' AND '${months[i].end}'`
-      ).join(' UNION ALL '),
-      []
+      parts3.join(' UNION ALL '),
+      params3
     );
 
     return {
@@ -965,20 +993,23 @@ export async function getMonthlyComparison(period: '7days' | '30days' | '3months
       months.push({ start: monthStart, end: monthEnd });
     }
 
+    const params6: unknown[] = [];
+    const parts6 = months.map((m, i) => {
+      params6.push(m.start, m.end);
+      return `SELECT ${i} as month_index,
+         COALESCE(SUM(CASE WHEN t.type = 'income' THEN t.amount * COALESCE(w.exchange_rate, 1.0) ELSE 0 END), 0) as income,
+         COALESCE(SUM(CASE WHEN t.type = 'expense' THEN ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) ELSE 0 END), 0) as expense
+         FROM transactions t
+         LEFT JOIN wallets w ON t.wallet_id = w.id
+         WHERE (t.category IS NULL OR t.category <> 'Transfer') AND t.date BETWEEN ? AND ?`;
+    });
     const result = await exec<{
       month_index: number;
       income: number;
       expense: number
     }>(
-      months.map((_, i) =>
-        `SELECT ${i} as month_index, 
-         COALESCE(SUM(CASE WHEN t.type = 'income' THEN t.amount * COALESCE(w.exchange_rate, 1.0) ELSE 0 END), 0) as income,
-         COALESCE(SUM(CASE WHEN t.type = 'expense' THEN ABS(t.amount * COALESCE(w.exchange_rate, 1.0)) ELSE 0 END), 0) as expense
-         FROM transactions t
-         LEFT JOIN wallets w ON t.wallet_id = w.id
-         WHERE (t.category IS NULL OR t.category <> 'Transfer') AND t.date BETWEEN '${months[i].start}' AND '${months[i].end}'`
-      ).join(' UNION ALL '),
-      []
+      parts6.join(' UNION ALL '),
+      params6
     );
 
     return {

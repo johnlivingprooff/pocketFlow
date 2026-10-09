@@ -151,6 +151,11 @@ class MetricsCollector {
   timing(metricName: string, durationMs: number): void {
     const timingArray = this.timings.get(metricName) || [];
     timingArray.push(durationMs);
+    // Cap retained samples (was unbounded growth — long sessions OOM).
+    // Stats use sorted copy, so dropping oldest preserves recent behavior.
+    if (timingArray.length > 200) {
+      timingArray.splice(0, timingArray.length - 200);
+    }
     this.timings.set(metricName, timingArray);
     
     // Also track as a counter for total count

@@ -305,7 +305,7 @@ export async function getWallet(id: number): Promise<Wallet[]> {
 export async function setPrimaryWallet(id: number) {
   // ✅ FIX: Wrap in enqueueWrite and transaction to ensure atomic operation
   // Prevents case where app crashes between the two UPDATEs, leaving both wallets non-primary
-  return enqueueWrite(async () => {
+  await enqueueWrite(async () => {
     const database = await getDbAsync();
     
     await database.transaction(async (tx: any) => {
@@ -314,23 +314,26 @@ export async function setPrimaryWallet(id: number) {
     });
     
     invalidateWalletCaches();
+    // Moved inside write completion (was dead code after `return enqueueWrite`).
+    scheduleProfileSync();
   }, 'set_primary_wallet');
-  scheduleProfileSync();
 }
 
 export async function getWalletBalance(id: number): Promise<number> {
-  const income = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE wallet_id = ? AND type = 'income';`,
-    [id]
+  // Single round-trip: wallet + income + expense via conditional aggregation
+  // (was 3 sequential queries: income + expense + getWallet). Identical math:
+  // expenses stored negative so all three are added.
+  const rows = await exec<{ initial: number; income: number; expense: number }>(
+    `SELECT
+       (SELECT initial_balance FROM wallets WHERE id = ?) as initial,
+       COALESCE((SELECT SUM(amount) FROM transactions WHERE wallet_id = ? AND type = 'income'), 0) as income,
+       COALESCE((SELECT SUM(amount) FROM transactions WHERE wallet_id = ? AND type = 'expense'), 0) as expense;`,
+    [id, id, id]
   );
-  const expense = await exec<{ total: number }>(
-    `SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE wallet_id = ? AND type = 'expense';`,
-    [id]
-  );
-  const w = await getWallet(id);
-  const initial = w[0]?.initial_balance ?? 0;
-  // Expenses are stored as negative, so we add them (they're already negative)
-  return initial + (income[0]?.total ?? 0) + (expense[0]?.total ?? 0);
+  const row = rows[0];
+  if (!row) return 0;
+  const initial = row.initial ?? 0;
+  return initial + (row.income ?? 0) + (row.expense ?? 0);
 }
 
 /**
@@ -388,15 +391,24 @@ export async function getWalletBalances(walletIds: number[]): Promise<Record<num
  * @param defaultCurrency - Default currency (optional, for validation)
  */
 export async function getWalletBalanceInDefaultCurrency(id: number, defaultCurrency?: string): Promise<number> {
-  const balance = await getWalletBalance(id);
-  const w = await getWallet(id);
-  const wallet = w[0];
-  
-  if (!wallet) return 0;
-  
+  // Single query (was getWalletBalance [1 query] + getWallet [1 query]
+  // = 2 trips reading the same wallet row). Identical math.
+  const rows = await exec<{ balance: number; rate: number | null }>(
+    `SELECT
+       (w.initial_balance
+         + COALESCE((SELECT SUM(amount) FROM transactions WHERE wallet_id = w.id AND type = 'income'), 0)
+         + COALESCE((SELECT SUM(amount) FROM transactions WHERE wallet_id = w.id AND type = 'expense'), 0)
+       ) as balance,
+       w.exchange_rate as rate
+     FROM wallets w WHERE w.id = ?;`,
+    [id]
+  );
+  const row = rows[0];
+  if (!row) return 0;
+
   // If wallet currency matches default or no exchange rate set, return as-is
-  const exchangeRate = wallet.exchange_rate ?? 1.0;
-  
+  const exchangeRate = row.rate ?? 1.0;
+
   // Convert: balance * exchange_rate
-  return balance * exchangeRate;
+  return (row.balance ?? 0) * exchangeRate;
 }

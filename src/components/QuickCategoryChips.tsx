@@ -35,14 +35,15 @@ export function QuickCategoryChips({
     return (CategoryIcons as any)[iconName] || (CategoryIcons as any)[iconName.split('/')[0].trim()];
   };
 
-  // Prioritize recent categories, then show others
+  // Prioritize most recent categories logged (max 10), then show others
   const prioritizedCategories = React.useMemo(() => {
-    const recent = recentCategories
+    const cappedRecents = recentCategories.slice(0, 10);
+    const recent = cappedRecents
       .map(name => categories.find(c => c.name === name))
       .filter((c): c is Category => c !== undefined);
     
-    const others = categories.filter(c => !recentCategories.includes(c.name));
-    return [...recent, ...others].slice(0, 8); // Limit to 8 total
+    const others = categories.filter(c => !cappedRecents.includes(c.name));
+    return [...recent, ...others].slice(0, 10); // Limit to 10 total (most recent categories)
   }, [categories, recentCategories]);
 
   if (categories.length === 0) return null;

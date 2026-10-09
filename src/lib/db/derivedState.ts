@@ -147,14 +147,16 @@ async function buildGoalUpdates(goals: Array<GoalRow & { walletIds: number[] }>)
     return [];
   }
 
-  const goalBounds = goals.map((goal) => ({
-    id: goal.id,
-    walletIdSet: new Set(goal.walletIds),
-    ...periodBoundsMs(goal.startDate, goal.endDate),
-  }));
-
-  const rangeStartMs = Math.min(...goalBounds.map((bound) => bound.startMs));
-  const rangeEndMs = Math.max(...goalBounds.map((bound) => bound.endMs));
+  // Map for O(1) bound lookup (was Array.find per goal → O(G²))
+  const boundById = new Map<number, { startMs: number; endMs: number; walletIdSet: Set<number> }>();
+  let rangeStartMs = Infinity;
+  let rangeEndMs = -Infinity;
+  for (const goal of goals) {
+    const { startMs, endMs } = periodBoundsMs(goal.startDate, goal.endDate);
+    if (startMs < rangeStartMs) rangeStartMs = startMs;
+    if (endMs > rangeEndMs) rangeEndMs = endMs;
+    boundById.set(goal.id, { startMs, endMs, walletIdSet: new Set(goal.walletIds) });
+  }
 
   const placeholders = relevantWalletIds.map(() => '?').join(', ');
   const incomeRows = await exec<{ amount: number; date: string; wallet_id: number }>(
@@ -173,24 +175,27 @@ async function buildGoalUpdates(goals: Array<GoalRow & { walletIds: number[] }>)
     ]
   );
 
+  // Parse each row date ONCE (was re-parsed per goal → G×R `new Date()`)
+  const incomeRowMs = new Array<number>(incomeRows.length);
+  for (let i = 0; i < incomeRows.length; i++) {
+    incomeRowMs[i] = toDateMs(incomeRows[i].date);
+  }
+
   return goals.map((goal) => {
-    const bound = goalBounds.find((candidate) => candidate.id === goal.id);
+    const bound = boundById.get(goal.id);
     if (!bound) {
       return { currentProgress: 0, id: goal.id };
     }
 
-    const currentProgress = incomeRows.reduce((sum, row) => {
-      if (!bound.walletIdSet.has(row.wallet_id)) {
-        return sum;
-      }
-
-      const rowDateMs = toDateMs(row.date);
-      if (rowDateMs < bound.startMs || rowDateMs > bound.endMs) {
-        return sum;
-      }
-
-      return sum + (row.amount ?? 0);
-    }, 0);
+    // Pre-parsed timestamps (parsed once below) avoid G×R `new Date()` calls
+    let currentProgress = 0;
+    for (let i = 0; i < incomeRows.length; i++) {
+      const row = incomeRows[i];
+      if (!bound.walletIdSet.has(row.wallet_id)) continue;
+      const rowDateMs = incomeRowMs[i];
+      if (rowDateMs < bound.startMs || rowDateMs > bound.endMs) continue;
+      currentProgress += row.amount ?? 0;
+    }
 
     return { currentProgress, id: goal.id };
   });
@@ -242,8 +247,12 @@ async function buildBudgetUpdates(
     ...periodBoundsMs(budget.startDate, budget.endDate),
   }));
 
-  const rangeStartMs = Math.min(...budgetBounds.map((bound) => bound.startMs));
-  const rangeEndMs = Math.max(...budgetBounds.map((bound) => bound.endMs));
+  let rangeStartMs = Infinity;
+  let rangeEndMs = -Infinity;
+  for (const bound of budgetBounds) {
+    if (bound.startMs < rangeStartMs) rangeStartMs = bound.startMs;
+    if (bound.endMs > rangeEndMs) rangeEndMs = bound.endMs;
+  }
   const placeholders = relevantWalletIds.map(() => '?').join(', ');
   const expenseRows = await exec<{
     amount: number;
@@ -268,23 +277,26 @@ async function buildBudgetUpdates(
     ]
   );
 
+  // Parse each row date ONCE (was re-parsed per budget → B×R `new Date()`)
+  const expenseRowMs = new Array<number>(expenseRows.length);
+  for (let i = 0; i < expenseRows.length; i++) {
+    expenseRowMs[i] = toDateMs(expenseRows[i].date);
+  }
+
   return budgetBounds.map((bound) => {
-    const currentSpending = expenseRows.reduce((sum, row) => {
-      if (!bound.walletIdSet.has(row.wallet_id)) {
-        return sum;
-      }
+    let currentSpending = 0;
+    const allowed = bound.allowedCategoryNames;
+    for (let i = 0; i < expenseRows.length; i++) {
+      const row = expenseRows[i];
+      if (!bound.walletIdSet.has(row.wallet_id)) continue;
 
-      const rowDateMs = toDateMs(row.date);
-      if (rowDateMs < bound.startMs || rowDateMs > bound.endMs) {
-        return sum;
-      }
+      const rowDateMs = expenseRowMs[i];
+      if (rowDateMs < bound.startMs || rowDateMs > bound.endMs) continue;
 
-      if (bound.allowedCategoryNames && (!row.category || !bound.allowedCategoryNames.has(row.category))) {
-        return sum;
-      }
+      if (allowed && (!row.category || !allowed.has(row.category))) continue;
 
-      return sum + (row.amount ?? 0);
-    }, 0);
+      currentSpending += row.amount ?? 0;
+    }
 
     return {
       currentSpending,

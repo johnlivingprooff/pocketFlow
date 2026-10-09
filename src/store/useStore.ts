@@ -162,9 +162,9 @@ export const useSettings = create<SettingsState>()(
       setLastUsedWalletId: (lastUsedWalletId) => set({ lastUsedWalletId }),
       setLastUsedCategory: (lastUsedCategory) => set({ lastUsedCategory }),
       addRecentCategory: (category: string) => set((state) => {
-        // Keep only unique categories, move used one to front, limit to 5
+        // Keep only unique categories, move used one to front, limit to 10 (most recent categories logged)
         const filtered = state.recentCategories.filter(c => c !== category);
-        return { recentCategories: [category, ...filtered].slice(0, 5) };
+        return { recentCategories: [category, ...filtered].slice(0, 10) };
       }),
       setImagePickingStartTime: (imagePickingStartTime) => set({ imagePickingStartTime }),
       resetSettings: () => set(initialState),

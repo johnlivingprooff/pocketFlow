@@ -21,11 +21,13 @@ export interface EncryptedBackupPayload {
 }
 
 function bytesToWordArray(bytes: Uint8Array): CryptoJS.lib.WordArray {
-  let hex = '';
-  for (const b of bytes) {
-    hex += b.toString(16).padStart(2, '0');
+  // Direct word construction: avoids per-byte hex string concat + Hex.parse
+  // (O(n²) string growth + extra parse pass). Identical output.
+  const words: number[] = new Array(Math.ceil(bytes.length / 4)).fill(0);
+  for (let i = 0; i < bytes.length; i++) {
+    words[i >>> 2] |= bytes[i] << (24 - (i % 4) * 8);
   }
-  return CryptoJS.enc.Hex.parse(hex);
+  return CryptoJS.lib.WordArray.create(words, bytes.length);
 }
 
 /**

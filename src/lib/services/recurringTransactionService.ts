@@ -136,24 +136,40 @@ export async function processRecurringTransactions(): Promise<void> {
     let totalGenerated = 0;
     let cappedCount = 0; // ✅ Track how many templates hit the limit
 
+    // Single GROUP BY lookup for all templates (was N sequential
+    // `SELECT date ... WHERE parent_transaction_id = ?` queries). Same result.
+    const templateIds = recurringTransactions
+      .map((t) => t.id)
+      .filter((id): id is number => typeof id === 'number');
+    const lastDateByParent = new Map<number, string>();
+    if (templateIds.length > 0) {
+      const placeholders = templateIds.map(() => '?').join(',');
+      const lastDates = await exec<{ parent_transaction_id: number; date: string }>(
+        `SELECT parent_transaction_id, MAX(date) as date FROM transactions
+         WHERE parent_transaction_id IN (${placeholders})
+         GROUP BY parent_transaction_id`,
+        templateIds
+      );
+      for (const row of lastDates) {
+        if (row.parent_transaction_id != null && row.date) {
+          lastDateByParent.set(row.parent_transaction_id, row.date);
+        }
+      }
+    }
+
     // ✅ CRITICAL FIX: Batch all recurring instances per template in a single transaction
     // This dramatically reduces queue entries and improves atomicity
     // Instead of calling enqueueWrite once per instance, we enqueue once per template
     for (const template of recurringTransactions) {
       if (!template.id || !template.recurrence_frequency) continue;
 
-      // Find the last generated instance for this template
-      const lastGenerated = await exec<{ date: string }>(
-        `SELECT date FROM transactions 
-         WHERE parent_transaction_id = ? 
-         ORDER BY date DESC LIMIT 1`,
-        [template.id]
-      );
+      // Find the last generated instance for this template (from batch map)
+      const lastDate = template.id != null ? lastDateByParent.get(template.id) : undefined;
 
       // Determine the start date for generation
       let startDate = new Date(template.date);
-      if (lastGenerated.length > 0) {
-        startDate = new Date(lastGenerated[0].date);
+      if (lastDate) {
+        startDate = new Date(lastDate);
       }
 
       // Generate missing instances up to today

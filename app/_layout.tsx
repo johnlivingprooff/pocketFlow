@@ -10,6 +10,7 @@ import { processRecurringTransactions } from '../src/lib/services/recurringTrans
 import * as Notifications from 'expo-notifications';
 import {
   extractReminderDeepLink,
+  markReminderDeliveredFromNotification,
   runReminderRuntimeGateCheck,
   syncReminderPermissionStatus,
 } from '../src/lib/services/reminderNotificationService';
@@ -130,12 +131,20 @@ export default function RootLayout() {
   useEffect(() => {
     if (Platform.OS === 'web') return;
 
+    const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
+      markReminderDeliveredFromNotification(notification);
+    });
+
     const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
+      markReminderDeliveredFromNotification(response.notification);
       const deepLink = extractReminderDeepLink(response);
       if (deepLink) router.push(deepLink as never);
     });
 
-    return () => responseSub.remove();
+    return () => {
+      receivedSub.remove();
+      responseSub.remove();
+    };
   }, [router]);
 
   const handleAppStateChange = async (nextAppState: AppStateStatus) => {

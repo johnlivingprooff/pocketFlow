@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, Text, Image } from 'react-native';
 import { theme } from '../theme/theme';
 import { Transaction } from '../types/transaction';
 import { formatCurrency } from '../utils/formatCurrency';
+import { getTransferLabel } from '../utils/transferLabel';
 
 interface Props {
   item: Transaction;
@@ -10,28 +11,15 @@ interface Props {
   mode?: 'light' | 'dark';
 }
 
-export function TransactionItem({ item, currency, mode = 'light' }: Props) {
+export const TransactionItem = memo(function TransactionItem({ item, currency, mode = 'light' }: Props) {
+  // theme() is now memoized (stable ref per mode); no per-render allocation.
   const t = theme(mode);
   const color = item.type === 'income' ? t.income : t.expense;
 
-  const getTransferLabel = () => {
-    if (item.category !== 'Transfer') return item.category || 'Uncategorized';
-
-    const notes = item.notes || '';
-    if (item.type === 'expense') {
-      const match = notes.match(/to ([^(]+)/i);
-      if (match?.[1]) return `Transfer to ${match[1].trim()}`;
-      return 'Transfer to wallet';
-    }
-    if (item.type === 'income') {
-      const match = notes.match(/from ([^(]+)/i);
-      if (match?.[1]) return `Transfer from ${match[1].trim()}`;
-      return 'Transfer from wallet';
-    }
-    return 'Transfer';
-  };
-
-  const displayCategory = getTransferLabel();
+  const displayCategory = getTransferLabel(item);
+  // Avoid `new Date().toLocaleString()` (ICU) on every render of every row;
+  // memoize per item.date value.
+  const displayDate = useMemo(() => new Date(item.date).toLocaleString(), [item.date]);
   return (
     <View style={{ flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: t.border }}>
       <View style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
@@ -39,7 +27,7 @@ export function TransactionItem({ item, currency, mode = 'light' }: Props) {
       </View>
       <View style={{ flex: 1 }}>
         <Text style={{ color: t.textPrimary, fontWeight: '500' }}>{displayCategory}</Text>
-        <Text style={{ color: t.textSecondary, fontSize: 12 }}>{new Date(item.date).toLocaleString()}</Text>
+        <Text style={{ color: t.textSecondary, fontSize: 12 }}>{displayDate}</Text>
         {item.notes ? <Text style={{ color: t.textSecondary, fontSize: 12 }}>{item.notes}</Text> : null}
       </View>
       <View style={{ alignItems: 'flex-end' }}>
@@ -48,4 +36,7 @@ export function TransactionItem({ item, currency, mode = 'light' }: Props) {
       </View>
     </View>
   );
-}
+});
+
+// Back-compat named export (same component, memoized)
+export { TransactionItem as TransactionItemComponent };

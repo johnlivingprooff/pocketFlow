@@ -1,6 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { exec } from '../db';
-import { yyyyMmDd } from '../../utils/date';
 
 interface TransactionWithWallet {
   id: number;
@@ -35,9 +34,12 @@ export async function exportTransactionsToCSV(): Promise<{ success: boolean; uri
        ORDER BY t.date DESC`
     );
 
-    // Build CSV content
-    let csv = 'Date,Type,Amount,Category,Wallet,Currency,Notes\n';
-
+    // Build CSV content with array+join (O(n)) instead of += in loop (O(n²)
+    // string copying). Single pass also accumulates totals — previously
+    // 2 extra filter+reduce scans. Identical output.
+    const lines: string[] = ['Date,Type,Amount,Category,Wallet,Currency,Notes'];
+    let totalIncome = 0;
+    let totalExpense = 0;
     for (const transaction of transactions) {
       const date = new Date(transaction.date).toLocaleDateString('en-US');
       const type = transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1);
@@ -47,26 +49,21 @@ export async function exportTransactionsToCSV(): Promise<{ success: boolean; uri
       const currency = transaction.walletCurrency;
       const notes = transaction.notes ? `"${transaction.notes.replace(/"/g, '""')}"` : '';
 
-      csv += `${date},${type},${amount},${category},${wallet},${currency},${notes}\n`;
+      lines.push(`${date},${type},${amount},${category},${wallet},${currency},${notes}`);
+      if (transaction.type === 'income') totalIncome += transaction.amount;
+      else if (transaction.type === 'expense') totalExpense += transaction.amount;
     }
+    totalExpense = Math.abs(totalExpense);
 
     // Add summary section
-    csv += '\n\n--- SUMMARY ---\n';
-    csv += `Total Transactions,${transactions.length}\n`;
+    lines.push('', '', '--- SUMMARY ---');
+    lines.push(`Total Transactions,${transactions.length}`);
 
-    const totalIncome = transactions
-      .filter((t) => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
-    const totalExpense = Math.abs(
-      transactions
-        .filter((t) => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0)
-    );
-
-    csv += `Total Income,${totalIncome.toFixed(2)}\n`;
-    csv += `Total Expense,${totalExpense.toFixed(2)}\n`;
-    csv += `Net Savings,${(totalIncome - totalExpense).toFixed(2)}\n`;
-    csv += `Exported Date,${new Date().toLocaleString()}\n`;
+    lines.push(`Total Income,${totalIncome.toFixed(2)}`);
+    lines.push(`Total Expense,${totalExpense.toFixed(2)}`);
+    lines.push(`Net Savings,${(totalIncome - totalExpense).toFixed(2)}`);
+    lines.push(`Exported Date,${new Date().toLocaleString()}`);
+    const csv = lines.join('\n') + '\n';
 
     // Save to file
     const documentDir = FileSystem.documentDirectory;
@@ -122,8 +119,10 @@ export async function exportTransactionsByDateRangeToCSV(
       [startISO, endISO]
     );
 
-    // Build CSV content
-    let csv = 'Date,Type,Amount,Category,Wallet,Currency,Notes\n';
+    // Build CSV content (array+join, single-pass totals — see above)
+    const lines: string[] = ['Date,Type,Amount,Category,Wallet,Currency,Notes'];
+    let totalIncome = 0;
+    let totalExpense = 0;
 
     for (const transaction of transactions) {
       const date = new Date(transaction.date).toLocaleDateString('en-US');
@@ -134,27 +133,22 @@ export async function exportTransactionsByDateRangeToCSV(
       const currency = transaction.walletCurrency;
       const notes = transaction.notes ? `"${transaction.notes.replace(/"/g, '""')}"` : '';
 
-      csv += `${date},${type},${amount},${category},${wallet},${currency},${notes}\n`;
+      lines.push(`${date},${type},${amount},${category},${wallet},${currency},${notes}`);
+      if (transaction.type === 'income') totalIncome += transaction.amount;
+      else if (transaction.type === 'expense') totalExpense += transaction.amount;
     }
+    totalExpense = Math.abs(totalExpense);
 
     // Add summary section
-    csv += '\n\n--- SUMMARY ---\n';
-    csv += `Total Transactions,${transactions.length}\n`;
-    csv += `Period,"${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}"\n`;
+    lines.push('', '', '--- SUMMARY ---');
+    lines.push(`Total Transactions,${transactions.length}`);
+    lines.push(`Period,"${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}"`);
 
-    const totalIncome = transactions
-      .filter((t) => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
-    const totalExpense = Math.abs(
-      transactions
-        .filter((t) => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0)
-    );
-
-    csv += `Total Income,${totalIncome.toFixed(2)}\n`;
-    csv += `Total Expense,${totalExpense.toFixed(2)}\n`;
-    csv += `Net Savings,${(totalIncome - totalExpense).toFixed(2)}\n`;
-    csv += `Exported Date,${new Date().toLocaleString()}\n`;
+    lines.push(`Total Income,${totalIncome.toFixed(2)}`);
+    lines.push(`Total Expense,${totalExpense.toFixed(2)}`);
+    lines.push(`Net Savings,${(totalIncome - totalExpense).toFixed(2)}`);
+    lines.push(`Exported Date,${new Date().toLocaleString()}`);
+    const csv = lines.join('\n') + '\n';
 
     // Save to file
     const documentDir = FileSystem.documentDirectory;

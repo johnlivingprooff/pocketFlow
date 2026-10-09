@@ -8,7 +8,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { useSettings } from '../../src/store/useStore';
 import { useUI } from '../../src/store/useStore';
 import { theme, ThemeMode, shadows } from '../../src/theme/theme';
-import { addTransaction, transferBetweenWallets, updateTransaction, getById, deleteTransaction } from '../../src/lib/db/transactions';
+import { addTransaction, transferBetweenWallets, updateTransaction, getById, deleteTransaction, getRecentCategories } from '../../src/lib/db/transactions';
 import { CalendarModal } from '@/components/CalendarModal';
 import { formatShortDate } from '../../src/utils/date';
 import { formatCurrency } from '../../src/utils/formatCurrency';
@@ -262,9 +262,26 @@ export default function AddTransactionScreen() {
           setCategory(hasCurrent ? category : flatCats[0].name);
         }
         
-        // Load recent categories from storage or use smart defaults
-        // For now, we'll use the category hierarchy as recent
-        setRecentCategories(flatCats.slice(0, 5).map(c => c.name));
+        // Load most recent categories actually logged (max 10), filtered by type
+        // Source of truth is transactions table; fallback to persisted store recents
+        try {
+          const dbRecents = await getRecentCategories(10, selectedType);
+          const storeRecents = useSettings.getState().recentCategories;
+          const merged = [...dbRecents];
+          for (const c of storeRecents) {
+            if (!merged.includes(c)) merged.push(c);
+          }
+          const validRecents = merged
+            .filter(name => flatCats.some(cat => cat.name === name))
+            .slice(0, 10);
+          setRecentCategories(validRecents);
+        } catch (e) {
+          // Fallback to store recents if DB query fails
+          const fallback = (useSettings.getState().recentCategories || [])
+            .filter(name => flatCats.some(cat => cat.name === name))
+            .slice(0, 10);
+          setRecentCategories(fallback);
+        }
       }
     } catch (err) {
       logError('Failed to load categories:', { error: err });

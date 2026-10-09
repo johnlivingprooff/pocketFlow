@@ -1,12 +1,19 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { yyyyMmDd } from '../../utils/date';
 
+// Cache ensured directories within this session: ensureDir() previously did
+// getInfoAsync + makeDirectoryAsync on EVERY receipt/avatar/backup write
+// (2 native bridges per save). Same behavior, dirs are never deleted mid-run.
+const ensuredDirs = new Set<string>();
+
 export async function ensureDir(path: string) {
+  if (ensuredDirs.has(path)) return;
   try {
     const info = await FileSystem.getInfoAsync(path);
     if (!info.exists) {
       await FileSystem.makeDirectoryAsync(path, { intermediates: true });
     }
+    ensuredDirs.add(path);
   } catch (error) {
     console.error('Error ensuring directory:', error);
     throw new Error(`Failed to create directory: ${path}`);

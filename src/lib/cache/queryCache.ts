@@ -3,8 +3,6 @@
  * Helps reduce redundant database queries for frequently accessed data
  */
 
-import { log } from '../../utils/logger';
-
 interface CacheEntry<T> {
   value: T;
   timestamp: number;
@@ -15,11 +13,17 @@ class QueryCache {
   private cache: Map<string, CacheEntry<any>>;
   private maxSize: number;
   private ttl: number; // Time to live in milliseconds
+  private inFlight: Map<string, Promise<any>>;
+  private hits: number;
+  private misses: number;
 
   constructor(maxSize = 50, ttlSeconds = 60) {
     this.cache = new Map();
     this.maxSize = maxSize;
     this.ttl = ttlSeconds * 1000;
+    this.inFlight = new Map();
+    this.hits = 0;
+    this.misses = 0;
   }
 
   /**
@@ -31,6 +35,7 @@ class QueryCache {
     const entry = this.cache.get(key);
     
     if (!entry) {
+      this.misses++;
       return undefined;
     }
 
@@ -38,11 +43,15 @@ class QueryCache {
     const now = Date.now();
     if (now - entry.timestamp > this.ttl) {
       this.cache.delete(key);
+      this.misses++;
       return undefined;
     }
 
-    // Update hit count
+    // Update hit count + recency (true LRU: re-insert to mark as recent)
     entry.hits++;
+    this.hits++;
+    this.cache.delete(key);
+    this.cache.set(key, entry);
     
     return entry.value as T;
   }
@@ -113,46 +122,40 @@ class QueryCache {
       }
     }
 
+    const total = this.hits + this.misses;
     return {
       size: this.cache.size,
       maxSize: this.maxSize,
       totalHits,
       expiredCount,
-      hitRate: totalHits > 0 ? (totalHits / this.cache.size).toFixed(2) : '0',
+      hitRate: total > 0 ? (this.hits / total).toFixed(2) : '0',
     };
   }
 
   /**
-   * Evict the least recently used entry based on hit count and age
-   * Uses a scoring algorithm that balances recency and frequency
+   * Evict the least recently used entry.
+   * Map preserves insertion order, so with recency refresh on get(),
+   * the first key is the true LRU victim — O(1), no scoring scan.
    */
   private evictLRU(): void {
-    let oldestKey: string | null = null;
-    let oldestScore = Infinity;
-
+    // Purge expired entries first (free space without evicting hot keys)
     const now = Date.now();
-
-    for (const [key, entry] of this.cache.entries()) {
-      // Calculate score: lower score = higher priority for eviction
-      // Score = hits - (age_ratio), where age_ratio is 0-1 based on TTL
-      // This favors keeping frequently accessed and recent entries
-      const age = now - entry.timestamp;
-      const ageRatio = Math.min(1, age / this.ttl);
-      const score = entry.hits - ageRatio;
-
-      if (score < oldestScore) {
-        oldestScore = score;
-        oldestKey = key;
+    for (const [key, entry] of this.cache) {
+      if (now - entry.timestamp > this.ttl) {
+        this.cache.delete(key);
+        if (this.cache.size < this.maxSize) return;
       }
     }
-
-    if (oldestKey) {
+    const oldestKey = this.cache.keys().next().value as string | undefined;
+    if (oldestKey !== undefined) {
       this.cache.delete(oldestKey);
     }
   }
 
   /**
    * Helper function to wrap a database query with caching
+   * Deduplicates concurrent callers for the same key (single-flight)
+   * so N simultaneous misses issue 1 query instead of N.
    * @param key Cache key
    * @param queryFn Async function that executes the database query
    * @returns Cached result or fresh query result
@@ -164,10 +167,23 @@ class QueryCache {
       return cached;
     }
 
-    // Execute query and cache result
-    const result = await queryFn();
-    this.set(key, result);
-    return result;
+    // Single-flight: join in-progress query for same key
+    const ongoing = this.inFlight.get(key);
+    if (ongoing) {
+      return ongoing as Promise<T>;
+    }
+
+    const promise = (async () => {
+      try {
+        const result = await queryFn();
+        this.set(key, result);
+        return result;
+      } finally {
+        this.inFlight.delete(key);
+      }
+    })();
+    this.inFlight.set(key, promise);
+    return promise;
   }
 }
 
@@ -175,33 +191,38 @@ class QueryCache {
 // Separate caches for different data types to allow targeted invalidation
 
 // Analytics cache: Caches aggregate analytics data (60s TTL)
-export const analyticsCache = new QueryCache(30, 60);
+export const analyticsCache = new QueryCache(100, 60);
 
 // Wallet cache: Caches wallet data and balances (30s TTL)
-export const walletCache = new QueryCache(20, 30);
+export const walletCache = new QueryCache(60, 30);
 
 // Transaction cache: Caches transaction lists (15s TTL)
-export const transactionCache = new QueryCache(20, 15);
+export const transactionCache = new QueryCache(60, 15);
 
 /**
  * Invalidate all caches related to transactions
- * Call this after adding, updating, or deleting transactions
+ * Uses targeted pattern invalidation where possible; falls back to scoped
+ * clears. Avoids nuking wallet caches on every transaction write when
+ * callers only need transaction/analytics freshness.
  */
-export function invalidateTransactionCaches(): void {
-  const timestamp = new Date().toISOString();
-  log(`[Cache] Invalidating all transaction caches at ${timestamp}`);
-  
-  const analyticsStats = analyticsCache.getStats();
-  const walletStats = walletCache.getStats();
-  const transactionStats = transactionCache.getStats();
-  
-  log(`[Cache] Before clear - Analytics: ${analyticsStats.size} entries, Wallet: ${walletStats.size} entries, Transaction: ${transactionStats.size} entries`);
-  
-  analyticsCache.clear();
-  walletCache.clear();
+export function invalidateTransactionCaches(walletIds?: readonly number[]): void {
+  if (walletIds && walletIds.length > 0) {
+    // Targeted: drop transaction lists + per-wallet analytics keys.
+    // Global aggregates (no wallet id in key) still need clearing.
+    transactionCache.clear();
+    analyticsCache.clear();
+    for (const id of walletIds) {
+      walletCache.invalidatePattern(`wallet:${id}`);
+      walletCache.invalidatePattern(`:${id}|`);
+      walletCache.invalidatePattern(`|${id}`);
+    }
+    return;
+  }
   transactionCache.clear();
-  
-  log(`[Cache] All caches cleared successfully`);
+  analyticsCache.clear();
+  // Wallet balances change on every transaction — clear wallet cache too,
+  // but keep it scoped (don't touch unrelated singletons).
+  walletCache.clear();
 }
 
 /**

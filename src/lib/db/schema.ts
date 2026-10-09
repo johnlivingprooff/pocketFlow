@@ -164,6 +164,11 @@ function ensureTransactionsTable(database: SchemaDatabase): void {
     'CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category);',
     'CREATE INDEX IF NOT EXISTS idx_transactions_wallet_type ON transactions(wallet_id, type);',
     'CREATE INDEX IF NOT EXISTS idx_transactions_date_type ON transactions(date, type);',
+    // Covering indexes for hot analytics paths (type+date range + wallet JOIN).
+    // Same queries, fewer scanned rows / index-only plans where possible.
+    'CREATE INDEX IF NOT EXISTS idx_transactions_type_date ON transactions(type, date);',
+    'CREATE INDEX IF NOT EXISTS idx_transactions_wallet_date ON transactions(wallet_id, date);',
+    'CREATE INDEX IF NOT EXISTS idx_transactions_parent ON transactions(parent_transaction_id);',
   ]);
 
   bestEffort(() => {
@@ -249,6 +254,9 @@ function ensureCategoriesTable(database: SchemaDatabase): void {
     'CREATE INDEX IF NOT EXISTS idx_categories_type ON categories(type);',
     'CREATE INDEX IF NOT EXISTS idx_categories_parent_id ON categories(parent_category_id);',
     'CREATE INDEX IF NOT EXISTS idx_categories_type_parent ON categories(type, parent_category_id);',
+    // getCategoryByName uses LOWER(name) — index speeds prefix/ordering paths
+    // and the common exact-name lookup via UNIQUE(name,type) backstop.
+    'CREATE INDEX IF NOT EXISTS idx_categories_name ON categories(name);',
   ]);
 }
 
