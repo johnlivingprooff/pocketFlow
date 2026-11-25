@@ -92,8 +92,8 @@ android {
         applicationId 'com.eiteone.pocketflow'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 20260826
-        versionName "2026.8.26"
+        versionCode 20261125
+        versionName "2026.11.25"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
