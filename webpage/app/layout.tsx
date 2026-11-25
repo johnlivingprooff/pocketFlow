@@ -1,16 +1,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import clsx from 'clsx';
 import { Navigation } from '@/components/Navigation';
 import { Footer } from '@/components/Footer';
-
-const inter = Inter({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-sans',
-  weight: ['400', '500', '700'],
-});
 
 export const metadata: Metadata = {
   title: 'pocketFlow | Log an expense in two taps',
@@ -46,7 +37,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={clsx(inter.variable, 'bg-white font-sans text-teal-900 antialiased')}>
+      <body className="bg-white font-sans text-teal-900 antialiased">
         <Navigation />
         {children}
         <Footer />

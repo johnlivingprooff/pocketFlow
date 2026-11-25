@@ -1,3 +1,5 @@
+const fontStack = ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'];
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: 'class',
@@ -64,8 +66,8 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['var(--font-sans)'],
-        display: ['var(--font-sans)'],
+        sans: fontStack,
+        display: fontStack,
       },
       boxShadow: {
         glass: '0 4px 24px -4px rgba(15, 23, 42, 0.06), 0 1px 3px -1px rgba(15, 23, 42, 0.04)',
