@@ -1,32 +1,24 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Public_Sans, Sora } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import clsx from 'clsx';
 import { Navigation } from '@/components/Navigation';
 import { Footer } from '@/components/Footer';
 
-const publicSans = Public_Sans({
+const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-sans',
-  weight: ['400', '500', '600', '700'],
-});
-
-const sora = Sora({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-display',
-  weight: ['500', '600', '700', '800'],
+  weight: ['400', '500', '700'],
 });
 
 export const metadata: Metadata = {
-  title: 'pocketFlow | Trusted personal finance workflow',
+  title: 'pocketFlow | Log an expense in two taps',
   description:
-    'pocketFlow is an offline-first finance tracker focused on trusted cash-flow tracking, on-device data ownership, and transparent analytics.',
+    'A fast, offline money tracker for Android. Record expenses and income in a couple of taps, keep your data on your device, and download the APK.',
   openGraph: {
-    title: 'pocketFlow | Trusted personal finance workflow',
-    description:
-      'Track wallets, transactions, receipts, budgets, and goals with an offline-first model built for trust and clarity.',
+    title: 'pocketFlow | Log an expense in two taps',
+    description: 'A fast, offline money tracker for Android.',
     url: 'https://pf.eiteone.org',
     locale: 'en_US',
     siteName: 'pocketFlow',
@@ -36,7 +28,7 @@ export const metadata: Metadata = {
         url: '/assets/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'pocketFlow - trusted personal finance workflow',
+        alt: 'pocketFlow - offline money tracker',
       },
     ],
   },
@@ -54,15 +46,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={clsx(
-          publicSans.variable,
-          sora.variable,
-          'bg-white font-sans text-slate-900 antialiased'
-        )}
-      >
+      <body className={clsx(inter.variable, 'bg-white font-sans text-teal-900 antialiased')}>
         <Navigation />
-        <div className="pt-20 sm:pt-24">{children}</div>
+        {children}
         <Footer />
       </body>
     </html>

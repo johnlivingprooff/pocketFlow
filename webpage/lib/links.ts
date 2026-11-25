@@ -1,5 +1,5 @@
-export const RELEASE_VERSION = '2026.8.26';
-export const RELEASE_FILENAME = 'v2026.8.26.apk';
+export const RELEASE_VERSION = '2026.11.25';
+export const RELEASE_FILENAME = 'v2026.11.25.apk';
 export const RELEASE_STATUS = 'published';
 export const RELEASE_SIZE = '60 MB APK';
 export const RELEASES_URL = `https://github.com/johnlivingprooff/pocketFlow/releases/download/v${RELEASE_VERSION}/${RELEASE_FILENAME}`;

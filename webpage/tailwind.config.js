@@ -65,7 +65,7 @@ module.exports = {
       },
       fontFamily: {
         sans: ['var(--font-sans)'],
-        display: ['var(--font-display)'],
+        display: ['var(--font-sans)'],
       },
       boxShadow: {
         glass: '0 4px 24px -4px rgba(15, 23, 42, 0.06), 0 1px 3px -1px rgba(15, 23, 42, 0.04)',
