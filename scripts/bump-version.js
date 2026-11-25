@@ -9,6 +9,7 @@
  *   - eas.json                (APP_VERSION_NAME / APP_VERSION_CODE for all profiles)
  *   - app/(tabs)/settings.tsx (APP_VERSION const)
  *   - webpage/lib/links.ts    (RELEASE_VERSION / RELEASE_FILENAME)
+ *   - webpage/package.json    (landing page package version)
  *   - android/app/build.gradle (versionCode, versionName — what Android Settings shows)
  *   - ios/pocketFlow/Info.plist (CFBundleShortVersionString, CFBundleVersion)
  *
@@ -36,6 +37,7 @@ const FILES = [
   'eas.json',
   'app/(tabs)/settings.tsx',
   'webpage/lib/links.ts',
+  'webpage/package.json',
 ];
 
 function readFile(rel) {
