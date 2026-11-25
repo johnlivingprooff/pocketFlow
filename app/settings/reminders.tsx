@@ -23,10 +23,10 @@ import { ThemedAlert } from '@/components/ThemedAlert';
 import {
   canAskForReminderPermissionAgain,
   cancelReminder,
+  getReminderPermissionInfo,
   requestReminderPermission,
   scheduleReminderTestNotification,
   setRemindersEnabledAndReschedule,
-  syncReminderPermissionStatus,
 } from '@/lib/services/reminderNotificationService';
 
 type PickerTarget = 'preferred' | null;
@@ -106,8 +106,9 @@ export default function ReminderSettingsScreen() {
         : `${t.border}`;
 
   const refreshPermissionMeta = async () => {
-    const nextStatus = await syncReminderPermissionStatus();
-    const nextCanAskAgain = await canAskForReminderPermissionAgain();
+    // Both values come from one native permission read.
+    const { status: nextStatus, canAskAgain: nextCanAskAgain } =
+      await getReminderPermissionInfo();
     setPermissionStatus(nextStatus);
     setCanAskAgain(nextCanAskAgain);
     return { nextStatus, nextCanAskAgain };

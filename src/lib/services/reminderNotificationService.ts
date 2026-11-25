@@ -11,53 +11,67 @@ import {
 
 export const REMINDER_CHANNEL_ID = 'expense-log-reminder';
 export const REMINDER_NOTIFICATION_ID = 'daily-expense-reminder';
-export const REMINDER_NOTIFICATION_KIND = 'expense_log_reminder';
+export const REMINDER_TEST_NOTIFICATION_ID = 'expense-reminder-test';
 export const REMINDER_DEEP_LINK = '/transactions/add?type=expense';
 
 // Set up the foreground handler once at module load (not inside a function).
-// Test notifications and real reminders are treated identically: if reminders
-// are on, always show banner/list/sound — no quiet-hours suppression or other
-// gates. NOTE: this handler only affects foreground presentation –
+// Test notifications are always shown (the user asked for them explicitly).
+// Real reminders are only shown when reminders are enabled — and if reading
+// settings throws, we fail CLOSED rather than showing a banner the user turned
+// off. NOTE: this handler only affects foreground presentation;
 // background/killed notifications are shown by the OS regardless.
 // NOTE: trigger:null (used by the test path) fires immediately and cannot
 // produce a future daily fire with the app closed, so the daily reminder
-// must keep its DAILY trigger. Channel, content and presentation are shared
-// with the test path via buildReminderContent() below.
-Notifications.setNotificationHandler({
-  handleNotification: async (notification) => {
+// must keep its DAILY trigger. Notifications are identified by their fixed
+// IDs rather than `content.data`: `data` becomes an org.json.JSONObject in
+// the native payload and is the fragile part of scheduled serialization.
+export async function handleForegroundNotification(
+  notification: Notifications.Notification
+) {
+  const identifier = notification?.request?.identifier;
+  const isTest = identifier === REMINDER_TEST_NOTIFICATION_ID;
+  let show = isTest;
+  if (!isTest) {
     try {
-      const data = (notification?.request?.content?.data ?? {}) as Record<string, unknown>;
-      const { remindersEnabled } = useSettings.getState();
-      const show = data?.isTest === true || remindersEnabled;
-      return {
-        shouldShowBanner: show,
-        shouldShowList: show,
-        shouldPlaySound: show,
-        shouldSetBadge: false,
-      };
-    } catch {
-      // Never let the handler time out (OS discards after ~3s): fail open
-      // for tests, fail closed otherwise is handled by caller default.
-      return {
-        shouldShowBanner: true,
-        shouldShowList: true,
-        shouldPlaySound: false,
-        shouldSetBadge: false,
-      };
+      show = useSettings.getState().remindersEnabled;
+    } catch (err) {
+      // Never let the handler time out (the OS discards it after ~3s).
+      warn('[Reminder] Foreground handler could not read settings; suppressing banner', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
-  },
-});
+  }
+  return {
+    shouldShowBanner: show,
+    shouldShowList: show,
+    shouldPlaySound: show,
+    shouldSetBadge: false,
+  };
+}
 
+Notifications.setNotificationHandler({ handleNotification: handleForegroundNotification });
+
+let channelReady: Promise<void> | null = null;
+
+/** Configure the Android channel once per app session, not on every schedule/test. */
 async function ensureChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
-  await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
-    name: 'Expense reminders',
-    description: 'Daily reminder to log expenses',
-    importance: Notifications.AndroidImportance.HIGH,
-    vibrationPattern: [0, 250, 250, 250],
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-    sound: 'default',
-  });
+  if (!channelReady) {
+    channelReady = Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
+      name: 'Expense reminders',
+      description: 'Daily reminder to log expenses',
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 250, 250],
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      sound: 'default',
+    })
+      .then(() => undefined)
+      .catch((err: unknown) => {
+        channelReady = null; // allow a retry on the next attempt
+        throw err;
+      });
+  }
+  return channelReady;
 }
 
 export function parsePreferredTime(timeLocal: string): { hour: number; minute: number } {
@@ -80,16 +94,16 @@ export function buildDailyTrigger(hour: number, minute: number) {
   } as const;
 }
 
-function buildReminderContent(isTest: boolean) {
+/**
+ * Deliberately minimal content: no `data` payload. On Android, `data` is
+ * converted into an org.json.JSONObject inside NotificationContent and must
+ * be serialized when the alarm is persisted. Keeping it out removes the
+ * native JSONObject from the scheduling path entirely.
+ */
+function buildReminderContent() {
   return {
     title: DEFAULT_REMINDER_TITLE,
     body: DEFAULT_REMINDER_BODY,
-    data: {
-      kind: REMINDER_NOTIFICATION_KIND,
-      deepLink: REMINDER_DEEP_LINK,
-      ...(isTest ? { isTest: true } : {}),
-    },
-    ...(Platform.OS === 'android' ? { android: { channelId: REMINDER_CHANNEL_ID } } : {}),
   };
 }
 
@@ -103,6 +117,13 @@ function fallbackNextFireUtc(hour: number, minute: number, from: Date = new Date
   return candidate.toISOString();
 }
 
+/** Avoid a full AsyncStorage settings write when the value has not changed. */
+function storeNextScheduledAt(iso: string | null): void {
+  if (useSettings.getState().reminderNextScheduledAtUtc !== iso) {
+    useSettings.getState().setReminderNextScheduledAtUtc(iso);
+  }
+}
+
 async function persistNextScheduledAt(
   hour: number,
   minute: number,
@@ -111,13 +132,13 @@ async function persistNextScheduledAt(
   try {
     const nextMs = await Notifications.getNextTriggerDateAsync(triggerForQuery as never);
     const iso = typeof nextMs === 'number' ? new Date(nextMs).toISOString() : null;
-    useSettings.getState().setReminderNextScheduledAtUtc(iso);
+    storeNextScheduledAt(iso);
     return iso;
   } catch (err) {
     // getNextTriggerDateAsync can reject on some platforms – fall back to local math
     // so the UI never stays stuck on "Not scheduled" after a successful schedule.
     const iso = fallbackNextFireUtc(hour, minute);
-    useSettings.getState().setReminderNextScheduledAtUtc(iso);
+    storeNextScheduledAt(iso);
     warn('[Reminder] getNextTriggerDateAsync failed, using fallback', {
       error: err instanceof Error ? err.message : String(err),
       fallbackUtc: iso,
@@ -139,11 +160,23 @@ function toReminderPermissionStatus(
   return result.canAskAgain ? 'undetermined' : 'denied';
 }
 
-export async function syncReminderPermissionStatus(): Promise<ReminderPermissionStatus> {
+export interface ReminderPermissionInfo {
+  status: ReminderPermissionStatus;
+  canAskAgain: boolean;
+}
+
+/** One native permission read, shared by startup checks and the settings UI. */
+export async function getReminderPermissionInfo(): Promise<ReminderPermissionInfo> {
   const result = await Notifications.getPermissionsAsync();
   const status = toReminderPermissionStatus(result);
-  useSettings.getState().setReminderPermissionStatus(status);
-  return status;
+  if (useSettings.getState().reminderPermissionStatus !== status) {
+    useSettings.getState().setReminderPermissionStatus(status);
+  }
+  return { status, canAskAgain: result.canAskAgain };
+}
+
+export async function syncReminderPermissionStatus(): Promise<ReminderPermissionStatus> {
+  return (await getReminderPermissionInfo()).status;
 }
 
 export async function requestReminderPermission(): Promise<ReminderPermissionStatus> {
@@ -188,10 +221,9 @@ export async function scheduleReminder(preferredTimeLocal: string): Promise<void
       });
     }
 
-    // Recovery: wipe all persisted alarms (this app only ever persists this
-    // one daily reminder – test notifications are immediate and transient)
-    // to clear any corrupt entry, then schedule once more from a clean slate.
-    await Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
+    // Recovery: cancel only our own alarm (test notifications are immediate,
+    // and wiping every scheduled notification would break any future alarms).
+    await Notifications.cancelScheduledNotificationAsync(REMINDER_NOTIFICATION_ID).catch(() => {});
     try {
       await attemptSchedule(hour, minute);
     } catch (retryErr) {
@@ -210,7 +242,7 @@ export async function scheduleReminder(preferredTimeLocal: string): Promise<void
     }
     await finishScheduleSuccess(hour, minute);
   } catch (err) {
-    useSettings.getState().setReminderNextScheduledAtUtc(null);
+    storeNextScheduledAt(null);
     logError('[Reminder] Failed to schedule daily reminder', {
       preferredTimeLocal,
       hour,
@@ -246,7 +278,7 @@ async function attemptSchedule(hour: number, minute: number): Promise<void> {
 
   await Notifications.scheduleNotificationAsync({
     identifier: REMINDER_NOTIFICATION_ID,
-    content: toJsonSafe(buildReminderContent(false)),
+    content: toJsonSafe(buildReminderContent()),
     trigger,
   });
 }
@@ -270,7 +302,7 @@ export async function cancelReminder(): Promise<void> {
   try {
     await Notifications.cancelScheduledNotificationAsync(REMINDER_NOTIFICATION_ID).catch(() => {});
   } finally {
-    useSettings.getState().setReminderNextScheduledAtUtc(null);
+    storeNextScheduledAt(null);
     log('[Reminder] Daily reminder cancelled');
   }
 }
@@ -331,13 +363,16 @@ function pendingTriggerHourMinute(
 }
 
 /** Called on app start / foreground to ensure the schedule is still in place. */
-export async function runReminderRuntimeGateCheck(): Promise<void> {
+export async function runReminderRuntimeGateCheck(
+  preFetchedStatus?: ReminderPermissionStatus
+): Promise<void> {
   try {
     if (Platform.OS === 'web') return;
     const { remindersEnabled, reminderPreferredTimeLocal } = useSettings.getState();
     if (!remindersEnabled) {
       // Self-heal: a stale alarm may survive a disable that previously failed
-      // to cancel (crash / reinstall edge). Don't let it keep firing.
+      // to cancel (crash / reinstall edge). Keep this check — a skipped native
+      // read here would let an unwanted alarm keep firing.
       try {
         const pending = await Notifications.getAllScheduledNotificationsAsync();
         if (pending.some((n) => n.identifier === REMINDER_NOTIFICATION_ID)) {
@@ -350,7 +385,8 @@ export async function runReminderRuntimeGateCheck(): Promise<void> {
       return;
     }
 
-    const status = await syncReminderPermissionStatus();
+    // Startup passes the status it already fetched so we don't query twice.
+    const status = preFetchedStatus ?? (await syncReminderPermissionStatus());
     if (status !== 'granted') {
       warn('[Reminder] Runtime check: permission not granted, skipping');
       return;
@@ -381,8 +417,11 @@ export async function runReminderRuntimeGateCheck(): Promise<void> {
       return;
     }
 
-    // Keep the "Next scheduled" label truthful even when nothing changed.
-    await persistNextScheduledAt(wantHour, wantMinute, buildDailyTrigger(wantHour, wantMinute));
+    // Only compute/store the next fire when the label is missing; on a normal
+    // foreground resume nothing changed and the native read is unnecessary.
+    if (!useSettings.getState().reminderNextScheduledAtUtc) {
+      await persistNextScheduledAt(wantHour, wantMinute, buildDailyTrigger(wantHour, wantMinute));
+    }
   } catch (err) {
     // Gate checks run on every foreground – they must never crash startup.
     warn('[Reminder] Runtime check failed (non-fatal)', {
@@ -403,7 +442,8 @@ export async function scheduleReminderTestNotification(): Promise<void> {
   }
 
   await Notifications.scheduleNotificationAsync({
-    content: buildReminderContent(true),
+    identifier: REMINDER_TEST_NOTIFICATION_ID,
+    content: buildReminderContent(),
     trigger: null, // immediate – only fires now while the app runs, which is
     // why the daily reminder (which must fire at a future time, possibly
     // with the app closed) keeps its DAILY trigger instead.
@@ -488,8 +528,7 @@ export async function getReminderDiagnostics(): Promise<ReminderDiagnostics> {
 /** Record a real (non-test) delivery so "Last delivered" is truthful. */
 export function markReminderDeliveredFromNotification(notification: Notifications.Notification): void {
   try {
-    const data = (notification?.request?.content?.data ?? {}) as Record<string, unknown>;
-    if (data?.kind !== REMINDER_NOTIFICATION_KIND || data?.isTest === true) return;
+    if (notification?.request?.identifier !== REMINDER_NOTIFICATION_ID) return;
     const now = new Date();
     const pad = (v: number) => `${v}`.padStart(2, '0');
     const localDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
@@ -505,7 +544,6 @@ export function markReminderDeliveredFromNotification(notification: Notification
 export function extractReminderDeepLink(
   response: Notifications.NotificationResponse
 ): string | null {
-  const data = response.notification.request.content.data as Record<string, unknown>;
-  if (data?.kind !== REMINDER_NOTIFICATION_KIND) return null;
-  return typeof data.deepLink === 'string' ? data.deepLink : null;
+  if (response.notification.request.identifier !== REMINDER_NOTIFICATION_ID) return null;
+  return REMINDER_DEEP_LINK;
 }

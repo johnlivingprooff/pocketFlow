@@ -46,6 +46,7 @@ import * as Notifications from 'expo-notifications';
 import {
   buildDailyTrigger,
   getReminderDiagnostics,
+  handleForegroundNotification,
   parsePreferredTime,
   runReminderRuntimeGateCheck,
   scheduleReminder,
@@ -96,6 +97,8 @@ test('scheduleReminder persists nextScheduledAtUtc on success', async () => {
   expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
   const arg = mocked.scheduleNotificationAsync.mock.calls[0][0] as Record<string, unknown>;
   expect(arg.identifier).toBe('daily-expense-reminder');
+  // No `data` payload: that becomes an org.json.JSONObject in native serialization.
+  expect((arg.content as Record<string, unknown>).data).toBeUndefined();
   expect(useSettings.getState().reminderNextScheduledAtUtc).not.toBeNull();
 });
 
@@ -114,7 +117,9 @@ test('scheduleReminder recovers by wiping and rescheduling when the first verify
       { identifier: 'daily-expense-reminder', trigger: { type: 'daily', hour: 20, minute: 0 } },
     ]); // post-recovery verify: present
   await scheduleReminder('20:00');
-  expect(mocked.cancelAllScheduledNotificationsAsync).toHaveBeenCalledTimes(1);
+  // Recovery cancels only our own alarm, never every app notification.
+  expect(mocked.cancelAllScheduledNotificationsAsync).not.toHaveBeenCalled();
+  expect(mocked.cancelScheduledNotificationAsync).toHaveBeenCalled();
   expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
   expect(useSettings.getState().reminderNextScheduledAtUtc).not.toBeNull();
 });
@@ -127,7 +132,8 @@ test('scheduleReminder recovers when the native schedule call throws a JSONObjec
     { identifier: 'daily-expense-reminder', trigger: { type: 'daily', hour: 20, minute: 0 } },
   ]);
   await scheduleReminder('20:00');
-  expect(mocked.cancelAllScheduledNotificationsAsync).toHaveBeenCalledTimes(1);
+  expect(mocked.cancelAllScheduledNotificationsAsync).not.toHaveBeenCalled();
+  expect(mocked.cancelScheduledNotificationAsync).toHaveBeenCalled();
   expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
   expect(useSettings.getState().reminderNextScheduledAtUtc).not.toBeNull();
 });
@@ -150,6 +156,24 @@ test('runtime gate check reschedules when scheduled time drifted from preference
   };
   expect(arg.trigger.hour).toBe(21);
   expect(arg.trigger.minute).toBe(0);
+});
+
+test('foreground handler fails closed for real reminders and always shows test alerts', async () => {
+  const real = { request: { identifier: 'daily-expense-reminder' } } as never;
+  const testAlert = { request: { identifier: 'expense-reminder-test' } } as never;
+
+  useSettings.setState({ remindersEnabled: false });
+  expect((await handleForegroundNotification(real)).shouldShowBanner).toBe(false);
+  expect((await handleForegroundNotification(testAlert)).shouldShowBanner).toBe(true);
+
+  useSettings.setState({ remindersEnabled: true });
+  expect((await handleForegroundNotification(real)).shouldShowBanner).toBe(true);
+
+  const getState = jest.spyOn(useSettings, 'getState').mockImplementationOnce(() => {
+    throw new Error('settings unavailable');
+  });
+  expect((await handleForegroundNotification(real)).shouldShowBanner).toBe(false);
+  getState.mockRestore();
 });
 
 test('diagnostics reports time_mismatch instead of looking fine', async () => {

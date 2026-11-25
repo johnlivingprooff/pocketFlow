@@ -143,16 +143,17 @@ export default function RootLayout() {
     let cancelled = false;
     (async () => {
       try {
-        await processRecurringTransactions();
+        // Independent startup work runs concurrently; a slow recurring batch
+        // must not delay the reminder self-heal.
+        const [permissionStatus] = await Promise.all([
+          syncReminderPermissionStatus(),
+          processRecurringTransactions(),
+        ]);
         if (cancelled) return;
-        await syncReminderPermissionStatus();
+        await runReminderRuntimeGateCheck(permissionStatus);
         if (cancelled) return;
-        await runReminderRuntimeGateCheck();
-        if (cancelled) return;
-        await runSmsRuntimeGateCheck();
-        if (cancelled) return;
+        await Promise.allSettled([runSmsRuntimeGateCheck(), maybeRunAutoBackup()]);
         log('[App] Initialization complete (native)');
-        await maybeRunAutoBackup();
       } catch (err) {
         console.error('[App] Native initialization error:', err);
       }
@@ -220,24 +221,30 @@ export default function RootLayout() {
   const handleAppStateChange = async (nextAppState: AppStateStatus) => {
     if (!storesHydrated || !dbReady) return;
     if (nextAppState === 'active') {
-      if (Platform.OS !== 'web') {
-        const { invalidateTransactionCaches } = await import('../src/lib/cache/queryCache');
-        invalidateTransactionCaches();
-
-        await processRecurringTransactions();
-        await runReminderRuntimeGateCheck();
-        await runSmsRuntimeGateCheck();
-        await maybeRunAutoBackup();
-        // Sync shared wallets on foreground (pull web changes)
-        if (useSettings.getState().cloudSessionState === 'authenticated') {
-          void import('../src/lib/services/cloud/syncService').then((m) => m.syncAllSharedWallets().catch(() => {}));
-        }
-      }
-
+      // Re-lock immediately on resume; don't make the user wait for native
+      // notification/OS checks that are unrelated to authentication.
       if (biometricEnabled && biometricSetupComplete) {
         if (!shouldSkipAuthForImagePicking() && shouldRequireAuth(lastAuthTime)) {
           setIsAuthenticated(false);
           performBiometricAuth();
+        }
+      }
+
+      if (Platform.OS !== 'web') {
+        const { invalidateTransactionCaches } = await import('../src/lib/cache/queryCache');
+        invalidateTransactionCaches();
+
+        // These checks are independent. Run them together so a slow
+        // notification bridge cannot hold up backup or SMS processing.
+        await Promise.allSettled([
+          processRecurringTransactions(),
+          runReminderRuntimeGateCheck(),
+          runSmsRuntimeGateCheck(),
+          maybeRunAutoBackup(),
+        ]);
+        // Sync shared wallets on foreground (pull web changes)
+        if (useSettings.getState().cloudSessionState === 'authenticated') {
+          void import('../src/lib/services/cloud/syncService').then((m) => m.syncAllSharedWallets().catch(() => {}));
         }
       }
     } else if (nextAppState === 'background' || nextAppState === 'inactive') {

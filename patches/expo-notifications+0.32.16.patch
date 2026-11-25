@@ -1,0 +1,14 @@
+diff --git a/node_modules/expo-notifications/android/build.gradle b/node_modules/expo-notifications/android/build.gradle
+index b43b158..e796195 100644
+--- a/node_modules/expo-notifications/android/build.gradle
++++ b/node_modules/expo-notifications/android/build.gradle
+@@ -12,6 +12,9 @@ android {
+   defaultConfig {
+     versionCode 21
+     versionName '0.32.16'
++    // Export the library's keep rules so R8 does not strip NotificationContent's
++    // private writeObject/readObject hooks (needed to persist scheduled requests).
++    consumerProguardFiles 'proguard-rules.pro'
+     testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+   }
+ 

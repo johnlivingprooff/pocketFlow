@@ -21,6 +21,7 @@ npm run release:copy
 # Type checking
 npx tsc --noEmit
 ```
+**Note:** `patches/expo-notifications+0.32.16.patch` exports the library's ProGuard keep rules (via `consumerProguardFiles`). Keep it in sync when upgrading `expo-notifications` — without it, R8 strips `NotificationContent.writeObject/readObject` and every scheduled reminder fails with `org.json.JSONObject` on Android release builds.
 ### Testing
 ```bash
 # Run a specific test
