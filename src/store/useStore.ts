@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { ThemeMode } from '../theme/theme';
+import { computeAdaptiveTimeLocal } from '../lib/services/reminderEligibility';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -42,6 +43,10 @@ interface SettingsState {
   reminderLastDeliveredAtUtc: string | null; // ISO timestamp in UTC
   reminderLastDeliveredLocalDate: string | null; // YYYY-MM-DD at delivery time
   reminderNextScheduledAtUtc: string | null; // ISO timestamp in UTC
+  reminderAdaptiveEnabled: boolean;
+  reminderAdaptiveTimeLocal: string | null; // learned HH:MM from engagement
+  reminderEngagementTimesLocal: string[]; // recent HH:MM samples (max 12)
+  reminderLastEngagedDeliveryUtc: string | null; // dedupe per delivery
   reminderPermissionStatus: ReminderPermissionStatus;
   // SMS transaction scanning (Android only)
   smsScanningEnabled: boolean;
@@ -76,6 +81,9 @@ interface SettingsState {
   setReminderQuietHours: (start: string | null, end: string | null) => void;
   setReminderLastDelivered: (deliveredAtUtc: string | null, deliveredLocalDate: string | null) => void;
   setReminderNextScheduledAtUtc: (nextScheduledAtUtc: string | null) => void;
+  setReminderAdaptiveEnabled: (enabled: boolean) => void;
+  recordReminderEngagement: (localTime: string, deliveryUtc?: string | null) => void;
+  clearReminderAdaptiveData: () => void;
   setReminderPermissionStatus: (status: ReminderPermissionStatus) => void;
   setSmsScanningEnabled: (enabled: boolean) => void;
   setSmsPermissionStatus: (status: SmsPermissionStatus) => void;
@@ -112,6 +120,10 @@ const initialState = {
   reminderLastDeliveredAtUtc: null,
   reminderLastDeliveredLocalDate: null,
   reminderNextScheduledAtUtc: null,
+  reminderAdaptiveEnabled: true,
+  reminderAdaptiveTimeLocal: null,
+  reminderEngagementTimesLocal: [] as string[],
+  reminderLastEngagedDeliveryUtc: null,
   reminderPermissionStatus: 'undetermined' as ReminderPermissionStatus,
   smsScanningEnabled: false,
   smsPermissionStatus: 'undetermined' as SmsPermissionStatus,
@@ -148,6 +160,25 @@ export const useSettings = create<SettingsState>()(
       setReminderLastDelivered: (reminderLastDeliveredAtUtc, reminderLastDeliveredLocalDate) =>
         set({ reminderLastDeliveredAtUtc, reminderLastDeliveredLocalDate }),
       setReminderNextScheduledAtUtc: (reminderNextScheduledAtUtc) => set({ reminderNextScheduledAtUtc }),
+      setReminderAdaptiveEnabled: (reminderAdaptiveEnabled) => set({ reminderAdaptiveEnabled }),
+      recordReminderEngagement: (localTime, deliveryUtc) =>
+        set((state) => {
+          if (deliveryUtc && state.reminderLastEngagedDeliveryUtc === deliveryUtc) {
+            return state;
+          }
+          const samples = [...state.reminderEngagementTimesLocal, localTime].slice(-12);
+          return {
+            reminderEngagementTimesLocal: samples,
+            reminderLastEngagedDeliveryUtc: deliveryUtc ?? state.reminderLastEngagedDeliveryUtc,
+            reminderAdaptiveTimeLocal: computeAdaptiveTimeLocal(samples),
+          };
+        }),
+      clearReminderAdaptiveData: () =>
+        set({
+          reminderEngagementTimesLocal: [],
+          reminderAdaptiveTimeLocal: null,
+          reminderLastEngagedDeliveryUtc: null,
+        }),
       setReminderPermissionStatus: (reminderPermissionStatus) => set({ reminderPermissionStatus }),
       setSmsScanningEnabled: (smsScanningEnabled) => set({ smsScanningEnabled }),
       setSmsPermissionStatus: (smsPermissionStatus) => set({ smsPermissionStatus }),

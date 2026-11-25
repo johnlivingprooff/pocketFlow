@@ -24,12 +24,25 @@ import {
   canAskForReminderPermissionAgain,
   cancelReminder,
   getReminderPermissionInfo,
+  getReminderPlan,
   requestReminderPermission,
   scheduleReminderTestNotification,
   setRemindersEnabledAndReschedule,
 } from '@/lib/services/reminderNotificationService';
+import {
+  ADAPTIVE_MIN_SAMPLES,
+  computeNextEligibleReminder,
+  formatLocalTime,
+  isQuietHoursValid,
+} from '@/lib/services/reminderEligibility';
 
-type PickerTarget = 'preferred' | null;
+type PickerTarget = 'preferred' | 'quietStart' | 'quietEnd' | null;
+
+const QUIET_PRESETS = [
+  { label: '21:00 – 07:00', start: '21:00', end: '07:00' },
+  { label: '22:00 – 06:00', start: '22:00', end: '06:00' },
+  { label: '23:00 – 08:00', start: '23:00', end: '08:00' },
+];
 
 function timeLocalToDate(value: string): Date {
   const [hoursText, minutesText] = value.split(':');
@@ -51,9 +64,16 @@ export default function ReminderSettingsScreen() {
     themeMode,
     remindersEnabled,
     reminderPreferredTimeLocal,
+    reminderQuietHoursStart,
+    reminderQuietHoursEnd,
+    reminderAdaptiveEnabled,
+    reminderAdaptiveTimeLocal,
+    reminderEngagementTimesLocal,
     reminderPermissionStatus,
     setReminderPreferredTimeLocal,
     setReminderQuietHours,
+    setReminderAdaptiveEnabled,
+    clearReminderAdaptiveData,
   } = useSettings();
   const systemColorScheme = useColorScheme();
   const { width } = useWindowDimensions();
@@ -63,6 +83,12 @@ export default function ReminderSettingsScreen() {
 
   const [enabled, setEnabled] = useState(remindersEnabled);
   const [preferredTimeLocal, setPreferredTimeLocal] = useState(reminderPreferredTimeLocal);
+  const [quietEnabled, setQuietEnabled] = useState(
+    isQuietHoursValid(reminderQuietHoursStart, reminderQuietHoursEnd)
+  );
+  const [quietStart, setQuietStart] = useState(reminderQuietHoursStart ?? '21:00');
+  const [quietEnd, setQuietEnd] = useState(reminderQuietHoursEnd ?? '07:00');
+  const [adaptiveEnabled, setAdaptiveEnabled] = useState(reminderAdaptiveEnabled);
   const [pickerTarget, setPickerTarget] = useState<PickerTarget>(null);
   const [saving, setSaving] = useState(false);
   const [permissionStatus, setPermissionStatus] = useState(reminderPermissionStatus);
@@ -71,9 +97,36 @@ export default function ReminderSettingsScreen() {
   const [autoEnableAfterSettings, setAutoEnableAfterSettings] = useState(false);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
+  const persistedQuietEnabled = isQuietHoursValid(reminderQuietHoursStart, reminderQuietHoursEnd);
   const hasUnsavedChanges =
     enabled !== remindersEnabled ||
-    preferredTimeLocal !== reminderPreferredTimeLocal;
+    preferredTimeLocal !== reminderPreferredTimeLocal ||
+    quietEnabled !== persistedQuietEnabled ||
+    (quietEnabled && (quietStart !== reminderQuietHoursStart || quietEnd !== reminderQuietHoursEnd)) ||
+    adaptiveEnabled !== reminderAdaptiveEnabled;
+
+  const effectiveTimeLocal = adaptiveEnabled && reminderAdaptiveTimeLocal
+    ? reminderAdaptiveTimeLocal
+    : preferredTimeLocal;
+
+  // Preview the next eligible fire using the same engine that schedules it.
+  const nextPreview = useMemo(() => {
+    try {
+      return computeNextEligibleReminder({
+        now: new Date(),
+        preferredTimeLocal: effectiveTimeLocal,
+        quietHoursStart: quietEnabled && isQuietHoursValid(quietStart, quietEnd) ? quietStart : null,
+        quietHoursEnd: quietEnabled && isQuietHoursValid(quietStart, quietEnd) ? quietEnd : null,
+        lastDeliveredAtUtc: useSettings.getState().reminderLastDeliveredAtUtc,
+        lastDeliveredLocalDate: useSettings.getState().reminderLastDeliveredLocalDate,
+      });
+    } catch {
+      return null;
+    }
+  }, [effectiveTimeLocal, quietEnabled, quietStart, quietEnd]);
+
+  const hasEnoughAdaptiveSamples =
+    reminderEngagementTimesLocal.length >= ADAPTIVE_MIN_SAMPLES;
 
   const reminderStatus = enabled
     ? permissionStatus === 'granted'
@@ -88,7 +141,7 @@ export default function ReminderSettingsScreen() {
         : 'Off';
   const reminderStatusMessage =
     reminderStatus === 'active'
-      ? 'Your daily reminder will fire each day at your chosen time.'
+      ? `Next reminder around ${formatLocalTime(nextPreview?.candidateLocal ?? new Date())}.${nextPreview?.quietHoursAdjusted ? ' Adjusted for quiet hours.' : ''}${nextPreview?.minimumSpacingApplied ? ' Delayed to keep 12h spacing.' : ''}`
       : reminderStatus === 'needs_permission'
         ? 'Reminders are on, but notifications need access before delivery can happen.'
         : 'Reminders are currently turned off.';
@@ -245,12 +298,22 @@ export default function ReminderSettingsScreen() {
   };
 
   const handleSave = async () => {
+    if (quietEnabled && !isQuietHoursValid(quietStart, quietEnd)) {
+      showErrorAlert(
+        'Invalid Quiet Hours',
+        'Start and end times must be different and in HH:MM format.'
+      );
+      return;
+    }
+
     setSaving(true);
     try {
       setReminderPreferredTimeLocal(preferredTimeLocal);
-      // Quiet hours are retired – always clear so a stale window can never
-      // suppress the daily reminder.
-      setReminderQuietHours(null, null);
+      setReminderAdaptiveEnabled(adaptiveEnabled);
+      setReminderQuietHours(
+        quietEnabled && isQuietHoursValid(quietStart, quietEnd) ? quietStart : null,
+        quietEnabled && isQuietHoursValid(quietStart, quietEnd) ? quietEnd : null
+      );
 
       try {
         await setRemindersEnabledAndReschedule(enabled);
@@ -280,7 +343,10 @@ export default function ReminderSettingsScreen() {
         return;
       }
 
-      showSuccessAlert('Saved', `Reminder set for ${preferredTimeLocal} daily.`);
+      showSuccessAlert(
+        'Saved',
+        `Reminder set for ${effectiveTimeLocal}${adaptiveEnabled && hasEnoughAdaptiveSamples ? ' (learned from your activity)' : ''}.`
+      );
     } finally {
       setSaving(false);
     }
@@ -309,7 +375,14 @@ export default function ReminderSettingsScreen() {
 
   const onTimePicked = (_event: unknown, selectedDate?: Date) => {
     if (!selectedDate) return;
-    setPreferredTimeLocal(dateToTimeLocal(selectedDate));
+    const value = dateToTimeLocal(selectedDate);
+    if (pickerTarget === 'preferred') {
+      setPreferredTimeLocal(value);
+    } else if (pickerTarget === 'quietStart') {
+      setQuietStart(value);
+    } else if (pickerTarget === 'quietEnd') {
+      setQuietEnd(value);
+    }
     // The iOS spinner emits changes continuously; keep it open until Done.
     if (Platform.OS !== 'ios') setPickerTarget(null);
   };
@@ -406,15 +479,133 @@ export default function ReminderSettingsScreen() {
         </View>
 
         {enabled && (
-          <View style={StyleSheet.flatten([styles.card, compact && styles.cardCompact, { backgroundColor: t.card, borderColor: t.border }]) as any}>
-            <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>Preferred reminder time</Text>
-            <Pressable
-              onPress={() => setPickerTarget('preferred')}
-              style={StyleSheet.flatten([styles.timeButton, { backgroundColor: t.background, borderColor: t.border }]) as any}
-            >
-              <Text style={StyleSheet.flatten([styles.timeText, { color: t.textPrimary }]) as any}>{preferredTimeLocal}</Text>
-            </Pressable>
-          </View>
+          <>
+            <View style={StyleSheet.flatten([styles.card, compact && styles.cardCompact, { backgroundColor: t.card, borderColor: t.border }]) as any}>
+              <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>Preferred reminder time</Text>
+              <Pressable
+                onPress={() => setPickerTarget('preferred')}
+                accessibilityRole="button"
+                accessibilityLabel="Choose preferred reminder time"
+                style={StyleSheet.flatten([styles.timeButton, { backgroundColor: t.background, borderColor: t.border }]) as any}
+              >
+                <Text style={StyleSheet.flatten([styles.timeText, { color: t.textPrimary }]) as any}>{preferredTimeLocal}</Text>
+              </Pressable>
+              <Text style={StyleSheet.flatten([styles.subLabel, { color: t.textSecondary }]) as any}>
+                {adaptiveEnabled && hasEnoughAdaptiveSamples
+                  ? `Learned time ${reminderAdaptiveTimeLocal} is being used instead. Turn off adaptive timing to keep ${preferredTimeLocal} exactly.`
+                  : 'This is the starting time. Adaptive timing can move it to when you actually open the app.'}
+              </Text>
+              {nextPreview && (
+                <View style={StyleSheet.flatten([styles.hintBox, { backgroundColor: t.background, borderColor: t.border }]) as any}>
+                  <Text style={StyleSheet.flatten([styles.hintText, { color: t.textSecondary }]) as any}>
+                    Next eligible reminder: {formatLocalTime(nextPreview.candidateLocal)}
+                    {nextPreview.quietHoursAdjusted ? ' · moved to end of quiet hours' : ''}
+                    {nextPreview.minimumSpacingApplied ? ' · 12h spacing applied' : ''}
+                    {nextPreview.dailyGateApplied ? ' · next local day' : ''}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <View style={StyleSheet.flatten([styles.card, compact && styles.cardCompact, { backgroundColor: t.card, borderColor: t.border }]) as any}>
+              <View style={styles.rowBetween}>
+                <View style={styles.rowText}>
+                  <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>Quiet hours</Text>
+                  <Text style={StyleSheet.flatten([styles.subLabel, { color: t.textSecondary }]) as any}>
+                    No reminders during this window. They move to the end of it.
+                  </Text>
+                </View>
+                <Switch
+                  value={quietEnabled}
+                  onValueChange={(value) => {
+                    setQuietEnabled(value);
+                    if (value && !isQuietHoursValid(quietStart, quietEnd)) {
+                      setQuietStart('21:00');
+                      setQuietEnd('07:00');
+                    }
+                  }}
+                />
+              </View>
+
+              {quietEnabled && (
+                <>
+                  <View style={styles.chipRow}>
+                    {QUIET_PRESETS.map((preset) => {
+                      const active = quietStart === preset.start && quietEnd === preset.end;
+                      return (
+                        <Pressable
+                          key={preset.label}
+                          onPress={() => {
+                            setQuietStart(preset.start);
+                            setQuietEnd(preset.end);
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Quiet hours ${preset.label}`}
+                          style={StyleSheet.flatten([
+                            styles.chip,
+                            { backgroundColor: active ? t.primary : t.background, borderColor: active ? t.primary : t.border },
+                          ]) as any}
+                        >
+                          <Text style={[styles.chipText, { color: active ? t.background : t.textSecondary }]}>{preset.label}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  <View style={styles.timeRow}>
+                    <Pressable
+                      onPress={() => setPickerTarget('quietStart')}
+                      accessibilityRole="button"
+                      accessibilityLabel="Choose quiet hours start"
+                      style={StyleSheet.flatten([styles.timeButton, { backgroundColor: t.background, borderColor: t.border }]) as any}
+                    >
+                      <Text style={StyleSheet.flatten([styles.subLabelCompact, { color: t.textSecondary }]) as any}>From</Text>
+                      <Text style={StyleSheet.flatten([styles.timeText, { color: t.textPrimary }]) as any}>{quietStart}</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setPickerTarget('quietEnd')}
+                      accessibilityRole="button"
+                      accessibilityLabel="Choose quiet hours end"
+                      style={StyleSheet.flatten([styles.timeButton, { backgroundColor: t.background, borderColor: t.border }]) as any}
+                    >
+                      <Text style={StyleSheet.flatten([styles.subLabelCompact, { color: t.textSecondary }]) as any}>To</Text>
+                      <Text style={StyleSheet.flatten([styles.timeText, { color: t.textPrimary }]) as any}>{quietEnd}</Text>
+                    </Pressable>
+                  </View>
+                </>
+              )}
+            </View>
+
+            <View style={StyleSheet.flatten([styles.card, compact && styles.cardCompact, { backgroundColor: t.card, borderColor: t.border }]) as any}>
+              <View style={styles.rowBetween}>
+                <View style={styles.rowText}>
+                  <Text style={StyleSheet.flatten([styles.label, { color: t.textPrimary }]) as any}>Adaptive timing</Text>
+                  <Text style={StyleSheet.flatten([styles.subLabel, { color: t.textSecondary }]) as any}>
+                    Learns from reminder taps and app opens shortly after a reminder.
+                  </Text>
+                </View>
+                <Switch value={adaptiveEnabled} onValueChange={setAdaptiveEnabled} />
+              </View>
+              <Text style={StyleSheet.flatten([styles.subLabel, { color: t.textSecondary }]) as any}>
+                {hasEnoughAdaptiveSamples
+                  ? `Based on ${reminderEngagementTimesLocal.length} opens, your suggested time is ${reminderAdaptiveTimeLocal}.`
+                  : `Collecting activity: ${reminderEngagementTimesLocal.length}/${ADAPTIVE_MIN_SAMPLES} opens needed.`}
+              </Text>
+              {reminderEngagementTimesLocal.length > 0 && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Reset learned reminder times"
+                  onPress={() => {
+                    clearReminderAdaptiveData();
+                    showSuccessAlert('Reset', 'Learned reminder times cleared.');
+                  }}
+                  style={StyleSheet.flatten([styles.secondaryButton, { borderColor: t.border }]) as any}
+                >
+                  <Text style={StyleSheet.flatten([styles.secondaryButtonText, { color: t.textPrimary }]) as any}>Reset learned times</Text>
+                </Pressable>
+              )}
+            </View>
+          </>
         )}
 
         <View style={styles.actions}>
@@ -450,7 +641,13 @@ export default function ReminderSettingsScreen() {
       {pickerTarget && (
         <View style={{ backgroundColor: t.card, padding: 16 }}>
           <DateTimePicker
-            value={timeLocalToDate(preferredTimeLocal)}
+            value={timeLocalToDate(
+              pickerTarget === 'quietStart'
+                ? quietStart
+                : pickerTarget === 'quietEnd'
+                  ? quietEnd
+                  : preferredTimeLocal
+            )}
             mode="time"
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             onChange={onTimePicked}
@@ -645,5 +842,33 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  timeRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  hintBox: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+  },
+  hintText: {
+    fontSize: 12,
+    lineHeight: 18,
   },
 });

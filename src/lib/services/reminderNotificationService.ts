@@ -7,6 +7,11 @@ import { useSettings, ReminderPermissionStatus } from '@/store/useStore';
 import {
   DEFAULT_REMINDER_BODY,
   DEFAULT_REMINDER_TITLE,
+  computeNextEligibleReminder,
+  evaluateReminderDeliveryGate,
+  formatLocalTime,
+  isRecentDelivery,
+  resolveEffectiveReminderTime,
 } from './reminderEligibility';
 
 export const REMINDER_CHANNEL_ID = 'expense-log-reminder';
@@ -33,7 +38,17 @@ export async function handleForegroundNotification(
   let show = isTest;
   if (!isTest) {
     try {
-      show = useSettings.getState().remindersEnabled;
+      const state = useSettings.getState();
+      const gate = evaluateReminderDeliveryGate({
+        now: new Date(),
+        remindersEnabled: state.remindersEnabled,
+        permissionGranted: state.reminderPermissionStatus === 'granted',
+        quietHoursStart: state.reminderQuietHoursStart,
+        quietHoursEnd: state.reminderQuietHoursEnd,
+        lastDeliveredAtUtc: state.reminderLastDeliveredAtUtc,
+        lastDeliveredLocalDate: state.reminderLastDeliveredLocalDate,
+      });
+      show = gate.allowed;
     } catch (err) {
       // Never let the handler time out (the OS discards it after ~3s).
       warn('[Reminder] Foreground handler could not read settings; suppressing banner', {
@@ -82,6 +97,38 @@ export function parsePreferredTime(timeLocal: string): { hour: number; minute: n
     throw new Error(`Invalid reminder time "${timeLocal}". Expected HH:MM (00:00–23:59).`);
   }
   return { hour, minute };
+}
+
+const padTime = (value: number) => `${value}`.padStart(2, '0');
+
+/**
+ * Resolve the time to actually schedule: learned time (if enabled and enough
+ * evidence) -> quiet hours -> 12h spacing -> one-per-local-day gate.
+ */
+export function getReminderPlan(preferredTimeLocal: string) {
+  const state = useSettings.getState();
+  const effectiveTimeLocal = resolveEffectiveReminderTime(
+    preferredTimeLocal,
+    state.reminderAdaptiveEnabled,
+    state.reminderAdaptiveTimeLocal
+  );
+  const next = computeNextEligibleReminder({
+    now: new Date(),
+    preferredTimeLocal: effectiveTimeLocal,
+    quietHoursStart: state.reminderQuietHoursStart,
+    quietHoursEnd: state.reminderQuietHoursEnd,
+    lastDeliveredAtUtc: state.reminderLastDeliveredAtUtc,
+    lastDeliveredLocalDate: state.reminderLastDeliveredLocalDate,
+  });
+  const hour = next.candidateLocal.getHours();
+  const minute = next.candidateLocal.getMinutes();
+  return {
+    hour,
+    minute,
+    effectiveTimeLocal,
+    scheduledTimeLocal: `${padTime(hour)}:${padTime(minute)}`,
+    next,
+  };
 }
 
 /** Single place that builds the daily trigger so schedule + verify stay in sync. */
@@ -199,7 +246,7 @@ export async function scheduleReminder(preferredTimeLocal: string): Promise<void
     warn('[Reminder] scheduleReminder is a no-op on web');
     return;
   }
-  const { hour, minute } = parsePreferredTime(preferredTimeLocal);
+  const { hour, minute } = getReminderPlan(preferredTimeLocal);
 
   try {
     // First attempt: cancel-by-id, schedule, verify.
@@ -392,7 +439,7 @@ export async function runReminderRuntimeGateCheck(
       return;
     }
 
-    const { hour: wantHour, minute: wantMinute } = parsePreferredTime(reminderPreferredTimeLocal);
+    const { hour: wantHour, minute: wantMinute } = getReminderPlan(reminderPreferredTimeLocal);
 
     // Verify the notification is still scheduled (e.g. after device reboot).
     const pending = await Notifications.getAllScheduledNotificationsAsync();
@@ -462,6 +509,10 @@ export interface ReminderDiagnostics {
   scheduledMinute: number | null;
   nextScheduledAtUtc: string | null;
   lastDeliveredAtUtc: string | null;
+  effectiveTimeLocal: string | null;
+  adaptiveTimeLocal: string | null;
+  quietHoursActive: boolean;
+  spacingApplied: boolean;
   /** Human-readable verdict for the settings screen. */
   verdict: 'ok' | 'disabled' | 'no_permission' | 'not_scheduled' | 'time_mismatch';
 }
@@ -475,6 +526,12 @@ export async function getReminderDiagnostics(): Promise<ReminderDiagnostics> {
     permissionStatus: state.reminderPermissionStatus,
     nextScheduledAtUtc: state.reminderNextScheduledAtUtc,
     lastDeliveredAtUtc: state.reminderLastDeliveredAtUtc,
+    effectiveTimeLocal: state.reminderAdaptiveEnabled && state.reminderAdaptiveTimeLocal
+      ? state.reminderAdaptiveTimeLocal
+      : state.reminderPreferredTimeLocal,
+    adaptiveTimeLocal: state.reminderAdaptiveTimeLocal,
+    quietHoursActive: Boolean(state.reminderQuietHoursStart && state.reminderQuietHoursEnd),
+    spacingApplied: false,
   };
   if (Platform.OS === 'web') {
     return {
@@ -490,12 +547,13 @@ export async function getReminderDiagnostics(): Promise<ReminderDiagnostics> {
     const pending = await Notifications.getAllScheduledNotificationsAsync();
     const ours = pending.find((n) => n.identifier === REMINDER_NOTIFICATION_ID);
     const hm = ours ? pendingTriggerHourMinute(ours) : null;
-    let want: { hour: number; minute: number } | null = null;
+    let plan: ReturnType<typeof getReminderPlan> | null = null;
     try {
-      want = parsePreferredTime(state.reminderPreferredTimeLocal);
+      plan = getReminderPlan(state.reminderPreferredTimeLocal);
     } catch {
-      want = null;
+      plan = null;
     }
+    const want = plan ? { hour: plan.hour, minute: plan.minute } : null;
     const verdict: ReminderDiagnostics['verdict'] = !state.remindersEnabled
       ? 'disabled'
       : state.reminderPermissionStatus !== 'granted'
@@ -511,6 +569,8 @@ export async function getReminderDiagnostics(): Promise<ReminderDiagnostics> {
       scheduledExists: Boolean(ours),
       scheduledHour: hm?.hour ?? null,
       scheduledMinute: hm?.minute ?? null,
+      effectiveTimeLocal: plan?.scheduledTimeLocal ?? base.effectiveTimeLocal,
+      spacingApplied: plan?.next.minimumSpacingApplied ?? false,
       verdict,
     };
   } catch {
@@ -546,4 +606,28 @@ export function extractReminderDeepLink(
 ): string | null {
   if (response.notification.request.identifier !== REMINDER_NOTIFICATION_ID) return null;
   return REMINDER_DEEP_LINK;
+}
+
+/** A reminder tap is the strongest signal that the time was a good one. */
+export function recordReminderTapFromResponse(
+  response: Notifications.NotificationResponse
+): void {
+  if (response.notification.request.identifier !== REMINDER_NOTIFICATION_ID) return;
+  const deliveryUtc = new Date(response.notification.date).toISOString();
+  useSettings.getState().recordReminderEngagement(formatLocalTime(new Date()), deliveryUtc);
+}
+
+/**
+ * Opening the app shortly after a reminder is a weaker signal. Count it at
+ * most once per delivery so one notification can't skew the learned time.
+ */
+export function recordAppOpenEngagement(): void {
+  const state = useSettings.getState();
+  if (!state.reminderAdaptiveEnabled) return;
+  if (!isRecentDelivery(state.reminderLastDeliveredAtUtc)) return;
+  if (state.reminderLastEngagedDeliveryUtc === state.reminderLastDeliveredAtUtc) return;
+  state.recordReminderEngagement(
+    formatLocalTime(new Date()),
+    state.reminderLastDeliveredAtUtc
+  );
 }

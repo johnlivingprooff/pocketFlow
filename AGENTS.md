@@ -155,15 +155,15 @@ Available in `src/lib/db/transactions.ts`:
 ### Notification System
 **✅ REMINDER NOTIFICATION SYSTEM IMPLEMENTED**
 - `expo-notifications` dependency configured (`^0.32.16`)
-- Daily expense logging reminders with customizable time (no quiet-hours gating – fires daily at the chosen time)
+- Daily expense logging reminders with customizable time, quiet hours, 12h minimum spacing, one-per-local-day gating, and adaptive timing learned from reminder taps / app opens shortly after delivery
 - Permission handling with graceful degradation
 - Android notification channel configured in app.json
 - iOS provisional authorization support
 - Deep linking from notifications to transaction add screen
 - Reminder settings stored in `useSettings` store:
   - `remindersEnabled`, `reminderPreferredTimeLocal`
-  - `reminderPermissionStatus`
-  - (`reminderQuietHoursStart/End` retained in store/cloud schema for backward compat but always cleared – quiet hours retired)
+  - `reminderQuietHoursStart/End`, `reminderPermissionStatus`
+  - Adaptive timing: `reminderAdaptiveEnabled`, `reminderAdaptiveTimeLocal`, `reminderEngagementTimesLocal` (max 12), `reminderLastEngagedDeliveryUtc` (local-only)
 - Service: `src/lib/services/reminderNotificationService.ts`
 - Eligibility logic: `src/lib/services/reminderEligibility.ts`
 ---

@@ -11,6 +11,8 @@ import * as Notifications from 'expo-notifications';
 import {
   extractReminderDeepLink,
   markReminderDeliveredFromNotification,
+  recordAppOpenEngagement,
+  recordReminderTapFromResponse,
   runReminderRuntimeGateCheck,
   syncReminderPermissionStatus,
 } from '../src/lib/services/reminderNotificationService';
@@ -150,6 +152,8 @@ export default function RootLayout() {
           processRecurringTransactions(),
         ]);
         if (cancelled) return;
+        // A cold open shortly after a reminder also counts as engagement.
+        recordAppOpenEngagement();
         await runReminderRuntimeGateCheck(permissionStatus);
         if (cancelled) return;
         await Promise.allSettled([runSmsRuntimeGateCheck(), maybeRunAutoBackup()]);
@@ -208,6 +212,8 @@ export default function RootLayout() {
 
     const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
       markReminderDeliveredFromNotification(response.notification);
+      recordReminderTapFromResponse(response);
+      void runReminderRuntimeGateCheck();
       const deepLink = extractReminderDeepLink(response);
       if (deepLink) router.push(deepLink as never);
     });
@@ -233,6 +239,7 @@ export default function RootLayout() {
       if (Platform.OS !== 'web') {
         const { invalidateTransactionCaches } = await import('../src/lib/cache/queryCache');
         invalidateTransactionCaches();
+        recordAppOpenEngagement();
 
         // These checks are independent. Run them together so a slow
         // notification bridge cannot hold up backup or SMS processing.
