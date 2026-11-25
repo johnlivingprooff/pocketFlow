@@ -8,9 +8,9 @@ export const seo = {
 
 export const hero = {
   eyebrow: 'Offline-first money tracker for Android',
-  headline: 'Log an expense in two taps.',
+  headline: 'Log an expense in two taps..',
   subheadline:
-    'pocketFlow makes recording money quick and private. Add an expense or income, see what matters, and get on with your day.',
+    ':) okay, maybe more than two, but pocketFlow makes recording money quick and private. Add an expense or income, see what matters, and get on with your day !',
   primaryCta: 'Download APK',
   primaryHref: releaseUrl,
   note: `v${RELEASE_VERSION} · Android · No sign-up`,
