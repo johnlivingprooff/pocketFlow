@@ -108,6 +108,8 @@ npx serve dist       # smoke test http://localhost:3000
 ### Alternative: host `webpage` + app under one Vercel project
 Keep `webpage/` (Next.js marketing) as the same Vercel project at `/` and mount the Expo static export at `/app` via `vercel.json` rewrites. Requires merging `dist/` into `webpage/public/app`. Not implemented in this patch – leave `webpage` as a separate Vercel project (`pf.eiteone.org`).
 
+**Landing page deployment (important):** the `webpage` Vercel project must have **Root Directory = `webpage`** in its Vercel project settings. The repository-root `vercel.json` belongs to the Expo web export (`npx expo export --platform web`) and must not be used for the landing page. `webpage/vercel.json` now declares the standalone Next.js build (`yarn install --frozen-lockfile`, `yarn build`, output `.next`) so the two projects cannot be confused. If a deployment log mentions Expo, the Root Directory is set to the repository root — change it to `webpage` and redeploy.
+
 ---
 
 ## 7. File Map for This Feature
